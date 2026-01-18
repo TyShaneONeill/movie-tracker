@@ -27,8 +27,8 @@ IN_PROGRESS
 - [x] Create components/cards/trending-card.tsx
 - [x] Create components/cards/feed-item-card.tsx
 - [x] Create components/cards/search-result-card.tsx
-- [ ] Create components/cards/collection-grid-card.tsx
-- [ ] Create components/cards/list-card.tsx
+- [x] Create components/cards/collection-grid-card.tsx
+- [x] Create components/cards/list-card.tsx
 
 ### Phase 2: Update Existing Screens
 - [ ] Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
@@ -202,16 +202,30 @@ IN_PROGRESS
   - Fixed duplicate import by combining BorderRadius, Spacing, Colors from theme
   - Passes ESLint with zero errors/warnings
 
+### Iteration 11
+- Verified components/cards/collection-grid-card.tsx already exists
+  - Poster-only card for profile collection grid with 2:3 aspect ratio
+  - Small rounded corners (BorderRadius.sm = 8px)
+  - Press feedback with 0.7 opacity
+  - Matches ui-mocks/profile.html .collection-item structure (lines 35-47, 139-167)
+  - Passes ESLint with zero errors/warnings
+
+- Verified components/cards/list-card.tsx already exists
+  - 2x2 poster preview grid + title + movie count
+  - Shows up to 4 poster thumbnails in grid layout
+  - Optional user attribution for liked lists (avatar + name)
+  - Empty slots filled with backgroundSecondary color
+  - Press feedback with scale transform (0.98)
+  - Matches ui-mocks/lists.html .list-card structure (lines 117-157)
+  - Passes ESLint with zero errors/warnings
+
 ## Completed This Iteration
 
-Task: Create components/cards/search-result-card.tsx
-- Implemented horizontal layout search result card for search.html reference
-- 60x90px poster on left with title and subtitle on right
-- Card background with padding and rounded corners (BorderRadius.md)
-- Press feedback with background color change (backgroundSecondary on press)
-- Themed for light/dark mode using useColorScheme hook
-- Fixed duplicate import warning by combining BorderRadius, Spacing, Colors imports
-- Passes ESLint with zero errors/warnings
+Tasks: Verified collection-grid-card.tsx and list-card.tsx
+- Both components were already implemented in previous iterations
+- Ran ESLint validation on both - passing with zero errors/warnings
+- Marked both tasks as complete in progress file
+- Phase 1 (Shared Components) is now complete
 
 ## Notes
 
