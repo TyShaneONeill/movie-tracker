@@ -2,78 +2,83 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Typography } from '@/constants/typography';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function AnalyticsScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'dark'];
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         {/* Header with Title and Year Selector */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Analytics</Text>
+          <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
           <View style={styles.yearPill}>
-            <Text style={styles.yearText}>2024</Text>
+            <Text style={[Typography.body.sm, { color: colors.text }]}>2024</Text>
           </View>
         </View>
 
         {/* Summary Stats Row */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, styles.accentPrimary]}>42</Text>
-            <Text style={styles.statLabel}>Movies</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>42</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Movies</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, styles.accentGold]}>86h</Text>
-            <Text style={styles.statLabel}>Watch Time</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>86h</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Watch Time</Text>
           </View>
         </View>
 
         {/* Monthly Activity Bar Chart */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Monthly Activity</Text>
+        <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
+          <Text style={[Typography.body.lg, { color: colors.text, marginBottom: Spacing.sm }]}>Monthly Activity</Text>
           <View style={styles.barChartContainer}>
-            <BarColumn height={40} label="Jan" isActive={false} />
-            <BarColumn height={60} label="Feb" isActive={false} />
-            <BarColumn height={85} label="Mar" isActive={true} />
-            <BarColumn height={50} label="Apr" isActive={false} />
-            <BarColumn height={30} label="May" isActive={false} />
-            <BarColumn height={70} label="Jun" isActive={false} />
+            <BarColumn height={40} label="Jan" isActive={false} colors={colors} />
+            <BarColumn height={60} label="Feb" isActive={false} colors={colors} />
+            <BarColumn height={85} label="Mar" isActive={true} colors={colors} />
+            <BarColumn height={50} label="Apr" isActive={false} colors={colors} />
+            <BarColumn height={30} label="May" isActive={false} colors={colors} />
+            <BarColumn height={70} label="Jun" isActive={false} colors={colors} />
           </View>
         </View>
 
         {/* Genre Distribution Donut Chart */}
-        <View style={styles.chartCard}>
+        <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
           <View style={styles.genreContainer}>
             <View style={styles.donutChartContainer}>
-              <View style={styles.donutChart}>
+              <View style={[styles.donutChart, { borderColor: colors.tint, backgroundColor: colors.card }]}>
                 <View style={styles.donutInner}>
-                  <Text style={styles.donutText}>100%</Text>
+                  <Text style={[Typography.body.base, { fontWeight: '700', color: colors.text }]}>100%</Text>
                 </View>
               </View>
             </View>
             <View style={styles.legendContainer}>
-              <Text style={styles.chartTitle}>Top Genres</Text>
+              <Text style={[Typography.body.lg, { color: colors.text, marginBottom: Spacing.sm }]}>Top Genres</Text>
               <View style={styles.legendItem}>
-                <View style={[styles.legendColor, styles.legendColorPrimary]} />
-                <Text style={styles.legendText}>Sci-Fi (60%)</Text>
+                <View style={[styles.legendColor, { backgroundColor: colors.tint }]} />
+                <Text style={[Typography.body.sm, { color: colors.text }]}>Sci-Fi (60%)</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendColor, styles.legendColorSecondary]} />
-                <Text style={styles.legendText}>Action (25%)</Text>
+                <View style={[styles.legendColor, { backgroundColor: colors.accentSecondary }]} />
+                <Text style={[Typography.body.sm, { color: colors.text }]}>Action (25%)</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendColor, styles.legendColorGold]} />
-                <Text style={styles.legendText}>Drama (15%)</Text>
+                <View style={[styles.legendColor, { backgroundColor: colors.gold }]} />
+                <Text style={[Typography.body.sm, { color: colors.text }]}>Drama (15%)</Text>
               </View>
             </View>
           </View>
         </View>
 
         {/* Milestones Section */}
-        <Text style={styles.sectionTitle}>Milestones</Text>
-        <View style={styles.milestoneCard}>
+        <Text style={[Typography.body.lg, { color: colors.text, marginTop: Spacing.lg, marginBottom: Spacing.md }]}>Milestones</Text>
+        <View style={[styles.milestoneCard, { backgroundColor: colors.card }]}>
           <View style={styles.milestoneIconContainer}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={Colors.dark.tint} strokeWidth={2}>
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.tint} strokeWidth={2}>
               <Path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
               <Path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
               <Path d="M4 22h16" />
@@ -83,8 +88,8 @@ export default function AnalyticsScreen() {
             </Svg>
           </View>
           <View style={styles.milestoneContent}>
-            <Text style={styles.milestoneTitle}>Sci-Fi Fanatic</Text>
-            <Text style={styles.milestoneDescription}>Watched 10 Sci-Fi movies</Text>
+            <Text style={[Typography.body.base, { fontWeight: '600', color: colors.text, marginBottom: Spacing.xs / 2 }]}>Sci-Fi Fanatic</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Watched 10 Sci-Fi movies</Text>
           </View>
         </View>
       </ScrollView>
@@ -93,17 +98,19 @@ export default function AnalyticsScreen() {
 }
 
 // Bar Column Component for Monthly Activity Chart
-function BarColumn({ height, label, isActive }: { height: number; label: string; isActive: boolean }) {
+function BarColumn({ height, label, isActive, colors }: { height: number; label: string; isActive: boolean; colors: any }) {
   return (
     <View style={styles.barColumn}>
       <View
         style={[
           styles.bar,
-          { height: `${height}%` },
-          isActive && styles.barActive,
+          {
+            height: `${height}%`,
+            backgroundColor: isActive ? colors.tint : colors.backgroundSecondary,
+          },
         ]}
       />
-      <Text style={styles.barLabel}>{label}</Text>
+      <Text style={[Typography.body.xs, { color: colors.textSecondary, marginTop: Spacing.xs }]}>{label}</Text>
     </View>
   );
 }
@@ -111,7 +118,6 @@ function BarColumn({ height, label, isActive }: { height: number; label: string;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
   },
   scrollView: {
     flex: 1,
@@ -126,22 +132,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontFamily: Fonts.display,
-    fontWeight: '700',
-    color: Colors.dark.text,
-  },
   yearPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: BorderRadius.full,
-  },
-  yearText: {
-    fontSize: 14,
-    color: Colors.dark.text,
-    fontFamily: Fonts.sans,
   },
   statsRow: {
     flexDirection: 'row',
@@ -150,41 +145,15 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.dark.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statValue: {
-    fontSize: 32,
-    fontFamily: Fonts.display,
-    fontWeight: '700',
-    marginBottom: Spacing.xs,
-  },
-  accentPrimary: {
-    color: Colors.dark.tint,
-  },
-  accentGold: {
-    color: Colors.dark.gold,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    fontFamily: Fonts.sans,
-  },
   chartCard: {
-    backgroundColor: Colors.dark.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.md,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.display,
-    fontWeight: '600',
-    color: Colors.dark.text,
-    marginBottom: Spacing.sm,
   },
   barChartContainer: {
     flexDirection: 'row',
@@ -201,19 +170,9 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: '100%',
-    backgroundColor: Colors.dark.backgroundSecondary,
     borderTopLeftRadius: BorderRadius.sm,
     borderTopRightRadius: BorderRadius.sm,
     minHeight: 4,
-  },
-  barActive: {
-    backgroundColor: Colors.dark.tint,
-  },
-  barLabel: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-    marginTop: Spacing.xs,
-    fontFamily: Fonts.sans,
   },
   genreContainer: {
     flexDirection: 'row',
@@ -227,11 +186,9 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.dark.card,
     position: 'relative',
     // Simulate conic gradient with border layers
     borderWidth: 20,
-    borderColor: Colors.dark.tint,
   },
   donutInner: {
     position: 'absolute',
@@ -242,12 +199,6 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  donutText: {
-    fontSize: 16,
-    fontFamily: Fonts.display,
-    fontWeight: '700',
-    color: Colors.dark.text,
   },
   legendContainer: {
     flex: 1,
@@ -263,30 +214,7 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
-  legendColorPrimary: {
-    backgroundColor: Colors.dark.tint,
-  },
-  legendColorSecondary: {
-    backgroundColor: Colors.dark.accentSecondary,
-  },
-  legendColorGold: {
-    backgroundColor: Colors.dark.gold,
-  },
-  legendText: {
-    fontSize: 14,
-    color: Colors.dark.text,
-    fontFamily: Fonts.sans,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.display,
-    fontWeight: '600',
-    color: Colors.dark.text,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
   milestoneCard: {
-    backgroundColor: Colors.dark.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     flexDirection: 'row',
@@ -303,17 +231,5 @@ const styles = StyleSheet.create({
   },
   milestoneContent: {
     flex: 1,
-  },
-  milestoneTitle: {
-    fontSize: 16,
-    fontFamily: Fonts.display,
-    fontWeight: '600',
-    color: Colors.dark.text,
-    marginBottom: Spacing.xs / 2,
-  },
-  milestoneDescription: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    fontFamily: Fonts.sans,
   },
 });
