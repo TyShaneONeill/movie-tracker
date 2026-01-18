@@ -37,7 +37,7 @@ IN_PROGRESS
 - [x] Update app/(auth)/signin.tsx (Auth screen with OAuth)
 
 ### Phase 3: New Tab Screens
-- [ ] Create app/(tabs)/scanner.tsx
+- [x] Create app/(tabs)/scanner.tsx
 - [ ] Create app/(tabs)/analytics.tsx
 
 ### Phase 4: Detail Screens
@@ -266,6 +266,24 @@ IN_PROGRESS
 
 ## Completed This Iteration
 
+Task: Create app/(tabs)/scanner.tsx
+- Verified file already existed with placeholder implementation
+- Updated to use Typography constants instead of hardcoded font sizes:
+  - Header title: Typography.display.h4 (20px, bold, Outfit)
+  - Helper text: Typography.body.sm (14px, normal, Inter)
+- Changed helper text from "Align ticket within frame" to "Point at a movie ticket or poster" per plan requirements
+- Full-screen camera placeholder with dark background (opacity 0.6)
+- Centered scan frame (280x400px) with corner brackets (white, 4px thick)
+- Animated scan line (Rose 600 accent color) moving vertically with loop animation
+- Bottom control bar: flash toggle, shutter button (70px, white border), gallery icon
+- SafeAreaView header with "Scan Ticket" title and document icon button
+- Matches ui-mocks/scanner.html structure (lines 151-196)
+- Uses theme constants (Colors, Spacing, BorderRadius)
+- Passes ESLint with zero errors/warnings
+- Build test successful (web export completed)
+
+### Previous Iteration
+
 Task: Update app/(auth)/signin.tsx (Auth screen with OAuth)
 - Verified file already existed with OAuth implementation matching ui-mocks/index.html
 - Updated imports to include Typography from @/constants/typography
@@ -279,8 +297,6 @@ Task: Update app/(auth)/signin.tsx (Auth screen with OAuth)
 - All styling uses theme constants (Colors, Spacing, BorderRadius, Gradients)
 - Passes ESLint with zero errors/warnings
 - Phase 2 (Update Existing Screens) is now complete
-
-### Previous Iteration
 
 Task: Update app/(tabs)/profile.tsx (Profile screen)
 - Updated lib/mock-data/users.ts to match profile.html mock (Alex Chen, 124 watched, 48 reviews, 12 lists)

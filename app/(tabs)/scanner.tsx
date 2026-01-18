@@ -9,6 +9,7 @@ import { View, Text, StyleSheet, Pressable, Animated, Dimensions } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Typography } from '@/constants/typography';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const SCAN_FRAME_WIDTH = 280;
@@ -91,7 +92,7 @@ export default function ScannerScreen() {
       {/* Helper Text */}
       <View style={styles.helperTextContainer}>
         <Text style={[styles.helperText, { color: colors.text }]}>
-          Align ticket within frame
+          Point at a movie ticket or poster
         </Text>
       </View>
 
@@ -143,8 +144,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    ...Typography.display.h4,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   helperText: {
-    fontSize: 14,
+    ...Typography.body.sm,
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
