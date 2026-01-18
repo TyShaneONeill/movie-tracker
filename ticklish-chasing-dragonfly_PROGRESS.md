@@ -17,7 +17,7 @@ IN_PROGRESS
 - [x] Add light theme overrides
 
 ### Phase 1: Shared Components
-- [ ] Create components/ui/bottom-nav-bar.tsx
+- [x] Create components/ui/bottom-nav-bar.tsx
 - [ ] Create components/ui/bottom-sheet-modal.tsx
 - [ ] Create components/ui/section-header.tsx
 - [ ] Create components/ui/icon-button.tsx
@@ -77,6 +77,22 @@ IN_PROGRESS
   - Loaded 8 font variants: Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold
   - Typography.ts file already existed with proper font presets
   - Phase 0 (Design System Migration) is now complete
+
+### Iteration 3
+- Created components/ui/bottom-nav-bar.tsx
+  - Implemented glassmorphism floating tab bar using expo-blur
+  - Added support for 4 nav items with icon render props pattern: icon: (color: string) => React.ReactNode
+  - Integrated haptic feedback on iOS using expo-haptics
+  - Active state with accent color highlighting for both icon and label
+  - Pressable with scale animation on press (0.9 scale)
+  - Floating above content with bottom: 16px positioning
+  - Rounded pill shape with BorderRadius.full
+  - Max-width 440px centered horizontally
+  - Responsive to theme changes (light/dark)
+  - Passes TypeScript strict type checking
+
+## Completed This Iteration
+- Created bottom-nav-bar component matching HTML mock design (home.html lines 210-241)
 
 ## Notes
 
