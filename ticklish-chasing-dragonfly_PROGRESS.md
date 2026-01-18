@@ -12,8 +12,8 @@ IN_PROGRESS
 - [x] Update constants/theme.ts with new color palette (Zinc/Rose/Emerald colors)
 - [x] Add spacing constants (xs=4, sm=8, md=16, lg=24, xl=32, xxl=48)
 - [x] Add border radius constants (sm=8, md=16, lg=24, full=9999)
-- [ ] Install expo-font and configure Inter/Outfit fonts
-- [ ] Create constants/typography.ts with font presets
+- [x] Install expo-font and configure Inter/Outfit fonts
+- [x] Create constants/typography.ts with font presets
 - [x] Add light theme overrides
 
 ### Phase 1: Shared Components
@@ -68,6 +68,15 @@ IN_PROGRESS
   - Added light theme overrides
   - Added gradients, shadows, font sizes/weights
   - Exported all constants for use in components
+
+### Iteration 2
+- Installed expo-google-fonts packages for Inter and Outfit fonts
+  - Installed @expo-google-fonts/inter and @expo-google-fonts/outfit
+  - Configured font loading in app/_layout.tsx with useFonts hook
+  - Added splash screen management to wait for fonts to load
+  - Loaded 8 font variants: Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold
+  - Typography.ts file already existed with proper font presets
+  - Phase 0 (Design System Migration) is now complete
 
 ## Notes
 
