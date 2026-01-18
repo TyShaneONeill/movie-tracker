@@ -20,7 +20,7 @@ IN_PROGRESS
 - [x] Create components/ui/bottom-nav-bar.tsx
 - [x] Create components/ui/bottom-sheet-modal.tsx
 - [x] Create components/ui/section-header.tsx
-- [ ] Create components/ui/icon-button.tsx
+- [x] Create components/ui/icon-button.tsx
 - [ ] Create components/ui/tag.tsx
 - [ ] Create components/ui/star-rating.tsx
 - [ ] Create components/ui/toggle-switch.tsx
@@ -91,11 +91,6 @@ IN_PROGRESS
   - Responsive to theme changes (light/dark)
   - Passes TypeScript strict type checking
 
-## Completed This Iteration
-- Created components/ui/section-header.tsx
-
-## Notes
-
 ### Iteration 4
 - Created components/ui/bottom-sheet-modal.tsx
   - Implemented using @gorhom/bottom-sheet library (already installed)
@@ -125,3 +120,28 @@ IN_PROGRESS
   - Fixed import path to use '@/hooks/use-color-scheme' (kebab-case)
   - Passes ESLint and TypeScript strict type checking
 
+## Completed This Iteration
+
+### Iteration 6
+- Created components/ui/icon-button.tsx
+  - Implemented three variants: glass (blur), card (bordered), primary (gradient)
+  - Glass variant uses expo-blur with BlurView for glassmorphism effect
+  - Primary variant uses expo-linear-gradient for Rose gradient background
+  - Card variant is simple bordered button with card background
+  - Circular button with customizable size (default 40px)
+  - Icon render prop pattern: icon: (color: string) => React.ReactNode
+  - Press animation with scale 0.92 transform (matches styles.css .btn-icon:active)
+  - Primary variant includes shadow effect (shadowColor: #e11d48, shadowRadius: 20)
+  - Disabled state with 0.5 opacity
+  - Themed using useColorScheme hook
+  - Matches styles.css .btn-icon base class (lines 193-207) and .glass modifier (lines 157-162)
+  - Fixed LinearGradient colors type with explicit [string, string] cast
+  - Removed unused BorderRadius import
+  - Passes ESLint with zero errors/warnings
+
+## Notes
+
+- All UI primitives using expo-blur and expo-linear-gradient (already installed in iteration 3)
+- Following icon render prop pattern from bottom-nav-bar.tsx for consistency
+- Primary variant gradient matches Gradients.main from theme.ts
+- Glass variant backdrop blur intensity set to 30 (matching bottom-nav-bar)
