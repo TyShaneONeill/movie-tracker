@@ -31,7 +31,7 @@ IN_PROGRESS
 - [x] Create components/cards/list-card.tsx
 
 ### Phase 2: Update Existing Screens
-- [ ] Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
+- [x] Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
 - [ ] Update app/(tabs)/index.tsx (Home screen)
 - [ ] Update app/(tabs)/profile.tsx (Profile screen)
 - [ ] Update app/(auth)/signin.tsx (Auth screen with OAuth)
@@ -219,13 +219,29 @@ IN_PROGRESS
   - Matches ui-mocks/lists.html .list-card structure (lines 117-157)
   - Passes ESLint with zero errors/warnings
 
+### Iteration 12
+- Updated app/(tabs)/_layout.tsx to use 4 tabs with custom BottomNavBar
+  - Replaced default tab bar with custom BottomNavBar component
+  - Changed from 3 tabs (Home, Explore, Profile) to 4 tabs (Home, Scan, Stats, Profile)
+  - Added SVG icon components matching ui-mocks/home.html navigation (lines 211-241)
+  - Icons: Home (house), Scan (camera), Stats (bar chart), Profile (user)
+  - Configured custom tabBar renderer using expo-router props
+  - Active state handled by BottomNavBar component with accent color
+  - Removed unused View import
+  - Installed react-native-svg dependency
+  - Created placeholder screens: scanner.tsx and analytics.tsx
+  - Both placeholder screens pass ESLint validation
+  - Passes ESLint with zero errors/warnings
+
 ## Completed This Iteration
 
-Tasks: Verified collection-grid-card.tsx and list-card.tsx
-- Both components were already implemented in previous iterations
-- Ran ESLint validation on both - passing with zero errors/warnings
-- Marked both tasks as complete in progress file
-- Phase 1 (Shared Components) is now complete
+Task: Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
+- Replaced default expo-router tab bar with custom BottomNavBar component
+- Updated tab configuration from 3 tabs to 4 tabs (Home, Scan, Stats, Profile)
+- Created SVG icons for each tab matching HTML mocks
+- Created placeholder screens for scanner and analytics tabs
+- Installed react-native-svg for icon support
+- All files pass ESLint validation
 
 ## Notes
 
