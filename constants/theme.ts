@@ -1,53 +1,168 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * CineTrack Design System
+ * Color palette, spacing, and border radius constants matching ui-mocks/styles.css
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
+// Color Palette - Zinc/Rose/Emerald based design system
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    // Base Colors
+    background: '#09090b',        // Zinc 950 - Primary background
+    backgroundSecondary: '#18181b', // Zinc 900 - Secondary surfaces
+    card: '#27272a',               // Zinc 800 - Card backgrounds
+    glass: 'rgba(24, 24, 27, 0.7)', // Glass effect base
+
+    // Text Colors
+    text: '#fafafa',               // Zinc 50 - Primary text
+    textSecondary: '#a1a1aa',      // Zinc 400 - Secondary text
+    textTertiary: '#71717a',       // Zinc 500 - Tertiary text
+
+    // Accent Colors
+    tint: '#e11d48',               // Rose 600 - Primary accent
+    accentHover: '#be123c',        // Rose 700 - Hover state
+    accentSecondary: '#10b981',    // Emerald 500 - Success/positive
+    gold: '#fbbf24',               // Amber 400 - Premium/highlights
+
+    // UI Elements
+    border: 'rgba(255, 255, 255, 0.08)',
+    icon: '#a1a1aa',
+    tabIconDefault: '#a1a1aa',
+    tabIconSelected: '#e11d48',
+  },
+  light: {
+    // Base Colors
+    background: '#ffffff',
+    backgroundSecondary: '#f4f4f5', // Zinc 100
+    card: '#ffffff',
+    glass: 'rgba(255, 255, 255, 0.8)',
+
+    // Text Colors
+    text: '#18181b',               // Zinc 900 - Primary text
+    textSecondary: '#52525b',      // Zinc 600 - Secondary text
+    textTertiary: '#a1a1aa',       // Zinc 400 - Tertiary text
+
+    // Accent Colors (same as dark mode)
+    tint: '#e11d48',               // Rose 600
+    accentHover: '#be123c',        // Rose 700
+    accentSecondary: '#10b981',    // Emerald 500
+    gold: '#fbbf24',               // Amber 400
+
+    // UI Elements
+    border: 'rgba(0, 0, 0, 0.08)',
+    icon: '#52525b',
+    tabIconDefault: '#52525b',
+    tabIconSelected: '#e11d48',
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+// Gradients
+export const Gradients = {
+  main: ['#e11d48', '#be123c'],    // Rose gradient
+  overlayDark: [
+    'rgba(9, 9, 11, 0)',
+    'rgba(9, 9, 11, 0.8)',
+    'rgba(9, 9, 11, 1)',
+  ],
+  overlayLight: [
+    'rgba(255, 255, 255, 0)',
+    'rgba(255, 255, 255, 0.8)',
+    'rgba(255, 255, 255, 1)',
+  ],
+};
+
+// Spacing System
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+};
+
+// Border Radius
+export const BorderRadius = {
+  sm: 8,
+  md: 16,
+  lg: 24,
+  full: 9999,
+};
+
+// Shadows (iOS/Android compatible)
+export const Shadows = {
+  sm: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    },
+    android: {
+      elevation: 2,
+    },
+    default: {},
+  }),
+  md: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 6,
+    },
+    android: {
+      elevation: 4,
+    },
+    default: {},
+  }),
+  lg: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.1,
+      shadowRadius: 15,
+    },
+    android: {
+      elevation: 8,
+    },
+    default: {},
+  }),
+};
+
+// Font families (will be configured with expo-font)
+export const Fonts = {
+  // Body text
+  sans: Platform.select({
+    ios: 'Inter',
+    android: 'Inter',
+    web: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    default: 'Inter',
+  }),
+  // Headings
+  display: Platform.select({
+    ios: 'Outfit',
+    android: 'Outfit',
+    web: "Outfit, 'SF Pro Rounded', sans-serif",
+    default: 'Outfit',
+  }),
+};
+
+// Typography presets (to be used in typography.ts)
+export const FontSizes = {
+  xs: 12,
+  sm: 14,
+  base: 16,
+  lg: 18,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 30,
+  '4xl': 36,
+};
+
+export const FontWeights = {
+  normal: '400' as const,
+  medium: '500' as const,
+  semibold: '600' as const,
+  bold: '700' as const,
+};
