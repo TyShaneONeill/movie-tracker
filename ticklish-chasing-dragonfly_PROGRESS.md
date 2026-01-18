@@ -34,7 +34,7 @@ IN_PROGRESS
 - [x] Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
 - [x] Update app/(tabs)/index.tsx (Home screen)
 - [x] Update app/(tabs)/profile.tsx (Profile screen)
-- [ ] Update app/(auth)/signin.tsx (Auth screen with OAuth)
+- [x] Update app/(auth)/signin.tsx (Auth screen with OAuth)
 
 ### Phase 3: New Tab Screens
 - [ ] Create app/(tabs)/scanner.tsx
@@ -265,6 +265,22 @@ IN_PROGRESS
   - Passes TypeScript strict type checking
 
 ## Completed This Iteration
+
+Task: Update app/(auth)/signin.tsx (Auth screen with OAuth)
+- Verified file already existed with OAuth implementation matching ui-mocks/index.html
+- Updated imports to include Typography from @/constants/typography
+- Replaced hardcoded font sizes with Typography constants:
+  - Title: Typography.display.h2 (30px, bold, Outfit)
+  - Subtitle: Typography.body.base (16px, normal, Inter)
+  - Social button text: Typography.button.primary (15px, semibold, Inter)
+  - Footer text/links: Typography.body.sm (14px, Inter)
+- Kept all existing functionality: 3 OAuth buttons (Google, Apple, Meta), Skip to Demo App, Sign up link
+- 80x80px gradient logo with film icon matches HTML mock exactly
+- All styling uses theme constants (Colors, Spacing, BorderRadius, Gradients)
+- Passes ESLint with zero errors/warnings
+- Phase 2 (Update Existing Screens) is now complete
+
+### Previous Iteration
 
 Task: Update app/(tabs)/profile.tsx (Profile screen)
 - Updated lib/mock-data/users.ts to match profile.html mock (Alex Chen, 124 watched, 48 reviews, 12 lists)

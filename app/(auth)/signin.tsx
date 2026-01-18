@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius, Gradients } from '@/constants/theme';
+import { Typography } from '@/constants/typography';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function SignInScreen() {
@@ -140,13 +141,12 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
+    ...Typography.display.h2,
     marginBottom: Spacing.sm,
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 16,
+    ...Typography.body.base,
     marginBottom: Spacing.xxl,
   },
   oauthContainer: {
@@ -171,8 +171,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   socialButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+    ...Typography.button.primary,
   },
   footer: {
     marginTop: Spacing.xl,
@@ -184,14 +183,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   footerText: {
-    fontSize: 14,
+    ...Typography.body.sm,
   },
   linkText: {
-    fontSize: 14,
+    ...Typography.body.sm,
     fontWeight: '600',
   },
   skipText: {
-    fontSize: 14,
+    ...Typography.body.sm,
     textDecorationLine: 'underline',
   },
 });
