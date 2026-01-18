@@ -22,9 +22,9 @@ IN_PROGRESS
 - [x] Create components/ui/section-header.tsx
 - [x] Create components/ui/icon-button.tsx
 - [x] Create components/ui/tag.tsx
-- [ ] Create components/ui/star-rating.tsx
-- [ ] Create components/ui/toggle-switch.tsx
-- [ ] Create components/cards/trending-card.tsx
+- [x] Create components/ui/star-rating.tsx
+- [x] Create components/ui/toggle-switch.tsx
+- [x] Create components/cards/trending-card.tsx
 - [ ] Create components/cards/feed-item-card.tsx
 - [ ] Create components/cards/search-result-card.tsx
 - [ ] Create components/cards/collection-grid-card.tsx
@@ -137,13 +137,6 @@ IN_PROGRESS
   - Removed unused BorderRadius import
   - Passes ESLint with zero errors/warnings
 
-## Notes
-
-- All UI primitives using expo-blur and expo-linear-gradient (already installed in iteration 3)
-- Following icon render prop pattern from bottom-nav-bar.tsx for consistency
-- Primary variant gradient matches Gradients.main from theme.ts
-- Glass variant backdrop blur intensity set to 30 (matching bottom-nav-bar)
-
 ### Iteration 7
 - Created components/ui/tag.tsx
   - Genre/filter chips with default and active states
@@ -162,10 +155,32 @@ IN_PROGRESS
   - Passes ESLint with zero errors/warnings
   - Babel compilation successful
 
+### Iteration 8
+- Created components/cards/trending-card.tsx
+  - 160x240px poster card for trending section with gradient overlay
+  - Background poster image using expo-image for performance
+  - Linear gradient overlay (dark to transparent from bottom to top)
+  - Title and genre/rating displayed at bottom with white text
+  - Press animation with scale 0.95 transform matching styles.css
+  - Rounded corners (BorderRadius.md = 16px)
+  - Medium shadow effect from theme
+  - Title uses Typography.body.base (16px, bold, Outfit font)
+  - Metadata uses 12px size with rgba(255,255,255,0.8) for secondary info
+  - Matches ui-mocks/home.html .movie-card structure (lines 124-130)
+  - Fixed ESLint warning by removing unused colors/colorScheme imports
+  - Passes ESLint with zero errors/warnings
+
 ## Completed This Iteration
 
-Task: Create components/ui/tag.tsx
-- Implemented tag component for genre labels and filter chips
-- Supports both static and interactive modes
-- Active/default states with themed colors
+Task: Create components/cards/trending-card.tsx
+- Implemented trending card component for horizontal scrolling movie posters
+- Displays poster with gradient overlay and movie info at bottom
+- Press interaction with scale animation
 - Passes all validation checks
+
+## Notes
+
+- star-rating.tsx and toggle-switch.tsx were already implemented (found during verification)
+- All UI primitives using expo-blur and expo-linear-gradient
+- Following consistent patterns: icon render props, Pressable with scale animations, theme hooks
+- Trending card uses hardcoded white text for overlay (works in both light/dark themes)
