@@ -19,7 +19,7 @@ IN_PROGRESS
 ### Phase 1: Shared Components
 - [x] Create components/ui/bottom-nav-bar.tsx
 - [x] Create components/ui/bottom-sheet-modal.tsx
-- [ ] Create components/ui/section-header.tsx
+- [x] Create components/ui/section-header.tsx
 - [ ] Create components/ui/icon-button.tsx
 - [ ] Create components/ui/tag.tsx
 - [ ] Create components/ui/star-rating.tsx
@@ -92,7 +92,7 @@ IN_PROGRESS
   - Passes TypeScript strict type checking
 
 ## Completed This Iteration
-- Created components/ui/bottom-sheet-modal.tsx
+- Created components/ui/section-header.tsx
 
 ## Notes
 
@@ -111,4 +111,17 @@ IN_PROGRESS
   - Content container with horizontal and bottom padding
   - Matches review_modal.html structure (lines 12-43)
   - Passes TypeScript strict type checking
+
+### Iteration 5
+- Created components/ui/section-header.tsx
+  - Flexbox layout with space-between alignment for title and action link
+  - Title uses Typography.body.lg (18px, semibold, Outfit font)
+  - Optional "See All" action link with Typography.body.smMedium (14px, medium weight)
+  - Action link has Pressable with opacity feedback (0.7 on press)
+  - Bottom margin of Spacing.md (16px) matching styles.css
+  - Themed using useColorScheme hook
+  - Props: title (required), actionText, onActionPress, style
+  - Matches home.html section headers (lines 118-121, 157-159)
+  - Fixed import path to use '@/hooks/use-color-scheme' (kebab-case)
+  - Passes ESLint and TypeScript strict type checking
 
