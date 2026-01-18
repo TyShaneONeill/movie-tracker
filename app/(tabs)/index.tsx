@@ -1,269 +1,166 @@
-import { useState } from 'react';
 import {
   StyleSheet,
   View,
   FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  Image,
-  Pressable,
+  Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Line } from 'react-native-svg';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { SearchInput } from '@/components/search-input';
-import { SearchTypeToggle } from '@/components/search-type-toggle';
-import { MovieSearchCard } from '@/components/movie-search-card';
-import { AddMovieModal } from '@/components/add-movie-modal';
-import { Colors } from '@/constants/theme';
+import { SectionHeader } from '@/components/ui/section-header';
+import { TrendingCard } from '@/components/cards/trending-card';
+import { FeedItemCard } from '@/components/cards/feed-item-card';
+import IconButton from '@/components/ui/icon-button';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Typography } from '@/constants/typography';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAuth } from '@/hooks/use-auth';
-import { useMovieSearch } from '@/hooks/use-movie-search';
-import { useUserMovies } from '@/hooks/use-user-movies';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { UserMovie, MovieStatus } from '@/lib/database.types';
-import type { TMDBMovie, SearchType } from '@/lib/tmdb.types';
+import { TRENDING_MOVIES } from '@/lib/mock-data/movies';
+import { MOCK_ACTIVITY } from '@/lib/mock-data/users';
 
-const STATUS_LABELS: Record<MovieStatus, string> = {
-  watchlist: 'Watchlist',
-  watching: 'Watching',
-  watched: 'Watched',
-};
-
-const STATUS_COLORS: Record<MovieStatus, string> = {
-  watchlist: '#f59e0b', // Amber
-  watching: '#3b82f6', // Blue
-  watched: '#10b981', // Emerald
-};
-
-function UserMovieCard({ movie }: { movie: UserMovie }) {
-  const posterUrl = getTMDBImageUrl(movie.poster_path, 'w342'); // Higher res for better visuals
-  const year = movie.release_date?.split('-')[0] || 'N/A';
-  const colorScheme = useColorScheme() ?? 'dark';
-  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-
+function SunIcon({ color }: { color: string }) {
   return (
-    <View style={[styles.movieCard, { backgroundColor: colors.card }]}>
-      <View style={styles.posterContainer}>
-        {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={styles.moviePoster} resizeMode="cover" />
-        ) : (
-          <View style={[styles.moviePoster, styles.posterPlaceholder, { backgroundColor: colors.border }]}>
-            <Ionicons name="image-outline" size={24} color={colors.icon} />
-          </View>
-        )}
-        <View style={styles.gradientOverlay} />
-      </View>
-
-      <View style={styles.movieInfo}>
-        <View>
-          <ThemedText type="defaultSemiBold" style={styles.movieTitle} numberOfLines={1}>
-            {movie.title}
-          </ThemedText>
-          <ThemedText style={[styles.movieMeta, { color: colors.icon }]}>
-            {year} • ★ {movie.vote_average?.toFixed(1) || 'N/A'}
-          </ThemedText>
-        </View>
-
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: STATUS_COLORS[movie.status] + '20' }, // 20% opacity background
-          ]}
-        >
-          <ThemedText style={[styles.statusText, { color: STATUS_COLORS[movie.status] }]}>
-            {STATUS_LABELS[movie.status]}
-          </ThemedText>
-        </View>
-      </View>
-    </View>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={12} r={5} />
+      <Line x1={12} y1={1} x2={12} y2={3} />
+      <Line x1={12} y1={21} x2={12} y2={23} />
+      <Line x1={4.22} y1={4.22} x2={5.64} y2={5.64} />
+      <Line x1={18.36} y1={18.36} x2={19.78} y2={19.78} />
+      <Line x1={1} y1={12} x2={3} y2={12} />
+      <Line x1={21} y1={12} x2={23} y2={12} />
+      <Line x1={4.22} y1={19.78} x2={5.64} y2={18.36} />
+      <Line x1={18.36} y1={5.64} x2={19.78} y2={4.22} />
+    </Svg>
   );
 }
 
-function EmptyState() {
+function SearchIcon({ color }: { color: string }) {
   return (
-    <View style={styles.emptyState}>
-      <Ionicons name="film-outline" size={64} color="#666" style={{ marginBottom: 16, opacity: 0.5 }} />
-      <ThemedText type="subtitle" style={styles.emptyTitle}>
-        Your collection is empty
-      </ThemedText>
-      <ThemedText style={styles.emptyText}>
-        Search for movies above to start tracking
-      </ThemedText>
-    </View>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={11} cy={11} r={8} />
+      <Line x1={21} y1={21} x2={16.65} y2={16.65} />
+    </Svg>
   );
 }
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme() ?? 'dark';
-  const { user } = useAuth();
+  const colors = Colors[colorScheme];
 
-  // Force dark mode logic for consistency if desired, or respect system
-  const theme = colorScheme === 'dark' ? 'dark' : 'light';
-  const colors = Colors[theme];
-
-  const {
-    movies,
-    isLoading,
-    refetch,
-  } = useUserMovies();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState<SearchType>('title');
-  const [selectedMovie, setSelectedMovie] = useState<TMDBMovie | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const debouncedQuery = useDebouncedValue(searchQuery, 300);
-  const isSearching = debouncedQuery.length >= 2;
-
-  const {
-    movies: searchResults,
-    isLoading: isSearchLoading,
-    isError: isSearchError,
-    error: searchError,
-    totalResults,
-    actor,
-  } = useMovieSearch({
-    query: debouncedQuery,
-    searchType,
-    enabled: isSearching,
-  });
-
-  const handleClearSearch = () => {
-    setSearchQuery('');
+  const handleThemeToggle = () => {
+    // Toggle theme (in future, this will update system theme)
+    // Will be implemented with theme context
   };
 
-  const handleMoviePress = (movie: TMDBMovie) => {
-    setSelectedMovie(movie);
-    setShowAddModal(true);
+  const handleSearchPress = () => {
+    // Navigate to search screen (when implemented)
+    // router.push('/search');
   };
 
-  const handleCloseModal = () => {
-    setShowAddModal(false);
-    setSelectedMovie(null);
+  const handleTrendingPress = (movieId: number) => {
+    // Navigate to movie detail (when implemented)
+    // router.push(`/movie/${movieId}`);
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
+  const handleActivityUserPress = (userId: string) => {
+    // Navigate to user profile (when implemented)
+  };
+
+  const handleActivityMoviePress = (movieId: number) => {
+    // Navigate to movie detail (when implemented)
+    // router.push(`/movie/${movieId}`);
   };
 
   return (
     <SafeAreaView
-      style={[
-        styles.container,
-        { backgroundColor: colors.background },
-      ]}
+      style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
       <View style={styles.contentContainer}>
+        {/* Header */}
         <View style={styles.header}>
           <View>
-            <ThemedText style={[styles.greeting, { color: colors.icon }]}>Welcome back,</ThemedText>
-            <ThemedText type="title" style={styles.headerTitle}>
-              {user?.email?.split('@')[0] || 'Cinephile'}
-            </ThemedText>
+            <LinearGradient
+              colors={['#e11d48', '#f43f5e'] as [string, string]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientTextContainer}
+            >
+              <Text style={[styles.title, Typography.display.h3]}>
+                CineTrack
+              </Text>
+            </LinearGradient>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Discover & Track
+            </Text>
           </View>
-          {/* Profile icon could go here in future */}
+
+          <View style={styles.headerActions}>
+            <IconButton
+              variant="card"
+              size={40}
+              icon={(color) => <SunIcon color={color} />}
+              onPress={handleThemeToggle}
+            />
+            <IconButton
+              variant="card"
+              size={40}
+              icon={(color) => <SearchIcon color={color} />}
+              onPress={handleSearchPress}
+            />
+          </View>
         </View>
 
-        <View style={styles.searchSection}>
-          <SearchInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onClear={handleClearSearch}
-            placeholder={searchType === 'title' ? 'Find a movie...' : 'Find by actor...'}
+        {/* Trending Section */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Trending Now"
+            actionText="See All"
+            onActionPress={() => {}}
           />
-          <View style={{ height: 12 }} />
-          <SearchTypeToggle value={searchType} onChange={setSearchType} />
+          <FlatList
+            horizontal
+            data={TRENDING_MOVIES}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <TrendingCard
+                title={item.title}
+                genre={item.genre}
+                rating={String(item.rating)}
+                posterUrl={item.posterPath}
+                onPress={() => handleTrendingPress(item.id)}
+              />
+            )}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.trendingList}
+            ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+          />
         </View>
 
-        {isSearching ? (
-          <View style={{ flex: 1 }}>
-            <View style={styles.listHeader}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                {actor ? `Movies with ${actor.name}` : 'Results'}
-              </ThemedText>
-              {totalResults > 0 && (
-                <ThemedText style={styles.resultCount}>
-                  {totalResults} found
-                </ThemedText>
-              )}
-            </View>
-
-            {isSearchLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.tint} />
-              </View>
-            ) : isSearchError ? (
-              <View style={styles.errorContainer}>
-                <ThemedText style={styles.errorText}>
-                  {searchError?.message || 'Search failed'}
-                </ThemedText>
-              </View>
-            ) : (
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                  <MovieSearchCard movie={item} onPress={handleMoviePress} />
-                )}
-                ListEmptyComponent={
-                  <View style={styles.emptyState}>
-                    <ThemedText style={styles.emptyText}>
-                      No results for "{debouncedQuery}"
-                    </ThemedText>
-                  </View>
-                }
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+        {/* Activity Feed Section */}
+        <View style={[styles.section, styles.activitySection]}>
+          <SectionHeader title="Activity" />
+          <FlatList
+            data={MOCK_ACTIVITY}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <FeedItemCard
+                userName={item.userName}
+                userAvatarUrl={item.userAvatar}
+                timestamp={item.timestamp}
+                movieTitle={item.movieTitle}
+                moviePosterUrl={item.moviePoster}
+                rating={item.rating}
+                reviewText={item.reviewText}
+                onUserPress={() => handleActivityUserPress(item.userId)}
+                onMoviePress={() => handleActivityMoviePress(item.movieId)}
               />
             )}
-          </View>
-        ) : (
-          <View style={{ flex: 1 }}>
-            <View style={styles.listHeader}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                Your Watchlist
-              </ThemedText>
-            </View>
-
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.tint} />
-              </View>
-            ) : (
-              <FlatList
-                data={movies}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => <UserMovieCard movie={item} />}
-                ListEmptyComponent={EmptyState}
-                contentContainerStyle={[styles.listContent, movies.length === 0 && { flex: 1 }]}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={isRefreshing}
-                    onRefresh={handleRefresh}
-                    tintColor={colors.tint}
-                  />
-                }
-                showsVerticalScrollIndicator={false}
-              />
-            )}
-          </View>
-        )}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.activityList}
+          />
+        </View>
       </View>
-
-      <AddMovieModal
-        movie={selectedMovie}
-        visible={showAddModal}
-        onClose={handleCloseModal}
-      />
     </SafeAreaView>
   );
 }
@@ -274,124 +171,43 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: 90, // Space for floating nav bar
   },
   header: {
-    marginBottom: 24,
-    marginTop: 12,
-  },
-  greeting: {
-    fontSize: 14,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 28,
-  },
-  searchSection: {
-    marginBottom: 24,
-  },
-  listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 16,
+    alignItems: 'flex-start',
+    marginBottom: Spacing.lg,
+    marginTop: Spacing.sm,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  resultCount: {
-    fontSize: 12,
-    opacity: 0.6,
-  },
-  listContent: {
-    paddingBottom: 24,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 200,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  errorText: {
-    textAlign: 'center',
-    opacity: 0.7,
-  },
-
-  // Card Styles
-  movieCard: {
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    height: 140, // Fixed height for consistency
-  },
-  posterContainer: {
-    width: 93, // ~2/3 aspect ratio
-    height: '100%',
-    backgroundColor: '#333',
-  },
-  moviePoster: {
-    width: '100%',
-    height: '100%',
-  },
-  posterPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gradientOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.1)', // Subtle overlay
-  },
-  movieInfo: {
-    flex: 1,
-    padding: 14,
-    justifyContent: 'space-between',
-  },
-  movieTitle: {
-    fontSize: 16,
-    marginBottom: 6,
-  },
-  movieMeta: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  statusBadge: {
+  gradientTextContainer: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: BorderRadius.sm,
   },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  title: {
+    // Typography.heading.xl applied inline
+    // Note: Gradient text not directly supported in RN, using gradient background as fallback
+    color: '#e11d48', // Fallback color
   },
-
-  // Empty State
-  emptyState: {
+  subtitle: {
+    ...Typography.body.sm,
+    marginTop: Spacing.xs,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  section: {
+    marginBottom: Spacing.lg,
+  },
+  trendingList: {
+    paddingVertical: Spacing.xs,
+  },
+  activitySection: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
   },
-  emptyTitle: {
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyText: {
-    opacity: 0.7,
-    textAlign: 'center',
-    width: '70%',
+  activityList: {
+    paddingBottom: Spacing.md,
   },
 });

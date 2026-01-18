@@ -32,7 +32,7 @@ IN_PROGRESS
 
 ### Phase 2: Update Existing Screens
 - [x] Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
-- [ ] Update app/(tabs)/index.tsx (Home screen)
+- [x] Update app/(tabs)/index.tsx (Home screen)
 - [ ] Update app/(tabs)/profile.tsx (Profile screen)
 - [ ] Update app/(auth)/signin.tsx (Auth screen with OAuth)
 
@@ -53,8 +53,8 @@ IN_PROGRESS
 - [ ] Create components/modals/create-list-modal.tsx
 
 ### Phase 6: Mock Data
-- [ ] Create lib/mock-data/movies.ts
-- [ ] Create lib/mock-data/users.ts
+- [x] Create lib/mock-data/movies.ts
+- [x] Create lib/mock-data/users.ts
 - [ ] Create lib/mock-data/lists.ts
 - [ ] Create lib/mock-data/notifications.ts
 
@@ -233,15 +233,47 @@ IN_PROGRESS
   - Both placeholder screens pass ESLint validation
   - Passes ESLint with zero errors/warnings
 
+### Iteration 13
+- Created lib/mock-data/movies.ts
+  - TRENDING_MOVIES array with 6 movies (Dune: Part Two, Kung Fu Panda 4, Dune, Avatar 2, Oppenheimer, The Batman)
+  - SEARCH_RESULTS array with 4 movies (Shawshank Redemption, The Godfather, The Dark Knight, Pulp Fiction)
+  - MockMovie interface with id, title, posterPath, backdropPath, genre, rating, year, runtime, overview
+  - getTMDBImageUrl helper function for image URL formatting
+  - Uses TMDB image URLs from ui-mocks matching HTML structure
+
+- Created lib/mock-data/users.ts
+  - MOCK_USER with profile data (name, username, avatar, bio, stats)
+  - MOCK_ACTIVITY array with 5 activity items matching ui-mocks/home.html
+  - MockUser and MockActivity interfaces
+  - Activity includes user info, movie info, rating, review text, timestamp
+  - Uses pravatar.cc for user avatars matching HTML mocks
+
+- Updated app/(tabs)/index.tsx (Home screen)
+  - Replaced old search-based UI with new design matching ui-mocks/home.html
+  - Added gradient "CineTrack" logo text with "Discover & Track" subtitle
+  - Added theme toggle button (sun icon) and search icon button to header right
+  - Removed inline search bar (moved to dedicated search screen)
+  - Added "Trending Now" horizontal FlatList with TrendingCard components
+  - Added "Activity" section with FeedItemCard vertical list
+  - Updated all colors to new theme (Colors.background, Colors.textSecondary, etc.)
+  - Added bottom padding (90px) for floating nav bar clearance
+  - Used mock data from TRENDING_MOVIES and MOCK_ACTIVITY
+  - Created SunIcon and SearchIcon SVG components inline
+  - Fixed TypeScript errors: IconButton import, Typography.display.h3, rating string conversion
+  - Fixed prop name mismatches: userAvatarUrl and moviePosterUrl
+  - Passes ESLint with zero errors/warnings
+  - Passes TypeScript strict type checking
+
 ## Completed This Iteration
 
-Task: Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
-- Replaced default expo-router tab bar with custom BottomNavBar component
-- Updated tab configuration from 3 tabs to 4 tabs (Home, Scan, Stats, Profile)
-- Created SVG icons for each tab matching HTML mocks
-- Created placeholder screens for scanner and analytics tabs
-- Installed react-native-svg for icon support
-- All files pass ESLint validation
+Task: Update app/(tabs)/index.tsx (Home screen)
+- Created mock data files: lib/mock-data/movies.ts and lib/mock-data/users.ts
+- Completely rewrote home screen to match ui-mocks/home.html structure
+- Added CineTrack header with gradient text and subtitle
+- Added theme toggle and search icon buttons
+- Implemented Trending Now horizontal scroll section with TrendingCard components
+- Implemented Activity feed section with FeedItemCard components
+- All TypeScript types correct and ESLint passing
 
 ## Notes
 
@@ -249,3 +281,6 @@ Task: Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
 - All UI primitives using expo-blur and expo-linear-gradient
 - Following consistent patterns: icon render props, Pressable with scale animations, theme hooks
 - Trending card uses hardcoded white text for overlay (works in both light/dark themes)
+- Home screen now uses mock data instead of real Supabase queries
+- Theme toggle is placeholder (will be implemented with theme context later)
+- Navigation handlers are placeholder comments (will be implemented when routes exist)
