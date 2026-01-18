@@ -21,7 +21,7 @@ IN_PROGRESS
 - [x] Create components/ui/bottom-sheet-modal.tsx
 - [x] Create components/ui/section-header.tsx
 - [x] Create components/ui/icon-button.tsx
-- [ ] Create components/ui/tag.tsx
+- [x] Create components/ui/tag.tsx
 - [ ] Create components/ui/star-rating.tsx
 - [ ] Create components/ui/toggle-switch.tsx
 - [ ] Create components/cards/trending-card.tsx
@@ -120,8 +120,6 @@ IN_PROGRESS
   - Fixed import path to use '@/hooks/use-color-scheme' (kebab-case)
   - Passes ESLint and TypeScript strict type checking
 
-## Completed This Iteration
-
 ### Iteration 6
 - Created components/ui/icon-button.tsx
   - Implemented three variants: glass (blur), card (bordered), primary (gradient)
@@ -145,3 +143,29 @@ IN_PROGRESS
 - Following icon render prop pattern from bottom-nav-bar.tsx for consistency
 - Primary variant gradient matches Gradients.main from theme.ts
 - Glass variant backdrop blur intensity set to 30 (matching bottom-nav-bar)
+
+### Iteration 7
+- Created components/ui/tag.tsx
+  - Genre/filter chips with default and active states
+  - Default state: background (backgroundSecondary), border (border color), text (textSecondary)
+  - Active state: background (Rose 600 accent), border (Rose 600), white text
+  - Padding: 6px vertical, 14px horizontal matching CSS (styles.css line 281)
+  - Border radius: full (9999px) for pill shape
+  - Typography.tag.default preset (12px, medium weight, Inter font)
+  - Interactive tags use Pressable with onPress callback
+  - Press feedback with 0.8 opacity on active press
+  - Non-interactive tags for static labels (when onPress not provided)
+  - Disabled state with 0.5 opacity
+  - Themed using useColorScheme hook
+  - Matches styles.css .tag class (lines 280-288) and search.html .category-chip (active state)
+  - Fixed unused import (removed Spacing)
+  - Passes ESLint with zero errors/warnings
+  - Babel compilation successful
+
+## Completed This Iteration
+
+Task: Create components/ui/tag.tsx
+- Implemented tag component for genre labels and filter chips
+- Supports both static and interactive modes
+- Active/default states with themed colors
+- Passes all validation checks
