@@ -18,7 +18,7 @@ IN_PROGRESS
 
 ### Phase 1: Shared Components
 - [x] Create components/ui/bottom-nav-bar.tsx
-- [ ] Create components/ui/bottom-sheet-modal.tsx
+- [x] Create components/ui/bottom-sheet-modal.tsx
 - [ ] Create components/ui/section-header.tsx
 - [ ] Create components/ui/icon-button.tsx
 - [ ] Create components/ui/tag.tsx
@@ -92,7 +92,23 @@ IN_PROGRESS
   - Passes TypeScript strict type checking
 
 ## Completed This Iteration
-- Created bottom-nav-bar component matching HTML mock design (home.html lines 210-241)
+- Created components/ui/bottom-sheet-modal.tsx
 
 ## Notes
+
+### Iteration 4
+- Created components/ui/bottom-sheet-modal.tsx
+  - Implemented using @gorhom/bottom-sheet library (already installed)
+  - Added custom blur backdrop using expo-blur with rgba(0,0,0,0.5) overlay
+  - Slide-up modal with rounded top corners (BorderRadius.lg = 24px)
+  - Drag handle with themed border color
+  - Max-height configurable (default 80% of screen height)
+  - Supports dismiss on backdrop press (configurable)
+  - Pan down to close gesture support
+  - Exposed imperative handle with present(), dismiss(), snapToIndex() methods
+  - Wrapped in Modal component for full-screen overlay
+  - Themed background using Colors.card
+  - Content container with horizontal and bottom padding
+  - Matches review_modal.html structure (lines 12-43)
+  - Passes TypeScript strict type checking
 
