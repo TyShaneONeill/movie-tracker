@@ -25,7 +25,7 @@ IN_PROGRESS
 - [x] Create components/ui/star-rating.tsx
 - [x] Create components/ui/toggle-switch.tsx
 - [x] Create components/cards/trending-card.tsx
-- [ ] Create components/cards/feed-item-card.tsx
+- [x] Create components/cards/feed-item-card.tsx
 - [ ] Create components/cards/search-result-card.tsx
 - [ ] Create components/cards/collection-grid-card.tsx
 - [ ] Create components/cards/list-card.tsx
@@ -170,12 +170,30 @@ IN_PROGRESS
   - Fixed ESLint warning by removing unused colors/colorScheme imports
   - Passes ESLint with zero errors/warnings
 
+### Iteration 9
+- Created components/cards/feed-item-card.tsx
+  - User activity feed item component for home screen
+  - Displays user avatar (40px circular) + name + timestamp in header row
+  - Shows movie poster (56px width, 2:3 aspect) + title + star rating + review text
+  - Star rating renders filled stars (gold) and empty stars (rgba white)
+  - Separate press handlers for user area and movie area
+  - Card background with border from theme (Colors.card, Colors.border)
+  - User info: Typography.body.base (15px, weight 600) for name
+  - Timestamp: Typography.body.xs (12px) with textSecondary color
+  - Movie title: Typography.body.base (15px, weight 700)
+  - Review text: Typography.body.xs (12px) with textSecondary color
+  - Press feedback with 0.7 opacity on both interactive areas
+  - Bottom margin of Spacing.md (16px) for spacing between feed items
+  - Matches ui-mocks/home.html .feed-item structure (lines 161-182, 184-206)
+  - Passes ESLint with zero errors/warnings
+
 ## Completed This Iteration
 
-Task: Create components/cards/trending-card.tsx
-- Implemented trending card component for horizontal scrolling movie posters
-- Displays poster with gradient overlay and movie info at bottom
-- Press interaction with scale animation
+Task: Create components/cards/feed-item-card.tsx
+- Implemented activity feed card showing user watched movie activity
+- Two interactive areas: user profile section and movie details section
+- Star rating display with filled/empty stars
+- Themed colors for light/dark mode support
 - Passes all validation checks
 
 ## Notes
