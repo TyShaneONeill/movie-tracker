@@ -1,68 +1,30 @@
 import { useState } from 'react';
-import { StyleSheet, View, Image, Pressable, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { StyleSheet, View, Image, Pressable, FlatList, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Typography } from '@/constants/typography';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAuth } from '@/hooks/use-auth';
-import { useUserMovies } from '@/hooks/use-user-movies';
-import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { UserMovie } from '@/lib/database.types';
+import { MOCK_USER } from '@/lib/mock-data/users';
+import { COLLECTION_MOVIES } from '@/lib/mock-data/movies';
 
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 export default function ProfileScreen() {
     const colorScheme = useColorScheme() ?? 'dark';
-    const { user, signOut } = useAuth();
-    const { movies, isLoading, refetch } = useUserMovies();
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('collection');
 
     const theme = colorScheme === 'dark' ? 'dark' : 'light';
     const colors = Colors[theme];
 
-    const watchedCount = movies?.filter(m => m.status === 'watched').length || 0;
-    const reviewsCount = 48; // Mock data - would come from backend
-    const listsCount = 12; // Mock data - would come from backend
-
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
-        await refetch();
-        setIsRefreshing(false);
-    };
-
-    const handleSignOut = async () => {
-        await signOut();
-        router.replace('/(auth)/signin');
-    };
-
-    const renderMovieItem = ({ item }: { item: UserMovie }) => (
-        <View style={[styles.movieItem, { backgroundColor: colors.card }]}>
-            <Image
-                source={{ uri: getTMDBImageUrl(item.poster_path, 'w185') || '' }}
-                style={styles.poster}
-            />
-            <View style={styles.movieInfo}>
-                <ThemedText style={styles.movieTitle} numberOfLines={1}>{item.title}</ThemedText>
-                <ThemedText style={{ color: colors.icon, fontSize: 12 }}>
-                    {item.release_date?.split('-')[0]}
-                </ThemedText>
-            </View>
-            <View style={[styles.statusDot, { backgroundColor: item.status === 'watched' ? '#10b981' : '#f59e0b' }]} />
-        </View>
-    );
-
-    const renderCollectionItem = ({ item }: { item: UserMovie }) => (
+    const renderCollectionItem = ({ item }: { item: typeof COLLECTION_MOVIES[0] }) => (
         <CollectionGridCard
-            posterUrl={getTMDBImageUrl(item.poster_path, 'w500') || ''}
+            posterUrl={item.posterPath}
             onPress={() => {
-                // Navigate to movie detail
+                // Navigate to movie detail when route exists
                 console.log('Navigate to movie:', item.id);
             }}
         />
@@ -72,30 +34,25 @@ export default function ProfileScreen() {
         if (activeTab === 'collection') {
             return (
                 <FlatList
-                    data={movies}
+                    data={COLLECTION_MOVIES}
                     renderItem={renderCollectionItem}
-                    keyExtractor={item => item.id}
+                    keyExtractor={item => item.id.toString()}
                     numColumns={3}
                     columnWrapperStyle={styles.collectionRow}
                     contentContainerStyle={[styles.collectionGrid, { paddingBottom: 100 }]}
                     showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.tint} />
-                    }
-                    ListEmptyComponent={
-                        <ThemedText style={{ textAlign: 'center', marginTop: 40, color: colors.icon }}>
-                            No movies in your collection yet.
-                        </ThemedText>
-                    }
                 />
             );
         } else if (activeTab === 'first-takes') {
             return (
-                <View style={{ paddingBottom: 100 }}>
+                <ScrollView
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    showsVerticalScrollIndicator={false}
+                >
                     <ThemedText style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
                         LATEST SNAPSHOT
                     </ThemedText>
-                    <View style={[styles.firstTakeCard, { backgroundColor: colors.card, borderLeftColor: '#fbbf24' }]}>
+                    <View style={[styles.firstTakeCard, { backgroundColor: colors.card, borderLeftColor: colors.gold }]}>
                         <View style={styles.firstTakeHeader}>
                             <View style={styles.firstTakeInfo}>
                                 <Image
@@ -110,19 +67,22 @@ export default function ProfileScreen() {
                             <ThemedText style={styles.firstTakeEmoji}>🔥</ThemedText>
                         </View>
                         <ThemedText style={[styles.firstTakeQuote, { color: colors.text }]}>
-                            "Wait... did they just reference The Godfather again? I'm dying. This is better than the first one!"
+                            &ldquo;Wait... did they just reference The Godfather again? I&rsquo;m dying. This is better than the first one!&rdquo;
                         </ThemedText>
                     </View>
-                </View>
+                </ScrollView>
             );
         } else {
             // Lists tab - placeholder for now
             return (
-                <View style={{ paddingBottom: 100 }}>
-                    <ThemedText style={{ textAlign: 'center', marginTop: 40, color: colors.icon }}>
+                <ScrollView
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <ThemedText style={{ textAlign: 'center', marginTop: 40, color: colors.textSecondary }}>
                         Lists coming soon...
                     </ThemedText>
-                </View>
+                </ScrollView>
             );
         }
     };
@@ -147,28 +107,43 @@ export default function ProfileScreen() {
 
             {/* Profile Header */}
             <View style={styles.header}>
-                <View style={[styles.avatarContainer, { borderColor: colors.tint }]}>
-                    <Ionicons name="person" size={48} color={colors.icon} />
-                </View>
-                <ThemedText type="title" style={styles.username}>
-                    {user?.email?.split('@')[0] || 'Alex Chen'}
+                <Image
+                    source={{ uri: MOCK_USER.avatarUrl }}
+                    style={[styles.avatar, { borderColor: colors.tint }]}
+                />
+                <ThemedText style={[styles.username, { color: colors.text }]}>
+                    {MOCK_USER.name}
                 </ThemedText>
-                <ThemedText style={{ color: colors.textSecondary }}>Film Enthusiast & Critic</ThemedText>
+                <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
+                    {MOCK_USER.bio}
+                </ThemedText>
             </View>
 
             {/* Stats Row */}
-            <View style={[styles.statsContainer, { borderColor: colors.border || '#333' }]}>
+            <View style={[styles.statsContainer, { borderColor: colors.border }]}>
                 <View style={styles.statItem}>
-                    <ThemedText type="title" style={{ fontSize: 18 }}>{watchedCount}</ThemedText>
-                    <ThemedText style={styles.statLabel}>Watched</ThemedText>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                        {MOCK_USER.stats.watched}
+                    </ThemedText>
+                    <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                        Watched
+                    </ThemedText>
                 </View>
                 <View style={styles.statItem}>
-                    <ThemedText type="title" style={{ fontSize: 18 }}>{reviewsCount}</ThemedText>
-                    <ThemedText style={styles.statLabel}>Reviews</ThemedText>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                        {MOCK_USER.stats.reviews}
+                    </ThemedText>
+                    <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                        Reviews
+                    </ThemedText>
                 </View>
                 <View style={styles.statItem}>
-                    <ThemedText type="title" style={{ fontSize: 18 }}>{listsCount}</ThemedText>
-                    <ThemedText style={styles.statLabel}>Lists</ThemedText>
+                    <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                        {MOCK_USER.stats.lists}
+                    </ThemedText>
+                    <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                        Lists
+                    </ThemedText>
                 </View>
             </View>
 
@@ -242,19 +217,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: Spacing.xl,
     },
-    avatarContainer: {
+    avatar: {
         width: 100,
         height: 100,
         borderRadius: 50,
         borderWidth: 3,
-        justifyContent: 'center',
-        alignItems: 'center',
         marginBottom: Spacing.md,
-        backgroundColor: 'rgba(255,255,255,0.05)',
     },
     username: {
-        fontSize: 24,
+        ...Typography.display.h3,
         marginBottom: 4,
+    },
+    bio: {
+        ...Typography.body.base,
+    },
+    statValue: {
+        ...Typography.display.h4,
     },
     statsContainer: {
         flexDirection: 'row',
@@ -269,9 +247,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     statLabel: {
-        fontSize: 12,
+        ...Typography.body.xs,
         marginTop: 4,
-        opacity: 0.7,
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
@@ -345,34 +322,5 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontStyle: 'italic',
         lineHeight: 20,
-    },
-    // Legacy styles for old movie item (can be removed if not used)
-    movieItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        marginBottom: 12,
-        borderRadius: 12,
-    },
-    poster: {
-        width: 40,
-        height: 60,
-        borderRadius: 6,
-        backgroundColor: '#333',
-    },
-    movieInfo: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    movieTitle: {
-        fontSize: 16,
-        marginBottom: 2,
-        fontWeight: '600',
-    },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginLeft: 8,
     },
 });

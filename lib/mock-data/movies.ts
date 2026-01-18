@@ -120,6 +120,85 @@ export const SEARCH_RESULTS: MockMovie[] = [
 ];
 
 /**
+ * Mock collection movies for profile screen
+ * Based on ui-mocks/profile.html collection grid
+ */
+export const COLLECTION_MOVIES: MockMovie[] = [
+  {
+    id: 201,
+    title: 'Zootopia 2',
+    posterPath: 'https://image.tmdb.org/t/p/w500/pxv61t1jh2BwkgqZ68t7r6v8q.jpg',
+    genre: 'Animation',
+    rating: 8.2,
+    year: '2024',
+  },
+  {
+    id: 202,
+    title: 'Kung Fu Panda 4',
+    posterPath: 'https://image.tmdb.org/t/p/w200/kDp1vUBnMpe8ak4rjgl3cLELqjU.jpg',
+    genre: 'Animation',
+    rating: 7.8,
+    year: '2024',
+  },
+  {
+    id: 203,
+    title: 'Dune',
+    posterPath: 'https://image.tmdb.org/t/p/w200/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
+    genre: 'Sci-Fi',
+    rating: 8.5,
+    year: '2021',
+  },
+  {
+    id: 204,
+    title: 'Avatar: The Way of Water',
+    posterPath: 'https://image.tmdb.org/t/p/w200/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg',
+    genre: 'Sci-Fi',
+    rating: 7.6,
+    year: '2022',
+  },
+  {
+    id: 205,
+    title: 'Challengers',
+    posterPath: 'https://image.tmdb.org/t/p/w200/hr9rjR3J0xBBK9oi4pY5U3ZeHv7.jpg',
+    genre: 'Drama',
+    rating: 7.3,
+    year: '2024',
+  },
+  {
+    id: 206,
+    title: 'Godzilla x Kong',
+    posterPath: 'https://image.tmdb.org/t/p/w200/8UlWHLMpgZm9bx6QYh0NFoq67TZ.jpg',
+    genre: 'Action',
+    rating: 6.8,
+    year: '2024',
+  },
+  {
+    id: 207,
+    title: 'Ghostbusters: Frozen Empire',
+    posterPath: 'https://image.tmdb.org/t/p/w200/qhb1qOilapbapxWQn9jtRCMwXJF.jpg',
+    genre: 'Comedy',
+    rating: 6.5,
+    year: '2024',
+  },
+  {
+    id: 208,
+    title: 'The Godfather',
+    posterPath: 'https://image.tmdb.org/t/p/w200/3bhkrj58Vtu7enYsRolD1fZdja1.jpg',
+    genre: 'Crime',
+    rating: 9.2,
+    year: '1972',
+  },
+  {
+    id: 209,
+    title: 'Inside Out 2',
+    posterPath: 'https://image.tmdb.org/t/p/w200/pFlaoOXp515l2i0uDLIj92JE89k.jpg',
+    genre: 'Animation',
+    rating: 7.9,
+    year: '2024',
+  },
+];
+
+/**
  * Helper to get TMDB image URL with size parameter
  */
 export function getTMDBImageUrl(path: string, size: 'w200' | 'w342' | 'w500' | 'w780' | 'original' = 'w500'): string {

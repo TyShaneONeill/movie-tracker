@@ -31,14 +31,14 @@ export interface MockActivity {
 
 export const MOCK_USER: MockUser = {
   id: 'user_1',
-  name: 'Alex Thompson',
-  username: '@alexthompson',
-  avatarUrl: 'https://i.pravatar.cc/150?u=alexthompson',
-  bio: 'Film enthusiast and aspiring director. Love sci-fi, indie films, and classic cinema.',
+  name: 'Alex Chen',
+  username: '@alexchen',
+  avatarUrl: 'https://i.pravatar.cc/300',
+  bio: 'Film Enthusiast & Critic',
   stats: {
-    watched: 342,
-    reviews: 127,
-    lists: 8,
+    watched: 124,
+    reviews: 48,
+    lists: 12,
   },
 };
 

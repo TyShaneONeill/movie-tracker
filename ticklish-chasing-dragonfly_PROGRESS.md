@@ -33,7 +33,7 @@ IN_PROGRESS
 ### Phase 2: Update Existing Screens
 - [x] Update app/(tabs)/_layout.tsx (4 tabs, custom nav bar)
 - [x] Update app/(tabs)/index.tsx (Home screen)
-- [ ] Update app/(tabs)/profile.tsx (Profile screen)
+- [x] Update app/(tabs)/profile.tsx (Profile screen)
 - [ ] Update app/(auth)/signin.tsx (Auth screen with OAuth)
 
 ### Phase 3: New Tab Screens
@@ -266,14 +266,21 @@ IN_PROGRESS
 
 ## Completed This Iteration
 
-Task: Update app/(tabs)/index.tsx (Home screen)
-- Created mock data files: lib/mock-data/movies.ts and lib/mock-data/users.ts
-- Completely rewrote home screen to match ui-mocks/home.html structure
-- Added CineTrack header with gradient text and subtitle
-- Added theme toggle and search icon buttons
-- Implemented Trending Now horizontal scroll section with TrendingCard components
-- Implemented Activity feed section with FeedItemCard components
-- All TypeScript types correct and ESLint passing
+Task: Update app/(tabs)/profile.tsx (Profile screen)
+- Updated lib/mock-data/users.ts to match profile.html mock (Alex Chen, 124 watched, 48 reviews, 12 lists)
+- Added COLLECTION_MOVIES array to lib/mock-data/movies.ts with 9 movies from profile.html
+- Removed Supabase hooks (useAuth, useUserMovies) and replaced with mock data
+- Updated profile header to use Image component with MOCK_USER.avatarUrl instead of Ionicons placeholder
+- Updated stats to pull from MOCK_USER.stats (124 watched, 48 reviews, 12 lists)
+- Collection tab now renders COLLECTION_MOVIES with CollectionGridCard components
+- Fixed Typography import from '@/constants/typography' (was incorrectly importing from theme)
+- Fixed avatar border color to use colors.tint instead of colors.accentPrimary
+- Fixed gold border color reference in First Takes card to use colors.gold
+- Fixed React unescaped entities error in first take quote text
+- Removed legacy unused styles (movieItem, poster, movieInfo, statusDot)
+- Added new styles: avatar, bio, statValue using Typography presets
+- Changed RefreshControl to simple ScrollView for First Takes and Lists tabs
+- All TypeScript types correct and ESLint passing with zero errors
 
 ## Notes
 
@@ -281,6 +288,10 @@ Task: Update app/(tabs)/index.tsx (Home screen)
 - All UI primitives using expo-blur and expo-linear-gradient
 - Following consistent patterns: icon render props, Pressable with scale animations, theme hooks
 - Trending card uses hardcoded white text for overlay (works in both light/dark themes)
-- Home screen now uses mock data instead of real Supabase queries
+- Home screen and Profile screen now use mock data instead of real Supabase queries
 - Theme toggle is placeholder (will be implemented with theme context later)
 - Navigation handlers are placeholder comments (will be implemented when routes exist)
+- Profile screen matches ui-mocks/profile.html structure exactly
+- Avatar image loads from pravatar.cc, settings icon navigates to settings (placeholder)
+- Tab switching works between Collection, First Takes, and Lists
+- Collection grid shows 9 movies in 3-column layout matching HTML mock
