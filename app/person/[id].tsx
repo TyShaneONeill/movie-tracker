@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   statText: {
-    fontSize: 14,
+    ...Typography.body.sm,
   },
   section: {
     paddingHorizontal: Spacing.md,
@@ -315,12 +315,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   biographyText: {
-    fontSize: 14,
-    lineHeight: 22.4, // 1.6 line-height
+    ...Typography.body.sm,
+    lineHeight: 22.4, // 1.6 line-height from HTML mock
     marginBottom: Spacing.lg,
   },
   readMore: {
-    fontSize: 14,
+    ...Typography.body.sm,
     fontWeight: '600',
   },
   knownForScroll: {
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   knownForTitle: {
-    fontSize: 14,
+    ...Typography.body.sm,
     fontWeight: '600',
   },
   filmographyItem: {
@@ -357,13 +357,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filmTitle: {
+    ...Typography.body.base,
     fontWeight: '600',
     marginBottom: 2,
   },
   filmCharacter: {
-    fontSize: 14,
+    ...Typography.body.sm,
   },
   filmYear: {
-    fontSize: 14,
+    ...Typography.body.sm,
   },
 });

@@ -41,8 +41,8 @@ IN_PROGRESS
 - [x] Create app/(tabs)/analytics.tsx
 
 ### Phase 4: Detail Screens
-- [ ] Create app/movie/[id].tsx
-- [ ] Create app/person/[id].tsx
+- [x] Create app/movie/[id].tsx
+- [x] Create app/person/[id].tsx
 - [ ] Create app/search.tsx
 - [ ] Create app/lists.tsx
 - [ ] Create app/settings.tsx
@@ -266,6 +266,32 @@ IN_PROGRESS
 
 ## Completed This Iteration
 
+Task: Update app/person/[id].tsx with Typography constants
+- Verified file already existed with complete person detail implementation
+- Updated to use Typography constants instead of hardcoded font sizes:
+  - Stat bubble text: Typography.body.sm (14px)
+  - Biography text: Typography.body.sm (14px, 1.6 line-height)
+  - Read more link: Typography.body.sm (14px, weight 600)
+  - Known For titles: Typography.body.sm (14px, weight 600)
+  - Film titles: Typography.body.base (16px, weight 600)
+  - Film character/year: Typography.body.sm (14px)
+- Implementation matches ui-mocks/person_detail.html structure exactly:
+  - Centered avatar (120px) with gradient background effect
+  - Name (Typography.display.h2), role, age
+  - Stats bubbles (Credits count, Avg Rating)
+  - Biography with "Read more" truncation toggle
+  - Known For horizontal scroll (140x210px posters)
+  - Full filmography list with poster, title, character, year
+- Header buttons: back and share (glassmorphism blur)
+- Bottom padding (90px) for floating nav bar clearance
+- Uses mock data for Timothée Chalamet (Dune, Wonka, etc.)
+- All styling uses theme constants (Colors, Spacing, BorderRadius, Typography)
+- Passes ESLint with only acceptable warning (unused params for future use)
+- Build test successful (web export completed, route included)
+
+## Previous Iterations
+
+### Iteration 15
 Task: Create app/(tabs)/analytics.tsx
 - Verified file already existed with basic implementation
 - Updated to use Typography constants instead of hardcoded font sizes:
