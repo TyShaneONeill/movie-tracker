@@ -100,7 +100,7 @@ export function FeedItemCard({
   style,
 }: FeedItemCardProps) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme];
+  const colors = Colors[colorScheme ?? 'dark'];
 
   // Generate star display (filled + empty stars)
   const renderStars = () => {
@@ -155,7 +155,7 @@ export function FeedItemCard({
             style={[
               styles.userName,
               Typography.body.base,
-              { color: colors.textPrimary },
+              { color: colors.text },
             ]}
           >
             {userName}
@@ -191,7 +191,7 @@ export function FeedItemCard({
             style={[
               styles.movieTitle,
               Typography.body.base,
-              { color: colors.textPrimary },
+              { color: colors.text },
             ]}
             numberOfLines={2}
           >

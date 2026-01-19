@@ -117,7 +117,7 @@ export function CreateListModal({
         >
           {/* Header with close button */}
           <View style={styles.header}>
-            <Text style={[Typography.heading.lg, { color: colors.text }]}>
+            <Text style={[Typography.display.h4, { color: colors.text }]}>
               Create New List
             </Text>
             <Pressable

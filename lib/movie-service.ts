@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { SearchMoviesResponse, TMDBMovie, SearchType } from './tmdb.types';
-import type { UserMovie, UserMovieInsert, MovieStatus } from './database.types';
+import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus } from './database.types';
 
 // Search movies (title or actor)
 export async function searchMovies(
@@ -69,11 +69,11 @@ export async function addMovieToLibrary(
     genre_ids: movie.genre_ids || [],
   };
 
-  const { data, error } = await supabase
-    .from('user_movies')
+  const { data, error } = (await (supabase
+    .from('user_movies') as any)
     .insert(insertData)
     .select()
-    .single();
+    .single()) as { data: UserMovie; error: any };
 
   if (error) {
     // Check for unique constraint violation
@@ -91,12 +91,14 @@ export async function updateMovieStatus(
   movieId: string,
   status: MovieStatus
 ): Promise<UserMovie> {
-  const { data, error } = await supabase
-    .from('user_movies')
-    .update({ status })
+  const updateData: UserMovieUpdate = { status };
+
+  const { data, error } = (await (supabase
+    .from('user_movies') as any)
+    .update(updateData)
     .eq('id', movieId)
     .select()
-    .single();
+    .single()) as { data: UserMovie; error: any };
 
   if (error) {
     throw new Error(error.message || 'Failed to update movie');
