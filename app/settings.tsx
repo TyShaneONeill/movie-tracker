@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { default as ToggleSwitch } from '@/components/ui/toggle-switch';
+import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import Svg, { Path, Polyline } from 'react-native-svg';
 
 function ChevronLeftIcon() {
@@ -25,7 +25,7 @@ function ChevronRightIcon({ color }: { color: string }) {
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme];
+  const colors = Colors[colorScheme ?? 'dark'];
 
   const [darkMode, setDarkMode] = React.useState(true);
   const [notifications, setNotifications] = React.useState(true);
