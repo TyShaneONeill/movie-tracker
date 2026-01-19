@@ -45,7 +45,7 @@ IN_PROGRESS
 - [x] Create app/person/[id].tsx
 - [x] Create app/search.tsx
 - [x] Create app/lists.tsx
-- [ ] Create app/settings.tsx
+- [x] Create app/settings.tsx
 
 ### Phase 5: Modals
 - [ ] Create components/modals/review-modal.tsx
@@ -265,6 +265,34 @@ IN_PROGRESS
   - Passes TypeScript strict type checking
 
 ## Completed This Iteration
+
+Task: Create app/settings.tsx
+- Created settings screen matching ui-mocks/settings.html structure exactly
+  - Header with back button (chevron left) + "Settings" title using Typography.display.h4
+  - Grouped settings sections with uppercase section headers (ACCOUNT, APP PREFERENCES, INTEGRATIONS)
+  - Account section: 3 navigation items (Edit Profile, Change Password, Privacy with "Friends only" subtitle)
+  - Each navigation item has chevron right icon and press feedback (backgroundSecondary on press)
+  - App Preferences section: Toggle switches for Dark Mode (active) and Notifications (active)
+  - Uses ToggleSwitch component with emerald active color matching ui-mocks
+  - Integrations section: 2 integration status rows (Letterboxd, Trakt)
+  - Letterboxd shows 24x24px icon from ltrbxd.com with "Connected" status in emerald color
+  - Trakt shows custom 24x24px red "T" icon with "Connect" status in textSecondary color
+  - Logout button with destructive red styling (#ff4444 text, rgba red border)
+  - App version at bottom: "Version 1.0.0 (Alpha)" in textSecondary color
+  - Bottom padding (100px) for floating nav bar clearance
+  - All navigation handlers are placeholders (router.back for back button)
+  - First/last item in each section have proper border radius (md = 16px)
+  - Border between items: rgba(255, 255, 255, 0.05) matching styles.css
+  - All colors from theme constants (background, card, text, textSecondary, accentSecondary)
+  - Uses Typography constants throughout (display.h4, body.base, body.sm)
+  - Themed using useColorScheme hook for light/dark mode support
+  - Matches ui-mocks/settings.html lines 84-180 structure exactly
+  - Fixed import warnings by combining theme imports and using explicit default import for ToggleSwitch
+  - Passes ESLint with zero errors/warnings
+  - Build test successful (web export completed, /settings route included in static routes)
+- Phase 4 (Detail Screens) is now complete
+
+## Previous Iteration
 
 Task: Create app/lists.tsx
 - Created lib/mock-data/lists.ts with USER_LISTS and LIKED_LISTS arrays
