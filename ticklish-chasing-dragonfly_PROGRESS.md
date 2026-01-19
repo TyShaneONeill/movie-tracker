@@ -44,7 +44,7 @@ IN_PROGRESS
 - [x] Create app/movie/[id].tsx
 - [x] Create app/person/[id].tsx
 - [x] Create app/search.tsx
-- [ ] Create app/lists.tsx
+- [x] Create app/lists.tsx
 - [ ] Create app/settings.tsx
 
 ### Phase 5: Modals
@@ -55,7 +55,7 @@ IN_PROGRESS
 ### Phase 6: Mock Data
 - [x] Create lib/mock-data/movies.ts
 - [x] Create lib/mock-data/users.ts
-- [ ] Create lib/mock-data/lists.ts
+- [x] Create lib/mock-data/lists.ts
 - [ ] Create lib/mock-data/notifications.ts
 
 ## Tasks Completed
@@ -265,6 +265,31 @@ IN_PROGRESS
   - Passes TypeScript strict type checking
 
 ## Completed This Iteration
+
+Task: Create app/lists.tsx
+- Created lib/mock-data/lists.ts with USER_LISTS and LIKED_LISTS arrays
+  - MockList interface with id, title, movieCount, posterUrls, user fields
+  - USER_LISTS: 3 lists (Sci-Fi Masterpieces with 12 movies, Oscars 2024 with 8 movies, Comfort Movies with 5 movies)
+  - LIKED_LISTS: 1 list (Best of 2023 with user attribution to Sarah Jenkins)
+  - Uses TMDB poster URLs matching ui-mocks/lists.html structure
+- Created app/lists.tsx matching ui-mocks/lists.html structure exactly
+  - Header with back button (chevron left) and add button (plus icon)
+  - Title "My Lists" using Typography.display.h4
+  - 2-column grid layout (48% width each) with gap of Spacing.md (16px)
+  - Create List card: dashed border, backgroundSecondary, centered plus icon in circle, "Create List" text
+  - User lists rendered with ListCard component (already existed from Phase 1)
+  - Section header "Liked Lists" with top border separator
+  - Liked lists show user attribution (avatar + name) instead of movie count
+  - Navigation handlers: back button, create list (placeholder), list press (placeholder)
+  - Bottom padding (90px) for floating nav bar clearance
+  - SVG icons: ChevronLeftIcon and PlusIcon matching HTML mock
+  - Themed using useColorScheme hook for light/dark mode support
+  - All colors from theme constants (background, card, border, text, textSecondary)
+  - Matches ui-mocks/lists.html lines 85-182 structure exactly
+  - Passes ESLint with zero errors/warnings
+  - Build test successful (web export completed, /lists route included)
+
+## Previous Iteration
 
 Task: Create app/search.tsx
 - Created new search screen matching ui-mocks/search.html structure exactly
