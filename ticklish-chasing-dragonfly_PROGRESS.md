@@ -43,7 +43,7 @@ IN_PROGRESS
 ### Phase 4: Detail Screens
 - [x] Create app/movie/[id].tsx
 - [x] Create app/person/[id].tsx
-- [ ] Create app/search.tsx
+- [x] Create app/search.tsx
 - [ ] Create app/lists.tsx
 - [ ] Create app/settings.tsx
 
@@ -265,6 +265,44 @@ IN_PROGRESS
   - Passes TypeScript strict type checking
 
 ## Completed This Iteration
+
+Task: Create app/search.tsx
+- Created new search screen matching ui-mocks/search.html structure exactly
+- Sticky header with back button and search input bar
+  - Back button with chevron left icon
+  - Search input with search icon positioned at left (48px padding)
+  - Input uses BorderRadius.md (16px) rounded corners
+  - Placeholder: "Movies, people, lists..."
+  - Auto-focus enabled for immediate typing
+- Category filter chips horizontal scroll (Top Results, Movies, People, Lists, Users)
+  - Uses Tag component with active state support
+  - Active category highlighted with Rose 600 accent
+  - Horizontal scroll with gap of Spacing.sm (8px)
+- Recent searches section with "RECENT" title and "Clear" button
+  - Two recent items: Christopher Nolan (person) and Dune: Part Two (movie)
+  - Person items show clock icon in circular container
+  - Movie items show 40x60px poster thumbnail
+  - Each item has title, subtitle, and remove (X) button
+  - Press feedback changes background to backgroundSecondary
+- Browse by Genre 2-column grid (48% width each)
+  - 4 genre cards: Sci-Fi, Action, Animation, Drama
+  - Each card: 100px height, rounded corners (BorderRadius.md)
+  - Background image with LinearGradient overlay (Rose to dark)
+  - Genre name centered with bold 18px text, white color, text shadow
+  - Press feedback with 0.8 opacity
+- Navigation handlers:
+  - Back button navigates to home (router.back or replace tabs)
+  - Recent search items navigate to person/movie detail routes
+  - Genre cards navigate to genre results (placeholder)
+- Bottom padding (90px) for floating nav bar clearance
+- Uses Typography constants throughout (body.base, body.sm, body.lg)
+- Themed using useColorScheme hook for light/dark mode support
+- All colors from theme constants (background, card, text, textSecondary, tint)
+- Matches ui-mocks/search.html lines 152-246 structure exactly
+- Passes ESLint with zero errors/warnings
+- Build test successful (web export completed, /search route included)
+
+## Previous Iteration
 
 Task: Update app/person/[id].tsx with Typography constants
 - Verified file already existed with complete person detail implementation
