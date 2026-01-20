@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { StyleSheet, View, Image, Pressable, FlatList, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useUserMovies } from '@/hooks/use-user-movies';
 import { MOCK_USER } from '@/lib/mock-data/users';
-import { COLLECTION_MOVIES } from '@/lib/mock-data/movies';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import type { UserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'lists';
 
@@ -20,27 +24,88 @@ export default function ProfileScreen() {
     const theme = colorScheme === 'dark' ? 'dark' : 'light';
     const colors = Colors[theme];
 
-    const renderCollectionItem = ({ item }: { item: typeof COLLECTION_MOVIES[0] }) => (
+    // Fetch watched movies for collection
+    const {
+        movies: watchedMovies,
+        isLoading,
+        isError,
+        isRefetching,
+        refetch,
+    } = useUserMovies('watched');
+
+    const renderCollectionItem = ({ item }: { item: UserMovie }) => (
         <CollectionGridCard
-            posterUrl={item.posterPath}
-            onPress={() => {
-                // Navigate to movie detail when route exists
-                console.log('Navigate to movie:', item.id);
-            }}
+            posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') : ''}
+            onPress={() => router.push(`/movie/${item.tmdb_id}`)}
         />
+    );
+
+    const renderEmptyCollection = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="film-outline" size={48} color={colors.textSecondary} />
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                No movies yet
+            </ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Movies you mark as watched will appear here
+            </ThemedText>
+        </View>
+    );
+
+    const renderLoadingSkeleton = () => (
+        <View style={styles.skeletonGrid}>
+            {Array.from({ length: 9 }).map((_, index) => (
+                <View
+                    key={index}
+                    style={[styles.skeletonCard, { backgroundColor: colors.card }]}
+                />
+            ))}
+        </View>
+    );
+
+    const renderErrorState = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={colors.tint} />
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                Something went wrong
+            </ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                We could not load your collection
+            </ThemedText>
+            <Pressable
+                style={[styles.retryButton, { backgroundColor: colors.tint }]}
+                onPress={() => refetch()}
+            >
+                <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
+            </Pressable>
+        </View>
     );
 
     const renderTabContent = () => {
         if (activeTab === 'collection') {
+            if (isLoading) {
+                return renderLoadingSkeleton();
+            }
+
+            if (isError) {
+                return renderErrorState();
+            }
+
+            if (!watchedMovies?.length) {
+                return renderEmptyCollection();
+            }
+
             return (
                 <FlatList
-                    data={COLLECTION_MOVIES}
+                    data={watchedMovies}
                     renderItem={renderCollectionItem}
-                    keyExtractor={item => item.id.toString()}
+                    keyExtractor={item => item.id}
                     numColumns={3}
                     columnWrapperStyle={styles.collectionRow}
                     contentContainerStyle={[styles.collectionGrid, { paddingBottom: 100 }]}
                     showsVerticalScrollIndicator={false}
+                    onRefresh={refetch}
+                    refreshing={isRefetching}
                 />
             );
         } else if (activeTab === 'first-takes') {
@@ -92,10 +157,7 @@ export default function ProfileScreen() {
             {/* Settings Icon */}
             <View style={styles.settingsContainer}>
                 <Pressable
-                    onPress={() => {
-                        console.log('Navigate to settings');
-                        // router.push('/settings');
-                    }}
+                    onPress={() => router.push('/settings')}
                     style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
                 >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -322,5 +384,41 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontStyle: 'italic',
         lineHeight: 20,
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: Spacing.xxl,
+        gap: Spacing.sm,
+    },
+    emptyTitle: {
+        ...Typography.display.h4,
+        marginTop: Spacing.md,
+    },
+    emptySubtitle: {
+        ...Typography.body.sm,
+        textAlign: 'center',
+        paddingHorizontal: Spacing.xl,
+    },
+    skeletonGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+    },
+    skeletonCard: {
+        width: '31%',
+        aspectRatio: 2 / 3,
+        borderRadius: BorderRadius.sm,
+    },
+    retryButton: {
+        marginTop: Spacing.md,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.sm,
+    },
+    retryButtonText: {
+        ...Typography.button,
+        color: '#fff',
     },
 });
