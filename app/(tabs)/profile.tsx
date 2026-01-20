@@ -8,11 +8,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
+import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useUserMovies } from '@/hooks/use-user-movies';
 import { useUserLists } from '@/hooks/use-user-lists';
+import { useFirstTakes } from '@/hooks/use-first-takes';
 import { MOCK_USER } from '@/lib/mock-data/users';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie } from '@/lib/database.types';
@@ -42,6 +44,14 @@ export default function ProfileScreen() {
         isError: listsError,
         refetch: refetchLists,
     } = useUserLists();
+
+    // Fetch user's first takes
+    const {
+        data: firstTakes,
+        isLoading: takesLoading,
+        isError: takesError,
+        refetch: refetchTakes,
+    } = useFirstTakes();
 
     const renderCollectionItem = ({ item }: { item: UserMovie }) => (
         <CollectionGridCard
@@ -133,6 +143,48 @@ export default function ProfileScreen() {
         </View>
     );
 
+    // First Takes tab render functions
+    const renderFirstTakesEmpty = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textSecondary} />
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                No first takes yet
+            </ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Share your thoughts right after watching a movie
+            </ThemedText>
+        </View>
+    );
+
+    const renderFirstTakesSkeleton = () => (
+        <View style={styles.firstTakesSkeleton}>
+            {Array.from({ length: 3 }).map((_, index) => (
+                <View
+                    key={index}
+                    style={[styles.firstTakeSkeletonCard, { backgroundColor: colors.card }]}
+                />
+            ))}
+        </View>
+    );
+
+    const renderFirstTakesError = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={colors.tint} />
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                Something went wrong
+            </ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                We could not load your first takes
+            </ThemedText>
+            <Pressable
+                style={[styles.retryButton, { backgroundColor: colors.tint }]}
+                onPress={() => refetchTakes()}
+            >
+                <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
+            </Pressable>
+        </View>
+    );
+
     const renderTabContent = () => {
         if (activeTab === 'collection') {
             if (isLoading) {
@@ -161,32 +213,41 @@ export default function ProfileScreen() {
                 />
             );
         } else if (activeTab === 'first-takes') {
+            if (takesLoading) {
+                return renderFirstTakesSkeleton();
+            }
+
+            if (takesError) {
+                return renderFirstTakesError();
+            }
+
+            if (!firstTakes?.length) {
+                return renderFirstTakesEmpty();
+            }
+
             return (
                 <ScrollView
-                    contentContainerStyle={{ paddingBottom: 100 }}
+                    contentContainerStyle={styles.firstTakesContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    <ThemedText style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                        LATEST SNAPSHOT
-                    </ThemedText>
-                    <View style={[styles.firstTakeCard, { backgroundColor: colors.card, borderLeftColor: colors.gold }]}>
-                        <View style={styles.firstTakeHeader}>
-                            <View style={styles.firstTakeInfo}>
-                                <Image
-                                    source={{ uri: 'https://image.tmdb.org/t/p/w200/pxv61t1jh2BwkgqZ68t7r6v8q.jpg' }}
-                                    style={styles.firstTakePoster}
-                                />
-                                <View>
-                                    <ThemedText style={styles.firstTakeTitle}>Zootopia 2</ThemedText>
-                                    <ThemedText style={[styles.firstTakeTime, { color: colors.textSecondary }]}>Just now</ThemedText>
-                                </View>
-                            </View>
-                            <ThemedText style={styles.firstTakeEmoji}>🔥</ThemedText>
+                    {firstTakes.map((take, index) => (
+                        <View key={take.id}>
+                            {index === 0 && (
+                                <ThemedText style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+                                    LATEST SNAPSHOT
+                                </ThemedText>
+                            )}
+                            <FirstTakeCard
+                                movieTitle={take.movie_title}
+                                posterPath={take.poster_path}
+                                emoji={take.reaction_emoji}
+                                quote={take.quote_text}
+                                createdAt={take.created_at}
+                                isLatest={index === 0}
+                                onPress={() => router.push(`/movie/${take.tmdb_id}`)}
+                            />
                         </View>
-                        <ThemedText style={[styles.firstTakeQuote, { color: colors.text }]}>
-                            &ldquo;Wait... did they just reference The Godfather again? I&rsquo;m dying. This is better than the first one!&rdquo;
-                        </ThemedText>
-                    </View>
+                    ))}
                 </ScrollView>
             );
         } else {
@@ -508,6 +569,17 @@ const styles = StyleSheet.create({
     },
     listSkeletonCard: {
         height: 200,
+        borderRadius: BorderRadius.md,
+    },
+    // First Takes tab styles
+    firstTakesContent: {
+        paddingBottom: 100,
+    },
+    firstTakesSkeleton: {
+        gap: Spacing.md,
+    },
+    firstTakeSkeletonCard: {
+        height: 120,
         borderRadius: BorderRadius.md,
     },
 });

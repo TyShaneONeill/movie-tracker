@@ -9,8 +9,8 @@ Execute these PRDs in order (dependencies flow downward):
 | # | PRD | Complexity | Status |
 |---|-----|------------|--------|
 | 1 | [Collection Grid](./001-collection-grid.md) | Easy | ✅ Complete |
-| 2 | [Lists View](./002-lists-view.md) | Medium | Pending |
-| 3 | [First Takes](./003-first-takes.md) | Complex | Pending |
+| 2 | [Lists View](./002-lists-view.md) | Medium | ✅ Complete |
+| 3 | [First Takes](./003-first-takes.md) | Complex | ✅ Complete |
 
 ## How to Execute with Ralph Loop
 

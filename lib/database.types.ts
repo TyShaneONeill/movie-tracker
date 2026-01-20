@@ -160,6 +160,44 @@ export interface Database {
           added_at?: string;
         };
       };
+      first_takes: {
+        Row: {
+          id: string;
+          user_id: string;
+          tmdb_id: number;
+          movie_title: string;
+          poster_path: string | null;
+          reaction_emoji: string;
+          quote_text: string;
+          is_spoiler: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tmdb_id: number;
+          movie_title: string;
+          poster_path?: string | null;
+          reaction_emoji?: string;
+          quote_text: string;
+          is_spoiler?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tmdb_id?: number;
+          movie_title?: string;
+          poster_path?: string | null;
+          reaction_emoji?: string;
+          quote_text?: string;
+          is_spoiler?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -191,3 +229,8 @@ export interface UserListWithMovies extends UserList {
   movies: ListMovie[];
   movie_count: number;
 }
+
+// Helper types for first takes
+export type FirstTake = Database['public']['Tables']['first_takes']['Row'];
+export type FirstTakeInsert = Database['public']['Tables']['first_takes']['Insert'];
+export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Update'];
