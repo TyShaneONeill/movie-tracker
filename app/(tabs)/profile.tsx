@@ -7,10 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
+import { ListCard } from '@/components/cards/list-card';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useUserMovies } from '@/hooks/use-user-movies';
+import { useUserLists } from '@/hooks/use-user-lists';
 import { MOCK_USER } from '@/lib/mock-data/users';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie } from '@/lib/database.types';
@@ -32,6 +34,14 @@ export default function ProfileScreen() {
         isRefetching,
         refetch,
     } = useUserMovies('watched');
+
+    // Fetch user's lists
+    const {
+        data: userLists,
+        isLoading: listsLoading,
+        isError: listsError,
+        refetch: refetchLists,
+    } = useUserLists();
 
     const renderCollectionItem = ({ item }: { item: UserMovie }) => (
         <CollectionGridCard
@@ -75,6 +85,48 @@ export default function ProfileScreen() {
             <Pressable
                 style={[styles.retryButton, { backgroundColor: colors.tint }]}
                 onPress={() => refetch()}
+            >
+                <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
+            </Pressable>
+        </View>
+    );
+
+    // Lists tab render functions
+    const renderListsEmpty = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="albums-outline" size={48} color={colors.textSecondary} />
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                No lists yet
+            </ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Create your first list to organize your movies
+            </ThemedText>
+        </View>
+    );
+
+    const renderListsSkeleton = () => (
+        <View style={styles.listsSkeleton}>
+            {Array.from({ length: 3 }).map((_, index) => (
+                <View
+                    key={index}
+                    style={[styles.listSkeletonCard, { backgroundColor: colors.card }]}
+                />
+            ))}
+        </View>
+    );
+
+    const renderListsError = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={colors.tint} />
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                Something went wrong
+            </ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                We could not load your lists
+            </ThemedText>
+            <Pressable
+                style={[styles.retryButton, { backgroundColor: colors.tint }]}
+                onPress={() => refetchLists()}
             >
                 <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
             </Pressable>
@@ -138,15 +190,37 @@ export default function ProfileScreen() {
                 </ScrollView>
             );
         } else {
-            // Lists tab - placeholder for now
+            // Lists tab
+            if (listsLoading) {
+                return renderListsSkeleton();
+            }
+
+            if (listsError) {
+                return renderListsError();
+            }
+
+            if (!userLists?.length) {
+                return renderListsEmpty();
+            }
+
             return (
                 <ScrollView
-                    contentContainerStyle={{ paddingBottom: 100 }}
+                    contentContainerStyle={styles.listsContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    <ThemedText style={{ textAlign: 'center', marginTop: 40, color: colors.textSecondary }}>
-                        Lists coming soon...
-                    </ThemedText>
+                    {userLists.map((list) => (
+                        <ListCard
+                            key={list.id}
+                            title={list.name}
+                            description={list.description}
+                            movieCount={list.movie_count}
+                            posterUrls={list.movies.map(m =>
+                                m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') : ''
+                            )}
+                            onPress={() => router.push(`/list/${list.id}`)}
+                            style={styles.listCard}
+                        />
+                    ))}
                 </ScrollView>
             );
         }
@@ -420,5 +494,20 @@ const styles = StyleSheet.create({
     retryButtonText: {
         ...Typography.button,
         color: '#fff',
+    },
+    // Lists tab styles
+    listsContent: {
+        paddingBottom: 100,
+        gap: Spacing.md,
+    },
+    listCard: {
+        marginBottom: 0,
+    },
+    listsSkeleton: {
+        gap: Spacing.md,
+    },
+    listSkeletonCard: {
+        height: 200,
+        borderRadius: BorderRadius.md,
     },
 });

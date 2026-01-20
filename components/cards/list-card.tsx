@@ -17,6 +17,11 @@ interface ListCardProps {
   title: string;
 
   /**
+   * Optional list description (max 2 lines)
+   */
+  description?: string | null;
+
+  /**
    * Number of movies in the list
    */
   movieCount: number;
@@ -77,6 +82,7 @@ interface ListCardProps {
  */
 export function ListCard({
   title,
+  description,
   movieCount,
   posterUrls,
   user,
@@ -133,6 +139,16 @@ export function ListCard({
           {title}
         </Text>
 
+        {description && (
+          <Text
+            style={[styles.listDescription, { color: colors.textSecondary }]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {description}
+          </Text>
+        )}
+
         {user ? (
           // Liked list - show user attribution
           <View style={styles.userInfo}>
@@ -181,6 +197,11 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
     marginBottom: 2,
+  },
+  listDescription: {
+    fontSize: FontSizes.xs,
+    marginBottom: 4,
+    lineHeight: 16,
   },
   movieCount: {
     fontSize: FontSizes.sm,
