@@ -93,7 +93,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={[styles.title, Typography.display.brand]}>
-              CineTrack
+              CineTrak
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Discover & Track

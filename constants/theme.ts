@@ -1,5 +1,5 @@
 /**
- * CineTrack Design System
+ * CineTrak Design System
  * Color palette, spacing, and border radius constants matching ui-mocks/styles.css
  */
 

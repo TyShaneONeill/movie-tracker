@@ -1,5 +1,5 @@
 /**
- * CineTrack Typography System
+ * CineTrak Typography System
  * Font presets and text styles matching ui-mocks/styles.css
  *
  * Note: With expo-google-fonts, each weight is a separate font family.
