@@ -55,7 +55,8 @@ export default function SignInScreen() {
         return;
       }
 
-      router.replace('/(tabs)');
+      // Navigation is handled automatically by useProtectedRoute in _layout.tsx
+      // which will check onboarding status and redirect appropriately
     } catch {
       setError('An unexpected error occurred');
     } finally {
@@ -82,8 +83,8 @@ export default function SignInScreen() {
       } else if (provider === 'google') {
         await signInWithGoogle();
       }
-      // Navigate after successful sign-in
-      router.replace('/(tabs)');
+      // Navigation is handled automatically by useProtectedRoute in _layout.tsx
+      // which will check onboarding status and redirect appropriately
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed';
       // Don't show error for user cancellation

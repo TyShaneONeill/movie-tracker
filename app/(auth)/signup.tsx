@@ -9,7 +9,7 @@ import {
   View,
   ScrollView,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
@@ -65,7 +65,8 @@ export default function SignUpScreen() {
         return;
       }
 
-      router.replace('/(tabs)');
+      // Navigation is handled automatically by useProtectedRoute in _layout.tsx
+      // which will check onboarding status and redirect appropriately
     } catch {
       setError('An unexpected error occurred');
     } finally {
@@ -92,7 +93,8 @@ export default function SignUpScreen() {
       } else if (provider === 'google') {
         await signInWithGoogle();
       }
-      router.replace('/(tabs)');
+      // Navigation is handled automatically by useProtectedRoute in _layout.tsx
+      // which will check onboarding status and redirect appropriately
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed';
       // Don't show error for user cancellation
