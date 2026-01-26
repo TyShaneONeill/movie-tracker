@@ -59,6 +59,7 @@ interface AuthContextType {
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -224,6 +225,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteAccount = async (): Promise<{ error: Error | null }> => {
+    try {
+      // Get the current session for the authorization header
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      if (!currentSession?.access_token) {
+        return { error: new Error('No active session') };
+      }
+
+      // Call the delete-account Edge Function
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        method: 'POST',
+      });
+
+      if (error) {
+        console.error('Delete account error:', error.message);
+        return { error: error as Error };
+      }
+
+      if (data?.error) {
+        return { error: new Error(data.error) };
+      }
+
+      // Clear all cached queries
+      queryClient.clear();
+
+      // Clear the session and user state
+      setSession(null);
+      setUser(null);
+
+      return { error: null };
+    } catch (error) {
+      console.error('Delete account failed:', error);
+      return { error: error as Error };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -236,7 +274,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         updatePassword,
         signInWithApple,
-        signInWithGoogle
+        signInWithGoogle,
+        deleteAccount,
       }}
     >
       {children}

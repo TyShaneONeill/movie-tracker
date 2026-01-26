@@ -126,8 +126,7 @@ export default function SettingsScreen() {
           <View
             style={[
               styles.settingsItem,
-              styles.lastItem,
-              { backgroundColor: colors.card, opacity: 0.5 }
+              { backgroundColor: colors.card, borderBottomColor: colors.border, opacity: 0.5 }
             ]}
           >
             <View>
@@ -138,6 +137,21 @@ export default function SettingsScreen() {
               <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
             </View>
           </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => router.push('/settings/delete-account')}
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: '#ff4444', fontWeight: '600' }]}>Delete Account</Text>
+            </View>
+            <ChevronRightIcon color="#ff4444" />
+          </Pressable>
         </View>
 
         {/* App Preferences Section */}
