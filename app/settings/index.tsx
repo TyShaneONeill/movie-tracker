@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
+import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import Svg, { Path, Polyline } from 'react-native-svg';
 
-function ChevronLeftIcon() {
+function ChevronLeftIcon({ color }: { color: string }) {
   return (
-    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
       <Path d="M19 12H5M12 19l-7-7 7-7" />
     </Svg>
   );
@@ -24,11 +26,58 @@ function ChevronRightIcon({ color }: { color: string }) {
 }
 
 export default function SettingsScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme, themePreference, setThemePreference } = useTheme();
+  const colors = Colors[effectiveTheme];
+  const { signOut } = useAuth();
+  const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
 
-  const [darkMode, setDarkMode] = React.useState(true);
   const [notifications, setNotifications] = React.useState(true);
+
+  const handleThemeToggle = async (isDarkMode: boolean) => {
+    // When toggle is ON = dark mode, when OFF = light mode
+    // We don't use 'system' from the toggle - it's a simple on/off
+    await setThemePreference(isDarkMode ? 'dark' : 'light');
+  };
+
+  const handleFirstTakePromptToggle = async (value: boolean) => {
+    try {
+      await updatePreference('firstTakePromptEnabled', value);
+    } catch (error) {
+      console.error('Failed to update first take prompt preference:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    const doLogout = async () => {
+      try {
+        await signOut();
+        router.replace('/(auth)/signin');
+      } catch (error) {
+        console.error('Logout failed:', error);
+        router.replace('/(auth)/signin');
+      }
+    };
+
+    // Alert.alert doesn't work on web, use window.confirm instead
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        await doLogout();
+      }
+    } else {
+      Alert.alert(
+        'Log Out',
+        'Are you sure you want to log out?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Log Out',
+            style: 'destructive',
+            onPress: doLogout,
+          },
+        ]
+      );
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -36,7 +85,7 @@ export default function SettingsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-            <ChevronLeftIcon />
+            <ChevronLeftIcon color={colors.text} />
           </Pressable>
           <Text style={[Typography.display.h4, { color: colors.text }]}>Settings</Text>
         </View>
@@ -49,12 +98,10 @@ export default function SettingsScreen() {
             style={({ pressed }) => [
               styles.settingsItem,
               styles.firstItem,
-              { backgroundColor: colors.card, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
-            onPress={() => {
-              // Navigate to edit profile
-            }}
+            onPress={() => router.push('/settings/edit-profile')}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Edit Profile</Text>
@@ -65,12 +112,10 @@ export default function SettingsScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.settingsItem,
-              { backgroundColor: colors.card, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
-            onPress={() => {
-              // Navigate to change password
-            }}
+            onPress={() => router.push('/settings/change-password')}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Change Password</Text>
@@ -78,23 +123,21 @@ export default function SettingsScreen() {
             <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [
+          <View
+            style={[
               styles.settingsItem,
               styles.lastItem,
-              { backgroundColor: colors.card },
-              pressed && { backgroundColor: colors.backgroundSecondary }
+              { backgroundColor: colors.card, opacity: 0.5 }
             ]}
-            onPress={() => {
-              // Navigate to privacy settings
-            }}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy</Text>
               <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Friends only</Text>
             </View>
-            <ChevronRightIcon color={colors.textSecondary} />
-          </Pressable>
+            <View style={styles.comingSoonBadge}>
+              <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
+            </View>
+          </View>
         </View>
 
         {/* App Preferences Section */}
@@ -105,13 +148,28 @@ export default function SettingsScreen() {
             style={[
               styles.settingsItem,
               styles.firstItem,
-              { backgroundColor: colors.card, borderBottomColor: 'rgba(255, 255, 255, 0.05)' }
+              { backgroundColor: colors.card, borderBottomColor: colors.border }
             ]}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Dark Mode</Text>
             </View>
-            <ToggleSwitch value={darkMode} onValueChange={setDarkMode} />
+            <ToggleSwitch
+              value={themePreference === 'dark' || (themePreference === 'system' && effectiveTheme === 'dark')}
+              onValueChange={handleThemeToggle}
+            />
+          </View>
+
+          <View
+            style={[
+              styles.settingsItem,
+              { backgroundColor: colors.card, borderBottomColor: colors.border }
+            ]}
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Notifications</Text>
+            </View>
+            <ToggleSwitch value={notifications} onValueChange={setNotifications} />
           </View>
 
           <View
@@ -121,22 +179,32 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card }
             ]}
           >
-            <View>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Notifications</Text>
+            <View style={styles.settingsItemContent}>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Prompt for First Take</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Quick review after marking watched</Text>
             </View>
-            <ToggleSwitch value={notifications} onValueChange={setNotifications} />
+            <ToggleSwitch
+              value={preferences?.firstTakePromptEnabled ?? true}
+              onValueChange={handleFirstTakePromptToggle}
+              disabled={isLoadingPreferences || isUpdating}
+            />
           </View>
         </View>
 
         {/* Integrations Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>INTEGRATIONS</Text>
+        <View style={[styles.section, { opacity: 0.5 }]}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionHeader, { color: colors.textSecondary, marginBottom: 0 }]}>INTEGRATIONS</Text>
+            <View style={styles.comingSoonBadge}>
+              <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
+            </View>
+          </View>
 
           <View
             style={[
               styles.settingsItem,
               styles.firstItem,
-              { backgroundColor: colors.card, borderBottomColor: 'rgba(255, 255, 255, 0.05)' }
+              { backgroundColor: colors.card, borderBottomColor: colors.border }
             ]}
           >
             <View style={styles.integrationRow}>
@@ -146,7 +214,7 @@ export default function SettingsScreen() {
               />
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Letterboxd Import</Text>
             </View>
-            <Text style={[Typography.body.sm, { color: colors.accentSecondary, fontWeight: '600' }]}>Connected</Text>
+            <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>--</Text>
           </View>
 
           <View
@@ -162,7 +230,7 @@ export default function SettingsScreen() {
               </View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Trakt Sync</Text>
             </View>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Connect</Text>
+            <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>--</Text>
           </View>
         </View>
 
@@ -173,9 +241,7 @@ export default function SettingsScreen() {
             { borderColor: 'rgba(255, 68, 68, 0.2)' },
             pressed && { opacity: 0.7 }
           ]}
-          onPress={() => {
-            // Handle logout
-          }}
+          onPress={handleLogout}
         >
           <Text style={styles.logoutText}>Log Out</Text>
         </Pressable>
@@ -218,12 +284,29 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     paddingLeft: Spacing.sm,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+    paddingRight: Spacing.sm,
+  },
+  comingSoonBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
   settingsItem: {
     padding: Spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
+  },
+  settingsItemContent: {
+    flex: 1,
+    marginRight: Spacing.sm,
   },
   firstItem: {
     borderTopLeftRadius: BorderRadius.md,

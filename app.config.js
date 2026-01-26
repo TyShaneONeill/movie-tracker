@@ -10,6 +10,17 @@ export default {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.cinetrak.app",
+      usesAppleSignIn: true,
+      infoPlist: {
+        CFBundleURLTypes: [
+          {
+            CFBundleURLSchemes: [
+              "com.googleusercontent.apps.886034953782-jn8kerjnbnu38hoc100vh08p7cb5arah"
+            ]
+          }
+        ]
+      }
     },
     android: {
       adaptiveIcon: {
@@ -27,6 +38,8 @@ export default {
     },
     plugins: [
       "expo-router",
+      "expo-apple-authentication",
+      "@react-native-google-signin/google-signin",
       [
         "expo-splash-screen",
         {
@@ -40,6 +53,13 @@ export default {
         },
       ],
       "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "Allow $(PRODUCT_NAME) to access your photos to set a profile picture.",
+          cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to take a profile picture.",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,

@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Colors, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 interface StarRatingProps {
   /**
@@ -69,8 +69,8 @@ export function StarRating({
   disabled = false,
   style,
 }: StarRatingProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   const isInteractive = !!onRatingChange && !disabled;
   const normalizedRating = Math.max(0, Math.min(5, rating)); // Clamp between 0-5

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Colors, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 interface TagProps {
   /**
@@ -81,8 +81,8 @@ export function Tag({
   textStyle,
   disabled = false,
 }: TagProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   // Interactive tags use Pressable
   if (onPress) {

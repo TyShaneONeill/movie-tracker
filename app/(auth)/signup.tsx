@@ -7,21 +7,23 @@ import {
   KeyboardAvoidingView,
   Platform,
   View,
+  ScrollView,
 } from 'react-native';
 import { Link, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/hooks/use-auth';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
+import { Typography } from '@/constants/typography';
 
 export default function SignUpScreen() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const { signUp, signIn } = useAuth();
+  const { effectiveTheme } = useTheme();
+  const { signUp, signIn, signInWithApple, signInWithGoogle } = useAuth();
 
-  const theme = colorScheme === 'dark' ? 'dark' : 'light';
-  const colors = Colors[theme];
+  const colors = Colors[effectiveTheme];
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,106 +73,202 @@ export default function SignUpScreen() {
     }
   };
 
+  const handleOAuthSignIn = async (provider: 'google' | 'apple' | 'meta') => {
+    if (provider === 'meta') {
+      alert('Meta sign-in coming soon');
+      return;
+    }
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      if (provider === 'apple') {
+        if (Platform.OS !== 'ios') {
+          alert('Apple Sign-In is only available on iOS devices');
+          return;
+        }
+        await signInWithApple();
+      } else if (provider === 'google') {
+        await signInWithGoogle();
+      }
+      router.replace('/(tabs)');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Authentication failed';
+      // Don't show error for user cancellation
+      if (!message.includes('cancelled')) {
+        setError(message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Join Cinetrak</ThemedText>
-          <ThemedText style={styles.subtitle}>Start tracking your cinema journey</ThemedText>
-        </View>
-
-        {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.card,
-                  color: colors.text,
-                  borderColor: colors.border || '#333',
-                },
-              ]}
-              placeholder="Email"
-              placeholderTextColor={colors.icon}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isSubmitting}
-            />
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={styles.header}>
+            <ThemedText type="title" style={styles.title}>Join Cinetrak</ThemedText>
+            <ThemedText style={styles.subtitle}>Start tracking your cinema journey</ThemedText>
           </View>
 
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.card,
-                  color: colors.text,
-                  borderColor: colors.border || '#333',
-                },
+          {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
+
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    color: colors.text,
+                    borderColor: colors.border || '#333',
+                  },
+                ]}
+                placeholder="Email"
+                placeholderTextColor={colors.icon}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isSubmitting}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    color: colors.text,
+                    borderColor: colors.border || '#333',
+                  },
+                ]}
+                placeholder="Password"
+                placeholderTextColor={colors.icon}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!isSubmitting}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    color: colors.text,
+                    borderColor: colors.border || '#333',
+                  },
+                ]}
+                placeholder="Confirm Password"
+                placeholderTextColor={colors.icon}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                editable={!isSubmitting}
+              />
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
               ]}
-              placeholder="Password"
-              placeholderTextColor={colors.icon}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              editable={!isSubmitting}
-            />
-          </View>
+              onPress={handleSignUp}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <ThemedText style={styles.buttonText}>Create Account</ThemedText>
+              )}
+            </Pressable>
 
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.card,
-                  color: colors.text,
-                  borderColor: colors.border || '#333',
-                },
-              ]}
-              placeholder="Confirm Password"
-              placeholderTextColor={colors.icon}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              editable={!isSubmitting}
-            />
-          </View>
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <ThemedText style={[styles.dividerText, { color: colors.icon }]}>
+                or sign up with
+              </ThemedText>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
-            ]}
-            onPress={handleSignUp}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText style={styles.buttonText}>Create Account</ThemedText>
-            )}
-          </Pressable>
-
-          <View style={styles.signinContainer}>
-            <ThemedText style={{ color: colors.icon }}>Already have an account? </ThemedText>
-            <Link href="/(auth)/signin" asChild>
-              <Pressable>
-                <ThemedText type="link" style={{ color: colors.tint, fontWeight: '600' }}>
-                  Sign In
-                </ThemedText>
+            {/* OAuth Buttons */}
+            <View style={styles.oauthContainer}>
+              <Pressable
+                onPress={() => handleOAuthSignIn('google')}
+                style={({ pressed }) => [
+                  styles.socialButton,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+                disabled={isSubmitting}
+              >
+                <View style={styles.socialButtonContent}>
+                  <Ionicons name="logo-google" size={20} color="#DB4437" />
+                  <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                    Google
+                  </ThemedText>
+                </View>
               </Pressable>
-            </Link>
+
+              <Pressable
+                onPress={() => handleOAuthSignIn('apple')}
+                style={({ pressed }) => [
+                  styles.socialButton,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+                disabled={isSubmitting}
+              >
+                <View style={styles.socialButtonContent}>
+                  <Ionicons name="logo-apple" size={20} color={colors.text} />
+                  <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                    Apple
+                  </ThemedText>
+                </View>
+              </Pressable>
+
+              <Pressable
+                onPress={() => handleOAuthSignIn('meta')}
+                style={({ pressed }) => [
+                  styles.socialButton,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+                disabled={isSubmitting}
+              >
+                <View style={styles.socialButtonContent}>
+                  <Ionicons name="logo-facebook" size={20} color="#1877F2" />
+                  <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                    Meta
+                  </ThemedText>
+                </View>
+              </Pressable>
+            </View>
+
+            <View style={styles.signinContainer}>
+              <ThemedText style={{ color: colors.icon }}>Already have an account? </ThemedText>
+              <Link href="/(auth)/signin" asChild>
+                <Pressable>
+                  <ThemedText type="link" style={{ color: colors.tint, fontWeight: '600' }}>
+                    Sign In
+                  </ThemedText>
+                </Pressable>
+              </Link>
+            </View>
           </View>
-        </View>
-      </ThemedView>
+        </ThemedView>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -178,17 +276,18 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
     justifyContent: 'center',
+    paddingVertical: Spacing.xxl,
   },
   header: {
-    marginBottom: 48,
+    marginBottom: Spacing.xl,
     alignItems: 'center',
   },
   title: {
     fontSize: 32,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: Spacing.xs,
     letterSpacing: 0.5,
   },
   subtitle: {
@@ -199,22 +298,22 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: Spacing.md,
   },
   input: {
     height: 56,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
     fontSize: 16,
   },
   button: {
     height: 56,
-    borderRadius: 12,
+    borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -230,6 +329,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    ...Typography.body.sm,
+    marginHorizontal: Spacing.md,
+  },
+  oauthContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  socialButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  socialButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  socialButtonText: {
+    ...Typography.body.sm,
+    fontWeight: '600',
+  },
   signinContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -238,10 +374,10 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ef4444',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    padding: 12,
-    borderRadius: 8,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
     overflow: 'hidden',
   },
 });

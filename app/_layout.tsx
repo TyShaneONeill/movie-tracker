@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -15,13 +15,14 @@ import {
   Outfit_500Medium,
   Outfit_600SemiBold,
   Outfit_700Bold,
+  Outfit_800ExtraBold,
 } from '@expo-google-fonts/outfit';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { QueryProvider } from '@/lib/query-client';
+import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { Colors } from '@/constants/theme';
 
 // Keep the splash screen visible while we fetch resources
@@ -50,27 +51,32 @@ function useProtectedRoute() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme() ?? 'light';
+  const { effectiveTheme } = useTheme();
   const { isLoading } = useAuth();
   useProtectedRoute();
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: Colors[colorScheme].background }]}>
-        <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+      <View style={[styles.loadingContainer, { backgroundColor: Colors[effectiveTheme].background }]}>
+        <ActivityIndicator size="large" color={Colors[effectiveTheme].tint} />
       </View>
     );
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider value={effectiveTheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="search" options={{ headerShown: false }} />
+        <Stack.Screen name="category" options={{ headerShown: false }} />
+        <Stack.Screen name="movie" options={{ headerShown: false }} />
+        <Stack.Screen name="person" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+      <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
+    </NavigationThemeProvider>
   );
 }
 
@@ -84,6 +90,7 @@ export default function RootLayout() {
     Outfit_500Medium,
     Outfit_600SemiBold,
     Outfit_700Bold,
+    Outfit_800ExtraBold,
   });
 
   useEffect(() => {
@@ -99,7 +106,9 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
-        <RootLayoutNav />
+        <ThemeProvider>
+          <RootLayoutNav />
+        </ThemeProvider>
       </AuthProvider>
     </QueryProvider>
   );

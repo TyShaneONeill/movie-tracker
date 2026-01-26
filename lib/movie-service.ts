@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
-import type { SearchMoviesResponse, TMDBMovie, SearchType } from './tmdb.types';
-import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus } from './database.types';
+import type { SearchMoviesResponse, TMDBMovie, SearchType, MovieDetailResponse, MovieListType, MovieListResponse } from './tmdb.types';
+import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus, UserMovieLike, UserMovieLikeInsert } from './database.types';
 
 // Search movies (title or actor)
 export async function searchMovies(
@@ -26,11 +26,58 @@ export async function searchMovies(
   return data;
 }
 
+// Get movie details by TMDB ID
+export async function getMovieDetails(
+  movieId: number
+): Promise<MovieDetailResponse> {
+  const { data, error } = await supabase.functions.invoke<MovieDetailResponse>(
+    'get-movie-details',
+    {
+      body: { movieId },
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch movie details');
+  }
+
+  if (!data) {
+    throw new Error('No data returned from movie details');
+  }
+
+  return data;
+}
+
+// Get movie list by type (trending, now_playing, upcoming)
+export async function getMovieList(
+  type: MovieListType,
+  page: number = 1
+): Promise<MovieListResponse> {
+  const { data, error } = await supabase.functions.invoke<MovieListResponse>(
+    'get-movie-lists',
+    {
+      body: { type, page },
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message || `Failed to fetch ${type} movies`);
+  }
+
+  if (!data) {
+    throw new Error('No data returned from movie list');
+  }
+
+  return data;
+}
+
 // Fetch user's movies
 export async function fetchUserMovies(
   userId: string,
   status?: MovieStatus
 ): Promise<UserMovie[]> {
+  console.log('[fetchUserMovies] Querying with userId:', userId, 'status:', status);
+
   let query = supabase
     .from('user_movies')
     .select('*')
@@ -42,6 +89,8 @@ export async function fetchUserMovies(
   }
 
   const { data, error } = await query;
+
+  console.log('[fetchUserMovies] Response - data:', data, 'error:', error);
 
   if (error) {
     throw new Error(error.message || 'Failed to fetch movies');
@@ -56,6 +105,8 @@ export async function addMovieToLibrary(
   movie: TMDBMovie,
   status: MovieStatus = 'watchlist'
 ): Promise<UserMovie> {
+  console.log('[addMovieToLibrary] Adding movie:', movie.title, 'with status:', status, 'for user:', userId);
+
   const insertData: UserMovieInsert = {
     user_id: userId,
     tmdb_id: movie.id,
@@ -69,11 +120,15 @@ export async function addMovieToLibrary(
     genre_ids: movie.genre_ids || [],
   };
 
+  console.log('[addMovieToLibrary] Insert data:', insertData);
+
   const { data, error } = (await (supabase
     .from('user_movies') as any)
     .insert(insertData)
     .select()
     .single()) as { data: UserMovie; error: any };
+
+  console.log('[addMovieToLibrary] Response - data:', data, 'error:', error);
 
   if (error) {
     // Check for unique constraint violation
@@ -136,4 +191,67 @@ export async function getMovieByTmdbId(
   }
 
   return data;
+}
+
+// Check if movie is liked by user
+export async function getMovieLike(
+  userId: string,
+  tmdbId: number
+): Promise<UserMovieLike | null> {
+  const { data, error } = await supabase
+    .from('user_movie_likes')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Failed to check like status');
+  }
+
+  return data;
+}
+
+// Like a movie (add to likes table)
+export async function likeMovie(
+  userId: string,
+  movie: TMDBMovie
+): Promise<UserMovieLike> {
+  const insertData: UserMovieLikeInsert = {
+    user_id: userId,
+    tmdb_id: movie.id,
+    title: movie.title,
+    poster_path: movie.poster_path,
+  };
+
+  const { data, error } = (await (supabase
+    .from('user_movie_likes') as any)
+    .insert(insertData)
+    .select()
+    .single()) as { data: UserMovieLike; error: any };
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('ALREADY_LIKED');
+    }
+    throw new Error(error.message || 'Failed to like movie');
+  }
+
+  return data;
+}
+
+// Unlike a movie (remove from likes table)
+export async function unlikeMovie(
+  userId: string,
+  tmdbId: number
+): Promise<void> {
+  const { error } = await supabase
+    .from('user_movie_likes')
+    .delete()
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to unlike movie');
+  }
 }

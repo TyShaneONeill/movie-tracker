@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { useUserMovies, useMovieInLibrary } from '@/hooks/use-user-movies';
 import { Colors } from '@/constants/theme';
 import type { TMDBMovie } from '@/lib/tmdb.types';
@@ -38,8 +38,8 @@ const STATUS_BUTTON_COLORS: Record<MovieStatus, string> = {
 };
 
 export function AddMovieModal({ movie, visible, onClose }: AddMovieModalProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
   const { addMovie, isAdding, updateStatus, isUpdating } = useUserMovies();
   const { data: existingMovie, isLoading: isChecking } = useMovieInLibrary(
     movie?.id ?? 0

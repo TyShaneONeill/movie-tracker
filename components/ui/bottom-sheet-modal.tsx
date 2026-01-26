@@ -6,13 +6,14 @@
  */
 
 import React, { useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { StyleSheet, View, useColorScheme, Dimensions, Modal, Pressable } from 'react-native';
+import { StyleSheet, View, Dimensions, Modal, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import { Colors, BorderRadius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -31,8 +32,8 @@ interface BottomSheetModalProps {
 
 export const BottomSheetModalComponent = forwardRef<BottomSheetModalHandle, BottomSheetModalProps>(
   ({ children, enableDismissOnBackdropPress = true, maxHeight = 80, snapPoints: customSnapPoints }, ref) => {
-    const colorScheme = useColorScheme();
-    const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
+    const { effectiveTheme } = useTheme();
+    const colors = Colors[effectiveTheme];
     const [isVisible, setIsVisible] = React.useState(false);
     const bottomSheetRef = React.useRef<BottomSheet>(null);
 
@@ -96,7 +97,7 @@ export const BottomSheetModalComponent = forwardRef<BottomSheetModalHandle, Bott
         <GestureHandlerRootView style={styles.container}>
           {/* Custom blur backdrop */}
           <Pressable style={styles.backdrop} onPress={handleBackdropPress}>
-            <BlurView intensity={20} tint={colorScheme === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+            <BlurView intensity={20} tint={effectiveTheme === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
             <View style={[styles.backdropOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]} />
           </Pressable>
 

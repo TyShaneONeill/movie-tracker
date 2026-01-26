@@ -15,7 +15,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { StarRating } from '@/components/ui/star-rating';
@@ -82,8 +82,8 @@ export function ReviewModal({
   onSave,
   movie,
 }: ReviewModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');

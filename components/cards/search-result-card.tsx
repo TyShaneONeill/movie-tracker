@@ -10,7 +10,7 @@ import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { BorderRadius, Spacing, Colors } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 interface SearchResultCardProps {
   /**
@@ -64,8 +64,8 @@ export function SearchResultCard({
   onPress,
   style,
 }: SearchResultCardProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   return (
     <Pressable

@@ -1,6 +1,6 @@
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import type { SearchType } from '@/lib/tmdb.types';
 
 interface SearchTypeToggleProps {
@@ -9,19 +9,19 @@ interface SearchTypeToggleProps {
 }
 
 export function SearchTypeToggle({ value, onChange }: SearchTypeToggleProps) {
-  const colorScheme = useColorScheme() ?? 'light';
+  const { effectiveTheme } = useTheme();
 
   // Use a consistent accent color that works in both modes
   const activeColor = '#0a7ea4';
-  const inactiveTextColor = colorScheme === 'dark' ? '#fff' : '#333';
+  const inactiveTextColor = effectiveTheme === 'dark' ? '#fff' : '#333';
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colorScheme === 'dark' ? '#1e2022' : '#f5f5f5',
-          borderColor: colorScheme === 'dark' ? '#333' : '#e0e0e0',
+          backgroundColor: effectiveTheme === 'dark' ? '#1e2022' : '#f5f5f5',
+          borderColor: effectiveTheme === 'dark' ? '#333' : '#e0e0e0',
         },
       ]}
     >

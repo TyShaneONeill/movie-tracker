@@ -14,7 +14,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ListCard } from '@/components/cards/list-card';
@@ -41,8 +41,8 @@ function PlusIcon() {
 }
 
 export default function ListsScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   const handleBack = () => {
     if (router.canGoBack()) {

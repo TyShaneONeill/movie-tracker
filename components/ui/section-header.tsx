@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 
@@ -27,8 +27,8 @@ export function SectionHeader({
   onActionPress,
   style,
 }: SectionHeaderProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   return (
     <View style={[styles.container, style]}>

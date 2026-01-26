@@ -14,7 +14,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { Ionicons } from '@expo/vector-icons';
@@ -105,8 +105,8 @@ export function AddToListModal({
   lists,
   initialSelectedListIds = [],
 }: AddToListModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   const [selectedListIds, setSelectedListIds] = useState<string[]>(initialSelectedListIds);
 

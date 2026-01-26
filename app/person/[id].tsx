@@ -19,13 +19,13 @@ import {
   ScrollView,
   Image,
   Pressable,
-  useColorScheme,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import { useTheme } from '@/lib/theme-context';
 
 // Mock data for the person (in real app, fetch by ID)
 const MOCK_PERSON = {
@@ -82,8 +82,8 @@ const MOCK_PERSON = {
 export default function PersonDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams(); // Will be used for fetching person by ID in production
-  const colorScheme = useColorScheme();
-  const colors = colorScheme === 'light' ? Colors.light : Colors.dark;
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
   const [biographyExpanded, setBiographyExpanded] = useState(false);
 
   // In a real app, fetch person by params.id

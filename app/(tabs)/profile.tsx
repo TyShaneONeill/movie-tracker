@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View, Image, Pressable, FlatList, ScrollView } from 'react-native';
+import { StyleSheet, View, Pressable, FlatList, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -11,10 +11,11 @@ import { ListCard } from '@/components/cards/list-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { useUserMovies } from '@/hooks/use-user-movies';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useFirstTakes } from '@/hooks/use-first-takes';
+import { useProfile } from '@/hooks/use-profile';
 import { MOCK_USER } from '@/lib/mock-data/users';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie } from '@/lib/database.types';
@@ -22,11 +23,13 @@ import type { UserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 export default function ProfileScreen() {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const { effectiveTheme } = useTheme();
     const [activeTab, setActiveTab] = useState<TabType>('collection');
 
-    const theme = colorScheme === 'dark' ? 'dark' : 'light';
-    const colors = Colors[theme];
+    const colors = Colors[effectiveTheme];
+
+    // Fetch user profile and stats
+    const { profile, stats } = useProfile();
 
     // Fetch watched movies for collection
     const {
@@ -36,6 +39,10 @@ export default function ProfileScreen() {
         isRefetching,
         refetch,
     } = useUserMovies('watched');
+
+    // Fetch watchlist and watching movies for Lists tab
+    const { movies: watchlistMovies } = useUserMovies('watchlist');
+    const { movies: watchingMovies } = useUserMovies('watching');
 
     // Fetch user's lists
     const {
@@ -102,18 +109,6 @@ export default function ProfileScreen() {
     );
 
     // Lists tab render functions
-    const renderListsEmpty = () => (
-        <View style={styles.emptyContainer}>
-            <Ionicons name="albums-outline" size={48} color={colors.textSecondary} />
-            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-                No lists yet
-            </ThemedText>
-            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Create your first list to organize your movies
-            </ThemedText>
-        </View>
-    );
-
     const renderListsSkeleton = () => (
         <View style={styles.listsSkeleton}>
             {Array.from({ length: 3 }).map((_, index) => (
@@ -142,6 +137,66 @@ export default function ProfileScreen() {
             </Pressable>
         </View>
     );
+
+    // Special list card component with 2x2 poster grid
+    const renderSpecialListCard = (
+        title: string,
+        movies: UserMovie[] | undefined,
+        icon: keyof typeof Ionicons.glyphMap,
+        onPress: () => void
+    ) => {
+        const posterUrls = (movies || [])
+            .slice(0, 4)
+            .map(m => m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') : '');
+        const count = movies?.length || 0;
+
+        return (
+            <Pressable
+                onPress={onPress}
+                style={({ pressed }) => [
+                    styles.specialListCard,
+                    { backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }
+                ]}
+            >
+                <View style={styles.specialListHeader}>
+                    <View style={styles.specialListTitleRow}>
+                        <Ionicons name={icon} size={18} color={colors.tint} />
+                        <ThemedText style={[styles.specialListTitle, { color: colors.text }]}>
+                            {title}
+                        </ThemedText>
+                    </View>
+                    <ThemedText style={[styles.specialListCount, { color: colors.textSecondary }]}>
+                        {count} {count === 1 ? 'movie' : 'movies'}
+                    </ThemedText>
+                </View>
+                {posterUrls.length > 0 ? (
+                    <View style={styles.posterGrid}>
+                        {posterUrls.map((url, idx) => (
+                            <Image
+                                key={idx}
+                                source={{ uri: url }}
+                                style={styles.posterGridItem}
+                            />
+                        ))}
+                        {/* Fill empty slots with placeholder */}
+                        {Array.from({ length: Math.max(0, 4 - posterUrls.length) }).map((_, idx) => (
+                            <View
+                                key={`placeholder-${idx}`}
+                                style={[styles.posterGridItem, styles.posterPlaceholder, { backgroundColor: colors.background }]}
+                            />
+                        ))}
+                    </View>
+                ) : (
+                    <View style={[styles.emptyPosterGrid, { borderColor: colors.border }]}>
+                        <Ionicons name={icon} size={24} color={colors.textSecondary} />
+                        <ThemedText style={[styles.emptyPosterText, { color: colors.textSecondary }]}>
+                            No movies yet
+                        </ThemedText>
+                    </View>
+                )}
+            </Pressable>
+        );
+    };
 
     // First Takes tab render functions
     const renderFirstTakesEmpty = () => (
@@ -187,6 +242,13 @@ export default function ProfileScreen() {
 
     const renderTabContent = () => {
         if (activeTab === 'collection') {
+            console.log('[Profile] Collection tab state:', {
+                isLoading,
+                isError,
+                watchedMoviesCount: watchedMovies?.length ?? 0,
+                watchedMovies,
+            });
+
             if (isLoading) {
                 return renderLoadingSkeleton();
             }
@@ -260,28 +322,48 @@ export default function ProfileScreen() {
                 return renderListsError();
             }
 
-            if (!userLists?.length) {
-                return renderListsEmpty();
-            }
-
             return (
                 <ScrollView
                     contentContainerStyle={styles.listsContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {userLists.map((list) => (
-                        <ListCard
-                            key={list.id}
-                            title={list.name}
-                            description={list.description}
-                            movieCount={list.movie_count}
-                            posterUrls={list.movies.map(m =>
-                                m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') : ''
-                            )}
-                            onPress={() => router.push(`/list/${list.id}`)}
-                            style={styles.listCard}
-                        />
-                    ))}
+                    {/* Special built-in lists: Watchlist and Watching */}
+                    <View style={styles.specialListsRow}>
+                        {renderSpecialListCard(
+                            'Watchlist',
+                            watchlistMovies,
+                            'bookmark-outline',
+                            () => router.push('/list/watchlist')
+                        )}
+                        {renderSpecialListCard(
+                            'Watching',
+                            watchingMovies,
+                            'play-circle-outline',
+                            () => router.push('/list/watching')
+                        )}
+                    </View>
+
+                    {/* User's custom lists */}
+                    {userLists && userLists.length > 0 && (
+                        <>
+                            <ThemedText style={[styles.listsSection, { color: colors.textSecondary }]}>
+                                YOUR LISTS
+                            </ThemedText>
+                            {userLists.map((list) => (
+                                <ListCard
+                                    key={list.id}
+                                    title={list.name}
+                                    description={list.description}
+                                    movieCount={list.movie_count}
+                                    posterUrls={list.movies.map(m =>
+                                        m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') : ''
+                                    )}
+                                    onPress={() => router.push(`/list/${list.id}`)}
+                                    style={styles.listCard}
+                                />
+                            ))}
+                        </>
+                    )}
                 </ScrollView>
             );
         }
@@ -305,14 +387,14 @@ export default function ProfileScreen() {
             {/* Profile Header */}
             <View style={styles.header}>
                 <Image
-                    source={{ uri: MOCK_USER.avatarUrl }}
+                    source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
                     style={[styles.avatar, { borderColor: colors.tint }]}
                 />
                 <ThemedText style={[styles.username, { color: colors.text }]}>
-                    {MOCK_USER.name}
+                    {profile?.full_name || MOCK_USER.name}
                 </ThemedText>
                 <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
-                    {MOCK_USER.bio}
+                    {profile?.bio || MOCK_USER.bio}
                 </ThemedText>
             </View>
 
@@ -320,7 +402,7 @@ export default function ProfileScreen() {
             <View style={[styles.statsContainer, { borderColor: colors.border }]}>
                 <View style={styles.statItem}>
                     <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                        {MOCK_USER.stats.watched}
+                        {stats.watched}
                     </ThemedText>
                     <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
                         Watched
@@ -328,15 +410,15 @@ export default function ProfileScreen() {
                 </View>
                 <View style={styles.statItem}>
                     <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                        {MOCK_USER.stats.reviews}
+                        {stats.firstTakes}
                     </ThemedText>
                     <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                        Reviews
+                        First Takes
                     </ThemedText>
                 </View>
                 <View style={styles.statItem}>
                     <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                        {MOCK_USER.stats.lists}
+                        {stats.lists}
                     </ThemedText>
                     <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
                         Lists
@@ -451,7 +533,8 @@ const styles = StyleSheet.create({
     },
     tabBar: {
         flexDirection: 'row',
-        gap: Spacing.lg,
+        justifyContent: 'center',
+        gap: Spacing.xl,
         paddingHorizontal: Spacing.lg,
         marginBottom: Spacing.md,
     },
@@ -581,5 +664,64 @@ const styles = StyleSheet.create({
     firstTakeSkeletonCard: {
         height: 120,
         borderRadius: BorderRadius.md,
+    },
+    // Special list cards styles (Watchlist, Watching)
+    specialListsRow: {
+        flexDirection: 'row',
+        gap: Spacing.md,
+        marginBottom: Spacing.lg,
+    },
+    specialListCard: {
+        flex: 1,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.sm,
+    },
+    specialListHeader: {
+        marginBottom: Spacing.sm,
+    },
+    specialListTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    specialListTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    specialListCount: {
+        fontSize: 12,
+        marginTop: 2,
+    },
+    posterGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
+    },
+    posterGridItem: {
+        width: '48%',
+        aspectRatio: 2 / 3,
+        borderRadius: BorderRadius.xs,
+    },
+    posterPlaceholder: {
+        opacity: 0.3,
+    },
+    emptyPosterGrid: {
+        aspectRatio: 1,
+        borderRadius: BorderRadius.sm,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    emptyPosterText: {
+        fontSize: 12,
+    },
+    listsSection: {
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: Spacing.md,
     },
 });

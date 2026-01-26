@@ -1,3 +1,43 @@
+// Movie list type for different TMDB endpoints
+export type MovieListType = 'trending' | 'now_playing' | 'upcoming';
+
+// Response from movie list endpoints
+export interface MovieListResponse {
+  movies: TMDBMovie[];
+  page: number;
+  totalPages: number;
+  totalResults: number;
+  dates?: { minimum: string; maximum: string };
+}
+
+// Genre ID to name mapping
+export const TMDB_GENRE_MAP: Record<number, string> = {
+  28: 'Action',
+  12: 'Adventure',
+  16: 'Animation',
+  35: 'Comedy',
+  80: 'Crime',
+  99: 'Documentary',
+  18: 'Drama',
+  10751: 'Family',
+  14: 'Fantasy',
+  36: 'History',
+  27: 'Horror',
+  10402: 'Music',
+  9648: 'Mystery',
+  10749: 'Romance',
+  878: 'Sci-Fi',
+  53: 'Thriller',
+  10752: 'War',
+  37: 'Western',
+};
+
+// Get primary genre name from genre IDs
+export function getPrimaryGenre(genreIds: number[]): string {
+  if (!genreIds?.length) return 'Movie';
+  return TMDB_GENRE_MAP[genreIds[0]] ?? 'Movie';
+}
+
 // TMDB Movie from API response
 export interface TMDBMovie {
   id: number;
@@ -28,6 +68,37 @@ export interface SearchMoviesResponse {
   totalPages: number;
   totalResults: number;
   actor?: TMDBActor; // Present when searchType is 'actor'
+}
+
+// Extended movie detail with cast info
+export interface TMDBMovieDetail {
+  id: number;
+  title: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_date: string;
+  vote_average: number;
+  vote_count: number;
+  genre_ids: number[];
+  runtime: number | null;
+  genres: { id: number; name: string }[];
+  tagline: string | null;
+}
+
+// Cast member in movie credits
+export interface TMDBCastMember {
+  id: number;
+  name: string;
+  character: string;
+  profile_path: string | null;
+  order: number;
+}
+
+// Response from get-movie-details Edge Function
+export interface MovieDetailResponse {
+  movie: TMDBMovieDetail;
+  cast: TMDBCastMember[];
 }
 
 // TMDB image URL helpers

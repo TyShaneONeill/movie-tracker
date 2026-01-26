@@ -14,7 +14,7 @@
  * - Action sheet modal for more options
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,37 +23,89 @@ import {
   Image,
   Pressable,
   ImageBackground,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import BottomSheetModal, { BottomSheetModalHandle } from '@/components/ui/bottom-sheet-modal';
+import { WatchlistModal } from '@/components/watchlist-modal';
+import { FirstTakeModal } from '@/components/first-take-modal';
+import { MovieStatusActions } from '@/components/movie-status-actions';
+import { useMovieDetail } from '@/hooks/use-movie-detail';
+import { useMovieActions } from '@/hooks/use-movie-actions';
+import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
+import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useTheme } from '@/lib/theme-context';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import type { TMDBMovie } from '@/lib/tmdb.types';
+import type { MovieStatus } from '@/lib/database.types';
 
-// Mock data for the movie (in real app, fetch by ID)
-const MOCK_MOVIE = {
-  id: '1',
-  title: 'Dune: Part Two',
-  year: '2024',
-  runtime: '2h 46m',
-  rating: 8.8,
-  genres: ['Sci-Fi', 'Action'],
-  synopsis: 'Follow the mythic journey of Paul Atreides as he unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family.',
-  backdropUrl: 'https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-  posterUrl: 'https://image.tmdb.org/t/p/w200/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-  cast: [
-    { name: 'Timothée', character: 'Paul', imageUrl: 'https://image.tmdb.org/t/p/w200/lFDe5Fj28u10y8yqecjW1k06j5.jpg' },
-    { name: 'Zendaya', character: 'Chani', imageUrl: 'https://image.tmdb.org/t/p/w200/x7wF55v96F5Xf1C5v5v1e7H7.jpg' },
-    { name: 'Rebecca', character: 'Jessica', imageUrl: 'https://image.tmdb.org/t/p/w200/uF5W7xXk5.jpg' },
-    { name: 'Josh', character: 'Gurney', imageUrl: 'https://image.tmdb.org/t/p/w200/h5X8G5.jpg' },
-  ],
-};
+// Helper to format runtime from minutes to "Xh Ym" format
+function formatRuntime(minutes: number | null): string {
+  if (!minutes) return 'N/A';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+}
 
 export default function MovieDetailScreen() {
   const router = useRouter();
-  const [isLiked, setIsLiked] = useState(false);
+  const { id } = useLocalSearchParams<{ id: string }>();
   const bottomSheetRef = useRef<BottomSheetModalHandle>(null);
+  const { user } = useAuth();
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+
+  // Modal state for watchlist
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  // Modal state for First Take
+  const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
+
+  // Fetch movie details using the hook
+  const { movie, cast, isLoading, isError, error } = useMovieDetail({
+    movieId: id || '',
+    enabled: !!id,
+  });
+
+  // Movie actions hook for save/like functionality (separate operations)
+  const {
+    isSaved,
+    currentStatus,
+    isLiked,
+    isSaving,
+    isTogglingLike,
+    addToWatchlist,
+    removeFromWatchlist,
+    changeStatus,
+    toggleLike,
+  } = useMovieActions(Number(id) || 0);
+
+  // First Take actions hook
+  const {
+    hasFirstTake,
+    isCreating: isCreatingFirstTake,
+    isDeleting: isDeletingFirstTake,
+    createTake,
+    deleteTake,
+  } = useFirstTakeActions(Number(id) || 0);
+
+  // User preferences hook (for First Take prompt setting)
+  const { preferences } = useUserPreferences();
+  // Default to true if preference is undefined (backwards compatibility)
+  const firstTakePromptEnabled = preferences?.firstTakePromptEnabled ?? true;
+
+  // Derive display data from fetched movie
+  const movieYear = movie?.release_date ? movie.release_date.split('-')[0] : 'N/A';
+  const movieRuntime = formatRuntime(movie?.runtime ?? null);
+  const movieRating = movie?.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
+  const movieGenres = movie?.genres?.map(g => g.name) ?? [];
+  const backdropUrl = getTMDBImageUrl(movie?.backdrop_path ?? null, 'original');
+  const posterUrl = getTMDBImageUrl(movie?.poster_path ?? null, 'w342');
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -68,13 +120,171 @@ export default function MovieDetailScreen() {
     console.log('Playing trailer...');
   };
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
+  // Convert movie detail to TMDBMovie format for saving
+  const getMovieForSave = (): TMDBMovie | null => {
+    if (!movie) return null;
+    return {
+      id: movie.id,
+      title: movie.title,
+      overview: movie.overview,
+      poster_path: movie.poster_path,
+      backdrop_path: movie.backdrop_path,
+      release_date: movie.release_date,
+      vote_average: movie.vote_average,
+      vote_count: movie.vote_count,
+      genre_ids: movie.genre_ids,
+    };
   };
 
-  const handleSave = () => {
-    // Navigate to add to list modal
-    console.log('Add to list...');
+  const handleLike = async () => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to like movies.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
+      ]);
+      return;
+    }
+    const movieData = getMovieForSave();
+    if (movieData) {
+      try {
+        await toggleLike(movieData);
+      } catch {
+        Alert.alert('Error', 'Failed to update like status. Please try again.');
+      }
+    }
+  };
+
+  const handleWatchlistPress = () => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to add movies to your watchlist.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
+      ]);
+      return;
+    }
+    setShowWatchlistModal(true);
+  };
+
+  const handleWatchlistSelect = async (status: MovieStatus) => {
+    const movieData = getMovieForSave();
+    if (!movieData) return;
+
+    // Track if we're changing TO watched status (for First Take prompt)
+    const isChangingToWatched = status === 'watched' && currentStatus !== 'watched';
+
+    try {
+      if (isSaved) {
+        // Movie already in watchlist, just change status
+        await changeStatus(status);
+      } else {
+        // Add to watchlist with selected status
+        await addToWatchlist(movieData, status);
+      }
+      setShowWatchlistModal(false);
+
+      // After successful status change to "watched", prompt for First Take
+      // Only if user doesn't already have a First Take and preference is enabled
+      if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled) {
+        setShowFirstTakeModal(true);
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to update watchlist. Please try again.');
+    }
+  };
+
+  const handleWatchlistRemove = async () => {
+    try {
+      // If user has a First Take, delete it first
+      if (hasFirstTake) {
+        await deleteTake();
+      }
+      await removeFromWatchlist();
+      setShowWatchlistModal(false);
+    } catch {
+      Alert.alert('Error', 'Failed to remove from watchlist. Please try again.');
+    }
+  };
+
+  // Helper function to perform the actual removal
+  const performRemoval = async () => {
+    try {
+      if (hasFirstTake) {
+        await deleteTake();
+      }
+      await removeFromWatchlist();
+    } catch {
+      Alert.alert('Error', 'Failed to remove movie. Please try again.');
+    }
+  };
+
+  const handleStatusChange = async (status: MovieStatus | null) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to track movies.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
+      ]);
+      return;
+    }
+
+    const movieData = getMovieForSave();
+    if (!movieData) return;
+
+    // Track if we're changing TO watched status (for First Take prompt)
+    const isChangingToWatched = status === 'watched' && currentStatus !== 'watched';
+
+    try {
+      if (status === null) {
+        // Remove from watchlist - show confirmation if user has First Take
+        if (hasFirstTake) {
+          Alert.alert(
+            'Remove Movie?',
+            'This will also delete your First Take for this movie.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Remove Both', style: 'destructive', onPress: performRemoval },
+            ]
+          );
+          return;
+        }
+        await removeFromWatchlist();
+      } else if (isSaved) {
+        // Movie already in watchlist, change status
+        await changeStatus(status);
+      } else {
+        // Add to watchlist with selected status
+        await addToWatchlist(movieData, status);
+      }
+
+      // After successful status change to "watched", prompt for First Take
+      // Only if user doesn't already have a First Take and preference is enabled
+      if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled) {
+        setShowFirstTakeModal(true);
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to update movie status. Please try again.');
+    }
+  };
+
+  const handleFirstTakeSubmit = async (data: {
+    rating: number;
+    quoteText: string;
+    isSpoiler: boolean;
+  }) => {
+    if (!movie) return;
+
+    try {
+      await createTake({
+        movieTitle: movie.title,
+        posterPath: movie.poster_path,
+        reactionEmoji: '',
+        quoteText: data.quoteText,
+        isSpoiler: data.isSpoiler,
+        rating: data.rating,
+      });
+      setShowFirstTakeModal(false);
+    } catch {
+      Alert.alert('Error', 'Failed to save your first take. Please try again.');
+    }
   };
 
   const handleReview = () => {
@@ -94,67 +304,107 @@ export default function MovieDetailScreen() {
     bottomSheetRef.current?.dismiss();
   };
 
+  // Dynamic styles based on theme
+  const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View style={dynamicStyles.container}>
+        <View style={dynamicStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+          <Text style={dynamicStyles.loadingText}>Loading movie details...</Text>
+        </View>
+        {/* Back button even during loading */}
+        <View style={dynamicStyles.loadingBackButton}>
+          <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
+            <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
+              <Text style={dynamicStyles.backIcon}>←</Text>
+            </BlurView>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (isError || !movie) {
+    return (
+      <View style={dynamicStyles.container}>
+        <View style={dynamicStyles.errorContainer}>
+          <Text style={dynamicStyles.errorTitle}>Something went wrong</Text>
+          <Text style={dynamicStyles.errorSubtitle}>
+            {error?.message || 'Could not load movie details'}
+          </Text>
+          <Pressable onPress={handleGoBack} style={dynamicStyles.errorBackButton}>
+            <Text style={dynamicStyles.errorBackButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={dynamicStyles.container}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={dynamicStyles.scrollView}
+        contentContainerStyle={dynamicStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Banner */}
         <ImageBackground
-          source={{ uri: MOCK_MOVIE.backdropUrl }}
-          style={styles.heroBanner}
+          source={{ uri: backdropUrl || undefined }}
+          style={dynamicStyles.heroBanner}
           resizeMode="cover"
         >
           {/* Gradient Overlay */}
           <LinearGradient
-            colors={['rgba(0, 0, 0, 0.3)', 'transparent', Colors.dark.background]}
+            colors={['rgba(0, 0, 0, 0.3)', 'transparent', colors.background]}
             locations={[0, 0.4, 1]}
             style={StyleSheet.absoluteFill}
           />
 
           {/* Top Buttons */}
-          <View style={styles.topButtons}>
-            <Pressable onPress={handleGoBack} style={styles.iconButton}>
-              <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
-                <Text style={styles.backIcon}>←</Text>
+          <View style={dynamicStyles.topButtons}>
+            <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
+              <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
+                <Text style={dynamicStyles.backIcon}>←</Text>
               </BlurView>
             </Pressable>
-            <Pressable onPress={showMoreOptionsSheet} style={styles.iconButton}>
-              <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
-                <Text style={styles.moreIcon}>⋯</Text>
+            <Pressable onPress={showMoreOptionsSheet} style={dynamicStyles.iconButton}>
+              <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
+                <Text style={dynamicStyles.moreIcon}>⋯</Text>
               </BlurView>
             </Pressable>
           </View>
 
           {/* Play Button */}
-          <Pressable onPress={handlePlayTrailer} style={styles.playButton}>
-            <BlurView intensity={10} tint="dark" style={styles.playButtonBlur}>
-              <Text style={styles.playIcon}>▶</Text>
+          <Pressable onPress={handlePlayTrailer} style={dynamicStyles.playButton}>
+            <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
+              <Text style={dynamicStyles.playIcon}>▶</Text>
             </BlurView>
           </Pressable>
         </ImageBackground>
 
         {/* Content Container - Overlaps hero by 120px */}
-        <View style={styles.contentContainer}>
+        <View style={dynamicStyles.contentContainer}>
           {/* Poster + Title Section */}
-          <View style={styles.posterSection}>
+          <View style={dynamicStyles.posterSection}>
             <Image
-              source={{ uri: MOCK_MOVIE.posterUrl }}
-              style={styles.posterThumb}
+              source={{ uri: posterUrl || undefined }}
+              style={dynamicStyles.posterThumb}
               resizeMode="cover"
             />
-            <View style={styles.titleSection}>
-              <Text style={styles.title}>{MOCK_MOVIE.title}</Text>
-              <Text style={styles.metadata}>
-                {MOCK_MOVIE.year} • {MOCK_MOVIE.runtime}
+            <View style={dynamicStyles.titleSection}>
+              <Text style={dynamicStyles.title}>{movie.title}</Text>
+              <Text style={dynamicStyles.metadata}>
+                {movieYear} • {movieRuntime}
               </Text>
-              <View style={styles.ratingTags}>
-                <Text style={styles.rating}>★ {MOCK_MOVIE.rating}</Text>
-                {MOCK_MOVIE.genres.map((genre, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{genre}</Text>
+              <View style={dynamicStyles.ratingTags}>
+                <Text style={dynamicStyles.rating}>★ {movieRating}</Text>
+                {movieGenres.slice(0, 3).map((genre, index) => (
+                  <View key={index} style={dynamicStyles.tag}>
+                    <Text style={dynamicStyles.tagText}>{genre}</Text>
                   </View>
                 ))}
               </View>
@@ -162,127 +412,194 @@ export default function MovieDetailScreen() {
           </View>
 
           {/* Synopsis */}
-          <Text style={styles.synopsis}>{MOCK_MOVIE.synopsis}</Text>
+          <Text style={dynamicStyles.synopsis}>{movie.overview || 'No synopsis available.'}</Text>
+
+          {/* Status Actions - Want to Watch / Watching */}
+          <View style={dynamicStyles.statusActionsContainer}>
+            <MovieStatusActions
+              currentStatus={currentStatus}
+              isLoading={isSaving}
+              onStatusChange={handleStatusChange}
+            />
+          </View>
 
           {/* Action Grid */}
-          <View style={styles.actionGrid}>
-            <Pressable onPress={handleLike} style={styles.actionItem}>
-              <Text style={[styles.actionIcon, isLiked && styles.actionIconLiked]}>♥</Text>
-              <Text style={styles.actionLabel}>Like</Text>
+          <View style={dynamicStyles.actionGrid}>
+            <Pressable
+              onPress={handleLike}
+              disabled={isTogglingLike}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
+              {isTogglingLike ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Text style={[dynamicStyles.actionIcon, isLiked && dynamicStyles.actionIconLiked]}>♥</Text>
+              )}
+              <Text style={[dynamicStyles.actionLabel, isLiked && dynamicStyles.actionLabelActive]}>
+                {isLiked ? 'Liked' : 'Like'}
+              </Text>
             </Pressable>
-            <Pressable onPress={handleSave} style={styles.actionItem}>
-              <Text style={styles.actionIcon}>🔖</Text>
-              <Text style={styles.actionLabel}>Save</Text>
+            <Pressable
+              onPress={handleWatchlistPress}
+              disabled={isSaving}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Text style={[dynamicStyles.actionIcon, isSaved && dynamicStyles.actionIconSaved]}>
+                  {isSaved ? '✓' : '📋'}
+                </Text>
+              )}
+              <Text style={[dynamicStyles.actionLabel, isSaved && dynamicStyles.actionLabelActive]}>
+                Watchlist
+              </Text>
             </Pressable>
-            <Pressable onPress={handleReview} style={styles.actionItem}>
-              <Text style={styles.actionIcon}>💬</Text>
-              <Text style={styles.actionLabel}>Review</Text>
+            <Pressable onPress={handleReview} style={dynamicStyles.actionItem}>
+              <Text style={dynamicStyles.actionIcon}>💬</Text>
+              <Text style={dynamicStyles.actionLabel}>Review</Text>
             </Pressable>
-            <Pressable onPress={handleShare} style={styles.actionItem}>
-              <Text style={styles.actionIcon}>🔗</Text>
-              <Text style={styles.actionLabel}>Share</Text>
+            <Pressable onPress={handleShare} style={dynamicStyles.actionItem}>
+              <Text style={dynamicStyles.actionIcon}>🔗</Text>
+              <Text style={dynamicStyles.actionLabel}>Share</Text>
             </Pressable>
           </View>
 
           {/* Top Cast Section */}
-          <Text style={styles.sectionTitle}>Top Cast</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.castScroll}
-            contentContainerStyle={styles.castScrollContent}
-          >
-            {MOCK_MOVIE.cast.map((person, index) => (
-              <Pressable key={index} style={styles.castCard}>
-                <Image
-                  source={{ uri: person.imageUrl }}
-                  style={styles.castImage}
-                  resizeMode="cover"
-                />
-                <Text style={styles.castName}>{person.name}</Text>
-                <Text style={styles.castCharacter}>{person.character}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          {cast.length > 0 && (
+            <>
+              <Text style={dynamicStyles.sectionTitle}>Top Cast</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={dynamicStyles.castScroll}
+                contentContainerStyle={dynamicStyles.castScrollContent}
+              >
+                {cast.slice(0, 10).map((person) => (
+                  <Pressable key={person.id} style={dynamicStyles.castCard}>
+                    <Image
+                      source={{ uri: getTMDBImageUrl(person.profile_path, 'w185') || undefined }}
+                      style={dynamicStyles.castImage}
+                      resizeMode="cover"
+                    />
+                    <Text style={dynamicStyles.castName} numberOfLines={1}>{person.name}</Text>
+                    <Text style={dynamicStyles.castCharacter} numberOfLines={1}>{person.character}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          )}
 
           {/* Where to Watch Section */}
-          <Text style={[styles.sectionTitle, styles.streamingSectionTitle]}>
+          <Text style={[dynamicStyles.sectionTitle, dynamicStyles.streamingSectionTitle]}>
             Where to Watch
           </Text>
 
-          <Pressable style={styles.streamingService}>
-            <View style={styles.streamingIcon}>
-              <Text style={styles.streamingIconText}>MAX</Text>
+          <Pressable style={dynamicStyles.streamingService}>
+            <View style={dynamicStyles.streamingIcon}>
+              <Text style={dynamicStyles.streamingIconText}>MAX</Text>
             </View>
-            <View style={styles.streamingInfo}>
-              <Text style={styles.streamingName}>Stream on Max</Text>
-              <Text style={styles.streamingType}>Subscription</Text>
+            <View style={dynamicStyles.streamingInfo}>
+              <Text style={dynamicStyles.streamingName}>Stream on Max</Text>
+              <Text style={dynamicStyles.streamingType}>Subscription</Text>
             </View>
-            <Text style={styles.chevronIcon}>→</Text>
+            <Text style={dynamicStyles.chevronIcon}>→</Text>
           </Pressable>
 
-          <Pressable style={styles.streamingService}>
-            <View style={[styles.streamingIcon, styles.rentIcon]}>
-              <Text style={styles.rentIconText}>💳</Text>
+          <Pressable style={dynamicStyles.streamingService}>
+            <View style={[dynamicStyles.streamingIcon, dynamicStyles.rentIcon]}>
+              <Text style={dynamicStyles.rentIconText}>💳</Text>
             </View>
-            <View style={styles.streamingInfo}>
-              <Text style={styles.streamingName}>Rent or Buy</Text>
-              <Text style={styles.streamingType}>From $19.99</Text>
+            <View style={dynamicStyles.streamingInfo}>
+              <Text style={dynamicStyles.streamingName}>Rent or Buy</Text>
+              <Text style={dynamicStyles.streamingType}>From $19.99</Text>
             </View>
-            <Text style={styles.chevronIcon}>→</Text>
+            <Text style={dynamicStyles.chevronIcon}>→</Text>
           </Pressable>
         </View>
       </ScrollView>
 
       {/* Action Sheet Modal */}
       <BottomSheetModal ref={bottomSheetRef}>
-        <View style={styles.actionSheet}>
+        <View style={dynamicStyles.actionSheet}>
           <Pressable
-            style={styles.sheetOption}
+            style={dynamicStyles.sheetOption}
             onPress={() => {
               hideMoreOptionsSheet();
               handleShare();
             }}
           >
-            <Text style={styles.sheetIcon}>📤</Text>
-            <Text style={styles.sheetLabel}>Share Movie</Text>
+            <Text style={dynamicStyles.sheetIcon}>📤</Text>
+            <Text style={dynamicStyles.sheetLabel}>Share Movie</Text>
           </Pressable>
           <Pressable
-            style={styles.sheetOption}
+            style={dynamicStyles.sheetOption}
             onPress={() => {
               hideMoreOptionsSheet();
-              handleSave();
+              handleWatchlistPress();
             }}
           >
-            <Text style={styles.sheetIcon}>➕</Text>
-            <Text style={styles.sheetLabel}>Add to List</Text>
+            <Text style={dynamicStyles.sheetIcon}>📋</Text>
+            <Text style={dynamicStyles.sheetLabel}>Add to Watchlist</Text>
           </Pressable>
           <Pressable
-            style={[styles.sheetOption, styles.sheetOptionLast]}
+            style={[dynamicStyles.sheetOption, dynamicStyles.sheetOptionLast]}
             onPress={() => {
               hideMoreOptionsSheet();
               console.log('Report issue...');
             }}
           >
-            <Text style={styles.sheetIcon}>⚠️</Text>
-            <Text style={[styles.sheetLabel, styles.sheetLabelDanger]}>Report Issue</Text>
+            <Text style={dynamicStyles.sheetIcon}>⚠️</Text>
+            <Text style={[dynamicStyles.sheetLabel, dynamicStyles.sheetLabelDanger]}>Report Issue</Text>
           </Pressable>
           <Pressable
-            style={styles.cancelButton}
+            style={dynamicStyles.cancelButton}
             onPress={hideMoreOptionsSheet}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={dynamicStyles.cancelButtonText}>Cancel</Text>
           </Pressable>
         </View>
       </BottomSheetModal>
+
+      {/* Watchlist Modal */}
+      <WatchlistModal
+        visible={showWatchlistModal}
+        onClose={() => setShowWatchlistModal(false)}
+        onSelect={handleWatchlistSelect}
+        onRemove={isSaved ? handleWatchlistRemove : undefined}
+        currentStatus={currentStatus}
+        isLoading={isSaving || isDeletingFirstTake}
+        movieTitle={movie?.title}
+        hasFirstTake={hasFirstTake}
+      />
+
+      {/* First Take Modal */}
+      <FirstTakeModal
+        visible={showFirstTakeModal}
+        onClose={() => setShowFirstTakeModal(false)}
+        onSubmit={handleFirstTakeSubmit}
+        movieTitle={movie?.title ?? ''}
+        moviePosterUrl={posterUrl ?? undefined}
+        isSubmitting={isCreatingFirstTake}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+// Type for the colors object
+type ThemeColors = typeof Colors.dark;
+
+// Create styles function that takes theme colors
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -315,16 +632,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: colors.border,
     borderRadius: BorderRadius.full,
   },
   backIcon: {
     fontSize: 24,
-    color: '#fff',
+    color: colors.text,
   },
   moreIcon: {
     fontSize: 24,
-    color: '#fff',
+    color: colors.text,
   },
   playButton: {
     position: 'absolute',
@@ -342,12 +659,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: colors.border,
     borderRadius: BorderRadius.full,
   },
   playIcon: {
     fontSize: 32,
-    color: '#fff',
+    color: colors.text,
     marginLeft: 4, // Visual centering
   },
 
@@ -369,7 +686,7 @@ const styles = StyleSheet.create({
     aspectRatio: 2 / 3,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.border,
   },
   titleSection: {
     flex: 1,
@@ -377,13 +694,13 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.display.h3,
-    color: Colors.dark.text,
+    color: colors.text,
     lineHeight: 28,
     marginBottom: Spacing.xs,
   },
   metadata: {
     ...Typography.body.sm,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
     marginBottom: Spacing.xs,
   },
   ratingTags: {
@@ -394,28 +711,33 @@ const styles = StyleSheet.create({
   },
   rating: {
     ...Typography.body.sm,
-    color: Colors.dark.gold,
+    color: colors.gold,
     fontWeight: '600',
   },
   tag: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    backgroundColor: Colors.dark.card,
+    backgroundColor: colors.card,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: colors.border,
   },
   tagText: {
     ...Typography.tag.default,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
   },
 
   // Synopsis
   synopsis: {
     ...Typography.body.base,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 24,
     marginTop: Spacing.md,
+  },
+
+  // Status Actions
+  statusActionsContainer: {
+    marginTop: Spacing.lg,
   },
 
   // Action Grid
@@ -425,10 +747,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.lg,
     padding: Spacing.md,
-    backgroundColor: Colors.dark.card,
+    backgroundColor: colors.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: colors.border,
   },
   actionItem: {
     flex: 1,
@@ -437,20 +759,29 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     fontSize: 24,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
   },
   actionIconLiked: {
-    color: Colors.dark.tint,
+    color: colors.tint,
+  },
+  actionIconSaved: {
+    color: colors.accentSecondary,
   },
   actionLabel: {
     ...Typography.caption.default,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
+  },
+  actionLabelActive: {
+    color: colors.tint,
+  },
+  actionItemPressed: {
+    opacity: 0.7,
   },
 
   // Cast Section
   sectionTitle: {
     ...Typography.display.h4,
-    color: Colors.dark.text,
+    color: colors.text,
     marginTop: Spacing.lg,
     marginBottom: Spacing.md,
   },
@@ -470,20 +801,20 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.card,
+    backgroundColor: colors.card,
     borderWidth: 2,
-    borderColor: Colors.dark.border,
+    borderColor: colors.border,
     marginBottom: Spacing.sm,
   },
   castName: {
     ...Typography.body.sm,
-    color: Colors.dark.text,
+    color: colors.text,
     fontWeight: '600',
     textAlign: 'center',
   },
   castCharacter: {
     ...Typography.caption.default,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 
@@ -496,30 +827,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: Colors.dark.card,
+    backgroundColor: colors.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: colors.border,
     marginTop: Spacing.sm,
   },
   streamingIcon: {
     width: 48,
     height: 48,
-    backgroundColor: '#000',
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
   streamingIconText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   rentIcon: {
-    backgroundColor: Colors.dark.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: colors.border,
   },
   rentIconText: {
     fontSize: 24,
@@ -529,16 +860,16 @@ const styles = StyleSheet.create({
   },
   streamingName: {
     ...Typography.body.baseMedium,
-    color: Colors.dark.text,
+    color: colors.text,
     fontWeight: '600',
   },
   streamingType: {
     ...Typography.body.sm,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
   },
   chevronIcon: {
     fontSize: 20,
-    color: Colors.dark.textSecondary,
+    color: colors.textSecondary,
   },
 
   // Action Sheet
@@ -551,7 +882,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
+    borderBottomColor: colors.border,
   },
   sheetOptionLast: {
     borderBottomWidth: 0,
@@ -561,20 +892,66 @@ const styles = StyleSheet.create({
   },
   sheetLabel: {
     ...Typography.body.base,
-    color: Colors.dark.text,
+    color: colors.text,
   },
   sheetLabelDanger: {
-    color: '#ff4444',
+    color: colors.tint, // Using tint (rose) as the danger/error color
   },
   cancelButton: {
     padding: Spacing.md,
-    backgroundColor: Colors.dark.tint,
+    backgroundColor: colors.tint,
     borderRadius: BorderRadius.md,
     marginTop: Spacing.lg,
     alignItems: 'center',
   },
   cancelButtonText: {
     ...Typography.button.primary,
-    color: '#fff',
+    color: Colors.dark.text, // Always white on tint button for contrast
+  },
+
+  // Loading state styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...Typography.body.base,
+    color: colors.textSecondary,
+    marginTop: Spacing.md,
+  },
+  loadingBackButton: {
+    position: 'absolute',
+    top: 60,
+    left: Spacing.md,
+  },
+
+  // Error state styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  errorTitle: {
+    ...Typography.display.h4,
+    color: colors.text,
+    marginBottom: Spacing.sm,
+  },
+  errorSubtitle: {
+    ...Typography.body.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  errorBackButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: colors.tint,
+    borderRadius: BorderRadius.md,
+  },
+  errorBackButtonText: {
+    ...Typography.button.primary,
+    color: Colors.dark.text, // Always white on tint button for contrast
   },
 });

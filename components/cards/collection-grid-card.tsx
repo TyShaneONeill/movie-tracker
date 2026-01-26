@@ -9,7 +9,7 @@ import React from 'react';
 import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { BorderRadius, Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 interface CollectionGridCardProps {
   /**
@@ -49,8 +49,10 @@ export function CollectionGridCard({
   onPress,
   style,
 }: CollectionGridCardProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+
+  console.log('[CollectionGridCard] Rendering with posterUrl:', posterUrl);
 
   return (
     <Pressable
@@ -73,6 +75,7 @@ export function CollectionGridCard({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     aspectRatio: 2 / 3,
     borderRadius: BorderRadius.sm,
     overflow: 'hidden',

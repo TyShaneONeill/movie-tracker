@@ -1,35 +1,121 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
+import { useUserStats, type GenreStats } from '@/hooks/use-user-stats';
+
+// Genre color palette for the donut chart
+const GENRE_COLORS = [
+  '#e11d48', // Rose - Primary
+  '#10b981', // Emerald - Secondary
+  '#fbbf24', // Amber - Gold
+  '#3b82f6', // Blue
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#f97316', // Orange
+];
 
 export default function AnalyticsScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+  const { data: stats, isLoading, error } = useUserStats();
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+          <Text style={[Typography.body.base, { color: colors.textSecondary, marginTop: Spacing.md }]}>
+            Loading stats...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <Text style={[Typography.body.base, { color: colors.tint }]}>Failed to load stats</Text>
+          <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
+            {error.message}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Empty state
+  const isEmpty = !stats || stats.summary.totalWatched === 0;
+
+  if (isEmpty) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+          <View style={styles.header}>
+            <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
+          </View>
+          <View style={styles.emptyContainer}>
+            <Svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={1.5}>
+              <Path d="M3 3v18h18" />
+              <Path d="m19 9-5 5-4-4-3 3" />
+            </Svg>
+            <Text style={[Typography.body.lg, { color: colors.text, marginTop: Spacing.md }]}>
+              No stats yet
+            </Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: Spacing.sm, textAlign: 'center' }]}>
+              Start watching movies to see your viewing statistics here
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Calculate max count for bar chart scaling
+  const maxMonthlyCount = Math.max(...stats.monthlyActivity.map((m) => m.count), 1);
+
+  // Get current month for highlighting
+  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  // Prepare genre data for display (top 5 + "Other")
+  const topGenres = stats.genres.slice(0, 5);
+  const otherPercentage = stats.genres.slice(5).reduce((sum, g) => sum + g.percentage, 0);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        {/* Header with Title and Year Selector */}
+        {/* Header with Title */}
         <View style={styles.header}>
           <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
-          <View style={styles.yearPill}>
-            <Text style={[Typography.body.sm, { color: colors.text }]}>2024</Text>
-          </View>
         </View>
 
         {/* Summary Stats Row */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-            <Text style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>42</Text>
+            <Text style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>
+              {stats.summary.totalWatched}
+            </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Movies</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-            <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>86h</Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Watch Time</Text>
+            <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
+              {stats.summary.totalFirstTakes}
+            </Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>First Takes</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.display.h3, { color: colors.accentSecondary, marginBottom: Spacing.xs }]}>
+              {stats.summary.averageRating !== null ? stats.summary.averageRating.toFixed(1) : '--'}
+            </Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Avg Rating</Text>
           </View>
         </View>
 
@@ -37,80 +123,137 @@ export default function AnalyticsScreen() {
         <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
           <Text style={[Typography.body.lg, { color: colors.text, marginBottom: Spacing.sm }]}>Monthly Activity</Text>
           <View style={styles.barChartContainer}>
-            <BarColumn height={40} label="Jan" isActive={false} colors={colors} />
-            <BarColumn height={60} label="Feb" isActive={false} colors={colors} />
-            <BarColumn height={85} label="Mar" isActive={true} colors={colors} />
-            <BarColumn height={50} label="Apr" isActive={false} colors={colors} />
-            <BarColumn height={30} label="May" isActive={false} colors={colors} />
-            <BarColumn height={70} label="Jun" isActive={false} colors={colors} />
+            {stats.monthlyActivity.map((month) => (
+              <BarColumn
+                key={month.month}
+                height={(month.count / maxMonthlyCount) * 100}
+                count={month.count}
+                label={month.monthLabel}
+                isActive={month.month === currentMonth}
+                colors={colors}
+              />
+            ))}
           </View>
         </View>
 
-        {/* Genre Distribution Donut Chart */}
+        {/* Genre Distribution */}
         <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
           <View style={styles.genreContainer}>
             <View style={styles.donutChartContainer}>
-              <View style={[styles.donutChart, { borderColor: colors.tint, backgroundColor: colors.card }]}>
-                <View style={styles.donutInner}>
-                  <Text style={[Typography.body.base, { fontWeight: '700', color: colors.text }]}>100%</Text>
-                </View>
-              </View>
+              <DonutChart genres={topGenres} colors={colors} />
             </View>
             <View style={styles.legendContainer}>
               <Text style={[Typography.body.lg, { color: colors.text, marginBottom: Spacing.sm }]}>Top Genres</Text>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendColor, { backgroundColor: colors.tint }]} />
-                <Text style={[Typography.body.sm, { color: colors.text }]}>Sci-Fi (60%)</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendColor, { backgroundColor: colors.accentSecondary }]} />
-                <Text style={[Typography.body.sm, { color: colors.text }]}>Action (25%)</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendColor, { backgroundColor: colors.gold }]} />
-                <Text style={[Typography.body.sm, { color: colors.text }]}>Drama (15%)</Text>
-              </View>
+              {topGenres.map((genre, index) => (
+                <View key={genre.genreId} style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: GENRE_COLORS[index % GENRE_COLORS.length] }]} />
+                  <Text style={[Typography.body.sm, { color: colors.text }]}>
+                    {genre.genreName} ({genre.percentage}%)
+                  </Text>
+                </View>
+              ))}
+              {otherPercentage > 0 && (
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: colors.textTertiary }]} />
+                  <Text style={[Typography.body.sm, { color: colors.text }]}>
+                    Other ({otherPercentage}%)
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
 
-        {/* Milestones Section */}
-        <Text style={[Typography.body.lg, { color: colors.text, marginTop: Spacing.lg, marginBottom: Spacing.md }]}>Milestones</Text>
-        <View style={[styles.milestoneCard, { backgroundColor: colors.card }]}>
-          <View style={styles.milestoneIconContainer}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.tint} strokeWidth={2}>
-              <Path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-              <Path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-              <Path d="M4 22h16" />
-              <Path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-              <Path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-              <Path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-            </Svg>
-          </View>
-          <View style={styles.milestoneContent}>
-            <Text style={[Typography.body.base, { fontWeight: '600', color: colors.text, marginBottom: Spacing.xs / 2 }]}>Sci-Fi Fanatic</Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Watched 10 Sci-Fi movies</Text>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 // Bar Column Component for Monthly Activity Chart
-function BarColumn({ height, label, isActive, colors }: { height: number; label: string; isActive: boolean; colors: any }) {
+function BarColumn({
+  height,
+  count,
+  label,
+  isActive,
+  colors,
+}: {
+  height: number;
+  count: number;
+  label: string;
+  isActive: boolean;
+  colors: typeof Colors.dark;
+}) {
   return (
     <View style={styles.barColumn}>
+      <Text style={[Typography.body.xs, { color: colors.textSecondary, marginBottom: Spacing.xs }]}>
+        {count > 0 ? count : ''}
+      </Text>
       <View
         style={[
           styles.bar,
           {
-            height: `${height}%`,
+            height: `${Math.max(height, 4)}%`,
             backgroundColor: isActive ? colors.tint : colors.backgroundSecondary,
           },
         ]}
       />
-      <Text style={[Typography.body.xs, { color: colors.textSecondary, marginTop: Spacing.xs }]}>{label}</Text>
+      <Text style={[Typography.body.xs, { color: isActive ? colors.text : colors.textSecondary, marginTop: Spacing.xs }]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+// Simple Donut Chart Component using SVG
+function DonutChart({ genres, colors }: { genres: GenreStats[]; colors: typeof Colors.dark }) {
+  const size = 120;
+  const strokeWidth = 20;
+  const radius = (size - strokeWidth) / 2;
+  const center = size / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  // Calculate total for proper segment sizing
+  const totalPercentage = genres.reduce((sum, g) => sum + g.percentage, 0) || 100;
+
+  let cumulativePercentage = 0;
+
+  return (
+    <View style={styles.donutWrapper}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Background circle */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={colors.backgroundSecondary}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        {/* Genre segments */}
+        <G rotation={-90} origin={`${center}, ${center}`}>
+          {genres.map((genre, index) => {
+            const segmentPercentage = (genre.percentage / totalPercentage) * 100;
+            const dashLength = (circumference * segmentPercentage) / 100;
+            const offset = circumference * (1 - cumulativePercentage / 100);
+            cumulativePercentage += segmentPercentage;
+
+            return (
+              <Circle
+                key={genre.genreId}
+                cx={center}
+                cy={center}
+                r={radius}
+                stroke={GENRE_COLORS[index % GENRE_COLORS.length]}
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${dashLength} ${circumference - dashLength}`}
+                strokeDashoffset={offset}
+                strokeLinecap="butt"
+                fill="none"
+              />
+            );
+          })}
+        </G>
+      </Svg>
     </View>
   );
 }
@@ -126,21 +269,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: 100, // Space for bottom nav
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: Spacing.xxl * 2,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  yearPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: BorderRadius.full,
-  },
   statsRow: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
   statCard: {
@@ -169,7 +317,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   bar: {
-    width: '100%',
+    width: '80%',
     borderTopLeftRadius: BorderRadius.sm,
     borderTopRightRadius: BorderRadius.sm,
     minHeight: 4,
@@ -180,25 +328,11 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   donutChartContainer: {
-    flex: 0,
+    flexShrink: 0,
   },
-  donutChart: {
+  donutWrapper: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    position: 'relative',
-    // Simulate conic gradient with border layers
-    borderWidth: 20,
-  },
-  donutInner: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -20 }, { translateY: -10 }],
-    width: 40,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   legendContainer: {
     flex: 1,
@@ -213,23 +347,5 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-  },
-  milestoneCard: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  milestoneIconContainer: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(225, 29, 72, 0.2)',
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  milestoneContent: {
-    flex: 1,
   },
 });

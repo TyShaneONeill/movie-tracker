@@ -3,16 +3,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSupabaseConnection } from '@/hooks/use-supabase-connection';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 export function SupabaseStatus() {
   const { isConnected, isLoading, error } = useSupabaseConnection();
-  const colorScheme = useColorScheme() ?? 'light';
+  const { effectiveTheme } = useTheme();
 
   if (isLoading) {
     return (
       <ThemedView style={styles.container}>
-        <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+        <ActivityIndicator size="small" color={Colors[effectiveTheme].tint} />
         <ThemedText style={styles.text}>
           Checking Supabase connection...
         </ThemedText>

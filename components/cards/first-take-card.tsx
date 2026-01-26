@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
@@ -65,8 +65,8 @@ export function FirstTakeCard({
   onPress,
   style,
 }: FirstTakeCardProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   return (
     <Pressable
@@ -104,7 +104,7 @@ export function FirstTakeCard({
             </Text>
           </View>
         </View>
-        <Text style={styles.emoji}>{emoji}</Text>
+        <Text style={[styles.emoji, { color: colors.tint }]}>{emoji}</Text>
       </View>
 
       {/* Quote */}

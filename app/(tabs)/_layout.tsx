@@ -4,15 +4,15 @@ import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 
 import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { effectiveTheme } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'dark'].tint,
+        tabBarActiveTintColor: Colors[effectiveTheme].tint,
         headerShown: false,
       }}
       tabBar={(props) => {

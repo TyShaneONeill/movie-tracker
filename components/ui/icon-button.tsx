@@ -13,7 +13,7 @@ import React from 'react';
 import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors, Gradients } from '@/constants/theme';
 
 type IconButtonVariant = 'glass' | 'card' | 'primary';
@@ -60,8 +60,8 @@ export default function IconButton({
   disabled = false,
   style,
 }: IconButtonProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   const iconColor = variant === 'primary' ? '#ffffff' : colors.text;
 
@@ -87,7 +87,7 @@ export default function IconButton({
       >
         <BlurView
           intensity={30}
-          tint={colorScheme === 'dark' ? 'dark' : 'light'}
+          tint={effectiveTheme === 'dark' ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
         {icon(iconColor)}

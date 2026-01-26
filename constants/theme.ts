@@ -130,21 +130,36 @@ export const Shadows = {
   }),
 };
 
-// Font families (will be configured with expo-font)
+// Font families - using expo-google-fonts naming convention
+// Each weight requires its own font family name
 export const Fonts = {
-  // Body text
+  // Inter variants (body text)
+  inter: {
+    regular: 'Inter_400Regular',
+    medium: 'Inter_500Medium',
+    semibold: 'Inter_600SemiBold',
+    bold: 'Inter_700Bold',
+  },
+  // Outfit variants (headings/display)
+  outfit: {
+    regular: 'Outfit_400Regular',
+    medium: 'Outfit_500Medium',
+    semibold: 'Outfit_600SemiBold',
+    bold: 'Outfit_700Bold',
+    extrabold: 'Outfit_800ExtraBold',
+  },
+  // Legacy aliases for backwards compatibility
   sans: Platform.select({
-    ios: 'Inter',
-    android: 'Inter',
+    ios: 'Inter_400Regular',
+    android: 'Inter_400Regular',
     web: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    default: 'Inter',
+    default: 'Inter_400Regular',
   }),
-  // Headings
   display: Platform.select({
-    ios: 'Outfit',
-    android: 'Outfit',
+    ios: 'Outfit_700Bold',
+    android: 'Outfit_700Bold',
     web: "Outfit, 'SF Pro Rounded', sans-serif",
-    default: 'Outfit',
+    default: 'Outfit_700Bold',
   }),
 };
 
@@ -165,4 +180,5 @@ export const FontWeights = {
   medium: '500' as const,
   semibold: '600' as const,
   bold: '700' as const,
+  extrabold: '800' as const,
 };

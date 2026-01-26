@@ -1,4 +1,5 @@
 export type MovieStatus = 'watchlist' | 'watching' | 'watched';
+export type ThemePreference = 'light' | 'dark' | 'system';
 
 export interface Database {
   public: {
@@ -11,6 +12,9 @@ export interface Database {
           username: string | null;
           full_name: string | null;
           avatar_url: string | null;
+          bio: string | null;
+          first_take_prompt_enabled: boolean | null;
+          theme_preference: string | null;
         };
         Insert: {
           id: string;
@@ -19,6 +23,9 @@ export interface Database {
           username?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
+          bio?: string | null;
+          first_take_prompt_enabled?: boolean | null;
+          theme_preference?: string | null;
         };
         Update: {
           id?: string;
@@ -27,6 +34,9 @@ export interface Database {
           username?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
+          bio?: string | null;
+          first_take_prompt_enabled?: boolean | null;
+          theme_preference?: string | null;
         };
       };
       user_movies: {
@@ -34,15 +44,15 @@ export interface Database {
           id: string;
           user_id: string;
           tmdb_id: number;
-          status: MovieStatus;
+          status: string;
           title: string;
           overview: string | null;
           poster_path: string | null;
           backdrop_path: string | null;
           release_date: string | null;
           vote_average: number | null;
-          genre_ids: number[];
-          is_liked: boolean;
+          genre_ids: number[] | null;
+          is_liked: boolean | null;
           added_at: string;
           updated_at: string;
         };
@@ -50,15 +60,15 @@ export interface Database {
           id?: string;
           user_id: string;
           tmdb_id: number;
-          status?: MovieStatus;
+          status?: string;
           title: string;
           overview?: string | null;
           poster_path?: string | null;
           backdrop_path?: string | null;
           release_date?: string | null;
           vote_average?: number | null;
-          genre_ids?: number[];
-          is_liked?: boolean;
+          genre_ids?: number[] | null;
+          is_liked?: boolean | null;
           added_at?: string;
           updated_at?: string;
         };
@@ -66,15 +76,15 @@ export interface Database {
           id?: string;
           user_id?: string;
           tmdb_id?: number;
-          status?: MovieStatus;
+          status?: string;
           title?: string;
           overview?: string | null;
           poster_path?: string | null;
           backdrop_path?: string | null;
           release_date?: string | null;
           vote_average?: number | null;
-          genre_ids?: number[];
-          is_liked?: boolean;
+          genre_ids?: number[] | null;
+          is_liked?: boolean | null;
           added_at?: string;
           updated_at?: string;
         };
@@ -86,7 +96,7 @@ export interface Database {
           tmdb_id: number;
           title: string;
           poster_path: string | null;
-          created_at: string;
+          created_at: string | null;
         };
         Insert: {
           id?: string;
@@ -94,12 +104,15 @@ export interface Database {
           tmdb_id: number;
           title: string;
           poster_path?: string | null;
-          created_at?: string;
+          created_at?: string | null;
         };
-        Delete: {
+        Update: {
           id?: string;
           user_id?: string;
           tmdb_id?: number;
+          title?: string;
+          poster_path?: string | null;
+          created_at?: string | null;
         };
       };
       user_lists: {
@@ -108,27 +121,27 @@ export interface Database {
           user_id: string;
           name: string;
           description: string | null;
-          is_public: boolean;
-          created_at: string;
-          updated_at: string;
+          is_public: boolean | null;
+          created_at: string | null;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
           user_id: string;
           name: string;
           description?: string | null;
-          is_public?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          is_public?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
         };
         Update: {
           id?: string;
           user_id?: string;
           name?: string;
           description?: string | null;
-          is_public?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          is_public?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
         };
       };
       list_movies: {
@@ -139,7 +152,7 @@ export interface Database {
           title: string;
           poster_path: string | null;
           position: number;
-          added_at: string;
+          added_at: string | null;
         };
         Insert: {
           id?: string;
@@ -148,7 +161,7 @@ export interface Database {
           title: string;
           poster_path?: string | null;
           position?: number;
-          added_at?: string;
+          added_at?: string | null;
         };
         Update: {
           id?: string;
@@ -157,7 +170,7 @@ export interface Database {
           title?: string;
           poster_path?: string | null;
           position?: number;
-          added_at?: string;
+          added_at?: string | null;
         };
       };
       first_takes: {
@@ -169,9 +182,10 @@ export interface Database {
           poster_path: string | null;
           reaction_emoji: string;
           quote_text: string;
-          is_spoiler: boolean;
-          created_at: string;
-          updated_at: string;
+          is_spoiler: boolean | null;
+          rating: number | null;
+          created_at: string | null;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -181,9 +195,10 @@ export interface Database {
           poster_path?: string | null;
           reaction_emoji?: string;
           quote_text: string;
-          is_spoiler?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          is_spoiler?: boolean | null;
+          rating?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
         };
         Update: {
           id?: string;
@@ -193,14 +208,133 @@ export interface Database {
           poster_path?: string | null;
           reaction_emoji?: string;
           quote_text?: string;
-          is_spoiler?: boolean;
-          created_at?: string;
-          updated_at?: string;
+          is_spoiler?: boolean | null;
+          rating?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
+      scan_usage: {
+        Row: {
+          user_id: string;
+          daily_count: number | null;
+          last_scan_date: string | null;
+          lifetime_scans: number | null;
+          updated_at: string | null;
+          bypass_rate_limit: boolean | null;
+        };
+        Insert: {
+          user_id: string;
+          daily_count?: number | null;
+          last_scan_date?: string | null;
+          lifetime_scans?: number | null;
+          updated_at?: string | null;
+          bypass_rate_limit?: boolean | null;
+        };
+        Update: {
+          user_id?: string;
+          daily_count?: number | null;
+          last_scan_date?: string | null;
+          lifetime_scans?: number | null;
+          updated_at?: string | null;
+          bypass_rate_limit?: boolean | null;
+        };
+      };
+      theater_visits: {
+        Row: {
+          id: string;
+          user_id: string;
+          tmdb_id: number;
+          movie_title: string;
+          theater_name: string | null;
+          theater_chain: string | null;
+          show_date: string | null;
+          show_time: string | null;
+          seat_row: string | null;
+          seat_number: string | null;
+          auditorium: string | null;
+          format: string | null;
+          price_amount: number | null;
+          price_currency: string | null;
+          ticket_type: string | null;
+          confirmation_number: string | null;
+          is_verified: boolean | null;
+          confidence_score: number | null;
+          scan_notes: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tmdb_id: number;
+          movie_title: string;
+          theater_name?: string | null;
+          theater_chain?: string | null;
+          show_date?: string | null;
+          show_time?: string | null;
+          seat_row?: string | null;
+          seat_number?: string | null;
+          auditorium?: string | null;
+          format?: string | null;
+          price_amount?: number | null;
+          price_currency?: string | null;
+          ticket_type?: string | null;
+          confirmation_number?: string | null;
+          is_verified?: boolean | null;
+          confidence_score?: number | null;
+          scan_notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tmdb_id?: number;
+          movie_title?: string;
+          theater_name?: string | null;
+          theater_chain?: string | null;
+          show_date?: string | null;
+          show_time?: string | null;
+          seat_row?: string | null;
+          seat_number?: string | null;
+          auditorium?: string | null;
+          format?: string | null;
+          price_amount?: number | null;
+          price_currency?: string | null;
+          ticket_type?: string | null;
+          confirmation_number?: string | null;
+          is_verified?: boolean | null;
+          confidence_score?: number | null;
+          scan_notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
         };
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      check_and_increment_scan: {
+        Args: { p_daily_limit?: number; p_user_id: string };
+        Returns: unknown;
+      };
+      get_user_monthly_activity: {
+        Args: { p_user_id: string };
+        Returns: Array<{
+          count: number;
+          month: string;
+          month_label: string;
+        }>;
+      };
+      get_user_stats_summary: {
+        Args: { p_user_id: string };
+        Returns: Array<{
+          avg_rating: number;
+          total_first_takes: number;
+          total_watched: number;
+        }>;
+      };
+    };
     Enums: Record<string, never>;
   };
 }
@@ -234,3 +368,28 @@ export interface UserListWithMovies extends UserList {
 export type FirstTake = Database['public']['Tables']['first_takes']['Row'];
 export type FirstTakeInsert = Database['public']['Tables']['first_takes']['Insert'];
 export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Update'];
+
+// Helper types for profiles
+export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+// User stats types (from get-user-stats Edge Function)
+export interface UserStatsResponse {
+  summary: {
+    totalWatched: number;
+    totalFirstTakes: number;
+    averageRating: number | null;
+  };
+  genres: Array<{
+    genreId: number;
+    genreName: string;
+    count: number;
+    percentage: number;
+  }>;
+  monthlyActivity: Array<{
+    month: string;
+    monthLabel: string;
+    count: number;
+  }>;
+}

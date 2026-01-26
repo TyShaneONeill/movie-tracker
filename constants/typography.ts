@@ -1,10 +1,13 @@
 /**
  * CineTrack Typography System
  * Font presets and text styles matching ui-mocks/styles.css
+ *
+ * Note: With expo-google-fonts, each weight is a separate font family.
+ * We use fontFamily to specify the weight instead of fontWeight.
  */
 
 import { TextStyle } from 'react-native';
-import { Fonts, FontSizes, FontWeights } from './theme';
+import { Fonts, FontSizes } from './theme';
 
 /**
  * Base text style presets
@@ -13,31 +16,34 @@ import { Fonts, FontSizes, FontWeights } from './theme';
 export const Typography = {
   // Display styles (using Outfit font for headings)
   display: {
+    // Brand title - matches .text-2xl from CSS (2rem/32px, weight 800)
+    brand: {
+      fontFamily: Fonts.outfit.extrabold,
+      fontSize: 32, // 2rem
+      lineHeight: 36,
+    } as TextStyle,
+
     h1: {
-      fontFamily: Fonts.display,
+      fontFamily: Fonts.outfit.bold,
       fontSize: FontSizes['4xl'], // 36px
-      fontWeight: FontWeights.bold,
       lineHeight: 40,
     } as TextStyle,
 
     h2: {
-      fontFamily: Fonts.display,
+      fontFamily: Fonts.outfit.bold,
       fontSize: FontSizes['3xl'], // 30px
-      fontWeight: FontWeights.bold,
       lineHeight: 36,
     } as TextStyle,
 
     h3: {
-      fontFamily: Fonts.display,
+      fontFamily: Fonts.outfit.bold,
       fontSize: FontSizes['2xl'], // 24px
-      fontWeight: FontWeights.bold,
       lineHeight: 28,
     } as TextStyle,
 
     h4: {
-      fontFamily: Fonts.display,
+      fontFamily: Fonts.outfit.bold,
       fontSize: FontSizes.xl, // 20px
-      fontWeight: FontWeights.bold,
       lineHeight: 24,
     } as TextStyle,
   },
@@ -45,65 +51,56 @@ export const Typography = {
   // Body text styles (using Inter font)
   body: {
     xlBold: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.bold,
       fontSize: FontSizes.xl, // 20px
-      fontWeight: FontWeights.bold,
       lineHeight: 28,
     } as TextStyle,
 
     lg: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.semibold,
       fontSize: FontSizes.lg, // 18px
-      fontWeight: FontWeights.semibold,
       lineHeight: 26,
     } as TextStyle,
 
     lgRegular: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.regular,
       fontSize: FontSizes.lg, // 18px
-      fontWeight: FontWeights.normal,
       lineHeight: 26,
     } as TextStyle,
 
     base: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.regular,
       fontSize: FontSizes.base, // 16px
-      fontWeight: FontWeights.normal,
       lineHeight: 24,
     } as TextStyle,
 
     baseMedium: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.medium,
       fontSize: FontSizes.base, // 16px
-      fontWeight: FontWeights.medium,
       lineHeight: 24,
     } as TextStyle,
 
     sm: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.regular,
       fontSize: FontSizes.sm, // 14px
-      fontWeight: FontWeights.normal,
       lineHeight: 20,
     } as TextStyle,
 
     smMedium: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.medium,
       fontSize: FontSizes.sm, // 14px
-      fontWeight: FontWeights.medium,
       lineHeight: 20,
     } as TextStyle,
 
     xs: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.regular,
       fontSize: FontSizes.xs, // 12px
-      fontWeight: FontWeights.normal,
       lineHeight: 16,
     } as TextStyle,
 
     xsMedium: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.medium,
       fontSize: FontSizes.xs, // 12px
-      fontWeight: FontWeights.medium,
       lineHeight: 16,
     } as TextStyle,
   },
@@ -111,16 +108,14 @@ export const Typography = {
   // Button text styles
   button: {
     primary: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.semibold,
       fontSize: 15, // 0.9375rem
-      fontWeight: FontWeights.semibold,
       lineHeight: 20,
     } as TextStyle,
 
     secondary: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.medium,
       fontSize: FontSizes.sm, // 14px
-      fontWeight: FontWeights.medium,
       lineHeight: 20,
     } as TextStyle,
   },
@@ -128,9 +123,8 @@ export const Typography = {
   // Tag/chip text styles
   tag: {
     default: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.medium,
       fontSize: FontSizes.xs, // 12px
-      fontWeight: FontWeights.medium,
       lineHeight: 16,
     } as TextStyle,
   },
@@ -138,16 +132,14 @@ export const Typography = {
   // Caption styles
   caption: {
     default: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.regular,
       fontSize: FontSizes.xs, // 12px
-      fontWeight: FontWeights.normal,
       lineHeight: 16,
     } as TextStyle,
 
     medium: {
-      fontFamily: Fonts.sans,
+      fontFamily: Fonts.inter.medium,
       fontSize: FontSizes.xs, // 12px
-      fontWeight: FontWeights.medium,
       lineHeight: 16,
     } as TextStyle,
   },

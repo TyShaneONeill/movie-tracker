@@ -5,8 +5,23 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import {
+  GoogleSignin,
+  isSuccessResponse,
+  isErrorWithCode,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { supabase } from './supabase';
+import { queryClient } from './query-client';
 import type { Session, User } from '@supabase/supabase-js';
+
+// Configure Google Sign-In
+GoogleSignin.configure({
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+});
 
 interface AuthContextType {
   session: Session | null;
@@ -21,6 +36,9 @@ interface AuthContextType {
     password: string
   ) => Promise<{ error: Error | null; needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
+  signInWithApple: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,12 +81,128 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Sign out error:', error.message);
+        throw error;
+      }
+      // Clear all cached queries to prevent stale user data
+      queryClient.clear();
+      // Explicitly clear the state to ensure immediate UI update
+      setSession(null);
+      setUser(null);
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      // Clear cache and state even if API call fails to ensure user is logged out locally
+      queryClient.clear();
+      setSession(null);
+      setUser(null);
+      throw error;
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error as Error | null };
+  };
+
+  const signInWithApple = async () => {
+    if (Platform.OS !== 'ios') {
+      throw new Error('Apple Sign-In is only available on iOS devices');
+    }
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (credential.identityToken) {
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+
+        if (error) {
+          throw error;
+        }
+        // Auth state will be updated by the onAuthStateChange listener
+        return;
+      }
+
+      throw new Error('No identity token received from Apple');
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        const appleError = error as { code: string };
+        if (appleError.code === 'ERR_REQUEST_CANCELED') {
+          throw new Error('Apple Sign-In was cancelled');
+        }
+      }
+      throw error;
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      // Check if Google Play Services are available (Android) or proceed (iOS)
+      await GoogleSignin.hasPlayServices();
+
+      // Trigger native Google Sign-In
+      const response = await GoogleSignin.signIn();
+
+      if (isSuccessResponse(response)) {
+        const { idToken } = response.data;
+
+        if (!idToken) {
+          throw new Error('No ID token received from Google');
+        }
+
+        // Sign in with Supabase using the ID token
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+        });
+
+        if (error) {
+          console.error('Supabase Google sign-in error:', error.message);
+          if (error.message.includes('audience')) {
+            throw new Error(
+              'Google Sign-In failed: The iOS Client ID is not authorized in Supabase. ' +
+              'Add the iOS Client ID to Supabase Dashboard > Authentication > Providers > Google > Client IDs.'
+            );
+          }
+          throw error;
+        }
+
+        console.log('Google sign-in successful:', data.user?.email);
+        // Auth state will be updated by the onAuthStateChange listener
+        return;
+      } else {
+        throw new Error('Google Sign-In failed');
+      }
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.SIGN_IN_CANCELLED:
+            throw new Error('Google Sign-In was cancelled');
+          case statusCodes.IN_PROGRESS:
+            throw new Error('Google Sign-In is already in progress');
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            throw new Error('Google Play Services not available');
+          default:
+            throw error;
+        }
+      }
+      throw error;
+    }
   };
 
   return (
     <AuthContext.Provider
-      value={{ session, user, isLoading, signIn, signUp, signOut }}
+      value={{ session, user, isLoading, signIn, signUp, signOut, updatePassword, signInWithApple, signInWithGoogle }}
     >
       {children}
     </AuthContext.Provider>

@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 export interface NavItem {
   icon: (color: string) => React.ReactNode;
@@ -28,8 +28,8 @@ export interface BottomNavBarProps {
  * - Floating above content with rounded corners
  */
 export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   const handlePress = (index: number, onPress: () => void) => {
     if (Platform.OS === 'ios') {
@@ -42,7 +42,7 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
     <View style={styles.container}>
       <BlurView
         intensity={80}
-        tint={colorScheme === 'light' ? 'light' : 'dark'}
+        tint={effectiveTheme === 'light' ? 'light' : 'dark'}
         style={[
           styles.blurContainer,
           {
@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
+    pointerEvents: 'box-none',
   },
   blurContainer: {
     width: '100%',
@@ -101,6 +102,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingVertical: 12,
     paddingHorizontal: Spacing.lg,
+    pointerEvents: 'auto',
   },
   navItems: {
     flexDirection: 'row',

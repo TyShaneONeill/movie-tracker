@@ -3,20 +3,24 @@ import {
   View,
   FlatList,
   Text,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line } from 'react-native-svg';
+import { router } from 'expo-router';
 
 import { SectionHeader } from '@/components/ui/section-header';
 import { TrendingCard } from '@/components/cards/trending-card';
 import { FeedItemCard } from '@/components/cards/feed-item-card';
 import IconButton from '@/components/ui/icon-button';
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { TRENDING_MOVIES } from '@/lib/mock-data/movies';
-import { MOCK_ACTIVITY } from '@/lib/mock-data/users';
+import { useTheme } from '@/lib/theme-context';
+import { useMovieList } from '@/hooks/use-movie-lists';
+import { useAuth } from '@/hooks/use-auth';
+import { useActivityFeed, formatRelativeTime } from '@/hooks/use-activity-feed';
+import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -43,32 +47,36 @@ function SearchIcon({ color }: { color: string }) {
   );
 }
 
+// Default avatar for users without one
+const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
+
 export default function HomeScreen() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const colors = Colors[colorScheme];
+  const { effectiveTheme, setThemePreference } = useTheme();
+  const colors = Colors[effectiveTheme];
+  const { user } = useAuth();
+
+  // Fetch movie lists
+  const { movies: trendingMovies, isLoading: trendingLoading } = useMovieList({ type: 'trending' });
+  const { movies: nowPlayingMovies, isLoading: nowPlayingLoading } = useMovieList({ type: 'now_playing' });
+  const { movies: upcomingMovies, isLoading: upcomingLoading } = useMovieList({ type: 'upcoming' });
+
+  // Fetch activity feed (20 most recent First Takes)
+  const { data: activityFeed, isLoading: activityLoading } = useActivityFeed(20);
 
   const handleThemeToggle = () => {
-    // Toggle theme (in future, this will update system theme)
-    // Will be implemented with theme context
+    setThemePreference(effectiveTheme === 'dark' ? 'light' : 'dark');
   };
 
   const handleSearchPress = () => {
-    // Navigate to search screen (when implemented)
-    // router.push('/search');
+    router.push('/search');
   };
 
   const handleTrendingPress = (movieId: number) => {
-    // Navigate to movie detail (when implemented)
-    // router.push(`/movie/${movieId}`);
-  };
-
-  const handleActivityUserPress = (userId: string) => {
-    // Navigate to user profile (when implemented)
+    router.push(`/movie/${movieId}`);
   };
 
   const handleActivityMoviePress = (movieId: number) => {
-    // Navigate to movie detail (when implemented)
-    // router.push(`/movie/${movieId}`);
+    router.push(`/movie/${movieId}`);
   };
 
   return (
@@ -76,20 +84,17 @@ export default function HomeScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
-      <View style={styles.contentContainer}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <LinearGradient
-              colors={['#e11d48', '#f43f5e'] as [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientTextContainer}
-            >
-              <Text style={[styles.title, Typography.display.h3]}>
-                CineTrack
-              </Text>
-            </LinearGradient>
+            <Text style={[styles.title, Typography.display.brand]}>
+              CineTrack
+            </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Discover & Track
             </Text>
@@ -116,51 +121,131 @@ export default function HomeScreen() {
           <SectionHeader
             title="Trending Now"
             actionText="See All"
-            onActionPress={() => {}}
+            onActionPress={() => router.push('/category/trending')}
           />
-          <FlatList
-            horizontal
-            data={TRENDING_MOVIES}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <TrendingCard
-                title={item.title}
-                genre={item.genre}
-                rating={String(item.rating)}
-                posterUrl={item.posterPath}
-                onPress={() => handleTrendingPress(item.id)}
-              />
-            )}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.trendingList}
-            ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+          {trendingLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.tint} />
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              data={trendingMovies}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TrendingCard
+                  title={item.title}
+                  genre={getPrimaryGenre(item.genre_ids)}
+                  rating={item.vote_average.toFixed(1)}
+                  posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
+                  onPress={() => handleTrendingPress(item.id)}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.trendingList}
+              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+            />
+          )}
+        </View>
+
+        {/* Now Playing Section */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Now Playing"
+            actionText="See All"
+            onActionPress={() => router.push('/category/now_playing')}
           />
+          {nowPlayingLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.tint} />
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              data={nowPlayingMovies}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TrendingCard
+                  title={item.title}
+                  genre={getPrimaryGenre(item.genre_ids)}
+                  rating={item.vote_average.toFixed(1)}
+                  posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
+                  onPress={() => handleTrendingPress(item.id)}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.trendingList}
+              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+            />
+          )}
+        </View>
+
+        {/* Coming Soon Section */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Coming Soon"
+            actionText="See All"
+            onActionPress={() => router.push('/category/upcoming')}
+          />
+          {upcomingLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.tint} />
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              data={upcomingMovies}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TrendingCard
+                  title={item.title}
+                  genre={getPrimaryGenre(item.genre_ids)}
+                  rating={item.vote_average.toFixed(1)}
+                  posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
+                  onPress={() => handleTrendingPress(item.id)}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.trendingList}
+              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+            />
+          )}
         </View>
 
         {/* Activity Feed Section */}
-        <View style={[styles.section, styles.activitySection]}>
+        <View style={styles.section}>
           <SectionHeader title="Activity" />
-          <FlatList
-            data={MOCK_ACTIVITY}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <FeedItemCard
-                userName={item.userName}
-                userAvatarUrl={item.userAvatar}
-                timestamp={item.timestamp}
-                movieTitle={item.movieTitle}
-                moviePosterUrl={item.moviePoster}
-                rating={item.rating}
-                reviewText={item.reviewText}
-                onUserPress={() => handleActivityUserPress(item.userId)}
-                onMoviePress={() => handleActivityMoviePress(item.movieId)}
-              />
-            )}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.activityList}
-          />
+          {activityLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.tint} />
+            </View>
+          ) : !activityFeed || activityFeed.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No activity yet. Be the first to share a First Take!
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.activityList}>
+              {activityFeed.map((item) => (
+                <FeedItemCard
+                  key={item.id}
+                  userName={item.userDisplayName ?? 'Anonymous'}
+                  userAvatarUrl={item.userAvatarUrl ?? DEFAULT_AVATAR}
+                  timestamp={formatRelativeTime(item.createdAt)}
+                  movieTitle={item.movieTitle}
+                  moviePosterUrl={getTMDBImageUrl(item.posterPath, 'w185') ?? ''}
+                  rating={item.rating}
+                  reviewText={item.quoteText}
+                  isSpoiler={item.isSpoiler}
+                  isCurrentUser={user?.id === item.userId}
+                  onMoviePress={() => handleActivityMoviePress(item.tmdbId)}
+                />
+              ))}
+            </View>
+          )}
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -169,8 +254,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  contentContainer: {
+  scrollView: {
     flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: Spacing.md,
     paddingBottom: 90, // Space for floating nav bar
   },
@@ -179,16 +266,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: Spacing.lg,
-    marginTop: Spacing.sm,
-  },
-  gradientTextContainer: {
-    alignSelf: 'flex-start',
-    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.md,
   },
   title: {
-    // Typography.heading.xl applied inline
-    // Note: Gradient text not directly supported in RN, using gradient background as fallback
-    color: '#e11d48', // Fallback color
+    color: '#e11d48', // Rose 600 - Primary accent
   },
   subtitle: {
     ...Typography.body.sm,
@@ -204,10 +285,20 @@ const styles = StyleSheet.create({
   trendingList: {
     paddingVertical: Spacing.xs,
   },
-  activitySection: {
-    flex: 1,
+  loadingContainer: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   activityList: {
-    paddingBottom: Spacing.md,
+    gap: Spacing.md,
   },
 });

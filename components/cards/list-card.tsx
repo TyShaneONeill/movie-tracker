@@ -8,7 +8,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { BorderRadius, Colors, FontSizes, FontWeights, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 interface ListCardProps {
   /**
@@ -89,8 +89,8 @@ export function ListCard({
   onPress,
   style,
 }: ListCardProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   // Ensure we always have exactly 4 slots (fill with null if fewer posters)
   const gridPosters = Array.from({ length: 4 }, (_, i) => posterUrls[i] || null);

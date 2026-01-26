@@ -2,19 +2,27 @@
  * FeedItemCard Component
  * User activity feed item showing watched movie with rating
  * Displays user avatar, name, timestamp, movie poster, and rating
- * Reference: ui-mocks/home.html lines 161-182, 184-206 (feed-item class)
+ * Reference: ui-mocks/spoiler_card.html (feed-item class with spoiler handling)
  */
 
-import React from 'react';
-import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ViewStyle,
+  Animated,
+} from 'react-native';
 import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
-import { Typography } from '@/constants/typography';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 interface FeedItemCardProps {
   /**
-   * User's display name
+   * User's display name (or "You" if isCurrentUser is true)
    */
   userName: string;
 
@@ -24,7 +32,7 @@ interface FeedItemCardProps {
   userAvatarUrl: string;
 
   /**
-   * Timestamp text (e.g., "Watched 2h ago")
+   * Timestamp text (e.g., "watched 2h ago")
    */
   timestamp: string;
 
@@ -39,9 +47,9 @@ interface FeedItemCardProps {
   moviePosterUrl: string;
 
   /**
-   * Rating value (1-5)
+   * Rating value (1-10 scale)
    */
-  rating: number;
+  rating: number | null;
 
   /**
    * Optional review text snippet
@@ -49,14 +57,20 @@ interface FeedItemCardProps {
   reviewText?: string;
 
   /**
+   * Whether the review contains spoilers
+   */
+  isSpoiler?: boolean;
+
+  /**
+   * Whether this is the current user's First Take
+   * When true, displays "You" instead of userName
+   */
+  isCurrentUser?: boolean;
+
+  /**
    * Callback when movie poster/info is pressed
    */
   onMoviePress?: () => void;
-
-  /**
-   * Callback when user avatar/name is pressed
-   */
-  onUserPress?: () => void;
 
   /**
    * Additional style overrides for the container
@@ -68,23 +82,25 @@ interface FeedItemCardProps {
  * FeedItemCard component for activity feed on home screen
  *
  * Features:
- * - Card background with border from theme
- * - User info row: avatar (40px circular) + name + timestamp
- * - Movie info row: poster (56px width) + title + star rating + review text
- * - Separate press handlers for user and movie areas
- * - Themed colors for text and borders
+ * - Card layout matching spoiler_card.html mockup
+ * - Header: 24px avatar + username (bold) + "watched Xh ago" text
+ * - Content: 48x72px poster vertically centered with text
+ * - Movie title with rating on separate line (accent color)
+ * - Spoiler blur with glassmorphism reveal button
+ * - "You" indicator in accent color for current user
  *
  * @example
  * <FeedItemCard
  *   userName="Sarah Jenkins"
  *   userAvatarUrl="https://i.pravatar.cc/150?u=a042581f4e29026024d"
- *   timestamp="Watched 2h ago"
+ *   timestamp="watched 2h ago"
  *   movieTitle="Avatar: The Way of Water"
  *   moviePosterUrl="https://image.tmdb.org/t/p/w200/..."
- *   rating={5}
+ *   rating={8.5}
  *   reviewText="Masterpiece"
+ *   isCurrentUser={false}
+ *   isSpoiler={false}
  *   onMoviePress={() => navigation.navigate('movie', { id: 123 })}
- *   onUserPress={() => navigation.navigate('profile', { id: 456 })}
  * />
  */
 export function FeedItemCard({
@@ -95,88 +111,143 @@ export function FeedItemCard({
   moviePosterUrl,
   rating,
   reviewText,
+  isSpoiler = false,
+  isCurrentUser = false,
   onMoviePress,
-  onUserPress,
   style,
 }: FeedItemCardProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
-  // Generate star display (filled + empty stars)
-  const renderStars = () => {
-    const filledStars = Math.floor(rating);
-    const emptyStars = 5 - filledStars;
+  // Track whether spoiler content has been revealed
+  const [spoilerRevealed, setSpoilerRevealed] = useState(false);
+
+  // Animation for smooth reveal
+  const [fadeAnim] = useState(new Animated.Value(1));
+
+  // Display "You" for current user's posts
+  const displayName = isCurrentUser ? 'You' : userName;
+
+  // Format rating for display (e.g., "8.5/10" or "8/10")
+  const formatRating = () => {
+    if (rating === null || rating === undefined) return null;
+    return Number.isInteger(rating) ? rating.toString() : rating.toFixed(1);
+  };
+
+  // Handle spoiler reveal with animation
+  const handleRevealSpoiler = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setSpoilerRevealed(true);
+    });
+  };
+
+  // Render the review text content (blurred or revealed)
+  const renderReviewContent = () => {
+    if (!reviewText) return null;
+
+    const shouldHide = isSpoiler && !spoilerRevealed;
+
+    // Generate placeholder text (dots) that roughly matches the original text length
+    const placeholderText = shouldHide
+      ? '\u2022'.repeat(Math.min(reviewText.length, 60))
+      : reviewText;
 
     return (
-      <View style={styles.starsContainer}>
-        {/* Filled stars */}
-        {filledStars > 0 && (
-          <Text style={[styles.stars, { color: colors.gold }]}>
-            {'★'.repeat(filledStars)}
-          </Text>
-        )}
-        {/* Empty stars */}
-        {emptyStars > 0 && (
-          <Text style={[styles.stars, { color: 'rgba(255, 255, 255, 0.2)' }]}>
-            {'★'.repeat(emptyStars)}
-          </Text>
+      <View style={styles.spoilerWrapper}>
+        {/* Review text - completely hidden when spoiler is active */}
+        <Text
+          style={[
+            styles.reviewText,
+            { color: shouldHide ? colors.textTertiary : colors.textSecondary },
+            shouldHide && styles.reviewTextHidden,
+          ]}
+          numberOfLines={3}
+        >
+          {placeholderText}
+        </Text>
+
+        {/* Spoiler overlay with blur button */}
+        {isSpoiler && !spoilerRevealed && (
+          <Animated.View
+            style={[
+              styles.spoilerOverlay,
+              {
+                opacity: fadeAnim,
+                backgroundColor: `${colors.background}E6`, // 90% opacity solid background
+              },
+            ]}
+          >
+            <Pressable
+              onPress={handleRevealSpoiler}
+              style={({ pressed }) => [
+                styles.spoilerButton,
+                pressed && styles.spoilerButtonPressed,
+              ]}
+            >
+              <BlurView
+                intensity={40}
+                tint="dark"
+                style={styles.spoilerButtonBlur}
+              >
+                <Ionicons
+                  name="eye-off"
+                  size={14}
+                  color={colors.text}
+                  style={styles.spoilerIcon}
+                />
+                <Text style={[styles.spoilerButtonText, { color: colors.text }]}>
+                  Spoiler
+                </Text>
+              </BlurView>
+            </Pressable>
+          </Animated.View>
         )}
       </View>
     );
   };
+
+  const formattedRating = formatRating();
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colors.card,
           borderColor: colors.border,
         },
         style,
       ]}
     >
-      {/* User Info Row */}
-      <Pressable
-        onPress={onUserPress}
-        style={({ pressed }) => [
-          styles.userRow,
-          { opacity: pressed ? 0.7 : 1 },
-        ]}
-      >
+      {/* Header Row: Avatar + Username + Timestamp */}
+      <View style={styles.headerRow}>
         <Image
           source={{ uri: userAvatarUrl }}
           style={styles.avatar}
           contentFit="cover"
           transition={200}
         />
-        <View style={styles.userInfo}>
-          <Text
-            style={[
-              styles.userName,
-              Typography.body.base,
-              { color: colors.text },
-            ]}
-          >
-            {userName}
-          </Text>
-          <Text
-            style={[
-              styles.timestamp,
-              Typography.body.xs,
-              { color: colors.textSecondary },
-            ]}
-          >
-            {timestamp}
-          </Text>
-        </View>
-      </Pressable>
+        <Text
+          style={[
+            styles.userName,
+            { color: isCurrentUser ? colors.tint : colors.text },
+          ]}
+        >
+          {displayName}
+        </Text>
+        <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
+          {timestamp}
+        </Text>
+      </View>
 
-      {/* Movie Info Row */}
+      {/* Content Row: Poster + Movie Info */}
       <Pressable
         onPress={onMoviePress}
         style={({ pressed }) => [
-          styles.movieRow,
+          styles.contentRow,
           { opacity: pressed ? 0.7 : 1 },
         ]}
       >
@@ -186,32 +257,24 @@ export function FeedItemCard({
           contentFit="cover"
           transition={200}
         />
-        <View style={styles.movieInfo}>
+        <View style={styles.reviewBody}>
+          {/* Movie Title */}
           <Text
-            style={[
-              styles.movieTitle,
-              Typography.body.base,
-              { color: colors.text },
-            ]}
+            style={[styles.movieTitle, { color: colors.text }]}
             numberOfLines={2}
           >
             {movieTitle}
           </Text>
-          <View style={styles.ratingRow}>
-            {renderStars()}
-            {reviewText && (
-              <Text
-                style={[
-                  styles.reviewText,
-                  Typography.body.xs,
-                  { color: colors.textSecondary },
-                ]}
-                numberOfLines={1}
-              >
-                {reviewText}
-              </Text>
-            )}
-          </View>
+
+          {/* Rating Row */}
+          {formattedRating && (
+            <Text style={[styles.ratingText, { color: colors.tint }]}>
+              {formattedRating}
+            </Text>
+          )}
+
+          {/* Review Text with Spoiler Handling */}
+          {renderReviewContent()}
         </View>
       </Pressable>
     </View>
@@ -220,65 +283,104 @@ export function FeedItemCard({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
+    paddingBottom: Spacing.lg,
+    borderBottomWidth: 1,
+    marginBottom: Spacing.sm,
   },
-  userRow: {
+  // Header Row - matches mockup: avatar (24px) + username + timestamp
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
     marginBottom: Spacing.sm,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  userInfo: {
-    flex: 1,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: Spacing.sm,
   },
   userName: {
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 15,
+    marginRight: 6,
   },
   timestamp: {
     fontSize: 12,
   },
-  movieRow: {
+  // Content Row - poster centered with review body
+  contentRow: {
     flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.xs,
+    alignItems: 'center', // Vertically center poster with text content
+    gap: 12,
   },
   poster: {
-    width: 56,
-    aspectRatio: 2 / 3,
+    width: 48,
+    height: 72, // 2:3 ratio
     borderRadius: BorderRadius.sm,
+    flexShrink: 0,
   },
-  movieInfo: {
+  reviewBody: {
     flex: 1,
-    justifyContent: 'center',
   },
   movieTitle: {
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 19,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
     marginBottom: 4,
   },
-  ratingRow: {
+  // Review text styles
+  reviewText: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 4,
+  },
+  reviewTextHidden: {
+    opacity: 0,
+    letterSpacing: 2,
+  },
+  // Spoiler wrapper and overlay
+  spoilerWrapper: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: BorderRadius.sm,
+  },
+  spoilerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: BorderRadius.sm,
+  },
+  spoilerButton: {
+    overflow: 'hidden',
+    borderRadius: BorderRadius.full,
+  },
+  spoilerButtonPressed: {
+    transform: [{ scale: 1.05 }],
+  },
+  spoilerButtonBlur: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
   },
-  starsContainer: {
-    flexDirection: 'row',
+  spoilerIcon: {
+    marginRight: 6,
   },
-  stars: {
-    fontSize: 14,
-    lineHeight: 16,
-  },
-  reviewText: {
+  spoilerButtonText: {
     fontSize: 12,
+    fontWeight: '600',
   },
 });

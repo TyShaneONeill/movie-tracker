@@ -1,7 +1,7 @@
 import { StyleSheet, TextInput, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors } from '@/constants/theme';
 
 interface SearchInputProps {
@@ -17,16 +17,16 @@ export function SearchInput({
   onClear,
   placeholder = 'Search movies...',
 }: SearchInputProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colorScheme === 'dark' ? '#1e2022' : '#f5f5f5',
-          borderColor: colorScheme === 'dark' ? '#333' : '#e0e0e0',
+          backgroundColor: effectiveTheme === 'dark' ? '#1e2022' : '#f5f5f5',
+          borderColor: effectiveTheme === 'dark' ? '#333' : '#e0e0e0',
         },
       ]}
     >

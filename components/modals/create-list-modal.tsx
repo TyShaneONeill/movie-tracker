@@ -13,7 +13,7 @@ import {
   Pressable,
   Modal,
 } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { Ionicons } from '@expo/vector-icons';
@@ -65,8 +65,8 @@ export function CreateListModal({
   onClose,
   onCreate,
 }: CreateListModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

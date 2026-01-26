@@ -8,7 +8,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Animated, ViewStyle } from 'react-native';
 import { Colors, BorderRadius } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/lib/theme-context';
 
 interface ToggleSwitchProps {
   /**
@@ -27,6 +27,12 @@ interface ToggleSwitchProps {
    * @default false
    */
   disabled?: boolean;
+
+  /**
+   * Custom color for the active state (overrides default emerald)
+   * @default Colors.dark.accentSecondary (emerald)
+   */
+  activeColor?: string;
 
   /**
    * Additional style overrides for the container
@@ -56,10 +62,11 @@ export function ToggleSwitch({
   value = false,
   onValueChange,
   disabled = false,
+  activeColor,
   style,
 }: ToggleSwitchProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
   const [animation] = React.useState(new Animated.Value(value ? 1 : 0));
 
   React.useEffect(() => {
@@ -81,7 +88,7 @@ export function ToggleSwitch({
     outputRange: [0, 20], // Matches HTML: 50px width - 26px knob - 4px padding = 20px travel
   });
 
-  const backgroundColor = value ? colors.accentSecondary : colors.backgroundSecondary;
+  const backgroundColor = value ? (activeColor ?? colors.accentSecondary) : colors.backgroundSecondary;
 
   return (
     <Pressable
