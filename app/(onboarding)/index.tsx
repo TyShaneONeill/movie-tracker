@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing, BorderRadius, Gradients } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useOnboarding } from '@/hooks/use-onboarding';
@@ -37,7 +37,7 @@ const SLIDES: OnboardingSlide[] = [
     iconColor: '#fff',
     title: 'Welcome to CineTrak',
     description: 'Your personal movie companion. Track what you watch, capture your reactions, and discover your viewing habits.',
-    gradient: Gradients.main as readonly [string, string, ...string[]],
+    gradient: ['#e11d48', '#be123c'] as const,
   },
   {
     id: 'tracking',

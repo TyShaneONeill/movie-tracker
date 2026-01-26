@@ -108,8 +108,8 @@ export default function ProfileSetupScreen() {
       }
 
       if (Object.keys(updates).length > 0) {
-        const { error: updateError } = await supabase
-          .from('profiles')
+        const { error: updateError } = await (supabase
+          .from('profiles') as ReturnType<typeof supabase.from>)
           .update(updates)
           .eq('id', user.id);
 
