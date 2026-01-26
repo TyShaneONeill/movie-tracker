@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -246,6 +246,27 @@ export default function SettingsScreen() {
             </View>
             <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>--</Text>
           </View>
+        </View>
+
+        {/* Legal Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>LEGAL</Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.firstItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => Linking.openURL('https://gist.github.com/TyShaneONeill/0bcc1d2bba353c2e4ac98b3ef398445c')}
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy Policy</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
         </View>
 
         {/* Logout Button */}
