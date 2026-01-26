@@ -128,7 +128,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     // Watchlist state
     userMovie: userMovie ?? null,
     isSaved: !!userMovie,
-    currentStatus: userMovie?.status ?? null,
+    currentStatus: (userMovie?.status as MovieStatus) ?? null,
     isLoadingWatchlist,
     isSaving: addMutation.isPending || removeMutation.isPending || changeStatusMutation.isPending,
 

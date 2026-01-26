@@ -40,9 +40,11 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     throw error;
   }
 
+  const profileData = data as { first_take_prompt_enabled: boolean | null } | null;
+
   return {
     // Default to true for backwards compatibility (existing users without preference set)
-    firstTakePromptEnabled: data.first_take_prompt_enabled ?? true,
+    firstTakePromptEnabled: profileData?.first_take_prompt_enabled ?? true,
   };
 }
 
@@ -54,16 +56,19 @@ async function updateUserPreference(
   key: keyof UserPreferences,
   value: boolean
 ): Promise<void> {
-  const columnName = preferenceToColumnMap[key];
-
+  // Build update data based on the preference key
   const updateData: Database['public']['Tables']['profiles']['Update'] = {
-    [columnName]: value,
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(updateData)
+  if (key === 'firstTakePromptEnabled') {
+    updateData.first_take_prompt_enabled = value;
+  }
+
+  // Use type assertion to work around Supabase client generic inference issue
+  const { error } = await (supabase
+    .from('profiles') as ReturnType<typeof supabase.from>)
+    .update(updateData as Record<string, unknown>)
     .eq('id', userId);
 
   if (error) {

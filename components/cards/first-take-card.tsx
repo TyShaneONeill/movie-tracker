@@ -86,7 +86,7 @@ export function FirstTakeCard({
         <View style={styles.movieInfo}>
           <Image
             source={{
-              uri: posterPath ? getTMDBImageUrl(posterPath, 'w92') : undefined,
+              uri: posterPath ? getTMDBImageUrl(posterPath, 'w92') ?? undefined : undefined,
             }}
             style={[styles.poster, { backgroundColor: colors.border }]}
             contentFit="cover"

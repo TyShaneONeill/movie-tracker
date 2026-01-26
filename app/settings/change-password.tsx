@@ -71,7 +71,7 @@ export default function ChangePasswordScreen() {
         setNewPassword('');
         setConfirmPassword('');
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
