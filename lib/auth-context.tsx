@@ -7,26 +7,46 @@ import {
 } from 'react';
 import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import {
-  GoogleSignin,
-  isSuccessResponse,
-  isErrorWithCode,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
 import type { Session, User } from '@supabase/supabase-js';
 
-// Configure Google Sign-In
-GoogleSignin.configure({
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-});
+// Dynamically import Google Sign-In to handle Expo Go gracefully
+let GoogleSignin: typeof import('@react-native-google-signin/google-signin').GoogleSignin | null = null;
+let isSuccessResponse: typeof import('@react-native-google-signin/google-signin').isSuccessResponse | null = null;
+let isErrorWithCode: typeof import('@react-native-google-signin/google-signin').isErrorWithCode | null = null;
+let statusCodes: typeof import('@react-native-google-signin/google-signin').statusCodes | null = null;
+let isGoogleSignInAvailable = false;
+
+try {
+  const googleSignInModule = require('@react-native-google-signin/google-signin');
+  GoogleSignin = googleSignInModule.GoogleSignin;
+  isSuccessResponse = googleSignInModule.isSuccessResponse;
+  isErrorWithCode = googleSignInModule.isErrorWithCode;
+  statusCodes = googleSignInModule.statusCodes;
+
+  // Configure Google Sign-In if module loaded successfully
+  if (GoogleSignin) {
+    GoogleSignin.configure({
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+    isGoogleSignInAvailable = true;
+    console.log('[Auth] Google Sign-In module loaded successfully');
+  }
+} catch (error) {
+  console.log('[Auth] Google Sign-In not available (expected in Expo Go):', (error as Error).message);
+  isGoogleSignInAvailable = false;
+}
+
+// Export availability flags for UI components
+export { isGoogleSignInAvailable };
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  isGoogleSignInAvailable: boolean;
   signIn: (
     email: string,
     password: string
@@ -121,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (credential.identityToken) {
-        const { error, data } = await supabase.auth.signInWithIdToken({
+        const { error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
         });
@@ -146,6 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    if (!isGoogleSignInAvailable || !GoogleSignin || !isSuccessResponse || !isErrorWithCode || !statusCodes) {
+      throw new Error('Google Sign-In is not available. Please use a development build to test this feature.');
+    }
+
     try {
       // Check if Google Play Services are available (Android) or proceed (iOS)
       await GoogleSignin.hasPlayServices();
@@ -184,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Google Sign-In failed');
       }
     } catch (error) {
-      if (isErrorWithCode(error)) {
+      if (isErrorWithCode && isErrorWithCode(error)) {
         switch (error.code) {
           case statusCodes.SIGN_IN_CANCELLED:
             throw new Error('Google Sign-In was cancelled');
@@ -202,7 +226,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, user, isLoading, signIn, signUp, signOut, updatePassword, signInWithApple, signInWithGoogle }}
+      value={{
+        session,
+        user,
+        isLoading,
+        isGoogleSignInAvailable,
+        signIn,
+        signUp,
+        signOut,
+        updatePassword,
+        signInWithApple,
+        signInWithGoogle
+      }}
     >
       {children}
     </AuthContext.Provider>

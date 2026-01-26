@@ -18,9 +18,9 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import Svg, { Path } from 'react-native-svg';
 
-function ChevronLeftIcon() {
+function ChevronLeftIcon({ color }: { color: string }) {
   return (
-    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
       <Path d="M19 12H5M12 19l-7-7 7-7" />
     </Svg>
   );
@@ -94,7 +94,7 @@ export default function ChangePasswordScreen() {
           {/* Header */}
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-              <ChevronLeftIcon />
+              <ChevronLeftIcon color={colors.text} />
             </Pressable>
             <Text style={[Typography.display.h4, { color: colors.text }]}>Change Password</Text>
           </View>

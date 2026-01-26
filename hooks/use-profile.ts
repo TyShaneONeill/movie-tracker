@@ -31,20 +31,52 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 }
 
 /**
- * Create a new profile in Supabase
+ * Create or fetch a profile in Supabase using UPSERT
+ *
+ * Uses INSERT ... ON CONFLICT DO NOTHING to handle the case where:
+ * - The database trigger `on_auth_user_created` already created the profile
+ * - There's a race condition with multiple requests trying to create the profile
+ *
+ * After the upsert, we always fetch the profile to return the data
+ * (since ON CONFLICT DO NOTHING doesn't return data when the row exists)
  */
-async function createProfile(userId: string): Promise<Profile> {
+async function createOrFetchProfile(userId: string): Promise<Profile> {
   const insertData: Database['public']['Tables']['profiles']['Insert'] = { id: userId };
 
-  const { data, error } = await (supabase
+  // Try to insert with ON CONFLICT DO NOTHING
+  // This will succeed silently if the profile already exists (from trigger or race condition)
+  const { error: insertError } = await (supabase
     .from('profiles') as any)
-    .insert(insertData)
-    .select()
-    .single() as { data: Profile | null; error: any };
+    .upsert(insertData, { onConflict: 'id', ignoreDuplicates: true });
 
-  if (error) {
-    console.error('[useProfile] Create error:', error);
-    throw error;
+  if (insertError) {
+    // Only log and throw for unexpected errors
+    // Error 23503 (FK violation) means the auth user doesn't exist yet - retry later
+    // Error 23505 (unique violation) shouldn't happen with upsert but handle it anyway
+    if (insertError.code === '23503') {
+      console.warn('[useProfile] User not fully created yet, will retry on next query');
+      throw insertError;
+    }
+    if (insertError.code === '23505') {
+      // Profile already exists, this is fine - continue to fetch
+      console.log('[useProfile] Profile already exists, fetching...');
+    } else {
+      console.error('[useProfile] Create error:', insertError);
+      throw insertError;
+    }
+  }
+
+  // Always fetch the profile after upsert attempt
+  // This ensures we get the data whether it was just created or already existed
+  const { data, error: fetchError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError) {
+    console.error('[useProfile] Fetch after create error:', fetchError);
+    throw fetchError;
   }
 
   return data as Profile;
@@ -114,9 +146,9 @@ export function useProfile() {
     queryFn: async () => {
       let profile = await fetchProfile(user!.id);
 
-      // Create profile if it doesn't exist
+      // Create profile if it doesn't exist (or fetch if trigger already created it)
       if (!profile) {
-        profile = await createProfile(user!.id);
+        profile = await createOrFetchProfile(user!.id);
       }
 
       return profile;

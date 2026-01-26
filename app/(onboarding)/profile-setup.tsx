@@ -12,6 +12,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +30,7 @@ export default function ProfileSetupScreen() {
   const { user } = useAuth();
   const { completeOnboarding } = useOnboarding();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const colors = Colors[effectiveTheme];
 
   const [displayName, setDisplayName] = useState('');
@@ -38,10 +40,6 @@ export default function ProfileSetupScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSkip = async () => {
-    await completeOnboarding();
-    router.replace('/(tabs)');
-  };
 
   const handleImageSelected = async (imageUri: string, mimeType?: string) => {
     if (!user) return;
@@ -69,7 +67,13 @@ export default function ProfileSetupScreen() {
 
   const handleComplete = async () => {
     if (!user) {
-      await handleSkip();
+      setError('You must be logged in to continue');
+      return;
+    }
+
+    // Validate display name is required
+    if (!displayName.trim()) {
+      setError('Display name is required');
       return;
     }
 
@@ -86,7 +90,7 @@ export default function ProfileSetupScreen() {
       const updates: Record<string, string | null> = {};
 
       if (displayName.trim()) {
-        updates.display_name = displayName.trim();
+        updates.full_name = displayName.trim();
       }
 
       if (username.trim()) {
@@ -119,6 +123,9 @@ export default function ProfileSetupScreen() {
           setIsSubmitting(false);
           return;
         }
+
+        // Invalidate the profile cache so the Profile screen shows fresh data
+        await queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       }
 
       await completeOnboarding();
@@ -137,15 +144,6 @@ export default function ProfileSetupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={handleSkip} style={styles.skipButton}>
-            <ThemedText style={[styles.skipText, { color: colors.textSecondary }]}>
-              Skip for now
-            </ThemedText>
-          </Pressable>
-        </View>
-
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -157,7 +155,7 @@ export default function ProfileSetupScreen() {
               Set Up Your Profile
             </ThemedText>
             <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
-              This is optional - you can always update it later in settings
+              Tell us a bit about yourself
             </ThemedText>
           </View>
 
@@ -265,19 +263,6 @@ export default function ProfileSetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  skipButton: {
-    padding: Spacing.sm,
-  },
-  skipText: {
-    ...Typography.body.base,
-    fontWeight: '500',
   },
   scrollContent: {
     flexGrow: 1,

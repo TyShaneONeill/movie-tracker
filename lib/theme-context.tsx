@@ -58,17 +58,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const syncWithSupabase = async () => {
       try {
+        // Use maybeSingle() instead of single() to return null when no profile exists
+        // (expected for new users) rather than throwing PGRST116 error
         const { data, error } = await supabase
           .from('profiles')
           .select('theme_preference')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error('[ThemeContext] Error fetching theme from Supabase:', error);
           return;
         }
 
+        // If no profile exists (data is null), just use the default/local theme
         const profileData = data as { theme_preference: string | null } | null;
         if (profileData?.theme_preference) {
           const serverPref = profileData.theme_preference as ThemePreference;

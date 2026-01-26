@@ -21,7 +21,7 @@ import { Typography } from '@/constants/typography';
 
 export default function SignUpScreen() {
   const { effectiveTheme } = useTheme();
-  const { signUp, signIn, signInWithApple, signInWithGoogle } = useAuth();
+  const { signUp, signIn, signInWithApple, signInWithGoogle, isGoogleSignInAvailable } = useAuth();
 
   const colors = Colors[effectiveTheme];
 
@@ -213,13 +213,17 @@ export default function SignUpScreen() {
                 onPress={() => handleOAuthSignIn('google')}
                 style={({ pressed }) => [
                   styles.socialButton,
-                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    opacity: !isGoogleSignInAvailable ? 0.4 : pressed ? 0.7 : 1
+                  },
                 ]}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isGoogleSignInAvailable}
               >
                 <View style={styles.socialButtonContent}>
-                  <Ionicons name="logo-google" size={20} color="#DB4437" />
-                  <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                  <Ionicons name="logo-google" size={20} color={isGoogleSignInAvailable ? "#DB4437" : colors.textSecondary} />
+                  <ThemedText style={[styles.socialButtonText, { color: isGoogleSignInAvailable ? colors.text : colors.textSecondary }]}>
                     Google
                   </ThemedText>
                 </View>

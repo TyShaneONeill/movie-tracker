@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/use-auth';
 export default function SignInScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { signIn, signInWithApple, signInWithGoogle } = useAuth();
+  const { signIn, signInWithApple, signInWithGoogle, isGoogleSignInAvailable } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -200,14 +200,19 @@ export default function SignInScreen() {
           <View style={styles.oauthContainer}>
             <Pressable
               onPress={() => handleOAuthSignIn('google')}
+              disabled={!isGoogleSignInAvailable}
               style={({ pressed }) => [
                 styles.socialButton,
-                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  opacity: !isGoogleSignInAvailable ? 0.4 : pressed ? 0.7 : 1
+                },
               ]}
             >
               <View style={styles.socialButtonContent}>
-                <Ionicons name="logo-google" size={20} color="#DB4437" />
-                <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                <Ionicons name="logo-google" size={20} color={isGoogleSignInAvailable ? "#DB4437" : colors.textSecondary} />
+                <ThemedText style={[styles.socialButtonText, { color: isGoogleSignInAvailable ? colors.text : colors.textSecondary }]}>
                   Google
                 </ThemedText>
               </View>

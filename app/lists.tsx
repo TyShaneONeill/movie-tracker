@@ -22,18 +22,18 @@ import { USER_LISTS, LIKED_LISTS } from '@/lib/mock-data/lists';
 import Svg, { Path, Line } from 'react-native-svg';
 
 // Chevron Left Icon
-function ChevronLeftIcon() {
+function ChevronLeftIcon({ color }: { color: string }) {
   return (
-    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
       <Path d="M19 12H5M12 19l-7-7 7-7" />
     </Svg>
   );
 }
 
 // Plus Icon
-function PlusIcon() {
+function PlusIcon({ color }: { color: string }) {
   return (
-    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
       <Line x1="12" y1="5" x2="12" y2="19" />
       <Line x1="5" y1="12" x2="19" y2="12" />
     </Svg>
@@ -79,7 +79,7 @@ export default function ListsScreen() {
                 { opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <ChevronLeftIcon />
+              <ChevronLeftIcon color={colors.text} />
             </Pressable>
             <Text style={[Typography.display.h4, { color: colors.text }]}>My Lists</Text>
           </View>
@@ -90,7 +90,7 @@ export default function ListsScreen() {
               { opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <PlusIcon />
+            <PlusIcon color={colors.text} />
           </Pressable>
         </View>
 
@@ -114,7 +114,7 @@ export default function ListsScreen() {
                 { backgroundColor: colors.card },
               ]}
             >
-              <PlusIcon />
+              <PlusIcon color={colors.text} />
             </View>
             <Text style={[Typography.body.sm, styles.createText, { color: colors.textSecondary }]}>
               Create List

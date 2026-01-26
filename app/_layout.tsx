@@ -64,27 +64,31 @@ function useProtectedRoute() {
       hasCompletedOnboarding,
     });
 
+    // Defer navigation to next tick to ensure all routes are mounted
+    // This prevents "route not found" errors during initial render
+    const performNavigation = (route: string, reason: string) => {
+      console.log(`[ProtectedRoute] -> ${reason}`);
+      setTimeout(() => {
+        router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
+      }, 0);
+    };
+
     if (!user && !inAuthGroup) {
       // Not authenticated and not on auth screens → go to signin
-      console.log('[ProtectedRoute] -> Redirecting to signin (no user)');
-      router.replace('/(auth)/signin');
+      performNavigation('/(auth)/signin', 'Redirecting to signin (no user)');
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding
       if (hasCompletedOnboarding) {
-        console.log('[ProtectedRoute] -> Redirecting to tabs (user in auth, onboarding complete)');
-        router.replace('/(tabs)');
+        performNavigation('/(tabs)', 'Redirecting to tabs (user in auth, onboarding complete)');
       } else {
-        console.log('[ProtectedRoute] -> Redirecting to onboarding (user in auth, onboarding NOT complete)');
-        router.replace('/(onboarding)');
+        performNavigation('/(onboarding)', 'Redirecting to onboarding (user in auth, onboarding NOT complete)');
       }
     } else if (user && !hasCompletedOnboarding && !inOnboardingGroup && !inAuthGroup) {
       // Authenticated but hasn't completed onboarding → go to onboarding
-      console.log('[ProtectedRoute] -> Redirecting to onboarding (user, onboarding NOT complete)');
-      router.replace('/(onboarding)');
+      performNavigation('/(onboarding)', 'Redirecting to onboarding (user, onboarding NOT complete)');
     } else if (user && hasCompletedOnboarding && inOnboardingGroup) {
       // Authenticated and completed onboarding but still on onboarding → go to tabs
-      console.log('[ProtectedRoute] -> Redirecting to tabs (user in onboarding, already complete)');
-      router.replace('/(tabs)');
+      performNavigation('/(tabs)', 'Redirecting to tabs (user in onboarding, already complete)');
     } else {
       console.log('[ProtectedRoute] -> No redirect needed');
     }

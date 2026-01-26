@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   Pressable,
-  Dimensions,
   FlatList,
   ViewToken,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +19,6 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useOnboarding } from '@/hooks/use-onboarding';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface OnboardingSlide {
   id: string;
@@ -77,10 +76,18 @@ export default function OnboardingScreen() {
   const { effectiveTheme } = useTheme();
   const { completeOnboarding } = useOnboarding();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const colors = Colors[effectiveTheme];
 
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Required for scrollToIndex to work properly on web
+  const getItemLayout = useCallback((_: unknown, index: number) => ({
+    length: screenWidth,
+    offset: screenWidth * index,
+    index,
+  }), [screenWidth]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -114,7 +121,7 @@ export default function OnboardingScreen() {
   const isLastSlide = currentIndex === SLIDES.length - 1;
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
-    <View style={styles.slide}>
+    <View style={[styles.slide, { width: screenWidth }]}>
       <LinearGradient
         colors={item.gradient}
         start={{ x: 0, y: 0 }}
@@ -156,6 +163,7 @@ export default function OnboardingScreen() {
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        getItemLayout={getItemLayout}
         bounces={false}
       />
 
@@ -225,7 +233,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   slide: {
-    width: SCREEN_WIDTH,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
