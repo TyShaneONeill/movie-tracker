@@ -62,7 +62,7 @@ export default function ProfileScreen() {
 
     const renderCollectionItem = ({ item }: { item: UserMovie }) => (
         <CollectionGridCard
-            posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') : ''}
+            posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
             onPress={() => router.push(`/movie/${item.tmdb_id}`)}
         />
     );
@@ -174,7 +174,7 @@ export default function ProfileScreen() {
                         {posterUrls.map((url, idx) => (
                             <Image
                                 key={idx}
-                                source={{ uri: url }}
+                                source={{ uri: url || undefined }}
                                 style={styles.posterGridItem}
                             />
                         ))}
@@ -304,7 +304,7 @@ export default function ProfileScreen() {
                                 posterPath={take.poster_path}
                                 emoji={take.reaction_emoji}
                                 quote={take.quote_text}
-                                createdAt={take.created_at}
+                                createdAt={take.created_at ?? ''}
                                 isLatest={index === 0}
                                 onPress={() => router.push(`/movie/${take.tmdb_id}`)}
                             />
@@ -356,7 +356,7 @@ export default function ProfileScreen() {
                                     description={list.description}
                                     movieCount={list.movie_count}
                                     posterUrls={list.movies.map(m =>
-                                        m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') : ''
+                                        m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') ?? '' : ''
                                     )}
                                     onPress={() => router.push(`/list/${list.id}`)}
                                     style={styles.listCard}
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
     posterGridItem: {
         width: '48%',
         aspectRatio: 2 / 3,
-        borderRadius: BorderRadius.xs,
+        borderRadius: BorderRadius.sm,
     },
     posterPlaceholder: {
         opacity: 0.3,

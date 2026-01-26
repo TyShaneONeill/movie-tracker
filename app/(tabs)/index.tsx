@@ -232,12 +232,12 @@ export default function HomeScreen() {
                   key={item.id}
                   userName={item.userDisplayName ?? 'Anonymous'}
                   userAvatarUrl={item.userAvatarUrl ?? DEFAULT_AVATAR}
-                  timestamp={formatRelativeTime(item.createdAt)}
+                  timestamp={formatRelativeTime(item.createdAt ?? '')}
                   movieTitle={item.movieTitle}
                   moviePosterUrl={getTMDBImageUrl(item.posterPath, 'w185') ?? ''}
                   rating={item.rating}
                   reviewText={item.quoteText}
-                  isSpoiler={item.isSpoiler}
+                  isSpoiler={item.isSpoiler ?? undefined}
                   isCurrentUser={user?.id === item.userId}
                   onMoviePress={() => handleActivityMoviePress(item.tmdbId)}
                 />

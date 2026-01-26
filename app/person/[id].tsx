@@ -81,7 +81,8 @@ const MOCK_PERSON = {
 
 export default function PersonDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams(); // Will be used for fetching person by ID in production
+  // TODO: Use params.id for fetching person data from API
+  useLocalSearchParams();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const [biographyExpanded, setBiographyExpanded] = useState(false);

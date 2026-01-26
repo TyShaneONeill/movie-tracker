@@ -69,8 +69,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (data?.theme_preference) {
-          const serverPref = data.theme_preference as ThemePreference;
+        const profileData = data as { theme_preference: string | null } | null;
+        if (profileData?.theme_preference) {
+          const serverPref = profileData.theme_preference as ThemePreference;
           setThemePreferenceState(serverPref);
           // Update local cache to match server
           await AsyncStorage.setItem(THEME_STORAGE_KEY, serverPref);
@@ -98,12 +99,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Persist to Supabase if user is logged in
     if (user) {
       try {
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            theme_preference: preference,
-            updated_at: new Date().toISOString()
-          })
+        const updateData = {
+          theme_preference: preference,
+          updated_at: new Date().toISOString()
+        };
+        // Use type assertion to work around Supabase client generic inference issue
+        const { error } = await (supabase
+          .from('profiles') as ReturnType<typeof supabase.from>)
+          .update(updateData as Record<string, unknown>)
           .eq('id', user.id);
 
         if (error) {

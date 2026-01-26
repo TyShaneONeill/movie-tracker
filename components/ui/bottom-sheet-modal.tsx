@@ -6,16 +6,14 @@
  */
 
 import React, { useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { StyleSheet, View, Dimensions, Modal, Pressable } from 'react-native';
+import { StyleSheet, View, Modal, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import { Colors, BorderRadius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface BottomSheetModalHandle {
   present: () => void;
@@ -64,20 +62,6 @@ export const BottomSheetModalComponent = forwardRef<BottomSheetModalHandle, Bott
         setIsVisible(false);
       }
     }, []);
-
-    // Custom backdrop component with blur effect
-    const renderBackdrop = useCallback(
-      (props: BottomSheetBackdropProps) => (
-        <BottomSheetBackdrop
-          {...props}
-          appearsOnIndex={0}
-          disappearsOnIndex={-1}
-          opacity={0.8}
-          pressBehavior={enableDismissOnBackdropPress ? 'close' : 'none'}
-        />
-      ),
-      [enableDismissOnBackdropPress]
-    );
 
     // Handle backdrop press
     const handleBackdropPress = useCallback(() => {

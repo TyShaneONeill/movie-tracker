@@ -18,7 +18,7 @@ export function HelloWave() {
       ),
       4
     );
-  }, []);
+  }, [rotation]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],

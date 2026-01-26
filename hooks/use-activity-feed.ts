@@ -13,8 +13,8 @@ export interface ActivityFeedItem {
   posterPath: string | null;
   rating: number | null;
   quoteText: string;
-  isSpoiler: boolean;
-  createdAt: string;
+  isSpoiler: boolean | null;
+  createdAt: string | null;
   // Profile information
   userDisplayName: string | null;
   userAvatarUrl: string | null;

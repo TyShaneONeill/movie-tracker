@@ -23,14 +23,13 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
-import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { Tag } from '@/components/ui/tag';
 import { useMovieSearch } from '@/hooks/use-movie-search';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useRecentSearches, type RecentSearch } from '@/hooks/use-recent-searches';
 import { MovieSearchCard } from '@/components/movie-search-card';
-import { getTMDBImageUrl, TMDB_GENRE_MAP } from '@/lib/tmdb.types';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBMovie, SearchType } from '@/lib/tmdb.types';
 
 // SVG Icons
@@ -128,7 +127,8 @@ export default function SearchScreen() {
   const colors = Colors[effectiveTheme];
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Top Results');
-  const [searchType, setSearchType] = useState<SearchType>('title');
+  // Search type state - setter will be used when search type toggle UI is implemented
+  const [searchType] = useState<SearchType>('title');
   const [posterIndices, setPosterIndices] = useState<Record<number, number>>({});
 
   // Debounce the search query
