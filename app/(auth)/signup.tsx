@@ -9,7 +9,7 @@ import {
   View,
   ScrollView,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
@@ -21,7 +21,7 @@ import { Typography } from '@/constants/typography';
 
 export default function SignUpScreen() {
   const { effectiveTheme } = useTheme();
-  const { signUp, signIn, signInWithApple, signInWithGoogle } = useAuth();
+  const { signUp, signIn, signInWithApple, signInWithGoogle, isGoogleSignInAvailable } = useAuth();
 
   const colors = Colors[effectiveTheme];
 
@@ -65,7 +65,8 @@ export default function SignUpScreen() {
         return;
       }
 
-      router.replace('/(tabs)');
+      // Navigation is handled automatically by useProtectedRoute in _layout.tsx
+      // which will check onboarding status and redirect appropriately
     } catch {
       setError('An unexpected error occurred');
     } finally {
@@ -92,7 +93,8 @@ export default function SignUpScreen() {
       } else if (provider === 'google') {
         await signInWithGoogle();
       }
-      router.replace('/(tabs)');
+      // Navigation is handled automatically by useProtectedRoute in _layout.tsx
+      // which will check onboarding status and redirect appropriately
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed';
       // Don't show error for user cancellation
@@ -211,13 +213,17 @@ export default function SignUpScreen() {
                 onPress={() => handleOAuthSignIn('google')}
                 style={({ pressed }) => [
                   styles.socialButton,
-                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    opacity: !isGoogleSignInAvailable ? 0.4 : pressed ? 0.7 : 1
+                  },
                 ]}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isGoogleSignInAvailable}
               >
                 <View style={styles.socialButtonContent}>
-                  <Ionicons name="logo-google" size={20} color="#DB4437" />
-                  <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                  <Ionicons name="logo-google" size={20} color={isGoogleSignInAvailable ? "#DB4437" : colors.textSecondary} />
+                  <ThemedText style={[styles.socialButtonText, { color: isGoogleSignInAvailable ? colors.text : colors.textSecondary }]}>
                     Google
                   </ThemedText>
                 </View>
