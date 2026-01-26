@@ -23,6 +23,7 @@ import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { QueryProvider } from '@/lib/query-client';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
+import { useOnboarding } from '@/hooks/use-onboarding';
 import { Colors } from '@/constants/theme';
 
 // Keep the splash screen visible while we fetch resources
@@ -33,29 +34,44 @@ export const unstable_settings = {
 };
 
 function useProtectedRoute() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    if (!navigationState?.key || isLoading) return;
+    if (!navigationState?.key || authLoading || onboardingLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboardingGroup = segments[0] === '(onboarding)';
 
     if (!user && !inAuthGroup) {
+      // Not authenticated and not on auth screens → go to signin
       router.replace('/(auth)/signin');
     } else if (user && inAuthGroup) {
+      // Authenticated but on auth screens → check onboarding
+      if (hasCompletedOnboarding) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace('/(onboarding)');
+      }
+    } else if (user && !hasCompletedOnboarding && !inOnboardingGroup && !inAuthGroup) {
+      // Authenticated but hasn't completed onboarding → go to onboarding
+      router.replace('/(onboarding)');
+    } else if (user && hasCompletedOnboarding && inOnboardingGroup) {
+      // Authenticated and completed onboarding but still on onboarding → go to tabs
       router.replace('/(tabs)');
     }
-  }, [user, segments, isLoading, navigationState?.key]);
+  }, [user, segments, authLoading, onboardingLoading, hasCompletedOnboarding, navigationState?.key]);
 }
 
 function RootLayoutNav() {
   const { effectiveTheme } = useTheme();
-  const { isLoading } = useAuth();
+  const { isLoading: authLoading } = useAuth();
+  const { isLoading: onboardingLoading } = useOnboarding();
   useProtectedRoute();
 
-  if (isLoading) {
+  if (authLoading || onboardingLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: Colors[effectiveTheme].background }]}>
         <ActivityIndicator size="large" color={Colors[effectiveTheme].tint} />
@@ -68,6 +84,7 @@ function RootLayoutNav() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false }} />
         <Stack.Screen name="category" options={{ headerShown: false }} />
