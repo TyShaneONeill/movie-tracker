@@ -47,3 +47,54 @@ assets/                 # Images, fonts
 - Parentheses `(tabs)` create route groups without affecting URL
 - Dynamic routes use brackets: `[id].tsx`
 - Typed routes enabled via `experiments.typedRoutes` in app.json
+
+## Git Workflow (REQUIRED)
+
+**Never commit directly to `main`.** All work must go through PRs:
+
+1. **Create a branch** before making changes:
+   - `feature/*` - new features
+   - `fix/*` - bug fixes
+   - `chore/*` - maintenance, config, docs
+
+2. **Commit and push** to the feature branch
+
+3. **Create a PR** with `gh pr create`
+
+4. **CI must pass** (lint + TypeScript) before merging
+
+5. **Merge via GitHub** - PRs to main
+
+```bash
+# Example workflow
+git checkout main && git pull
+git checkout -b feature/my-feature
+# ... make changes ...
+git add -A && git commit -m "feat: description"
+git push -u origin feature/my-feature
+gh pr create --title "feat: description" --body "Summary..."
+```
+
+## Agentic Workflow (REQUIRED)
+
+**You are an orchestrator, not a worker.** Follow these principles:
+
+1. **Delegate to agents** - Use the `Task` tool to spawn agents for:
+   - Exploring/searching the codebase
+   - Fixing bugs or implementing features
+   - Debugging issues
+   - Any task requiring multiple file reads/edits
+
+2. **Keep context lean** - Don't read every file yourself; let agents do the investigation
+
+3. **Parallelize when possible** - Spawn multiple agents for independent tasks
+
+4. **Verify agent work** - Run `npm run lint && npx tsc --noEmit` after agent changes
+
+5. **Commit incrementally** - Small, focused commits on feature branches
+
+## Key Resources
+
+- **PRD**: `docs/PRD-pre-launch.md` - Pre-launch checklist and requirements
+- **Supabase Project**: `wliblwulvsrfgqcnbzeh`
+- **GitHub Repo**: https://github.com/TyShaneONeill/movie-tracker
