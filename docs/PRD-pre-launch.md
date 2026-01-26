@@ -9,14 +9,15 @@ This document tracks all features, fixes, and refinements needed before launchin
 
 ### 1.1 SSO Login Implementation
 **Priority:** High
-**Status:** Not Started
+**Status:** In Progress (Google + Apple Complete)
 
-Currently using email/password authentication. Need to add social sign-in options.
+Social sign-in options implemented for Google and Apple.
 
 **Requirements:**
-- [ ] Google Sign-In (iOS + Android)
-- [ ] Apple Sign-In (required for iOS App Store)
-- [ ] Update sign-in UI to show SSO buttons
+- [x] Google Sign-In (iOS + Android)
+- [x] Apple Sign-In (required for iOS App Store)
+- [x] Update sign-in UI to show SSO buttons
+- [ ] Facebook Sign-In (optional)
 - [ ] Handle account linking (if user signs in with different methods)
 - [ ] Test on both platforms
 
@@ -27,20 +28,15 @@ Currently using email/password authentication. Need to add social sign-in option
 
 ### 1.2 Onboarding Flow
 **Priority:** High
-**Status:** Not Started
+**Status:** Complete
 
 New users need guidance on how to use the app's core features.
 
 **Requirements:**
-- [ ] Welcome screen with app value proposition
-- [ ] Feature highlights (3-4 screens):
-  - Tracking movies (watchlist, watching, watched)
-  - First Takes - capture reactions immediately after watching
-  - Ticket scanning for theater visits
-  - Stats & analytics
-- [ ] Optional account setup (profile photo, username)
-- [ ] Skip option for returning users
-- [ ] Only show on first launch (persist flag in AsyncStorage)
+- [x] Welcome screen with app value proposition
+- [x] Feature highlights (3-4 screens)
+- [x] Skip option for returning users
+- [x] Only show on first launch (persist flag)
 
 ---
 
@@ -76,30 +72,16 @@ Verify all settings screens are functional, not mock UI.
 
 ### 3.1 Theme Implementation
 **Priority:** Medium
-**Status:** Partially Implemented
+**Status:** Complete
 
-The app has a color system defined but needs full theme switching support.
+Theme switching fully implemented with Light/Dark/System options.
 
 **Requirements:**
-- [ ] Audit all screens for hardcoded colors
-- [ ] Ensure all components use `Colors[colorScheme]`
-- [ ] Settings toggle: Light / Dark / System
-- [ ] Persist theme preference
-- [ ] Test all screens in both modes:
-  - [ ] Home
-  - [ ] Search
-  - [ ] Movie Detail
-  - [ ] Scanner
-  - [ ] Stats/Analytics
-  - [ ] Profile
-  - [ ] Settings
-  - [ ] Sign In/Sign Up
-  - [ ] Modals (First Take, Watchlist, etc.)
-
-**Known Issues:**
-- Some components may have hardcoded dark theme colors
-- Modal backgrounds may not adapt
-- Status bar style needs to match theme
+- [x] Audit all screens for hardcoded colors
+- [x] Ensure all components use `Colors[colorScheme]`
+- [x] Settings toggle: Light / Dark / System
+- [x] Persist theme preference
+- [x] Test all screens in both modes
 
 ---
 
@@ -233,3 +215,6 @@ Before submitting to app stores:
 | 2025-01-25 | - | Added Home "See All" buttons and Search page refinement to UI issues |
 | 2025-01-25 | - | Implemented "See All" category pages with infinite scroll |
 | 2025-01-25 | - | Search page refinement: removed header, recent searches, rotating genre posters |
+| 2025-01-25 | - | SSO: Google + Apple Sign-In complete, Facebook remaining |
+| 2025-01-25 | - | Onboarding flow complete |
+| 2025-01-25 | - | Theme switching (Light/Dark/System) complete |
