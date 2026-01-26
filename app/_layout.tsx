@@ -23,7 +23,7 @@ import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { QueryProvider } from '@/lib/query-client';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
-import { useOnboarding } from '@/hooks/use-onboarding';
+import { useOnboarding, OnboardingProvider } from '@/hooks/use-onboarding';
 import { Colors } from '@/constants/theme';
 
 // Keep the splash screen visible while we fetch resources
@@ -40,27 +40,53 @@ function useProtectedRoute() {
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    if (!navigationState?.key || authLoading || onboardingLoading) return;
+    console.log('[ProtectedRoute] State:', {
+      navigationReady: !!navigationState?.key,
+      authLoading,
+      onboardingLoading,
+      hasUser: !!user,
+      hasCompletedOnboarding,
+      segments,
+    });
+
+    if (!navigationState?.key || authLoading || onboardingLoading) {
+      console.log('[ProtectedRoute] Waiting for navigation/auth/onboarding to be ready');
+      return;
+    }
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboardingGroup = segments[0] === '(onboarding)';
 
+    console.log('[ProtectedRoute] Checking routing conditions:', {
+      inAuthGroup,
+      inOnboardingGroup,
+      user: user?.email,
+      hasCompletedOnboarding,
+    });
+
     if (!user && !inAuthGroup) {
       // Not authenticated and not on auth screens → go to signin
+      console.log('[ProtectedRoute] -> Redirecting to signin (no user)');
       router.replace('/(auth)/signin');
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding
       if (hasCompletedOnboarding) {
+        console.log('[ProtectedRoute] -> Redirecting to tabs (user in auth, onboarding complete)');
         router.replace('/(tabs)');
       } else {
+        console.log('[ProtectedRoute] -> Redirecting to onboarding (user in auth, onboarding NOT complete)');
         router.replace('/(onboarding)');
       }
     } else if (user && !hasCompletedOnboarding && !inOnboardingGroup && !inAuthGroup) {
       // Authenticated but hasn't completed onboarding → go to onboarding
+      console.log('[ProtectedRoute] -> Redirecting to onboarding (user, onboarding NOT complete)');
       router.replace('/(onboarding)');
     } else if (user && hasCompletedOnboarding && inOnboardingGroup) {
       // Authenticated and completed onboarding but still on onboarding → go to tabs
+      console.log('[ProtectedRoute] -> Redirecting to tabs (user in onboarding, already complete)');
       router.replace('/(tabs)');
+    } else {
+      console.log('[ProtectedRoute] -> No redirect needed');
     }
   }, [user, segments, authLoading, onboardingLoading, hasCompletedOnboarding, navigationState?.key]);
 }
@@ -123,9 +149,11 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
-        <ThemeProvider>
-          <RootLayoutNav />
-        </ThemeProvider>
+        <OnboardingProvider>
+          <ThemeProvider>
+            <RootLayoutNav />
+          </ThemeProvider>
+        </OnboardingProvider>
       </AuthProvider>
     </QueryProvider>
   );
