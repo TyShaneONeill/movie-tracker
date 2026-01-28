@@ -8,14 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Link, router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing, BorderRadius, Gradients } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -112,14 +112,10 @@ export default function SignInScreen() {
         <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
           {/* Logo & Title */}
           <View style={styles.header}>
-            <LinearGradient
-              colors={Gradients.main as [string, string, ...string[]]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logoContainer}
-            >
-              <Ionicons name="film" size={40} color="white" />
-            </LinearGradient>
+            <Image
+              source={require('@/assets/images/icon.png')}
+              style={styles.logoImage}
+            />
             <ThemedText style={[styles.title, { color: colors.text }]}>Welcome Back</ThemedText>
             <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
               Sign in to continue
@@ -284,18 +280,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  logoContainer: {
-    width: 80,
-    height: 80,
+  logoImage: {
+    width: 100,
+    height: 100,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: Spacing.lg,
-    shadowColor: '#e11d48',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 8,
   },
   title: {
     ...Typography.display.h2,

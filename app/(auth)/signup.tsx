@@ -8,6 +8,7 @@ import {
   Platform,
   View,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,7 +118,11 @@ export default function SignUpScreen() {
       >
         <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
           <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>Join Cinetrak</ThemedText>
+            <Image
+              source={require('@/assets/images/icon.png')}
+              style={styles.logoImage}
+            />
+            <ThemedText type="title" style={styles.title}>Join CineTrak</ThemedText>
             <ThemedText style={styles.subtitle}>Start tracking your cinema journey</ThemedText>
           </View>
 
@@ -289,6 +294,12 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: Spacing.xl,
     alignItems: 'center',
+  },
+  logoImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    marginBottom: Spacing.lg,
   },
   title: {
     fontSize: 32,
