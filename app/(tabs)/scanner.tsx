@@ -398,7 +398,7 @@ export default function ScannerScreen() {
             Daily Limit Reached
           </Text>
           <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
-            You've used all 3 scans for today. Your limit resets at midnight.
+            {"You've used all 3 scans for today. Your limit resets at midnight."}
           </Text>
           <Pressable
             style={({ pressed }) => [
