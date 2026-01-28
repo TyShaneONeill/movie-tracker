@@ -40,34 +40,16 @@ function useProtectedRoute() {
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    console.log('[ProtectedRoute] State:', {
-      navigationReady: !!navigationState?.key,
-      authLoading,
-      onboardingLoading,
-      hasUser: !!user,
-      hasCompletedOnboarding,
-      segments,
-    });
-
     if (!navigationState?.key || authLoading || onboardingLoading) {
-      console.log('[ProtectedRoute] Waiting for navigation/auth/onboarding to be ready');
       return;
     }
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboardingGroup = segments[0] === '(onboarding)';
 
-    console.log('[ProtectedRoute] Checking routing conditions:', {
-      inAuthGroup,
-      inOnboardingGroup,
-      user: user?.email,
-      hasCompletedOnboarding,
-    });
-
     // Defer navigation to next tick to ensure all routes are mounted
     // This prevents "route not found" errors during initial render
-    const performNavigation = (route: string, reason: string) => {
-      console.log(`[ProtectedRoute] -> ${reason}`);
+    const performNavigation = (route: string) => {
       setTimeout(() => {
         router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
       }, 0);
@@ -75,22 +57,20 @@ function useProtectedRoute() {
 
     if (!user && !inAuthGroup) {
       // Not authenticated and not on auth screens → go to signin
-      performNavigation('/(auth)/signin', 'Redirecting to signin (no user)');
+      performNavigation('/(auth)/signin');
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding
       if (hasCompletedOnboarding) {
-        performNavigation('/(tabs)', 'Redirecting to tabs (user in auth, onboarding complete)');
+        performNavigation('/(tabs)');
       } else {
-        performNavigation('/(onboarding)', 'Redirecting to onboarding (user in auth, onboarding NOT complete)');
+        performNavigation('/(onboarding)');
       }
     } else if (user && !hasCompletedOnboarding && !inOnboardingGroup && !inAuthGroup) {
       // Authenticated but hasn't completed onboarding → go to onboarding
-      performNavigation('/(onboarding)', 'Redirecting to onboarding (user, onboarding NOT complete)');
+      performNavigation('/(onboarding)');
     } else if (user && hasCompletedOnboarding && inOnboardingGroup) {
       // Authenticated and completed onboarding but still on onboarding → go to tabs
-      performNavigation('/(tabs)', 'Redirecting to tabs (user in onboarding, already complete)');
-    } else {
-      console.log('[ProtectedRoute] -> No redirect needed');
+      performNavigation('/(tabs)');
     }
   }, [user, segments, authLoading, onboardingLoading, hasCompletedOnboarding, navigationState?.key]);
 }

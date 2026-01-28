@@ -17,15 +17,11 @@ export function useUserMovies(status?: MovieStatus) {
   const query = useQuery({
     queryKey: ['userMovies', user?.id, status],
     queryFn: async () => {
-      console.log('[useUserMovies] Fetching movies for user:', user!.id, 'status:', status);
       const result = await fetchUserMovies(user!.id, status);
-      console.log('[useUserMovies] Result:', result?.length, 'movies', result);
       return result;
     },
     enabled: !!user,
   });
-
-  console.log('[useUserMovies] Hook state - user:', !!user, 'isLoading:', query.isLoading, 'movies:', query.data?.length);
 
   const addMutation = useMutation({
     mutationFn: ({

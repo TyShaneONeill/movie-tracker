@@ -242,13 +242,6 @@ export default function ProfileScreen() {
 
     const renderTabContent = () => {
         if (activeTab === 'collection') {
-            console.log('[Profile] Collection tab state:', {
-                isLoading,
-                isError,
-                watchedMoviesCount: watchedMovies?.length ?? 0,
-                watchedMovies,
-            });
-
             if (isLoading) {
                 return renderLoadingSkeleton();
             }

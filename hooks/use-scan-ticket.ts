@@ -139,19 +139,9 @@ export function useScanTicket(): UseScanTicketResult {
       // Verify user is authenticated before calling the Edge Function
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-      // Always log session state for debugging
-      console.log('[useScanTicket] Session check:', {
-        hasSession: !!sessionData?.session,
-        hasAccessToken: !!sessionData?.session?.access_token,
-        tokenExpiry: sessionData?.session?.expires_at
-          ? new Date(sessionData.session.expires_at * 1000).toISOString()
-          : null,
-        sessionError: sessionError?.message,
-        userId: sessionData?.session?.user?.id,
-      });
-
       if (sessionError || !sessionData?.session) {
         if (DEBUG_AUTH) {
+          // TODO: Replace with Sentry error tracking
           console.error('[useScanTicket] No valid session found:', sessionError?.message);
         }
         setErrorType('auth_error');
@@ -163,31 +153,16 @@ export function useScanTicket(): UseScanTicketResult {
       const expiresAt = sessionData.session.expires_at;
       const now = Math.floor(Date.now() / 1000);
       if (expiresAt && expiresAt - now < 60) {
-        if (DEBUG_AUTH) {
-          console.log('[useScanTicket] Token expiring soon, refreshing...');
-        }
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !refreshData?.session) {
-          if (DEBUG_AUTH) {
-            console.error('[useScanTicket] Failed to refresh session:', refreshError?.message);
-          }
           setErrorType('auth_error');
           setError(ERROR_MESSAGES.auth_error);
           throw new Error(ERROR_MESSAGES.auth_error);
-        }
-        if (DEBUG_AUTH) {
-          console.log('[useScanTicket] Session refreshed successfully');
         }
       }
 
       // Get the access token to pass explicitly
       const accessToken = sessionData.session.access_token;
-
-      // Call the Edge Function with explicit auth header
-      console.log('[useScanTicket] Calling Edge Function with token:', {
-        tokenPrefix: accessToken?.substring(0, 20) + '...',
-        tokenLength: accessToken?.length,
-      });
 
       const { data, error: fnError } = await supabase.functions.invoke<ScanTicketResponse>(
         'scan-ticket',
@@ -207,13 +182,6 @@ export function useScanTicket(): UseScanTicketResult {
         // Parse error response for specific error types
         const errorMessage = fnError.message || '';
 
-        if (DEBUG_AUTH) {
-          console.error('[useScanTicket] Edge Function error:', {
-            message: errorMessage,
-            fullError: fnError,
-          });
-        }
-
         if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
           setErrorType('rate_limit');
           setError(ERROR_MESSAGES.rate_limit);
@@ -227,16 +195,6 @@ export function useScanTicket(): UseScanTicketResult {
         }
 
         if (errorMessage.includes('auth') || errorMessage.includes('401') || errorMessage.includes('JWT') || errorMessage.includes('Invalid JWT')) {
-          if (DEBUG_AUTH) {
-            console.error('[useScanTicket] Authentication error - JWT may be invalid or expired');
-            // Log current session state for debugging
-            supabase.auth.getSession().then(({ data }) => {
-              console.log('[useScanTicket] Current session after error:', {
-                hasSession: !!data?.session,
-                expiresAt: data?.session?.expires_at,
-              });
-            });
-          }
           setErrorType('auth_error');
           setError(ERROR_MESSAGES.auth_error);
           throw new Error(ERROR_MESSAGES.auth_error);

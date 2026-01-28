@@ -54,6 +54,7 @@ export function AvatarPicker({
         await onImageSelected(result.uri, result.type);
       }
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('[AvatarPicker] Error selecting image:', error);
       Alert.alert(
         'Upload Failed',
@@ -66,7 +67,6 @@ export function AvatarPicker({
   };
 
   const showImageOptions = () => {
-    console.log('[AvatarPicker] showImageOptions called - Platform:', Platform.OS);
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -98,10 +98,7 @@ export function AvatarPicker({
 
   return (
     <TouchableOpacity
-      onPress={() => {
-        console.log('[AvatarPicker] TouchableOpacity onPress triggered');
-        showImageOptions();
-      }}
+      onPress={showImageOptions}
       disabled={loading}
       activeOpacity={0.7}
     >

@@ -54,12 +54,10 @@ export default function ListsScreen() {
 
   const handleCreateList = () => {
     // TODO: Open create list modal
-    console.log('Create list');
   };
 
   const handleListPress = (listId: string) => {
     // TODO: Navigate to list detail
-    console.log('View list:', listId);
   };
 
   return (

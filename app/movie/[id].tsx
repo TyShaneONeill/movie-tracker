@@ -117,7 +117,6 @@ export default function MovieDetailScreen() {
 
   const handlePlayTrailer = () => {
     // Placeholder for playing trailer
-    console.log('Playing trailer...');
   };
 
   // Convert movie detail to TMDBMovie format for saving
@@ -289,11 +288,10 @@ export default function MovieDetailScreen() {
 
   const handleReview = () => {
     // Navigate to review modal
-    console.log('Write review...');
   };
 
   const handleShare = () => {
-    console.log('Share movie...');
+    // Placeholder for share functionality
   };
 
   const showMoreOptionsSheet = () => {
@@ -552,7 +550,7 @@ export default function MovieDetailScreen() {
             style={[dynamicStyles.sheetOption, dynamicStyles.sheetOptionLast]}
             onPress={() => {
               hideMoreOptionsSheet();
-              console.log('Report issue...');
+              // Placeholder for report issue functionality
             }}
           >
             <Text style={dynamicStyles.sheetIcon}>⚠️</Text>
