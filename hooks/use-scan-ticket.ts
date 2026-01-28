@@ -367,3 +367,75 @@ export function useScanTicket(): UseScanTicketResult {
     clearError,
   };
 }
+
+// ============================================================================
+// Scan Status Utility
+// ============================================================================
+
+const DAILY_SCAN_LIMIT = 3;
+
+/**
+ * Fetch the current scan status for the authenticated user
+ * Returns the number of scans remaining today
+ */
+export async function fetchScanStatus(): Promise<{
+  scansRemaining: number;
+  usedToday: number;
+  dailyLimit: number;
+}> {
+  const { data: sessionData } = await supabase.auth.getSession();
+
+  if (!sessionData?.session?.user) {
+    return {
+      scansRemaining: DAILY_SCAN_LIMIT,
+      usedToday: 0,
+      dailyLimit: DAILY_SCAN_LIMIT,
+    };
+  }
+
+  const userId = sessionData.session.user.id;
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Note: scan_usage table may not be in generated types, using type assertion
+  const { data, error } = await (supabase as any)
+    .from('scan_usage')
+    .select('daily_count, last_scan_date, bypass_rate_limit')
+    .eq('user_id', userId)
+    .single() as { data: { daily_count: number; last_scan_date: string; bypass_rate_limit: boolean } | null; error: any };
+
+  if (error || !data) {
+    // No record means user hasn't scanned yet - they have all 3
+    return {
+      scansRemaining: DAILY_SCAN_LIMIT,
+      usedToday: 0,
+      dailyLimit: DAILY_SCAN_LIMIT,
+    };
+  }
+
+  // If bypass is enabled, show unlimited
+  if (data.bypass_rate_limit) {
+    return {
+      scansRemaining: 999,
+      usedToday: data.daily_count || 0,
+      dailyLimit: 999,
+    };
+  }
+
+  // If last scan was on a different day, count resets
+  if (data.last_scan_date !== today) {
+    return {
+      scansRemaining: DAILY_SCAN_LIMIT,
+      usedToday: 0,
+      dailyLimit: DAILY_SCAN_LIMIT,
+    };
+  }
+
+  const usedToday = data.daily_count || 0;
+  const scansRemaining = Math.max(0, DAILY_SCAN_LIMIT - usedToday);
+
+  return {
+    scansRemaining,
+    usedToday,
+    dailyLimit: DAILY_SCAN_LIMIT,
+  };
+}

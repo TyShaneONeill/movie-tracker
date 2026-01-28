@@ -25,7 +25,7 @@ import Svg, { Path, Defs, LinearGradient, Stop, Line, Circle } from 'react-nativ
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
-import { useScanTicket } from '@/hooks/use-scan-ticket';
+import { useScanTicket, fetchScanStatus } from '@/hooks/use-scan-ticket';
 import { useAuth } from '@/lib/auth-context';
 import { imageUriToBase64, getMimeTypeFromUri } from '@/lib/image-utils';
 
@@ -96,8 +96,8 @@ export default function ScannerScreen() {
   // Scan ticket hook
   const { scanTicket, isScanning, error, clearError } = useScanTicket();
 
-  // Scans remaining (default to 3, will be updated after scan)
-  const [scansRemaining, setScansRemaining] = useState<number>(3);
+  // Scans remaining (null = loading, will be fetched on mount)
+  const [scansRemaining, setScansRemaining] = useState<number | null>(null);
 
   // ============================================================================
   // Permission Handling
@@ -156,6 +156,24 @@ export default function ScannerScreen() {
   useEffect(() => {
     checkCameraPermission();
   }, [checkCameraPermission]);
+
+  // Fetch scan status when user is authenticated
+  useEffect(() => {
+    if (user && !isAuthLoading) {
+      fetchScanStatus()
+        .then((status) => {
+          setScansRemaining(status.scansRemaining);
+        })
+        .catch((err) => {
+          // Default to 3 if fetch fails
+          console.warn('[ScannerScreen] Failed to fetch scan status:', err);
+          setScansRemaining(3);
+        });
+    } else if (!user && !isAuthLoading) {
+      // Not logged in - show 3 (they'll be prompted to sign in)
+      setScansRemaining(3);
+    }
+  }, [user, isAuthLoading]);
 
   // ============================================================================
   // Floating Animation
@@ -294,8 +312,8 @@ export default function ScannerScreen() {
   // Render States
   // ============================================================================
 
-  // Loading state while checking auth or permissions
-  if (isAuthLoading || isCheckingPermission) {
+  // Loading state while checking auth, permissions, or scan status
+  if (isAuthLoading || isCheckingPermission || scansRemaining === null) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <SafeAreaView style={styles.loadingContainer}>
@@ -364,6 +382,33 @@ export default function ScannerScreen() {
             <Text style={[styles.outlineButtonText, { color: colors.text }]}>
               Upload from Gallery
             </Text>
+          </Pressable>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // Scans exhausted state
+  if (scansRemaining === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={styles.permissionContainer}>
+          <Ionicons name="time-outline" size={64} color={colors.textSecondary} />
+          <Text style={[styles.permissionTitle, { color: colors.text }]}>
+            Daily Limit Reached
+          </Text>
+          <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
+            You've used all 3 scans for today. Your limit resets at midnight.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => router.push('/search')}
+          >
+            <Ionicons name="search-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryButtonText}>Manually Add Movie</Text>
           </Pressable>
         </SafeAreaView>
       </View>
@@ -468,9 +513,19 @@ export default function ScannerScreen() {
 
           {/* Scans Remaining */}
           <View style={styles.scansCountContainer}>
-            <View style={styles.scansDot} />
-            <Text style={[styles.scansCountText, { color: colors.textTertiary }]}>
-              {scansRemaining} scan{scansRemaining !== 1 ? 's' : ''} remaining today
+            <View style={[
+              styles.scansDot,
+              scansRemaining === 0 && styles.scansDotExhausted,
+            ]} />
+            <Text style={[
+              styles.scansCountText,
+              { color: scansRemaining === 0 ? '#f87171' : colors.textTertiary },
+            ]}>
+              {scansRemaining === null
+                ? 'Loading...'
+                : scansRemaining === 0
+                  ? 'No scans remaining today'
+                  : `${scansRemaining} scan${scansRemaining !== 1 ? 's' : ''} remaining today`}
             </Text>
           </View>
         </View>
@@ -624,6 +679,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#e11d48',
     borderRadius: 3,
     marginRight: 6,
+  },
+  scansDotExhausted: {
+    backgroundColor: '#f87171',
   },
   scansCountText: {
     ...Typography.body.xs,
