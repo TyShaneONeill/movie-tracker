@@ -76,8 +76,6 @@ export async function fetchUserMovies(
   userId: string,
   status?: MovieStatus
 ): Promise<UserMovie[]> {
-  console.log('[fetchUserMovies] Querying with userId:', userId, 'status:', status);
-
   let query = supabase
     .from('user_movies')
     .select('*')
@@ -89,8 +87,6 @@ export async function fetchUserMovies(
   }
 
   const { data, error } = await query;
-
-  console.log('[fetchUserMovies] Response - data:', data, 'error:', error);
 
   if (error) {
     throw new Error(error.message || 'Failed to fetch movies');
@@ -105,8 +101,6 @@ export async function addMovieToLibrary(
   movie: TMDBMovie,
   status: MovieStatus = 'watchlist'
 ): Promise<UserMovie> {
-  console.log('[addMovieToLibrary] Adding movie:', movie.title, 'with status:', status, 'for user:', userId);
-
   const insertData: UserMovieInsert = {
     user_id: userId,
     tmdb_id: movie.id,
@@ -120,15 +114,11 @@ export async function addMovieToLibrary(
     genre_ids: movie.genre_ids || [],
   };
 
-  console.log('[addMovieToLibrary] Insert data:', insertData);
-
   const { data, error } = (await (supabase
     .from('user_movies') as any)
     .insert(insertData)
     .select()
     .single()) as { data: UserMovie; error: any };
-
-  console.log('[addMovieToLibrary] Response - data:', data, 'error:', error);
 
   if (error) {
     // Check for unique constraint violation

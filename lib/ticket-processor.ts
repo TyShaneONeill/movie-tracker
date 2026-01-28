@@ -588,6 +588,7 @@ export async function findTMDBMatch(
       originalTitle: rawTitle,
     };
   } catch (error) {
+    // TODO: Replace with Sentry error tracking
     console.error('[findTMDBMatch] Error searching TMDB:', error);
     return null;
   }

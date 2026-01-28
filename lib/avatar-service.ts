@@ -37,6 +37,7 @@ export async function uploadAvatar(
       });
 
     if (uploadError) {
+      // TODO: Replace with Sentry error tracking
       console.error('[AvatarService] Upload error:', uploadError);
       return {
         success: false,
@@ -57,6 +58,7 @@ export async function uploadAvatar(
       url,
     };
   } catch (error) {
+    // TODO: Replace with Sentry error tracking
     console.error('[AvatarService] Unexpected error:', error);
     return {
       success: false,
@@ -88,6 +90,7 @@ export async function deleteAvatar(userId: string): Promise<{ success: boolean; 
       .list(userId);
 
     if (listError) {
+      // TODO: Replace with Sentry error tracking
       console.error('[AvatarService] List error:', listError);
       return { success: false, error: listError.message };
     }
@@ -103,12 +106,14 @@ export async function deleteAvatar(userId: string): Promise<{ success: boolean; 
       .remove(filePaths);
 
     if (deleteError) {
+      // TODO: Replace with Sentry error tracking
       console.error('[AvatarService] Delete error:', deleteError);
       return { success: false, error: deleteError.message };
     }
 
     return { success: true };
   } catch (error) {
+    // TODO: Replace with Sentry error tracking
     console.error('[AvatarService] Unexpected error:', error);
     return {
       success: false,
@@ -136,12 +141,14 @@ export async function updateProfileAvatarUrl(
       .eq('id', userId);
 
     if (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('[AvatarService] Profile update error:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (error) {
+    // TODO: Replace with Sentry error tracking
     console.error('[AvatarService] Unexpected error:', error);
     return {
       success: false,

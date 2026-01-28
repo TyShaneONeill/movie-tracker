@@ -47,14 +47,13 @@ export function ProfilePicturePicker({
     setLocalLoading(true);
 
     try {
-      console.log('[ProfilePicturePicker] Selecting image from:', source);
       const result = source === 'gallery' ? await pickImage() : await takePhoto();
 
       if (result) {
-        console.log('[ProfilePicturePicker] Image selected:', result.uri);
         await onImageSelected(result.uri, result.type);
       }
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('[ProfilePicturePicker] Error selecting image:', error);
     } finally {
       setLocalLoading(false);
@@ -62,7 +61,6 @@ export function ProfilePicturePicker({
   };
 
   const showImageOptions = () => {
-    console.log('[ProfilePicturePicker] Opening image options modal');
     setShowModal(true);
   };
 

@@ -146,6 +146,7 @@ export function MultiFirstTakeModal({
         setCurrentIndex((prev) => prev + 1);
       }
     } catch (error: any) {
+      // TODO: Replace with Sentry error tracking
       console.error('Error creating first take:', error);
 
       // Handle duplicate first take gracefully

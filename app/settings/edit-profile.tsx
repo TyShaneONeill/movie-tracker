@@ -133,8 +133,6 @@ export default function EditProfileScreen() {
 
     setIsSaving(true);
     try {
-      console.log('[EditProfile] Saving profile:', formData);
-
       await updateProfile({
         fullName: formData.fullName || undefined,
         username: formData.username || undefined,
@@ -144,6 +142,7 @@ export default function EditProfileScreen() {
       // Navigate back after save
       router.back();
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('[EditProfile] Save error:', error);
       // TODO: Show error toast
     } finally {
@@ -155,6 +154,7 @@ export default function EditProfileScreen() {
     try {
       await updateAvatar({ imageUri: uri, mimeType });
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('[EditProfile] Avatar upload error:', error);
     }
   };

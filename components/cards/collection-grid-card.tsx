@@ -52,8 +52,6 @@ export function CollectionGridCard({
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
-  console.log('[CollectionGridCard] Rendering with posterUrl:', posterUrl);
-
   return (
     <Pressable
       onPress={onPress}

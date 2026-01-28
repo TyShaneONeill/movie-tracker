@@ -33,7 +33,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       // If no user, reset onboarding state (will be checked when user logs in)
       if (!user) {
-        console.log('[Onboarding] No user, resetting onboarding state');
         setHasCompletedOnboarding(null);
         setIsLoading(false);
         return;
@@ -50,9 +49,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         const value = await AsyncStorage.getItem(key);
         // For new users, value will be null, so hasCompletedOnboarding should be false
         const completed = value === 'true';
-        console.log('[Onboarding] User:', user.id, 'AsyncStorage key:', key, 'value:', value, '-> hasCompletedOnboarding:', completed);
         setHasCompletedOnboarding(completed);
       } catch (error) {
+        // TODO: Replace with Sentry error tracking
         console.error('[Onboarding] Error checking onboarding status:', error);
         // On error, default to false to ensure users see onboarding if there's an issue
         setHasCompletedOnboarding(false);
@@ -69,6 +68,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = useCallback(async () => {
     const key = getOnboardingKey(user?.id);
     if (!key) {
+      // TODO: Replace with Sentry error tracking
       console.error('[Onboarding] Cannot complete onboarding: no user');
       return;
     }
@@ -76,8 +76,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.setItem(key, 'true');
       setHasCompletedOnboarding(true);
-      console.log('[Onboarding] Onboarding marked as complete for user:', user?.id);
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('[Onboarding] Error saving onboarding status:', error);
     }
   }, [user?.id]);
@@ -85,6 +85,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const resetOnboarding = useCallback(async () => {
     const key = getOnboardingKey(user?.id);
     if (!key) {
+      // TODO: Replace with Sentry error tracking
       console.error('[Onboarding] Cannot reset onboarding: no user');
       return;
     }
@@ -92,8 +93,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.removeItem(key);
       setHasCompletedOnboarding(false);
-      console.log('[Onboarding] Onboarding reset for user:', user?.id);
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('[Onboarding] Error resetting onboarding status:', error);
     }
   }, [user?.id]);

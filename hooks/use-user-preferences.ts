@@ -36,6 +36,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     if (error.code === 'PGRST116') {
       return null;
     }
+    // TODO: Replace with Sentry error tracking
     console.error('[useUserPreferences] Fetch error:', error);
     throw error;
   }
@@ -72,6 +73,7 @@ async function updateUserPreference(
     .eq('id', userId);
 
   if (error) {
+    // TODO: Replace with Sentry error tracking
     console.error('[useUserPreferences] Update error:', error);
     throw error;
   }

@@ -161,11 +161,13 @@ export async function imageUriToBase64(uri: string): Promise<string> {
     });
     return base64;
   } catch (error) {
+    // TODO: Replace with Sentry error tracking
     console.error('[imageUriToBase64] Error reading file, trying fallback:', error);
     // Try web fallback method as last resort
     try {
       return await webImageToBase64(uri);
     } catch (fallbackError) {
+      // TODO: Replace with Sentry error tracking
       console.error('[imageUriToBase64] Fallback also failed:', fallbackError);
       throw new Error('Failed to read image file');
     }
@@ -197,6 +199,7 @@ async function webImageToBase64(uri: string): Promise<string> {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
+    // TODO: Replace with Sentry error tracking
     console.error('[webImageToBase64] Error:', error);
     throw new Error('Failed to convert web image to base64');
   }

@@ -32,10 +32,9 @@ try {
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     });
     isGoogleSignInAvailable = true;
-    console.log('[Auth] Google Sign-In module loaded successfully');
   }
 } catch (error) {
-  console.log('[Auth] Google Sign-In not available (expected in Expo Go):', (error as Error).message);
+  // Google Sign-In not available (expected in Expo Go)
   isGoogleSignInAvailable = false;
 }
 
@@ -105,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
+        // TODO: Replace with Sentry error tracking
         console.error('Sign out error:', error.message);
         throw error;
       }
@@ -114,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setUser(null);
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('Sign out failed:', error);
       // Clear cache and state even if API call fails to ensure user is logged out locally
       queryClient.clear();
@@ -192,7 +193,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
-          console.error('Supabase Google sign-in error:', error.message);
           if (error.message.includes('audience')) {
             throw new Error(
               'Google Sign-In failed: The iOS Client ID is not authorized in Supabase. ' +
@@ -202,7 +202,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw error;
         }
 
-        console.log('Google sign-in successful:', data.user?.email);
         // Auth state will be updated by the onAuthStateChange listener
         return;
       } else {
@@ -240,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
+        // TODO: Replace with Sentry error tracking
         console.error('Delete account error:', error.message);
         return { error: error as Error };
       }
@@ -257,6 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { error: null };
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('Delete account failed:', error);
       return { error: error as Error };
     }

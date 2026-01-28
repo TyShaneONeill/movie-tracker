@@ -23,6 +23,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     if (error.code === 'PGRST116') {
       return null;
     }
+    // TODO: Replace with Sentry error tracking
     console.error('[useProfile] Fetch error:', error);
     throw error;
   }
@@ -54,13 +55,12 @@ async function createOrFetchProfile(userId: string): Promise<Profile> {
     // Error 23503 (FK violation) means the auth user doesn't exist yet - retry later
     // Error 23505 (unique violation) shouldn't happen with upsert but handle it anyway
     if (insertError.code === '23503') {
-      console.warn('[useProfile] User not fully created yet, will retry on next query');
       throw insertError;
     }
     if (insertError.code === '23505') {
       // Profile already exists, this is fine - continue to fetch
-      console.log('[useProfile] Profile already exists, fetching...');
     } else {
+      // TODO: Replace with Sentry error tracking
       console.error('[useProfile] Create error:', insertError);
       throw insertError;
     }
@@ -75,6 +75,7 @@ async function createOrFetchProfile(userId: string): Promise<Profile> {
     .single();
 
   if (fetchError) {
+    // TODO: Replace with Sentry error tracking
     console.error('[useProfile] Fetch after create error:', fetchError);
     throw fetchError;
   }
@@ -231,6 +232,7 @@ export function useProfile() {
         .single() as { data: Profile | null; error: any };
 
       if (error) {
+        // TODO: Replace with Sentry error tracking
         console.error('[useProfile] Update error:', error);
         throw error;
       }

@@ -185,6 +185,7 @@ export default function TicketReviewScreen() {
       setFirstTakeMovieInfo(null);
       router.replace('/(tabs)/profile');
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('Error creating first take:', error);
       Alert.alert('Error', 'Failed to save your first take. Please try again.');
     } finally {
@@ -344,6 +345,7 @@ export default function TicketReviewScreen() {
         ]
       );
     } catch (error) {
+      // TODO: Replace with Sentry error tracking
       console.error('Error adding movies:', error);
       Alert.alert(
         'Error',
