@@ -204,8 +204,8 @@ export default function SignUpScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                textContentType="newPassword"
-                autoComplete="new-password"
+                textContentType="oneTimeCode"
+                autoComplete="off"
                 editable={!isSubmitting}
               />
             </View>
@@ -225,8 +225,8 @@ export default function SignUpScreen() {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
-                textContentType="newPassword"
-                autoComplete="new-password"
+                textContentType="oneTimeCode"
+                autoComplete="off"
                 editable={!isSubmitting}
               />
             </View>
