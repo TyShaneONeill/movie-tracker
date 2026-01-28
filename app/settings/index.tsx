@@ -31,8 +31,6 @@ export default function SettingsScreen() {
   const { signOut } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
 
-  const [notifications, setNotifications] = React.useState(true);
-
   const handleThemeToggle = async (isDarkMode: boolean) => {
     // When toggle is ON = dark mode, when OFF = light mode
     // We don't use 'system' from the toggle - it's a simple on/off
@@ -179,13 +177,15 @@ export default function SettingsScreen() {
           <View
             style={[
               styles.settingsItem,
-              { backgroundColor: colors.card, borderBottomColor: colors.border }
+              { backgroundColor: colors.card, borderBottomColor: colors.border, opacity: 0.5 }
             ]}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Notifications</Text>
             </View>
-            <ToggleSwitch value={notifications} onValueChange={setNotifications} />
+            <View style={styles.comingSoonBadge}>
+              <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
+            </View>
           </View>
 
           <View
