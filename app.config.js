@@ -13,6 +13,7 @@ export default {
       bundleIdentifier: "com.cinetrak.app",
       usesAppleSignIn: true,
       infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
         CFBundleURLTypes: [
           {
             CFBundleURLSchemes: [
