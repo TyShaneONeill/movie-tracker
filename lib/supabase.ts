@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
@@ -21,15 +21,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Check if we're in a browser environment (not SSR/Node.js)
 const isBrowser = typeof window !== 'undefined';
 
-const ExpoSecureStoreAdapter = {
+// Use AsyncStorage for native platforms (no size limit, unlike SecureStore's 2048 byte limit)
+// This fixes the "Value being stored in SecureStore is larger than 2048 bytes" issue
+const ExpoStorageAdapter = {
   getItem: async (key: string): Promise<string | null> => {
     // Web browser: use localStorage
     if (Platform.OS === 'web' && isBrowser && typeof localStorage !== 'undefined') {
       return localStorage.getItem(key);
     }
-    // Native (iOS/Android): use SecureStore
+    // Native (iOS/Android): use AsyncStorage
     if (Platform.OS !== 'web') {
-      return await SecureStore.getItemAsync(key);
+      return await AsyncStorage.getItem(key);
     }
     // SSR/Node.js context: return null (no storage available)
     return null;
@@ -40,7 +42,7 @@ const ExpoSecureStoreAdapter = {
       return;
     }
     if (Platform.OS !== 'web') {
-      await SecureStore.setItemAsync(key, value);
+      await AsyncStorage.setItem(key, value);
       return;
     }
     // SSR/Node.js context: no-op
@@ -51,7 +53,7 @@ const ExpoSecureStoreAdapter = {
       return;
     }
     if (Platform.OS !== 'web') {
-      await SecureStore.deleteItemAsync(key);
+      await AsyncStorage.removeItem(key);
       return;
     }
     // SSR/Node.js context: no-op
@@ -60,7 +62,7 @@ const ExpoSecureStoreAdapter = {
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage: ExpoStorageAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
