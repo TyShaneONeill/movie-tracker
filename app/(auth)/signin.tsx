@@ -160,6 +160,7 @@ export default function SignInScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              textContentType="oneTimeCode"
               editable={!isSubmitting}
             />
 

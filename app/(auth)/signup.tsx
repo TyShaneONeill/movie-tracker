@@ -184,6 +184,7 @@ export default function SignUpScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                textContentType="emailAddress"
                 editable={!isSubmitting}
               />
             </View>
@@ -203,6 +204,7 @@ export default function SignUpScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                textContentType="oneTimeCode"
                 editable={!isSubmitting}
               />
             </View>
@@ -222,6 +224,7 @@ export default function SignUpScreen() {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
+                textContentType="oneTimeCode"
                 editable={!isSubmitting}
               />
             </View>
