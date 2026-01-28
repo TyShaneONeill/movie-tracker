@@ -14,7 +14,7 @@
  * - Action sheet modal for more options
  */
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -31,7 +31,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import BottomSheetModal, { BottomSheetModalHandle } from '@/components/ui/bottom-sheet-modal';
+// BottomSheetModal import removed - more options hidden for now
 import { WatchlistModal } from '@/components/watchlist-modal';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { MovieStatusActions } from '@/components/movie-status-actions';
@@ -56,7 +56,6 @@ function formatRuntime(minutes: number | null): string {
 export default function MovieDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const bottomSheetRef = useRef<BottomSheetModalHandle>(null);
   const { user } = useAuth();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -115,9 +114,7 @@ export default function MovieDetailScreen() {
     }
   };
 
-  const handlePlayTrailer = () => {
-    // Placeholder for playing trailer
-  };
+  // handlePlayTrailer removed - Coming Soon feature
 
   // Convert movie detail to TMDBMovie format for saving
   const getMovieForSave = (): TMDBMovie | null => {
@@ -286,21 +283,8 @@ export default function MovieDetailScreen() {
     }
   };
 
-  const handleReview = () => {
-    // Navigate to review modal
-  };
-
-  const handleShare = () => {
-    // Placeholder for share functionality
-  };
-
-  const showMoreOptionsSheet = () => {
-    bottomSheetRef.current?.present();
-  };
-
-  const hideMoreOptionsSheet = () => {
-    bottomSheetRef.current?.dismiss();
-  };
+  // handleReview and handleShare removed - Coming Soon features
+  // showMoreOptionsSheet and hideMoreOptionsSheet removed - More options button hidden
 
   // Dynamic styles based on theme
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
@@ -369,19 +353,15 @@ export default function MovieDetailScreen() {
                 <Text style={dynamicStyles.backIcon}>←</Text>
               </BlurView>
             </Pressable>
-            <Pressable onPress={showMoreOptionsSheet} style={dynamicStyles.iconButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-                <Text style={dynamicStyles.moreIcon}>⋯</Text>
-              </BlurView>
-            </Pressable>
+            {/* More options button hidden - Coming Soon */}
           </View>
 
-          {/* Play Button */}
-          <Pressable onPress={handlePlayTrailer} style={dynamicStyles.playButton}>
+          {/* Play Button - Coming Soon */}
+          <View style={dynamicStyles.playButtonDisabled}>
             <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
-              <Text style={dynamicStyles.playIcon}>▶</Text>
+              <Text style={dynamicStyles.playIconDisabled}>▶</Text>
             </BlurView>
-          </Pressable>
+          </View>
         </ImageBackground>
 
         {/* Content Container - Overlaps hero by 120px */}
@@ -459,14 +439,16 @@ export default function MovieDetailScreen() {
                 Watchlist
               </Text>
             </Pressable>
-            <Pressable onPress={handleReview} style={dynamicStyles.actionItem}>
-              <Text style={dynamicStyles.actionIcon}>💬</Text>
-              <Text style={dynamicStyles.actionLabel}>Review</Text>
-            </Pressable>
-            <Pressable onPress={handleShare} style={dynamicStyles.actionItem}>
-              <Text style={dynamicStyles.actionIcon}>🔗</Text>
-              <Text style={dynamicStyles.actionLabel}>Share</Text>
-            </Pressable>
+            <View style={dynamicStyles.actionItemDisabled}>
+              <Text style={dynamicStyles.actionIconDisabled}>💬</Text>
+              <Text style={dynamicStyles.actionLabelDisabled}>Review</Text>
+              <Text style={dynamicStyles.comingSoonText}>Soon</Text>
+            </View>
+            <View style={dynamicStyles.actionItemDisabled}>
+              <Text style={dynamicStyles.actionIconDisabled}>🔗</Text>
+              <Text style={dynamicStyles.actionLabelDisabled}>Share</Text>
+              <Text style={dynamicStyles.comingSoonText}>Soon</Text>
+            </View>
           </View>
 
           {/* Top Cast Section */}
@@ -495,75 +477,40 @@ export default function MovieDetailScreen() {
           )}
 
           {/* Where to Watch Section */}
-          <Text style={[dynamicStyles.sectionTitle, dynamicStyles.streamingSectionTitle]}>
-            Where to Watch
-          </Text>
+          <View style={dynamicStyles.sectionHeaderRow}>
+            <Text style={[dynamicStyles.sectionTitle, dynamicStyles.streamingSectionTitle]}>
+              Where to Watch
+            </Text>
+            <View style={dynamicStyles.comingSoonBadge}>
+              <Text style={dynamicStyles.comingSoonBadgeText}>Coming Soon</Text>
+            </View>
+          </View>
 
-          <Pressable style={dynamicStyles.streamingService}>
+          <View style={dynamicStyles.streamingServiceDisabled}>
             <View style={dynamicStyles.streamingIcon}>
               <Text style={dynamicStyles.streamingIconText}>MAX</Text>
             </View>
             <View style={dynamicStyles.streamingInfo}>
-              <Text style={dynamicStyles.streamingName}>Stream on Max</Text>
+              <Text style={dynamicStyles.streamingNameDisabled}>Stream on Max</Text>
               <Text style={dynamicStyles.streamingType}>Subscription</Text>
             </View>
             <Text style={dynamicStyles.chevronIcon}>→</Text>
-          </Pressable>
+          </View>
 
-          <Pressable style={dynamicStyles.streamingService}>
+          <View style={dynamicStyles.streamingServiceDisabled}>
             <View style={[dynamicStyles.streamingIcon, dynamicStyles.rentIcon]}>
               <Text style={dynamicStyles.rentIconText}>💳</Text>
             </View>
             <View style={dynamicStyles.streamingInfo}>
-              <Text style={dynamicStyles.streamingName}>Rent or Buy</Text>
+              <Text style={dynamicStyles.streamingNameDisabled}>Rent or Buy</Text>
               <Text style={dynamicStyles.streamingType}>From $19.99</Text>
             </View>
             <Text style={dynamicStyles.chevronIcon}>→</Text>
-          </Pressable>
+          </View>
         </View>
       </ScrollView>
 
-      {/* Action Sheet Modal */}
-      <BottomSheetModal ref={bottomSheetRef}>
-        <View style={dynamicStyles.actionSheet}>
-          <Pressable
-            style={dynamicStyles.sheetOption}
-            onPress={() => {
-              hideMoreOptionsSheet();
-              handleShare();
-            }}
-          >
-            <Text style={dynamicStyles.sheetIcon}>📤</Text>
-            <Text style={dynamicStyles.sheetLabel}>Share Movie</Text>
-          </Pressable>
-          <Pressable
-            style={dynamicStyles.sheetOption}
-            onPress={() => {
-              hideMoreOptionsSheet();
-              handleWatchlistPress();
-            }}
-          >
-            <Text style={dynamicStyles.sheetIcon}>📋</Text>
-            <Text style={dynamicStyles.sheetLabel}>Add to Watchlist</Text>
-          </Pressable>
-          <Pressable
-            style={[dynamicStyles.sheetOption, dynamicStyles.sheetOptionLast]}
-            onPress={() => {
-              hideMoreOptionsSheet();
-              // Placeholder for report issue functionality
-            }}
-          >
-            <Text style={dynamicStyles.sheetIcon}>⚠️</Text>
-            <Text style={[dynamicStyles.sheetLabel, dynamicStyles.sheetLabelDanger]}>Report Issue</Text>
-          </Pressable>
-          <Pressable
-            style={dynamicStyles.cancelButton}
-            onPress={hideMoreOptionsSheet}
-          >
-            <Text style={dynamicStyles.cancelButtonText}>Cancel</Text>
-          </Pressable>
-        </View>
-      </BottomSheetModal>
+      {/* Action Sheet Modal - Hidden, Coming Soon */}
 
       {/* Watchlist Modal */}
       <WatchlistModal
@@ -664,6 +611,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 32,
     color: colors.text,
     marginLeft: 4, // Visual centering
+  },
+  playButtonDisabled: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -36 }, { translateY: -36 }],
+    width: 72,
+    height: 72,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    zIndex: 20,
+    opacity: 0.5,
+  },
+  playIconDisabled: {
+    fontSize: 32,
+    color: colors.textSecondary,
+    marginLeft: 4,
   },
 
   // Content Container
@@ -775,6 +739,25 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   actionItemPressed: {
     opacity: 0.7,
   },
+  actionItemDisabled: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    opacity: 0.5,
+  },
+  actionIconDisabled: {
+    fontSize: 24,
+    color: colors.textSecondary,
+  },
+  actionLabelDisabled: {
+    ...Typography.caption.default,
+    color: colors.textSecondary,
+  },
+  comingSoonText: {
+    ...Typography.caption.default,
+    fontSize: 10,
+    color: colors.textTertiary,
+  },
 
   // Cast Section
   sectionTitle: {
@@ -817,8 +800,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
 
   // Streaming Section
-  streamingSectionTitle: {
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: Spacing.lg,
+    marginBottom: Spacing.xs,
+  },
+  streamingSectionTitle: {
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  comingSoonBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  comingSoonBadgeText: {
+    ...Typography.caption.default,
+    fontSize: 11,
+    color: colors.textTertiary,
   },
   streamingService: {
     flexDirection: 'row',
@@ -830,6 +832,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: Spacing.sm,
+  },
+  streamingServiceDisabled: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: Spacing.sm,
+    opacity: 0.5,
   },
   streamingIcon: {
     width: 48,
@@ -861,6 +875,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
+  streamingNameDisabled: {
+    ...Typography.body.baseMedium,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
   streamingType: {
     ...Typography.body.sm,
     color: colors.textSecondary,
@@ -870,42 +889,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  // Action Sheet
-  actionSheet: {
-    gap: 0,
-  },
-  sheetOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  sheetOptionLast: {
-    borderBottomWidth: 0,
-  },
-  sheetIcon: {
-    fontSize: 20,
-  },
-  sheetLabel: {
-    ...Typography.body.base,
-    color: colors.text,
-  },
-  sheetLabelDanger: {
-    color: colors.tint, // Using tint (rose) as the danger/error color
-  },
-  cancelButton: {
-    padding: Spacing.md,
-    backgroundColor: colors.tint,
-    borderRadius: BorderRadius.md,
-    marginTop: Spacing.lg,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    ...Typography.button.primary,
-    color: Colors.dark.text, // Always white on tint button for contrast
-  },
+  // Action Sheet styles removed - more options hidden for now
 
   // Loading state styles
   loadingContainer: {
