@@ -16,8 +16,10 @@ import { useTheme } from '@/lib/theme-context';
 import { pickImage, takePhoto } from '@/lib/image-utils';
 
 interface ProfilePicturePickerProps {
-  /** Current avatar URL */
+  /** Current avatar URL (remote) */
   avatarUrl?: string | null;
+  /** Local preview URI - shown immediately when user picks an image, before upload completes */
+  previewUri?: string | null;
   /** Size of the avatar (default 120) */
   size?: number;
   /** Whether an upload is in progress */
@@ -30,6 +32,7 @@ const DEFAULT_AVATAR_PLACEHOLDER = 'https://i.pravatar.cc/300';
 
 export function ProfilePicturePicker({
   avatarUrl,
+  previewUri,
   size = 120,
   isLoading = false,
   onImageSelected,
@@ -37,10 +40,12 @@ export function ProfilePicturePicker({
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const [localLoading, setLocalLoading] = useState(false);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
   const loading = isLoading || localLoading;
-  const displayUrl = avatarUrl || DEFAULT_AVATAR_PLACEHOLDER;
+  // Priority: local preview (just selected) > prop preview > remote URL > placeholder
+  const displayUrl = localPreview || previewUri || avatarUrl || DEFAULT_AVATAR_PLACEHOLDER;
 
   const handleSelectImage = async (source: 'gallery' | 'camera') => {
     setShowModal(false);
@@ -50,11 +55,22 @@ export function ProfilePicturePicker({
       const result = source === 'gallery' ? await pickImage() : await takePhoto();
 
       if (result) {
-        await onImageSelected(result.uri, result.type);
+        // Show local preview immediately for instant feedback
+        setLocalPreview(result.uri);
+        
+        try {
+          await onImageSelected(result.uri, result.type);
+          // Clear local preview after successful upload (remote URL will take over)
+          setLocalPreview(null);
+        } catch {
+          // Keep showing local preview even if upload fails
+          // (parent component should handle the error state)
+        }
       }
     } catch (error) {
       // TODO: Replace with Sentry error tracking
       console.error('[ProfilePicturePicker] Error selecting image:', error);
+      setLocalPreview(null);
     } finally {
       setLocalLoading(false);
     }
