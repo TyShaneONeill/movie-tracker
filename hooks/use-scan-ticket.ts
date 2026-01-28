@@ -182,19 +182,54 @@ export function useScanTicket(): UseScanTicketResult {
         // Parse error response for specific error types
         const errorMessage = fnError.message || '';
 
-        if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+        // Try to get HTTP status from FunctionsHttpError
+        // Supabase client may include status in the error context
+        const fnErrorAny = fnError as any;
+        const httpStatus = fnErrorAny.status || fnErrorAny.context?.status;
+
+        // Try to parse response body for structured error info
+        let errorBody: { error?: string; scansRemaining?: number } | null = null;
+        try {
+          if (fnErrorAny.context?.body) {
+            errorBody = JSON.parse(fnErrorAny.context.body);
+          }
+        } catch {
+          // Ignore JSON parse errors
+        }
+
+        // Check for rate limit (429) - check status, body, or message
+        if (
+          httpStatus === 429 ||
+          errorBody?.error?.toLowerCase().includes('limit') ||
+          errorBody?.scansRemaining === 0 ||
+          errorMessage.includes('rate limit') ||
+          errorMessage.includes('429') ||
+          errorMessage.includes('Daily scan limit')
+        ) {
           setErrorType('rate_limit');
           setError(ERROR_MESSAGES.rate_limit);
           throw new Error(ERROR_MESSAGES.rate_limit);
         }
 
-        if (errorMessage.includes('extraction') || errorMessage.includes('422')) {
+        // Check for extraction failure (422)
+        if (
+          httpStatus === 422 ||
+          errorMessage.includes('extraction') ||
+          errorMessage.includes('422')
+        ) {
           setErrorType('extraction_failed');
           setError(ERROR_MESSAGES.extraction_failed);
           throw new Error(ERROR_MESSAGES.extraction_failed);
         }
 
-        if (errorMessage.includes('auth') || errorMessage.includes('401') || errorMessage.includes('JWT') || errorMessage.includes('Invalid JWT')) {
+        // Check for auth errors (401)
+        if (
+          httpStatus === 401 ||
+          errorMessage.includes('auth') ||
+          errorMessage.includes('401') ||
+          errorMessage.includes('JWT') ||
+          errorMessage.includes('Invalid JWT')
+        ) {
           setErrorType('auth_error');
           setError(ERROR_MESSAGES.auth_error);
           throw new Error(ERROR_MESSAGES.auth_error);
@@ -330,5 +365,77 @@ export function useScanTicket(): UseScanTicketResult {
     error,
     errorType,
     clearError,
+  };
+}
+
+// ============================================================================
+// Scan Status Utility
+// ============================================================================
+
+const DAILY_SCAN_LIMIT = 3;
+
+/**
+ * Fetch the current scan status for the authenticated user
+ * Returns the number of scans remaining today
+ */
+export async function fetchScanStatus(): Promise<{
+  scansRemaining: number;
+  usedToday: number;
+  dailyLimit: number;
+}> {
+  const { data: sessionData } = await supabase.auth.getSession();
+
+  if (!sessionData?.session?.user) {
+    return {
+      scansRemaining: DAILY_SCAN_LIMIT,
+      usedToday: 0,
+      dailyLimit: DAILY_SCAN_LIMIT,
+    };
+  }
+
+  const userId = sessionData.session.user.id;
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Note: scan_usage table may not be in generated types, using type assertion
+  const { data, error } = await (supabase as any)
+    .from('scan_usage')
+    .select('daily_count, last_scan_date, bypass_rate_limit')
+    .eq('user_id', userId)
+    .single() as { data: { daily_count: number; last_scan_date: string; bypass_rate_limit: boolean } | null; error: any };
+
+  if (error || !data) {
+    // No record means user hasn't scanned yet - they have all 3
+    return {
+      scansRemaining: DAILY_SCAN_LIMIT,
+      usedToday: 0,
+      dailyLimit: DAILY_SCAN_LIMIT,
+    };
+  }
+
+  // If bypass is enabled, show unlimited
+  if (data.bypass_rate_limit) {
+    return {
+      scansRemaining: 999,
+      usedToday: data.daily_count || 0,
+      dailyLimit: 999,
+    };
+  }
+
+  // If last scan was on a different day, count resets
+  if (data.last_scan_date !== today) {
+    return {
+      scansRemaining: DAILY_SCAN_LIMIT,
+      usedToday: 0,
+      dailyLimit: DAILY_SCAN_LIMIT,
+    };
+  }
+
+  const usedToday = data.daily_count || 0;
+  const scansRemaining = Math.max(0, DAILY_SCAN_LIMIT - usedToday);
+
+  return {
+    scansRemaining,
+    usedToday,
+    dailyLimit: DAILY_SCAN_LIMIT,
   };
 }
