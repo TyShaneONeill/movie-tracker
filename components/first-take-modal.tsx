@@ -150,9 +150,9 @@ export function FirstTakeModal({
 
                   {/* Rating Labels */}
                   <View style={styles.ratingLabels}>
-                    <Text style={styles.ratingLabelText}>Poor</Text>
-                    <Text style={styles.ratingLabelText}>Average</Text>
-                    <Text style={styles.ratingLabelText}>Masterpiece</Text>
+                    <Text style={[styles.ratingLabelText, styles.ratingLabelLeft]}>Poor</Text>
+                    <Text style={[styles.ratingLabelText, styles.ratingLabelCenter]}>Average</Text>
+                    <Text style={[styles.ratingLabelText, styles.ratingLabelRight]}>Masterpiece</Text>
                   </View>
                 </View>
               </View>
@@ -338,6 +338,8 @@ const createStyles = (colors: typeof Colors.dark) =>
       justifyContent: 'space-between',
       width: '100%',
       marginTop: -Spacing.xs,
+      // Match the slider's internal padding (iOS ~16px, Android ~0)
+      paddingHorizontal: Platform.OS === 'ios' ? 16 : 0,
     },
     ratingLabelText: {
       ...Typography.body.xs,
@@ -345,6 +347,16 @@ const createStyles = (colors: typeof Colors.dark) =>
       textTransform: 'uppercase',
       letterSpacing: 0.5,
       fontFamily: Fonts.inter.semibold,
+      flex: 1,
+    },
+    ratingLabelLeft: {
+      textAlign: 'left',
+    },
+    ratingLabelCenter: {
+      textAlign: 'center',
+    },
+    ratingLabelRight: {
+      textAlign: 'right',
     },
 
     // Text Input Section
