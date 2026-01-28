@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import { useTheme } from '@/lib/theme-context';
 import type { MovieStatus } from '@/lib/database.types';
 
 interface WatchlistOption {
@@ -53,6 +54,9 @@ export function WatchlistModal({
   movieTitle,
   hasFirstTake = false,
 }: WatchlistModalProps) {
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+  const styles = createStyles(colors);
   const [showRemoveConfirmation, setShowRemoveConfirmation] = React.useState(false);
 
   // Reset confirmation state when modal closes
@@ -107,7 +111,7 @@ export function WatchlistModal({
                       <Text style={styles.checkmark}>✓</Text>
                     )}
                     {isLoading && isSelected && (
-                      <ActivityIndicator size="small" color={Colors.dark.tint} />
+                      <ActivityIndicator size="small" color={colors.tint} />
                     )}
                   </Pressable>
                 );
@@ -187,155 +191,156 @@ export function WatchlistModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: Colors.dark.card,
-    borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
-    paddingBottom: 34, // Safe area
-  },
-  content: {
-    padding: Spacing.lg,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
-  },
-  title: {
-    ...Typography.display.h4,
-    color: Colors.dark.text,
-    marginBottom: Spacing.xs,
-  },
-  movieTitle: {
-    ...Typography.body.sm,
-    color: Colors.dark.textSecondary,
-  },
-  options: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    backgroundColor: Colors.dark.background,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  optionSelected: {
-    borderColor: Colors.dark.tint,
-    backgroundColor: 'rgba(225, 29, 72, 0.1)',
-  },
-  optionPressed: {
-    opacity: 0.7,
-  },
-  optionIcon: {
-    fontSize: 24,
-    marginRight: Spacing.md,
-  },
-  optionText: {
-    flex: 1,
-  },
-  optionLabel: {
-    ...Typography.body.base,
-    color: Colors.dark.text,
-    fontWeight: '600',
-  },
-  optionLabelSelected: {
-    color: Colors.dark.tint,
-  },
-  optionDescription: {
-    ...Typography.body.sm,
-    color: Colors.dark.textSecondary,
-    marginTop: 2,
-  },
-  checkmark: {
-    fontSize: 18,
-    color: Colors.dark.tint,
-    fontWeight: '600',
-  },
-  removeButton: {
-    padding: Spacing.md,
-    alignItems: 'center',
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.3)',
-    marginBottom: Spacing.sm,
-  },
-  removeButtonPressed: {
-    opacity: 0.7,
-  },
-  removeButtonText: {
-    ...Typography.body.base,
-    color: '#ff4444',
-    fontWeight: '600',
-  },
-  cancelButton: {
-    padding: Spacing.md,
-    alignItems: 'center',
-    backgroundColor: Colors.dark.tint,
-    borderRadius: BorderRadius.md,
-  },
-  cancelButtonPressed: {
-    opacity: 0.9,
-  },
-  cancelButtonText: {
-    ...Typography.body.base,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  confirmationContainer: {
-    padding: Spacing.md,
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.3)',
-    marginBottom: Spacing.sm,
-  },
-  confirmationText: {
-    ...Typography.body.sm,
-    color: '#ff6b6b',
-    textAlign: 'center',
-    marginBottom: Spacing.md,
-  },
-  confirmationButtons: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  confirmationButton: {
-    flex: 1,
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-  },
-  confirmationButtonCancel: {
-    backgroundColor: Colors.dark.background,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  confirmationButtonConfirm: {
-    backgroundColor: '#ff4444',
-  },
-  confirmationButtonPressed: {
-    opacity: 0.7,
-  },
-  confirmationButtonCancelText: {
-    ...Typography.body.sm,
-    color: Colors.dark.text,
-    fontWeight: '600',
-  },
-  confirmationButtonConfirmText: {
-    ...Typography.body.sm,
-    color: '#fff',
-    fontWeight: '600',
-  },
-});
+const createStyles = (colors: typeof Colors.dark) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'flex-end',
+    },
+    container: {
+      backgroundColor: colors.card,
+      borderTopLeftRadius: BorderRadius.lg,
+      borderTopRightRadius: BorderRadius.lg,
+      paddingBottom: 34, // Safe area
+    },
+    content: {
+      padding: Spacing.lg,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: Spacing.lg,
+      paddingBottom: Spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    title: {
+      ...Typography.display.h4,
+      color: colors.text,
+      marginBottom: Spacing.xs,
+    },
+    movieTitle: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+    options: {
+      gap: Spacing.sm,
+      marginBottom: Spacing.lg,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: Spacing.md,
+      backgroundColor: colors.background,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    optionSelected: {
+      borderColor: colors.tint,
+      backgroundColor: 'rgba(225, 29, 72, 0.1)',
+    },
+    optionPressed: {
+      opacity: 0.7,
+    },
+    optionIcon: {
+      fontSize: 24,
+      marginRight: Spacing.md,
+    },
+    optionText: {
+      flex: 1,
+    },
+    optionLabel: {
+      ...Typography.body.base,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    optionLabelSelected: {
+      color: colors.tint,
+    },
+    optionDescription: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    checkmark: {
+      fontSize: 18,
+      color: colors.tint,
+      fontWeight: '600',
+    },
+    removeButton: {
+      padding: Spacing.md,
+      alignItems: 'center',
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 68, 68, 0.3)',
+      marginBottom: Spacing.sm,
+    },
+    removeButtonPressed: {
+      opacity: 0.7,
+    },
+    removeButtonText: {
+      ...Typography.body.base,
+      color: '#ff4444',
+      fontWeight: '600',
+    },
+    cancelButton: {
+      padding: Spacing.md,
+      alignItems: 'center',
+      backgroundColor: colors.tint,
+      borderRadius: BorderRadius.md,
+    },
+    cancelButtonPressed: {
+      opacity: 0.9,
+    },
+    cancelButtonText: {
+      ...Typography.body.base,
+      color: '#fff',
+      fontWeight: '600',
+    },
+    confirmationContainer: {
+      padding: Spacing.md,
+      backgroundColor: 'rgba(255, 68, 68, 0.1)',
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 68, 68, 0.3)',
+      marginBottom: Spacing.sm,
+    },
+    confirmationText: {
+      ...Typography.body.sm,
+      color: '#ff6b6b',
+      textAlign: 'center',
+      marginBottom: Spacing.md,
+    },
+    confirmationButtons: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    confirmationButton: {
+      flex: 1,
+      padding: Spacing.sm,
+      borderRadius: BorderRadius.md,
+      alignItems: 'center',
+    },
+    confirmationButtonCancel: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    confirmationButtonConfirm: {
+      backgroundColor: '#ff4444',
+    },
+    confirmationButtonPressed: {
+      opacity: 0.7,
+    },
+    confirmationButtonCancelText: {
+      ...Typography.body.sm,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    confirmationButtonConfirmText: {
+      ...Typography.body.sm,
+      color: '#fff',
+      fontWeight: '600',
+    },
+  });

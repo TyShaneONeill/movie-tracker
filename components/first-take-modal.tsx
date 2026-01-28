@@ -16,6 +16,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import { useTheme } from '@/lib/theme-context';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 
 const MAX_QUOTE_LENGTH = 140;
@@ -37,6 +38,9 @@ export function FirstTakeModal({
   moviePosterUrl,
   isSubmitting = false,
 }: FirstTakeModalProps) {
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+  const styles = createStyles(colors);
   const [rating, setRating] = useState<number>(5);
   const [quoteText, setQuoteText] = useState('');
   const [isSpoiler, setIsSpoiler] = useState(false);
@@ -138,8 +142,8 @@ export function FirstTakeModal({
                       step={0.1}
                       value={rating}
                       onValueChange={setRating}
-                      minimumTrackTintColor={Colors.dark.tint}
-                      maximumTrackTintColor={Colors.dark.backgroundSecondary}
+                      minimumTrackTintColor={colors.tint}
+                      maximumTrackTintColor={colors.backgroundSecondary}
                       thumbTintColor="#ffffff"
                     />
                   </View>
@@ -160,7 +164,7 @@ export function FirstTakeModal({
                   <TextInput
                     style={styles.textArea}
                     placeholder="What did you think? No spoilers unless you toggle below..."
-                    placeholderTextColor={Colors.dark.textTertiary}
+                    placeholderTextColor={colors.textTertiary}
                     value={quoteText}
                     onChangeText={(text) => setQuoteText(text.slice(0, MAX_QUOTE_LENGTH))}
                     multiline
@@ -188,7 +192,7 @@ export function FirstTakeModal({
                 <ToggleSwitch
                   value={isSpoiler}
                   onValueChange={setIsSpoiler}
-                  activeColor={Colors.dark.tint}
+                  activeColor={colors.tint}
                 />
               </View>
 
@@ -219,239 +223,240 @@ export function FirstTakeModal({
   );
 }
 
-const styles = StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: Colors.dark.card,
-    borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
-    paddingBottom: 34, // Safe area
-    maxHeight: '90%',
-  },
-  content: {
-    padding: Spacing.lg,
-  },
+const createStyles = (colors: typeof Colors.dark) =>
+  StyleSheet.create({
+    keyboardView: {
+      flex: 1,
+    },
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      justifyContent: 'flex-end',
+    },
+    container: {
+      backgroundColor: colors.card,
+      borderTopLeftRadius: BorderRadius.lg,
+      borderTopRightRadius: BorderRadius.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingBottom: 34, // Safe area
+      maxHeight: '90%',
+    },
+    content: {
+      padding: Spacing.lg,
+    },
 
-  // Header Styles
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  poster: {
-    width: 60,
-    height: 90,
-    borderRadius: BorderRadius.sm,
-    ...Shadows.md,
-  },
-  headerText: {
-    flex: 1,
-  },
-  movieTitle: {
-    ...Typography.body.lg,
-    color: Colors.dark.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    ...Typography.body.sm,
-    color: Colors.dark.textSecondary,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonPressed: {
-    opacity: 0.8,
-  },
-  closeButtonText: {
-    color: Colors.dark.textSecondary,
-    fontSize: 16,
-  },
+    // Header Styles
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+      marginBottom: Spacing.lg,
+    },
+    poster: {
+      width: 60,
+      height: 90,
+      borderRadius: BorderRadius.sm,
+      ...Shadows.md,
+    },
+    headerText: {
+      flex: 1,
+    },
+    movieTitle: {
+      ...Typography.body.lg,
+      color: colors.text,
+      marginBottom: 4,
+    },
+    subtitle: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeButtonPressed: {
+      opacity: 0.8,
+    },
+    closeButtonText: {
+      color: colors.textSecondary,
+      fontSize: 16,
+    },
 
-  // Section Label
-  sectionLabel: {
-    ...Typography.body.xs,
-    color: Colors.dark.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: Spacing.sm,
-    fontFamily: Fonts.inter.semibold,
-  },
+    // Section Label
+    sectionLabel: {
+      ...Typography.body.xs,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: Spacing.sm,
+      fontFamily: Fonts.inter.semibold,
+    },
 
-  // Rating Section
-  ratingSection: {
-    marginBottom: Spacing.lg,
-  },
-  ratingWrapper: {
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  ratingDisplay: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  ratingValue: {
-    fontFamily: Fonts.outfit.extrabold,
-    fontSize: 48,
-    color: Colors.dark.tint,
-    lineHeight: 52,
-  },
-  ratingMax: {
-    fontFamily: Fonts.outfit.semibold,
-    fontSize: 20,
-    color: Colors.dark.textTertiary,
-  },
-  sliderContainer: {
-    width: '100%',
-    height: 32,
-    justifyContent: 'center',
-  },
-  slider: {
-    width: '100%',
-    height: 32,
-  },
-  ratingLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: -Spacing.xs,
-  },
-  ratingLabelText: {
-    ...Typography.body.xs,
-    color: Colors.dark.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    fontFamily: Fonts.inter.semibold,
-  },
+    // Rating Section
+    ratingSection: {
+      marginBottom: Spacing.lg,
+    },
+    ratingWrapper: {
+      alignItems: 'center',
+      gap: Spacing.md,
+      paddingVertical: Spacing.md,
+    },
+    ratingDisplay: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 4,
+    },
+    ratingValue: {
+      fontFamily: Fonts.outfit.extrabold,
+      fontSize: 48,
+      color: colors.tint,
+      lineHeight: 52,
+    },
+    ratingMax: {
+      fontFamily: Fonts.outfit.semibold,
+      fontSize: 20,
+      color: colors.textTertiary,
+    },
+    sliderContainer: {
+      width: '100%',
+      height: 32,
+      justifyContent: 'center',
+    },
+    slider: {
+      width: '100%',
+      height: 32,
+    },
+    ratingLabels: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+      marginTop: -Spacing.xs,
+    },
+    ratingLabelText: {
+      ...Typography.body.xs,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      fontFamily: Fonts.inter.semibold,
+    },
 
-  // Text Input Section
-  inputSection: {
-    marginBottom: Spacing.lg,
-  },
-  inputWrapper: {
-    position: 'relative',
-  },
-  textArea: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    paddingBottom: Spacing.xl, // Space for character counter
-    color: Colors.dark.text,
-    ...Typography.body.sm,
-    height: 120,
-    textAlignVertical: 'top',
-  },
-  charCounter: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    ...Typography.body.xs,
-    color: Colors.dark.textTertiary,
-  },
-  charCounterWarning: {
-    color: Colors.dark.tint,
-  },
+    // Text Input Section
+    inputSection: {
+      marginBottom: Spacing.lg,
+    },
+    inputWrapper: {
+      position: 'relative',
+    },
+    textArea: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BorderRadius.md,
+      padding: Spacing.md,
+      paddingBottom: Spacing.xl, // Space for character counter
+      color: colors.text,
+      ...Typography.body.sm,
+      height: 120,
+      textAlignVertical: 'top',
+    },
+    charCounter: {
+      position: 'absolute',
+      bottom: 12,
+      right: 12,
+      ...Typography.body.xs,
+      color: colors.textTertiary,
+    },
+    charCounterWarning: {
+      color: colors.tint,
+    },
 
-  // Spoiler Toggle
-  spoilerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.dark.backgroundSecondary,
-    padding: 12,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    marginBottom: Spacing.lg,
-  },
-  spoilerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  warningIcon: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  warningIconText: {
-    fontSize: 18,
-    color: Colors.dark.gold, // Amber color for warning
-  },
-  spoilerTextContainer: {
-    gap: 2,
-  },
-  spoilerTitle: {
-    ...Typography.body.sm,
-    color: Colors.dark.text,
-    fontFamily: Fonts.inter.medium,
-  },
-  spoilerSubtitle: {
-    ...Typography.body.xs,
-    color: Colors.dark.textTertiary,
-  },
-  // Submit Button
-  submitButton: {
-    width: '100%',
-    backgroundColor: Colors.dark.tint,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.dark.tint,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  submitButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  submitButtonDisabled: {
-    backgroundColor: Colors.dark.border,
-    ...Platform.select({
-      ios: {
-        shadowOpacity: 0,
-      },
-      android: {
-        elevation: 0,
-      },
-    }),
-  },
-  submitButtonText: {
-    ...Typography.button.primary,
-    color: '#ffffff',
-  },
-  submitButtonTextDisabled: {
-    color: Colors.dark.textSecondary,
-  },
-});
+    // Spoiler Toggle
+    spoilerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.backgroundSecondary,
+      padding: 12,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: Spacing.lg,
+    },
+    spoilerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+    },
+    warningIcon: {
+      width: 24,
+      height: 24,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    warningIconText: {
+      fontSize: 18,
+      color: colors.gold, // Amber color for warning
+    },
+    spoilerTextContainer: {
+      gap: 2,
+    },
+    spoilerTitle: {
+      ...Typography.body.sm,
+      color: colors.text,
+      fontFamily: Fonts.inter.medium,
+    },
+    spoilerSubtitle: {
+      ...Typography.body.xs,
+      color: colors.textTertiary,
+    },
+    // Submit Button
+    submitButton: {
+      width: '100%',
+      backgroundColor: colors.tint,
+      paddingVertical: Spacing.md,
+      borderRadius: BorderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...Platform.select({
+        ios: {
+          shadowColor: colors.tint,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.3,
+          shadowRadius: 20,
+        },
+        android: {
+          elevation: 8,
+        },
+      }),
+    },
+    submitButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    submitButtonDisabled: {
+      backgroundColor: colors.border,
+      ...Platform.select({
+        ios: {
+          shadowOpacity: 0,
+        },
+        android: {
+          elevation: 0,
+        },
+      }),
+    },
+    submitButtonText: {
+      ...Typography.button.primary,
+      color: '#ffffff',
+    },
+    submitButtonTextDisabled: {
+      color: colors.textSecondary,
+    },
+  });
