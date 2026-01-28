@@ -422,15 +422,38 @@ export default function TicketReviewScreen() {
             <Text style={styles.emptyStateTip}>
               Tip: Make sure the ticket is well-lit and text is clearly visible.
             </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.retryButton,
-                pressed && styles.retryButtonPressed,
-              ]}
-              onPress={handleGoBack}
-            >
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </Pressable>
+            {scansRemaining > 0 ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.retryButtonPressed,
+                ]}
+                onPress={handleGoBack}
+              >
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.emptyStateButtons}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.retryButton,
+                    pressed && styles.retryButtonPressed,
+                  ]}
+                  onPress={() => router.push('/search')}
+                >
+                  <Text style={styles.retryButtonText}>Manually Add Movie</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.secondaryButtonPressed,
+                  ]}
+                  onPress={handleGoBack}
+                >
+                  <Text style={styles.secondaryButtonText}>Go Back</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.ticketList}>
@@ -643,6 +666,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: Spacing.lg,
   },
+  emptyStateButtons: {
+    gap: Spacing.md,
+    alignItems: 'center',
+    width: '100%',
+  },
   retryButton: {
     backgroundColor: Colors.dark.tint,
     paddingVertical: 14,
@@ -655,6 +683,19 @@ const styles = StyleSheet.create({
   retryButtonText: {
     ...Typography.button.primary,
     color: '#fff',
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+  },
+  secondaryButtonPressed: {
+    opacity: 0.6,
+  },
+  secondaryButtonText: {
+    ...Typography.body.sm,
+    color: Colors.dark.textSecondary,
+    fontWeight: '500',
   },
 
   // Action bar
