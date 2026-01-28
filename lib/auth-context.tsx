@@ -65,6 +65,7 @@ interface AuthContextType {
   ) => Promise<{ error: Error | null; needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: Error | null }>;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   deleteAccount: () => Promise<{ error: Error | null }>;
@@ -135,6 +136,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updatePassword = async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error as Error | null };
+  };
+
+  const resetPasswordForEmail = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'cinetrak://reset-password',
+    });
     return { error: error as Error | null };
   };
 
@@ -283,6 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         updatePassword,
+        resetPasswordForEmail,
         signInWithApple,
         signInWithGoogle,
         deleteAccount,

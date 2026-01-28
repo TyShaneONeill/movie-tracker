@@ -10,7 +10,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
@@ -96,10 +96,6 @@ export default function SignInScreen() {
     }
   };
 
-  const handleSkipToDemo = () => {
-    router.replace('/(tabs)');
-  };
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -181,6 +177,14 @@ export default function SignInScreen() {
                 <ThemedText style={styles.signInButtonText}>Sign In</ThemedText>
               )}
             </Pressable>
+
+            <Link href="/(auth)/forgot-password" asChild>
+              <Pressable style={styles.forgotPasswordButton}>
+                <ThemedText style={[styles.forgotPasswordText, { color: colors.tint }]}>
+                  Forgot Password?
+                </ThemedText>
+              </Pressable>
+            </Link>
           </View>
 
           {/* Divider */}
@@ -257,11 +261,6 @@ export default function SignInScreen() {
                 </Pressable>
               </Link>
             </View>
-            <Pressable onPress={handleSkipToDemo}>
-              <ThemedText style={[styles.skipText, { color: colors.textSecondary }]}>
-                Skip to Demo App
-              </ThemedText>
-            </Pressable>
           </View>
         </ThemedView>
       </ScrollView>
@@ -335,6 +334,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
+  forgotPasswordButton: {
+    alignSelf: 'center',
+    paddingVertical: Spacing.xs,
+  },
+  forgotPasswordText: {
+    ...Typography.body.sm,
+    fontWeight: '500',
+  },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -386,9 +393,5 @@ const styles = StyleSheet.create({
   linkText: {
     ...Typography.body.sm,
     fontWeight: '600',
-  },
-  skipText: {
-    ...Typography.body.sm,
-    textDecorationLine: 'underline',
   },
 });
