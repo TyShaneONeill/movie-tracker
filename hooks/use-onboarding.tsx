@@ -52,7 +52,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         setHasCompletedOnboarding(completed);
       } catch (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('[Onboarding] Error checking onboarding status:', error);
         // On error, default to false to ensure users see onboarding if there's an issue
         setHasCompletedOnboarding(false);
       } finally {
@@ -69,7 +68,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const key = getOnboardingKey(user?.id);
     if (!key) {
       // TODO: Replace with Sentry error tracking
-      console.error('[Onboarding] Cannot complete onboarding: no user');
       return;
     }
 
@@ -78,7 +76,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setHasCompletedOnboarding(true);
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('[Onboarding] Error saving onboarding status:', error);
     }
   }, [user?.id]);
 
@@ -86,7 +83,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const key = getOnboardingKey(user?.id);
     if (!key) {
       // TODO: Replace with Sentry error tracking
-      console.error('[Onboarding] Cannot reset onboarding: no user');
       return;
     }
 
@@ -95,7 +91,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setHasCompletedOnboarding(false);
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('[Onboarding] Error resetting onboarding status:', error);
     }
   }, [user?.id]);
 

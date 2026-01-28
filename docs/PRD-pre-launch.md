@@ -58,7 +58,7 @@ Verify all settings screens are functional, not mock UI.
 - [x] Privacy settings - Greyed out as "Coming Soon" (requires friends feature)
 - [x] Integrations (Letterboxd/Trakt) - Greyed out as "Coming Soon"
 - [ ] Data export - Not implemented
-- [ ] Delete account - Not implemented
+- [x] Delete account - Implemented (2025-01-26)
 
 **For each setting:**
 1. Verify UI matches design system
@@ -188,7 +188,7 @@ Before submitting to app stores:
 - [ ] Support email/URL
 
 ### Technical
-- [ ] Remove all console.log statements
+- [x] Remove all console.log statements (replaced with TODO comments for error tracking)
 - [ ] Environment variables configured for production
 - [ ] Error tracking (Sentry/Bugsnag) configured
 - [ ] Analytics configured (if applicable)

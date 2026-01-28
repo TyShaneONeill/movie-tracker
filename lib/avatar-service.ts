@@ -46,7 +46,6 @@ export async function uploadAvatar(
 
     if (uploadError) {
       // TODO: Replace with Sentry error tracking
-      console.error('[AvatarService] Upload error:', uploadError);
       return {
         success: false,
         error: uploadError.message,
@@ -67,7 +66,6 @@ export async function uploadAvatar(
     };
   } catch (error) {
     // TODO: Replace with Sentry error tracking
-    console.error('[AvatarService] Unexpected error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to upload avatar',
@@ -99,7 +97,6 @@ export async function deleteAvatar(userId: string): Promise<{ success: boolean; 
 
     if (listError) {
       // TODO: Replace with Sentry error tracking
-      console.error('[AvatarService] List error:', listError);
       return { success: false, error: listError.message };
     }
 
@@ -115,14 +112,12 @@ export async function deleteAvatar(userId: string): Promise<{ success: boolean; 
 
     if (deleteError) {
       // TODO: Replace with Sentry error tracking
-      console.error('[AvatarService] Delete error:', deleteError);
       return { success: false, error: deleteError.message };
     }
 
     return { success: true };
   } catch (error) {
     // TODO: Replace with Sentry error tracking
-    console.error('[AvatarService] Unexpected error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete avatar',
@@ -150,14 +145,12 @@ export async function updateProfileAvatarUrl(
 
     if (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('[AvatarService] Profile update error:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (error) {
     // TODO: Replace with Sentry error tracking
-    console.error('[AvatarService] Unexpected error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update profile',

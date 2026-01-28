@@ -144,7 +144,6 @@ export default function EditProfileScreen() {
       router.back();
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('[EditProfile] Save error:', error);
       // TODO: Show error toast
     } finally {
       setIsSaving(false);
@@ -156,7 +155,6 @@ export default function EditProfileScreen() {
       await updateAvatar({ imageUri: uri, mimeType });
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('[EditProfile] Avatar upload error:', error);
       Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
     }
   };

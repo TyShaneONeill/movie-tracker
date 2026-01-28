@@ -37,7 +37,6 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
       return null;
     }
     // TODO: Replace with Sentry error tracking
-    console.error('[useUserPreferences] Fetch error:', error);
     throw error;
   }
 
@@ -74,7 +73,6 @@ async function updateUserPreference(
 
   if (error) {
     // TODO: Replace with Sentry error tracking
-    console.error('[useUserPreferences] Update error:', error);
     throw error;
   }
 }

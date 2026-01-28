@@ -55,7 +55,6 @@ export function AvatarPicker({
       }
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('[AvatarPicker] Error selecting image:', error);
       Alert.alert(
         'Upload Failed',
         error instanceof Error ? error.message : 'Failed to upload image. Please try again.',

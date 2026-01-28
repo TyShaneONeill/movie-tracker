@@ -328,7 +328,7 @@ async function searchTMDB(
 
     const response = await fetch(searchUrl.toString());
     if (!response.ok) {
-      console.error(`TMDB search failed: ${response.status}`);
+      // TODO: Add error tracking (e.g., Sentry)
       return null;
     }
 
@@ -355,7 +355,7 @@ async function searchTMDB(
       confidence,
     };
   } catch (error) {
-    console.error('TMDB search error:', error);
+    // TODO: Add error tracking (e.g., Sentry)
     return null;
   }
 }
@@ -449,7 +449,7 @@ async function extractWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Gemini API error:', response.status, errorText);
+    // TODO: Add error tracking (e.g., Sentry)
     throw new Error(`Gemini API error: ${response.status}`);
   }
 
@@ -492,7 +492,7 @@ async function extractWithGemini(
       notes: parsed.notes || '',
     };
   } catch (parseError) {
-    console.error('Failed to parse Gemini response:', jsonStr);
+    // TODO: Add error tracking (e.g., Sentry)
     throw new Error('Failed to parse ticket extraction response');
   }
 }
@@ -583,7 +583,7 @@ Deno.serve(async (req: Request) => {
     );
 
     if (rateLimitError) {
-      console.error('Rate limit check error:', rateLimitError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error('Failed to check rate limit');
     }
 
@@ -606,7 +606,7 @@ Deno.serve(async (req: Request) => {
     try {
       extraction = await extractWithGemini(image, mimeType, GEMINI_API_KEY);
     } catch (geminiError) {
-      console.error('Gemini extraction failed:', geminiError);
+      // TODO: Add error tracking (e.g., Sentry)
       return new Response(
         JSON.stringify({
           success: false,
@@ -661,7 +661,7 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (error) {
-    console.error('Edge function error:', error);
+    // TODO: Add error tracking (e.g., Sentry)
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

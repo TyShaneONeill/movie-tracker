@@ -46,7 +46,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('[ThemeContext] Error loading cached theme:', error);
       }
       setIsLoading(false);
     };
@@ -69,7 +68,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
           // TODO: Replace with Sentry error tracking
-          console.error('[ThemeContext] Error fetching theme from Supabase:', error);
           return;
         }
 
@@ -83,7 +81,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('[ThemeContext] Error syncing theme:', error);
       }
     };
 
@@ -100,7 +97,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(THEME_STORAGE_KEY, preference);
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('[ThemeContext] Error caching theme:', error);
     }
 
     // Persist to Supabase if user is logged in
@@ -118,11 +114,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
           // TODO: Replace with Sentry error tracking
-          console.error('[ThemeContext] Error saving theme to Supabase:', error);
         }
       } catch (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('[ThemeContext] Error saving theme:', error);
       }
     }
   }, [user]);

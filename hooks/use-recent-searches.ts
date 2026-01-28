@@ -42,7 +42,6 @@ export function useRecentSearches(): UseRecentSearchesResult {
       }
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Failed to load recent searches:', error);
     } finally {
       setIsLoading(false);
     }
@@ -53,7 +52,6 @@ export function useRecentSearches(): UseRecentSearchesResult {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(searches));
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Failed to save recent searches:', error);
     }
   };
 
@@ -94,7 +92,6 @@ export function useRecentSearches(): UseRecentSearchesResult {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Failed to clear recent searches:', error);
     }
   }, []);
 
