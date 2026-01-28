@@ -6,10 +6,19 @@ import {
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
 import type { Session, User } from '@supabase/supabase-js';
+
+// Get Google client IDs from expo config (exposed via app.config.js extra)
+const googleIosClientId =
+  Constants.expoConfig?.extra?.googleIosClientId ??
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const googleWebClientId =
+  Constants.expoConfig?.extra?.googleWebClientId ??
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
 // Dynamically import Google Sign-In to handle Expo Go gracefully
 let GoogleSignin: typeof import('@react-native-google-signin/google-signin').GoogleSignin | null = null;
@@ -26,10 +35,10 @@ try {
   statusCodes = googleSignInModule.statusCodes;
 
   // Configure Google Sign-In if module loaded successfully
-  if (GoogleSignin) {
+  if (GoogleSignin && googleIosClientId) {
     GoogleSignin.configure({
-      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      iosClientId: googleIosClientId,
+      webClientId: googleWebClientId,
     });
     isGoogleSignInAvailable = true;
   }
