@@ -412,9 +412,15 @@ export default function TicketReviewScreen() {
       >
         {tickets.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>No Tickets Found</Text>
+            <Text style={styles.emptyStateTitle}>Unable to Scan Ticket</Text>
             <Text style={styles.emptyStateSubtitle}>
-              We could not find any tickets in the scanned images.
+              We could not find ticket information in this image.{' '}
+              {scansRemaining > 0
+                ? `You have ${scansRemaining} scan${scansRemaining === 1 ? '' : 's'} left today.`
+                : 'You have no scans left today.'}
+            </Text>
+            <Text style={styles.emptyStateTip}>
+              Tip: Make sure the ticket is well-lit and text is clearly visible.
             </Text>
             <Pressable
               style={({ pressed }) => [
@@ -628,6 +634,13 @@ const styles = StyleSheet.create({
     ...Typography.body.base,
     color: Colors.dark.textSecondary,
     textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  emptyStateTip: {
+    ...Typography.body.sm,
+    color: Colors.dark.textTertiary,
+    textAlign: 'center',
+    fontStyle: 'italic',
     marginBottom: Spacing.lg,
   },
   retryButton: {
