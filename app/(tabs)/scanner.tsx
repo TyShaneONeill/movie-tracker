@@ -245,6 +245,7 @@ export default function ScannerScreen() {
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
       });
 
       if (result.canceled || !result.assets[0]) {
@@ -274,6 +275,7 @@ export default function ScannerScreen() {
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Automatic,
       });
 
       if (result.canceled || !result.assets[0]) {
