@@ -508,14 +508,14 @@ const styles = StyleSheet.create({
     },
     statsContainer: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        gap: Spacing.xl,
         marginVertical: Spacing.lg,
         paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.lg,
         borderTopWidth: 1,
         borderBottomWidth: 1,
     },
     statItem: {
+        flex: 1,
         alignItems: 'center',
     },
     statLabel: {
@@ -526,12 +526,12 @@ const styles = StyleSheet.create({
     },
     tabBar: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        gap: Spacing.xl,
         paddingHorizontal: Spacing.lg,
         marginBottom: Spacing.md,
     },
     tabItem: {
+        flex: 1,
+        alignItems: 'center',
         paddingBottom: Spacing.sm,
         borderBottomWidth: 2,
         borderBottomColor: 'transparent',
