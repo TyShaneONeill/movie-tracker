@@ -143,6 +143,7 @@ export default function SignInScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              textContentType="emailAddress"
               editable={!isSubmitting}
             />
 
@@ -160,8 +161,8 @@ export default function SignInScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              textContentType="none"
-              autoComplete="off"
+              textContentType="password"
+              autoComplete="password"
               editable={!isSubmitting}
             />
 
