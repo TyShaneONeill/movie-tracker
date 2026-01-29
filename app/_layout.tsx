@@ -100,6 +100,7 @@ function RootLayoutNav() {
         <Stack.Screen name="category" options={{ headerShown: false }} />
         <Stack.Screen name="movie" options={{ headerShown: false }} />
         <Stack.Screen name="person" options={{ headerShown: false }} />
+        <Stack.Screen name="list" options={{ headerShown: false }} />
         <Stack.Screen name="scan/review" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
