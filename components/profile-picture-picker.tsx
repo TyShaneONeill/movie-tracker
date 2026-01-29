@@ -50,15 +50,16 @@ export function ProfilePicturePicker({
 
   const handleSelectImage = async (source: 'gallery' | 'camera') => {
     setShowModal(false);
-    setLocalLoading(true);
 
     try {
       const result = source === 'gallery' ? await pickImage() : await takePhoto();
 
       if (result) {
+        // Only show loading during the upload phase, not while camera/gallery is open
+        setLocalLoading(true);
         // Show local preview immediately for instant feedback
         setLocalPreview(result.uri);
-        
+
         try {
           await onImageSelected(result.uri, result.type);
           // Clear local preview after successful upload (remote URL will take over)
@@ -66,15 +67,16 @@ export function ProfilePicturePicker({
         } catch {
           // Keep showing local preview even if upload fails
           // (parent component should handle the error state)
+        } finally {
+          setLocalLoading(false);
         }
       }
     } catch (error) {
       // TODO: Replace with Sentry error tracking
       console.error('[ProfilePicturePicker] Error selecting image:', error);
       setLocalPreview(null);
-      Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
-    } finally {
       setLocalLoading(false);
+      Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
     }
   };
 
