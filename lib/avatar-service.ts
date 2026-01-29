@@ -1,3 +1,5 @@
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { supabase } from './supabase';
 import { getFileExtension } from './image-utils';
 import type { Database } from './database.types';
@@ -24,14 +26,20 @@ export async function uploadAvatar(
     const filePath = `${userId}/avatar.${ext}`;
     const contentType = mimeType ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 
-    // Fetch the image as a blob
-    const response = await fetch(imageUri);
-    const blob = await response.blob();
+    // Read file as base64 and decode to ArrayBuffer (reliable in React Native)
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
 
     // Upload to Supabase Storage (upsert to replace existing)
     const { error: uploadError } = await supabase.storage
       .from(AVATARS_BUCKET)
-      .upload(filePath, blob, {
+      .upload(filePath, bytes.buffer, {
         contentType,
         upsert: true,
       });

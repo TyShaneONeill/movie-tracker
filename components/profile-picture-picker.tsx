@@ -8,6 +8,7 @@ import {
   Modal,
   Pressable,
   Text,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -71,6 +72,7 @@ export function ProfilePicturePicker({
       // TODO: Replace with Sentry error tracking
       console.error('[ProfilePicturePicker] Error selecting image:', error);
       setLocalPreview(null);
+      Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
     } finally {
       setLocalLoading(false);
     }
