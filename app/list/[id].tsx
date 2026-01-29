@@ -177,7 +177,10 @@ export default function ListDetailScreen() {
                 </View>
               )}
               <Text style={dynamicStyles.creatorText}>
-                Created by {profile?.username ?? profile?.full_name ?? 'You'}
+                Created by{' '}
+                <Text style={dynamicStyles.creatorUsername}>
+                  {profile?.username ?? profile?.full_name ?? 'You'}
+                </Text>
               </Text>
             </View>
 
@@ -342,6 +345,9 @@ const createStyles = (colors: ThemeColors) =>
     creatorText: {
       ...Typography.body.sm,
       color: colors.textSecondary,
+    },
+    creatorUsername: {
+      color: colors.text,
     },
 
     // List Title & Description
