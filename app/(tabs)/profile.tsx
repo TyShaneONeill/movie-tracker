@@ -49,6 +49,7 @@ export default function ProfileScreen() {
         data: userLists,
         isLoading: listsLoading,
         isError: listsError,
+        isRefetching: listsRefetching,
         refetch: refetchLists,
     } = useUserLists();
 
@@ -57,6 +58,7 @@ export default function ProfileScreen() {
         data: firstTakes,
         isLoading: takesLoading,
         isError: takesError,
+        isRefetching: takesRefetching,
         refetch: refetchTakes,
     } = useFirstTakes();
 
@@ -286,7 +288,7 @@ export default function ProfileScreen() {
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
-                            refreshing={false}
+                            refreshing={takesRefetching}
                             onRefresh={() => refetchTakes()}
                             tintColor={colors.tint}
                         />
@@ -328,7 +330,7 @@ export default function ProfileScreen() {
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
-                            refreshing={false}
+                            refreshing={listsRefetching}
                             onRefresh={() => { refetchLists(); refetch(); }}
                             tintColor={colors.tint}
                         />
