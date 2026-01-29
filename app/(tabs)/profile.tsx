@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View, Pressable, FlatList, ScrollView, Image, RefreshControl } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -140,7 +141,7 @@ export default function ProfileScreen() {
         </View>
     );
 
-    // Special list card component with 2x2 poster grid
+    // Special list card component with adaptive poster grid
     const renderSpecialListCard = (
         title: string,
         movies: UserMovie[] | undefined,
@@ -149,8 +150,89 @@ export default function ProfileScreen() {
     ) => {
         const posterUrls = (movies || [])
             .slice(0, 4)
-            .map(m => m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') : '');
+            .map(m => m.poster_path ? getTMDBImageUrl(m.poster_path, 'w185') : null);
         const count = movies?.length || 0;
+
+        const renderPosterGrid = () => {
+            const validPosters = posterUrls.filter(url => url !== null);
+            const movieCount = validPosters.length;
+
+            if (movieCount === 0) {
+                // Empty state
+                return (
+                    <View style={[styles.posterGridEmpty, { borderColor: colors.border }]}>
+                        <Ionicons name={icon} size={24} color={colors.textSecondary} />
+                    </View>
+                );
+            }
+
+            if (movieCount === 1) {
+                return (
+                    <View style={styles.posterGridSingle}>
+                        <ExpoImage
+                            source={{ uri: validPosters[0]! }}
+                            style={styles.posterImageSingle}
+                            contentFit="cover"
+                            transition={200}
+                        />
+                    </View>
+                );
+            }
+
+            if (movieCount === 2) {
+                return (
+                    <View style={styles.posterGridTwo}>
+                        {validPosters.map((url, idx) => (
+                            <View key={idx} style={styles.posterCellHalf}>
+                                <ExpoImage
+                                    source={{ uri: url! }}
+                                    style={styles.posterImage}
+                                    contentFit="cover"
+                                    transition={200}
+                                />
+                            </View>
+                        ))}
+                    </View>
+                );
+            }
+
+            if (movieCount === 3) {
+                return (
+                    <View style={styles.posterGridThree}>
+                        {validPosters.map((url, idx) => (
+                            <View key={idx} style={styles.posterCellThird}>
+                                <ExpoImage
+                                    source={{ uri: url! }}
+                                    style={styles.posterImage}
+                                    contentFit="cover"
+                                    transition={200}
+                                />
+                            </View>
+                        ))}
+                    </View>
+                );
+            }
+
+            // 4 posters - 2x2 grid
+            return (
+                <View style={styles.posterGridFour}>
+                    {posterUrls.slice(0, 4).map((url, idx) => (
+                        <View key={idx} style={styles.posterCellQuarter}>
+                            {url ? (
+                                <ExpoImage
+                                    source={{ uri: url }}
+                                    style={styles.posterImage}
+                                    contentFit="cover"
+                                    transition={200}
+                                />
+                            ) : (
+                                <View style={styles.posterImage} />
+                            )}
+                        </View>
+                    ))}
+                </View>
+            );
+        };
 
         return (
             <Pressable
@@ -171,31 +253,7 @@ export default function ProfileScreen() {
                         {count} {count === 1 ? 'movie' : 'movies'}
                     </ThemedText>
                 </View>
-                {posterUrls.length > 0 ? (
-                    <View style={styles.posterGrid}>
-                        {posterUrls.map((url, idx) => (
-                            <Image
-                                key={idx}
-                                source={{ uri: url || undefined }}
-                                style={styles.posterGridItem}
-                            />
-                        ))}
-                        {/* Fill empty slots with placeholder */}
-                        {Array.from({ length: Math.max(0, 4 - posterUrls.length) }).map((_, idx) => (
-                            <View
-                                key={`placeholder-${idx}`}
-                                style={[styles.posterGridItem, styles.posterPlaceholder, { backgroundColor: colors.background }]}
-                            />
-                        ))}
-                    </View>
-                ) : (
-                    <View style={[styles.emptyPosterGrid, { borderColor: colors.border }]}>
-                        <Ionicons name={icon} size={24} color={colors.textSecondary} />
-                        <ThemedText style={[styles.emptyPosterText, { color: colors.textSecondary }]}>
-                            No movies yet
-                        </ThemedText>
-                    </View>
-                )}
+                {renderPosterGrid()}
             </Pressable>
         );
     };
@@ -700,30 +758,66 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: 2,
     },
-    posterGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 4,
-    },
-    posterGridItem: {
-        width: '48%',
-        aspectRatio: 2 / 3,
-        borderRadius: BorderRadius.sm,
-    },
-    posterPlaceholder: {
-        opacity: 0.3,
-    },
-    emptyPosterGrid: {
-        aspectRatio: 1,
-        borderRadius: BorderRadius.sm,
-        borderWidth: 1,
-        borderStyle: 'dashed',
+    // Empty state
+    posterGridEmpty: {
+        height: 120,
         justifyContent: 'center',
         alignItems: 'center',
-        gap: Spacing.xs,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderStyle: 'dashed',
     },
-    emptyPosterText: {
-        fontSize: 12,
+    // 1 poster - show it larger with proper aspect ratio
+    posterGridSingle: {
+        height: 140,
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    posterImageSingle: {
+        width: '50%',
+        height: '100%',
+    },
+    // 2 posters - side by side
+    posterGridTwo: {
+        flexDirection: 'row',
+        height: 120,
+        gap: 4,
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    posterCellHalf: {
+        flex: 1,
+        overflow: 'hidden',
+    },
+    // 3 posters - row of 3
+    posterGridThree: {
+        flexDirection: 'row',
+        height: 100,
+        gap: 4,
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    posterCellThird: {
+        flex: 1,
+        overflow: 'hidden',
+    },
+    // 4 posters - 2x2 grid
+    posterGridFour: {
+        height: 140,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    posterCellQuarter: {
+        width: '50%',
+        height: '50%',
+        padding: 1,
+    },
+    // Shared image style
+    posterImage: {
+        width: '100%',
+        height: '100%',
     },
     listsSection: {
         fontSize: 12,
