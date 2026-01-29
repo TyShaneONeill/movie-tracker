@@ -186,7 +186,6 @@ export default function TicketReviewScreen() {
       router.replace('/(tabs)/profile');
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Error creating first take:', error);
       Alert.alert('Error', 'Failed to save your first take. Please try again.');
     } finally {
       setIsSubmittingFirstTake(false);
@@ -277,7 +276,7 @@ export default function TicketReviewScreen() {
 
           if (visitError) {
             // Log but don't fail if theater_visits table doesn't exist
-            console.warn('Could not save theater visit:', visitError.message);
+            // TODO: Add error tracking (e.g., Sentry)
           }
 
           return movie.title;
@@ -346,7 +345,6 @@ export default function TicketReviewScreen() {
       );
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Error adding movies:', error);
       Alert.alert(
         'Error',
         'Failed to add movies to your watched list. Please try again.',

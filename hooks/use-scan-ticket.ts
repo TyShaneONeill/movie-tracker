@@ -142,7 +142,6 @@ export function useScanTicket(): UseScanTicketResult {
       if (sessionError || !sessionData?.session) {
         if (DEBUG_AUTH) {
           // TODO: Replace with Sentry error tracking
-          console.error('[useScanTicket] No valid session found:', sessionError?.message);
         }
         setErrorType('auth_error');
         setError(ERROR_MESSAGES.auth_error);

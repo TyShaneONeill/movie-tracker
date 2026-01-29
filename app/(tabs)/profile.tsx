@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, View, Pressable, FlatList, ScrollView, Image } from 'react-native';
+import { useState, useCallback } from 'react';
+import { StyleSheet, View, Pressable, FlatList, ScrollView, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -29,7 +29,7 @@ export default function ProfileScreen() {
     const colors = Colors[effectiveTheme];
 
     // Fetch user profile and stats
-    const { profile, stats } = useProfile();
+    const { profile, stats, refetch: refetchProfile, refetchStats } = useProfile();
 
     // Fetch watched movies for collection
     const {
@@ -49,6 +49,7 @@ export default function ProfileScreen() {
         data: userLists,
         isLoading: listsLoading,
         isError: listsError,
+        isRefetching: listsRefetching,
         refetch: refetchLists,
     } = useUserLists();
 
@@ -57,6 +58,7 @@ export default function ProfileScreen() {
         data: firstTakes,
         isLoading: takesLoading,
         isError: takesError,
+        isRefetching: takesRefetching,
         refetch: refetchTakes,
     } = useFirstTakes();
 
@@ -263,7 +265,7 @@ export default function ProfileScreen() {
                     columnWrapperStyle={styles.collectionRow}
                     contentContainerStyle={[styles.collectionGrid, { paddingBottom: 100 }]}
                     showsVerticalScrollIndicator={false}
-                    onRefresh={refetch}
+                    onRefresh={() => { refetch(); refetchProfile(); refetchStats(); }}
                     refreshing={isRefetching}
                 />
             );
@@ -284,6 +286,13 @@ export default function ProfileScreen() {
                 <ScrollView
                     contentContainerStyle={styles.firstTakesContent}
                     showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={takesRefetching}
+                            onRefresh={() => refetchTakes()}
+                            tintColor={colors.tint}
+                        />
+                    }
                 >
                     {firstTakes.map((take, index) => (
                         <View key={take.id}>
@@ -319,6 +328,13 @@ export default function ProfileScreen() {
                 <ScrollView
                     contentContainerStyle={styles.listsContent}
                     showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={listsRefetching}
+                            onRefresh={() => { refetchLists(); refetch(); }}
+                            tintColor={colors.tint}
+                        />
+                    }
                 >
                     {/* Special built-in lists: Watchlist and Watching */}
                     <View style={styles.specialListsRow}>

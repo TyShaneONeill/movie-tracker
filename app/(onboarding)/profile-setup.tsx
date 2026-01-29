@@ -59,7 +59,6 @@ export default function ProfileSetupScreen() {
       }
     } catch (err) {
       // TODO: Replace with Sentry error tracking
-      console.error('Avatar upload error:', err);
       setError('Failed to upload image');
     } finally {
       setIsUploadingAvatar(false);
@@ -120,7 +119,6 @@ export default function ProfileSetupScreen() {
 
         if (updateError) {
           // TODO: Replace with Sentry error tracking
-          console.error('Profile update error:', updateError);
           setError('Failed to update profile. Please try again.');
           setIsSubmitting(false);
           return;
@@ -134,7 +132,6 @@ export default function ProfileSetupScreen() {
       router.replace('/(tabs)');
     } catch (err) {
       // TODO: Replace with Sentry error tracking
-      console.error('Profile setup error:', err);
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);

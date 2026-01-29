@@ -5,7 +5,9 @@ import {
   Text,
   ActivityIndicator,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
+import { useCallback, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { router } from 'expo-router';
@@ -56,12 +58,25 @@ export default function HomeScreen() {
   const { user } = useAuth();
 
   // Fetch movie lists
-  const { movies: trendingMovies, isLoading: trendingLoading } = useMovieList({ type: 'trending' });
-  const { movies: nowPlayingMovies, isLoading: nowPlayingLoading } = useMovieList({ type: 'now_playing' });
-  const { movies: upcomingMovies, isLoading: upcomingLoading } = useMovieList({ type: 'upcoming' });
+  const { movies: trendingMovies, isLoading: trendingLoading, refetch: refetchTrending } = useMovieList({ type: 'trending' });
+  const { movies: nowPlayingMovies, isLoading: nowPlayingLoading, refetch: refetchNowPlaying } = useMovieList({ type: 'now_playing' });
+  const { movies: upcomingMovies, isLoading: upcomingLoading, refetch: refetchUpcoming } = useMovieList({ type: 'upcoming' });
 
   // Fetch activity feed (20 most recent First Takes)
-  const { data: activityFeed, isLoading: activityLoading } = useActivityFeed(20);
+  const { data: activityFeed, isLoading: activityLoading, refetch: refetchActivity } = useActivityFeed(20);
+
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refetchTrending(),
+      refetchNowPlaying(),
+      refetchUpcoming(),
+      refetchActivity(),
+    ]);
+    setRefreshing(false);
+  }, [refetchTrending, refetchNowPlaying, refetchUpcoming, refetchActivity]);
 
   const handleThemeToggle = () => {
     setThemePreference(effectiveTheme === 'dark' ? 'light' : 'dark');
@@ -88,6 +103,13 @@ export default function HomeScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.tint}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>

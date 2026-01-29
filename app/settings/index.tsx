@@ -42,7 +42,6 @@ export default function SettingsScreen() {
       await updatePreference('firstTakePromptEnabled', value);
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Failed to update first take prompt preference:', error);
     }
   };
 
@@ -53,7 +52,6 @@ export default function SettingsScreen() {
         router.replace('/(auth)/signin');
       } catch (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('Logout failed:', error);
         router.replace('/(auth)/signin');
       }
     };

@@ -114,7 +114,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('Sign out error:', error.message);
         throw error;
       }
       // Clear all cached queries to prevent stale user data
@@ -124,7 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Sign out failed:', error);
       // Clear cache and state even if API call fails to ensure user is logged out locally
       queryClient.clear();
       setSession(null);
@@ -249,7 +247,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('Delete account error:', error.message);
         return { error: error as Error };
       }
 
@@ -267,7 +264,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null };
     } catch (error) {
       // TODO: Replace with Sentry error tracking
-      console.error('Delete account failed:', error);
       return { error: error as Error };
     }
   };

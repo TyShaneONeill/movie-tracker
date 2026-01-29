@@ -117,7 +117,6 @@ export default function ScannerScreen() {
       setCameraPermission(status as PermissionStatus);
     } catch (err) {
       // TODO: Replace with Sentry error tracking
-      console.error('[ScannerScreen] Error checking camera permission:', err);
       setCameraPermission('undetermined');
     } finally {
       setIsCheckingPermission(false);
@@ -135,7 +134,6 @@ export default function ScannerScreen() {
       setCameraPermission(status as PermissionStatus);
     } catch (err) {
       // TODO: Replace with Sentry error tracking
-      console.error('[ScannerScreen] Error requesting camera permission:', err);
     }
   }, []);
 
@@ -148,7 +146,6 @@ export default function ScannerScreen() {
       }
     } catch (err) {
       // TODO: Replace with Sentry error tracking
-      console.error('[ScannerScreen] Error opening settings:', err);
     }
   }, []);
 
@@ -166,7 +163,7 @@ export default function ScannerScreen() {
         })
         .catch((err) => {
           // Default to 3 if fetch fails
-          console.warn('[ScannerScreen] Failed to fetch scan status:', err);
+          // TODO: Add error tracking (e.g., Sentry)
           setScansRemaining(3);
         });
     } else if (!user && !isAuthLoading) {
@@ -239,7 +236,6 @@ export default function ScannerScreen() {
     } catch (err) {
       // Error is already set by the hook
       // TODO: Replace with Sentry error tracking
-      console.error('[ScannerScreen] Error processing image:', err);
     }
   }, [scanTicket, clearError]);
 
@@ -274,7 +270,6 @@ export default function ScannerScreen() {
       await processImage(asset.uri, asset.mimeType);
     } catch (err) {
       // TODO: Replace with Sentry error tracking
-      console.error('[ScannerScreen] Error capturing image:', err);
     }
   }, [cameraPermission, requestCameraPermission, processImage]);
 
@@ -304,7 +299,6 @@ export default function ScannerScreen() {
       await processImage(asset.uri, asset.mimeType);
     } catch (err) {
       // TODO: Replace with Sentry error tracking
-      console.error('[ScannerScreen] Error selecting image:', err);
     }
   }, [processImage]);
 

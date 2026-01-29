@@ -95,7 +95,7 @@ Deno.serve(async (req: Request) => {
         .in('list_id', listIds);
 
       if (listMoviesError) {
-        console.error('Error deleting list_movies:', listMoviesError);
+        // TODO: Add error tracking (e.g., Sentry)
         throw new Error(`Failed to delete list movies: ${listMoviesError.message}`);
       }
     }
@@ -107,7 +107,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', userId);
 
     if (userListsError) {
-      console.error('Error deleting user_lists:', userListsError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete user lists: ${userListsError.message}`);
     }
 
@@ -118,7 +118,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', userId);
 
     if (firstTakesError) {
-      console.error('Error deleting first_takes:', firstTakesError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete first takes: ${firstTakesError.message}`);
     }
 
@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', userId);
 
     if (movieLikesError) {
-      console.error('Error deleting user_movie_likes:', movieLikesError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete movie likes: ${movieLikesError.message}`);
     }
 
@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', userId);
 
     if (userMoviesError) {
-      console.error('Error deleting user_movies:', userMoviesError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete user movies: ${userMoviesError.message}`);
     }
 
@@ -151,7 +151,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', userId);
 
     if (theaterVisitsError) {
-      console.error('Error deleting theater_visits:', theaterVisitsError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete theater visits: ${theaterVisitsError.message}`);
     }
 
@@ -162,7 +162,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', userId);
 
     if (scanUsageError) {
-      console.error('Error deleting scan_usage:', scanUsageError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete scan usage: ${scanUsageError.message}`);
     }
 
@@ -173,7 +173,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', userId);
 
     if (profilesError) {
-      console.error('Error deleting profiles:', profilesError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete profile: ${profilesError.message}`);
     }
 
@@ -181,7 +181,7 @@ Deno.serve(async (req: Request) => {
     const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (authDeleteError) {
-      console.error('Error deleting auth user:', authDeleteError);
+      // TODO: Add error tracking (e.g., Sentry)
       throw new Error(`Failed to delete auth user: ${authDeleteError.message}`);
     }
 
@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (error) {
-    console.error('Edge function error:', error);
+    // TODO: Add error tracking (e.g., Sentry)
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

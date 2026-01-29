@@ -24,7 +24,6 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
       return null;
     }
     // TODO: Replace with Sentry error tracking
-    console.error('[useProfile] Fetch error:', error);
     throw error;
   }
 
@@ -61,7 +60,6 @@ async function createOrFetchProfile(userId: string): Promise<Profile> {
       // Profile already exists, this is fine - continue to fetch
     } else {
       // TODO: Replace with Sentry error tracking
-      console.error('[useProfile] Create error:', insertError);
       throw insertError;
     }
   }
@@ -76,7 +74,6 @@ async function createOrFetchProfile(userId: string): Promise<Profile> {
 
   if (fetchError) {
     // TODO: Replace with Sentry error tracking
-    console.error('[useProfile] Fetch after create error:', fetchError);
     throw fetchError;
   }
 
@@ -233,7 +230,6 @@ export function useProfile() {
 
       if (error) {
         // TODO: Replace with Sentry error tracking
-        console.error('[useProfile] Update error:', error);
         throw error;
       }
 

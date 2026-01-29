@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (error) {
-    console.error('Edge function error:', error);
+    // TODO: Add error tracking (e.g., Sentry)
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
