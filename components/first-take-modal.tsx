@@ -137,11 +137,11 @@ export function FirstTakeModal({
                   <View style={styles.sliderContainer}>
                     <Slider
                       style={styles.slider}
-                      minimumValue={1}
+                      minimumValue={0}
                       maximumValue={10}
                       step={0.1}
                       value={rating}
-                      onValueChange={setRating}
+                      onValueChange={(value) => setRating(Math.max(1, value))}
                       minimumTrackTintColor={colors.tint}
                       maximumTrackTintColor={colors.backgroundSecondary}
                       thumbTintColor="#ffffff"
