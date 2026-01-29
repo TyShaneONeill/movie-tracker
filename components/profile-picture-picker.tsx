@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -43,36 +43,45 @@ export function ProfilePicturePicker({
   const [localLoading, setLocalLoading] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const pendingSourceRef = useRef<'gallery' | 'camera' | null>(null);
 
   const loading = isLoading || localLoading;
   // Priority: local preview (just selected) > prop preview > remote URL > placeholder
   const displayUrl = localPreview || previewUri || avatarUrl || DEFAULT_AVATAR_PLACEHOLDER;
 
-  const handleSelectImage = async (source: 'gallery' | 'camera') => {
+  const handleSelectImage = (source: 'gallery' | 'camera') => {
+    pendingSourceRef.current = source;
     setShowModal(false);
-
-    // Let modal dismiss before launching native picker to avoid race condition
-    setTimeout(async () => {
-      try {
-        const result = source === 'gallery' ? await pickImage() : await takePhoto();
-        if (!result) return;
-
-        setLocalPreview(result.uri);
-        setLocalLoading(true);
-
-        try {
-          await onImageSelected(result.uri, result.type);
-          setLocalPreview(null);
-        } catch {
-          Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
-        } finally {
-          setLocalLoading(false);
-        }
-      } catch {
-        Alert.alert('Error', 'Could not open camera. Please try again.');
-      }
-    }, 500);
   };
+
+  useEffect(() => {
+    if (!showModal && pendingSourceRef.current) {
+      const source = pendingSourceRef.current;
+      pendingSourceRef.current = null;
+
+      // Small delay to ensure modal is fully dismissed
+      setTimeout(async () => {
+        try {
+          const result = source === 'gallery' ? await pickImage() : await takePhoto();
+          if (!result) return;
+
+          setLocalPreview(result.uri);
+          setLocalLoading(true);
+
+          try {
+            await onImageSelected(result.uri, result.type);
+            setLocalPreview(null);
+          } catch {
+            Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
+          } finally {
+            setLocalLoading(false);
+          }
+        } catch {
+          Alert.alert('Error', 'Could not open camera. Please try again.');
+        }
+      }, 300);
+    }
+  }, [showModal]);
 
   const showImageOptions = () => {
     setShowModal(true);
