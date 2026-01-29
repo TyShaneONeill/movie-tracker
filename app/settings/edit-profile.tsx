@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -156,6 +157,7 @@ export default function EditProfileScreen() {
     } catch (error) {
       // TODO: Replace with Sentry error tracking
       console.error('[EditProfile] Avatar upload error:', error);
+      Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
     }
   };
 
