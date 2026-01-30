@@ -10,7 +10,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
@@ -31,6 +31,7 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
 
   const validateForm = (): string | null => {
     if (!email.trim()) return 'Email is required';
@@ -51,14 +52,19 @@ export default function SignUpScreen() {
     setIsSubmitting(true);
 
     try {
-      const { error: signUpError } = await signUp(email, password);
+      const { error: signUpError, needsEmailConfirmation } = await signUp(email, password);
 
       if (signUpError) {
         setError(signUpError.message);
         return;
       }
 
-      // Auto sign in after successful signup
+      if (needsEmailConfirmation) {
+        setShowEmailConfirmation(true);
+        return;
+      }
+
+      // Auto sign in after successful signup (when email confirmation is disabled)
       const { error: signInError } = await signIn(email, password);
 
       if (signInError) {
@@ -106,6 +112,38 @@ export default function SignUpScreen() {
       setIsSubmitting(false);
     }
   };
+
+  if (showEmailConfirmation) {
+    return (
+      <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.header}>
+          <View style={[styles.confirmationIconCircle, { backgroundColor: colors.tint + '20' }]}>
+            <Ionicons name="mail-outline" size={48} color={colors.tint} />
+          </View>
+          <ThemedText type="title" style={styles.title}>Verify Your Email</ThemedText>
+          <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
+            We sent a confirmation link to{'\n'}
+            <ThemedText style={{ color: colors.text, fontWeight: '600' }}>{email}</ThemedText>
+          </ThemedText>
+          <ThemedText style={[styles.confirmationHint, { color: colors.textSecondary }]}>
+            Please check your inbox and click the link to activate your account.
+          </ThemedText>
+        </View>
+
+        <View style={styles.form}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+            ]}
+            onPress={() => router.replace('/(auth)/signin')}
+          >
+            <ThemedText style={styles.buttonText}>Go to Sign In</ThemedText>
+          </Pressable>
+        </View>
+      </ThemedView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -396,5 +434,18 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
+  },
+  confirmationIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  confirmationHint: {
+    ...Typography.body.sm,
+    textAlign: 'center',
+    marginTop: Spacing.lg,
   },
 });

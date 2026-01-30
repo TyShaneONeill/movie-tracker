@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Linking from 'expo-linking';
 import {
   useFonts,
   Inter_400Regular,
@@ -25,6 +26,8 @@ import { QueryProvider } from '@/lib/query-client';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { useOnboarding, OnboardingProvider } from '@/hooks/use-onboarding';
 import { Colors } from '@/constants/theme';
+import { handleAuthDeepLink } from '@/lib/deep-link-handler';
+import { supabase } from '@/lib/supabase';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -38,6 +41,42 @@ function useProtectedRoute() {
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
+  const pendingPasswordReset = useRef(false);
+
+  // Listen for deep links and PASSWORD_RECOVERY auth events
+  useEffect(() => {
+    // Handle deep links (e.g., cinetrak://reset-password?code=xxx)
+    const handleUrl = async (event: { url: string }) => {
+      const path = await handleAuthDeepLink(event.url);
+      if (path === 'reset-password') {
+        pendingPasswordReset.current = true;
+      }
+    };
+
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl({ url });
+    });
+
+    // Listen for deep links while app is open
+    const linkSubscription = Linking.addEventListener('url', handleUrl);
+
+    // Listen for PASSWORD_RECOVERY event from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        pendingPasswordReset.current = true;
+        // Navigate to reset-password screen
+        setTimeout(() => {
+          router.replace('/(auth)/reset-password');
+        }, 0);
+      }
+    });
+
+    return () => {
+      linkSubscription.remove();
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!navigationState?.key || authLoading || onboardingLoading) {
@@ -55,11 +94,23 @@ function useProtectedRoute() {
       }, 0);
     };
 
+    // If we're handling a password reset deep link, go to reset-password screen
+    if (pendingPasswordReset.current && user) {
+      pendingPasswordReset.current = false;
+      performNavigation('/(auth)/reset-password');
+      return;
+    }
+
     if (!user && !inAuthGroup) {
       // Not authenticated and not on auth screens → go to signin
       performNavigation('/(auth)/signin');
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding
+      // (but don't redirect away from reset-password)
+      const currentScreen = (segments as string[])[1];
+      if (currentScreen === 'reset-password') {
+        return; // Let user stay on reset-password
+      }
       if (hasCompletedOnboarding) {
         performNavigation('/(tabs)');
       } else {
