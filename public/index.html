@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineTrak</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #09090b;
+      color: #fafafa;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .container { max-width: 400px; }
+    h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+    p { color: #a1a1aa; margin-bottom: 2rem; line-height: 1.6; }
+    .badges { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 12px 24px;
+      background: #18181b;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      color: #fafafa;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .badge:hover { background: #27272a; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CineTrak</h1>
+    <p>Track your movie journey. Build watchlists, rate films, and discover what to watch next.</p>
+    <div class="badges">
+      <a href="https://apps.apple.com/app/cinetrak" class="badge">Download on App Store</a>
+    </div>
+  </div>
+</body>
+</html>

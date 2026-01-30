@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "K32CLCJV45.com.cinetrak.app",
+        "paths": [
+          "/reset-password",
+          "/reset-password/*",
+          "/auth/*",
+          "/*"
+        ]
+      }
+    ]
+  }
+}

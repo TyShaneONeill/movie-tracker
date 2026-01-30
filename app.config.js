@@ -12,9 +12,14 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.cinetrak.app",
       usesAppleSignIn: true,
+      associatedDomains: ["applinks:cinetrak.app"],
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleURLTypes: [
+          {
+            CFBundleURLName: "com.cinetrak.app",
+            CFBundleURLSchemes: ["cinetrak"]
+          },
           {
             CFBundleURLSchemes: [
               "com.googleusercontent.apps.886034953782-jn8kerjnbnu38hoc100vh08p7cb5arah"
