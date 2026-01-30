@@ -8,10 +8,11 @@
  * - Centered play trailer button
  * - Content overlaps hero by 120px
  * - Poster thumbnail + title/year/runtime + rating/tags
- * - 4-column action grid (Like, Save, Review, Share)
+ * - Primary status buttons: Watchlist, Watching, Watched (circular, with SVG icons)
+ * - 3-column action grid (Like, Review, Share)
  * - Top Cast horizontal scroll with circular avatars
  * - Where to Watch section with streaming service cards
- * - Action sheet modal for more options
+ * - First Take modal prompt when marking as Watched
  */
 
 import React, { useState, useMemo } from 'react';
@@ -29,10 +30,9 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import Svg, { Path, Polyline, Line } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-// BottomSheetModal import removed - more options hidden for now
-import { WatchlistModal } from '@/components/watchlist-modal';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { useMovieDetail } from '@/hooks/use-movie-detail';
@@ -60,8 +60,6 @@ export default function MovieDetailScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
-  // Modal state for watchlist
-  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   // Modal state for First Take
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
 
@@ -88,7 +86,6 @@ export default function MovieDetailScreen() {
   const {
     hasFirstTake,
     isCreating: isCreatingFirstTake,
-    isDeleting: isDeletingFirstTake,
     createTake,
     deleteTake,
   } = useFirstTakeActions(Number(id) || 0);
@@ -150,56 +147,6 @@ export default function MovieDetailScreen() {
     }
   };
 
-  const handleWatchlistPress = () => {
-    if (!user) {
-      Alert.alert('Sign In Required', 'Please sign in to add movies to your watchlist.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
-      ]);
-      return;
-    }
-    setShowWatchlistModal(true);
-  };
-
-  const handleWatchlistSelect = async (status: MovieStatus) => {
-    const movieData = getMovieForSave();
-    if (!movieData) return;
-
-    // Track if we're changing TO watched status (for First Take prompt)
-    const isChangingToWatched = status === 'watched' && currentStatus !== 'watched';
-
-    try {
-      if (isSaved) {
-        // Movie already in watchlist, just change status
-        await changeStatus(status);
-      } else {
-        // Add to watchlist with selected status
-        await addToWatchlist(movieData, status);
-      }
-      setShowWatchlistModal(false);
-
-      // After successful status change to "watched", prompt for First Take
-      // Only if user doesn't already have a First Take and preference is enabled
-      if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled) {
-        setShowFirstTakeModal(true);
-      }
-    } catch {
-      Alert.alert('Error', 'Failed to update watchlist. Please try again.');
-    }
-  };
-
-  const handleWatchlistRemove = async () => {
-    try {
-      // If user has a First Take, delete it first
-      if (hasFirstTake) {
-        await deleteTake();
-      }
-      await removeFromWatchlist();
-      setShowWatchlistModal(false);
-    } catch {
-      Alert.alert('Error', 'Failed to remove from watchlist. Please try again.');
-    }
-  };
 
   // Helper function to perform the actual removal
   const performRemoval = async () => {
@@ -401,7 +348,7 @@ export default function MovieDetailScreen() {
             />
           </View>
 
-          {/* Action Grid */}
+          {/* Action Grid - 3 items: Like, Review, Share */}
           <View style={dynamicStyles.actionGrid}>
             <Pressable
               onPress={handleLike}
@@ -414,38 +361,27 @@ export default function MovieDetailScreen() {
               {isTogglingLike ? (
                 <ActivityIndicator size="small" color={colors.tint} />
               ) : (
-                <Text style={[dynamicStyles.actionIcon, isLiked && dynamicStyles.actionIconLiked]}>♥</Text>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill={isLiked ? colors.tint : 'none'} stroke={isLiked ? colors.tint : colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </Svg>
               )}
               <Text style={[dynamicStyles.actionLabel, isLiked && dynamicStyles.actionLabelActive]}>
                 {isLiked ? 'Liked' : 'Like'}
               </Text>
             </Pressable>
-            <Pressable
-              onPress={handleWatchlistPress}
-              disabled={isSaving}
-              style={({ pressed }) => [
-                dynamicStyles.actionItem,
-                pressed && dynamicStyles.actionItemPressed,
-              ]}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.tint} />
-              ) : (
-                <Text style={[dynamicStyles.actionIcon, isSaved && dynamicStyles.actionIconSaved]}>
-                  {isSaved ? '✓' : '📋'}
-                </Text>
-              )}
-              <Text style={[dynamicStyles.actionLabel, isSaved && dynamicStyles.actionLabelActive]}>
-                Watchlist
-              </Text>
-            </Pressable>
             <View style={dynamicStyles.actionItemDisabled}>
-              <Text style={dynamicStyles.actionIconDisabled}>💬</Text>
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </Svg>
               <Text style={dynamicStyles.actionLabelDisabled}>Review</Text>
               <Text style={dynamicStyles.comingSoonText}>Soon</Text>
             </View>
             <View style={dynamicStyles.actionItemDisabled}>
-              <Text style={dynamicStyles.actionIconDisabled}>🔗</Text>
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <Polyline points="16 6 12 2 8 6" />
+                <Line x1={12} y1={2} x2={12} y2={15} />
+              </Svg>
               <Text style={dynamicStyles.actionLabelDisabled}>Share</Text>
               <Text style={dynamicStyles.comingSoonText}>Soon</Text>
             </View>
@@ -509,20 +445,6 @@ export default function MovieDetailScreen() {
           </View>
         </View>
       </ScrollView>
-
-      {/* Action Sheet Modal - Hidden, Coming Soon */}
-
-      {/* Watchlist Modal */}
-      <WatchlistModal
-        visible={showWatchlistModal}
-        onClose={() => setShowWatchlistModal(false)}
-        onSelect={handleWatchlistSelect}
-        onRemove={isSaved ? handleWatchlistRemove : undefined}
-        currentStatus={currentStatus}
-        isLoading={isSaving || isDeletingFirstTake}
-        movieTitle={movie?.title}
-        hasFirstTake={hasFirstTake}
-      />
 
       {/* First Take Modal */}
       <FirstTakeModal
