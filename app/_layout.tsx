@@ -107,7 +107,7 @@ function useProtectedRoute() {
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding
       // (but don't redirect away from reset-password)
-      const currentScreen = segments.length > 1 ? segments[1] : undefined;
+      const currentScreen = (segments as string[])[1];
       if (currentScreen === 'reset-password') {
         return; // Let user stay on reset-password
       }
