@@ -152,6 +152,24 @@ export interface Database {
           is_liked: boolean | null;
           added_at: string;
           updated_at: string;
+          // Journey fields
+          journey_number: number;
+          watched_at: string | null;
+          watch_time: string | null;
+          location_type: 'theater' | 'home' | 'airplane' | 'outdoor' | 'other' | null;
+          location_name: string | null;
+          auditorium: string | null;
+          seat_location: string | null;
+          ticket_price: number | null;
+          ticket_id: string | null;
+          watch_format: 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx' | null;
+          watched_with: string[] | null;
+          journey_notes: string | null;
+          journey_tagline: string | null;
+          journey_photos: string[] | null;
+          cover_photo_index: number;
+          journey_created_at: string | null;
+          journey_updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -168,6 +186,24 @@ export interface Database {
           is_liked?: boolean | null;
           added_at?: string;
           updated_at?: string;
+          // Journey fields
+          journey_number?: number;
+          watched_at?: string | null;
+          watch_time?: string | null;
+          location_type?: 'theater' | 'home' | 'airplane' | 'outdoor' | 'other' | null;
+          location_name?: string | null;
+          auditorium?: string | null;
+          seat_location?: string | null;
+          ticket_price?: number | null;
+          ticket_id?: string | null;
+          watch_format?: 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx' | null;
+          watched_with?: string[] | null;
+          journey_notes?: string | null;
+          journey_tagline?: string | null;
+          journey_photos?: string[] | null;
+          cover_photo_index?: number;
+          journey_created_at?: string | null;
+          journey_updated_at?: string | null;
         };
         Update: {
           id?: string;
@@ -184,6 +220,24 @@ export interface Database {
           is_liked?: boolean | null;
           added_at?: string;
           updated_at?: string;
+          // Journey fields
+          journey_number?: number;
+          watched_at?: string | null;
+          watch_time?: string | null;
+          location_type?: 'theater' | 'home' | 'airplane' | 'outdoor' | 'other' | null;
+          location_name?: string | null;
+          auditorium?: string | null;
+          seat_location?: string | null;
+          ticket_price?: number | null;
+          ticket_id?: string | null;
+          watch_format?: 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx' | null;
+          watched_with?: string[] | null;
+          journey_notes?: string | null;
+          journey_tagline?: string | null;
+          journey_photos?: string[] | null;
+          cover_photo_index?: number;
+          journey_created_at?: string | null;
+          journey_updated_at?: string | null;
         };
       };
       user_movie_likes: {
@@ -497,4 +551,26 @@ export interface UserStatsResponse {
     monthLabel: string;
     count: number;
   }>;
+}
+
+// Location type enum for journey cards
+export type LocationType = 'theater' | 'home' | 'airplane' | 'outdoor' | 'other';
+
+// Watch format enum for journey cards
+export type WatchFormat = 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx';
+
+// Helper type for journey updates
+export interface JourneyUpdate {
+  watched_at?: string | null;
+  watch_time?: string | null;
+  location_type?: LocationType | null;
+  location_name?: string | null;
+  auditorium?: string | null;
+  seat_location?: string | null;
+  ticket_price?: number | null;
+  ticket_id?: string | null;
+  watch_format?: WatchFormat | null;
+  watched_with?: string[] | null;
+  journey_notes?: string | null;
+  journey_tagline?: string | null;
 }
