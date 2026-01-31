@@ -42,6 +42,100 @@ export interface Database {
           onboarding_completed?: boolean | null;
         };
       };
+      genres: {
+        Row: {
+          id: number;
+          name: string;
+          slug: string;
+        };
+        Insert: {
+          id: number;
+          name: string;
+          slug: string;
+        };
+        Update: {
+          id?: number;
+          name?: string;
+          slug?: string;
+        };
+      };
+      movies: {
+        Row: {
+          id: number;
+          tmdb_id: number;
+          imdb_id: string | null;
+          title: string;
+          original_title: string | null;
+          tagline: string | null;
+          overview: string | null;
+          release_date: string | null;
+          runtime_minutes: number | null;
+          status: string | null;
+          tmdb_vote_average: number | null;
+          tmdb_vote_count: number | null;
+          genre_ids: number[] | null;
+          adult: boolean | null;
+          original_language: string | null;
+          poster_path: string | null;
+          backdrop_path: string | null;
+          tmdb_popularity: number | null;
+          budget: number | null;
+          revenue: number | null;
+          tmdb_fetched_at: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          tmdb_id: number;
+          imdb_id?: string | null;
+          title: string;
+          original_title?: string | null;
+          tagline?: string | null;
+          overview?: string | null;
+          release_date?: string | null;
+          runtime_minutes?: number | null;
+          status?: string | null;
+          tmdb_vote_average?: number | null;
+          tmdb_vote_count?: number | null;
+          genre_ids?: number[] | null;
+          adult?: boolean | null;
+          original_language?: string | null;
+          poster_path?: string | null;
+          backdrop_path?: string | null;
+          tmdb_popularity?: number | null;
+          budget?: number | null;
+          revenue?: number | null;
+          tmdb_fetched_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: number;
+          tmdb_id?: number;
+          imdb_id?: string | null;
+          title?: string;
+          original_title?: string | null;
+          tagline?: string | null;
+          overview?: string | null;
+          release_date?: string | null;
+          runtime_minutes?: number | null;
+          status?: string | null;
+          tmdb_vote_average?: number | null;
+          tmdb_vote_count?: number | null;
+          genre_ids?: number[] | null;
+          adult?: boolean | null;
+          original_language?: string | null;
+          poster_path?: string | null;
+          backdrop_path?: string | null;
+          tmdb_popularity?: number | null;
+          budget?: number | null;
+          revenue?: number | null;
+          tmdb_fetched_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
       user_movies: {
         Row: {
           id: string;
@@ -376,6 +470,14 @@ export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Updat
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+// Helper types for genres
+export type Genre = Database['public']['Tables']['genres']['Row'];
+
+// Helper types for movies cache
+export type CachedMovie = Database['public']['Tables']['movies']['Row'];
+export type CachedMovieInsert = Database['public']['Tables']['movies']['Insert'];
+export type CachedMovieUpdate = Database['public']['Tables']['movies']['Update'];
 
 // User stats types (from get-user-stats Edge Function)
 export interface UserStatsResponse {
