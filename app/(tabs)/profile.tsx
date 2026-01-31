@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions } from 'react-native';
+import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions, ListRenderItemInfo } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
@@ -48,6 +48,7 @@ export default function ProfileScreen() {
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const scrollViewRef = useRef<Animated.ScrollView>(null);
+    const flatListRef = useRef<Animated.FlatList<UserMovie>>(null);
 
     const colors = Colors[effectiveTheme];
 
@@ -136,15 +137,23 @@ export default function ProfileScreen() {
     // Handle tab change - scroll to top and expand header
     const handleTabChange = useCallback((tab: TabType) => {
         setActiveTab(tab);
-        // Scroll to top to expand header
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        // Scroll to top to expand header (use appropriate ref based on which tab we're switching to)
+        if (tab === 'collection') {
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        } else {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        }
     }, []);
 
     // Handle refresh
     const handleRefresh = useCallback(async () => {
         setIsRefreshing(true);
         // Scroll to top first to show the header
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        if (activeTab === 'collection') {
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        } else {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        }
 
         await Promise.all([
             refetchProfile(),
@@ -154,16 +163,15 @@ export default function ProfileScreen() {
             refetchTakes(),
         ]);
         setIsRefreshing(false);
-    }, [refetchProfile, refetchStats, refetch, refetchLists, refetchTakes]);
+    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes]);
 
-    const renderCollectionItem = (item: UserMovie, index: number) => (
-        <View key={item.id} style={styles.gridItem}>
-            <CollectionGridCard
-                posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
-                onPress={() => router.push(`/movie/${item.tmdb_id}`)}
-            />
-        </View>
-    );
+    const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<UserMovie>) => (
+        <CollectionGridCard
+            posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
+            onPress={() => router.push(`/movie/${item.tmdb_id}`)}
+            style={{ width: CARD_WIDTH }}
+        />
+    ), []);
 
     const renderEmptyCollection = () => (
         <View style={styles.emptyContainer}>
@@ -424,27 +432,72 @@ export default function ProfileScreen() {
         </>
     );
 
-    const renderTabContent = () => {
-        if (activeTab === 'collection') {
-            if (isLoading) {
-                return renderLoadingSkeleton();
-            }
+    // ListHeaderComponent for FlatList (Collection tab)
+    const renderCollectionListHeader = () => (
+        <>
+            {/* Collapsible Profile Header */}
+            <Animated.View style={[styles.header, headerAnimatedStyle]}>
+                <Image
+                    source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
+                    style={[styles.avatar, { borderColor: colors.tint }]}
+                />
+                <ThemedText style={[styles.username, { color: colors.text }]}>
+                    {profile?.full_name || MOCK_USER.name}
+                </ThemedText>
+                <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
+                    {profile?.bio || MOCK_USER.bio}
+                </ThemedText>
 
-            if (isError) {
-                return renderErrorState();
-            }
-
-            if (!watchedMovies?.length) {
-                return renderEmptyCollection();
-            }
-
-            // Render collection as a grid (not nested FlatList)
-            return (
-                <View style={styles.collectionGrid}>
-                    {watchedMovies.map((movie, index) => renderCollectionItem(movie, index))}
+                {/* Stats Row */}
+                <View style={[styles.statsContainer, { borderColor: colors.border }]}>
+                    <View style={styles.statItem}>
+                        <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                            {stats.watched}
+                        </ThemedText>
+                        <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                            Watched
+                        </ThemedText>
+                    </View>
+                    <View style={styles.statItem}>
+                        <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                            {stats.firstTakes}
+                        </ThemedText>
+                        <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                            First Takes
+                        </ThemedText>
+                    </View>
+                    <View style={styles.statItem}>
+                        <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                            {stats.lists}
+                        </ThemedText>
+                        <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                            Lists
+                        </ThemedText>
+                    </View>
                 </View>
-            );
-        } else if (activeTab === 'first-takes') {
+            </Animated.View>
+
+            {/* Tab Bar */}
+            <View style={[styles.tabBar, { backgroundColor: colors.background }]}>
+                {renderTabBar()}
+            </View>
+        </>
+    );
+
+    // Empty/loading/error component for FlatList
+    const renderCollectionListEmpty = () => {
+        if (isLoading) {
+            return <View style={styles.content}>{renderLoadingSkeleton()}</View>;
+        }
+        if (isError) {
+            return <View style={styles.content}>{renderErrorState()}</View>;
+        }
+        return <View style={styles.content}>{renderEmptyCollection()}</View>;
+    };
+
+    // Render content for non-collection tabs (First Takes and Lists)
+    const renderTabContent = () => {
+        if (activeTab === 'first-takes') {
             if (takesLoading) {
                 return renderFirstTakesSkeleton();
             }
@@ -548,72 +601,100 @@ export default function ProfileScreen() {
                 </Pressable>
             </View>
 
-            <Animated.ScrollView
-                ref={scrollViewRef}
-                onScroll={scrollHandler}
-                scrollEventThrottle={16}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={handleRefresh}
-                        tintColor={colors.tint}
-                    />
-                }
-            >
-                {/* Collapsible Profile Header */}
-                <Animated.View style={[styles.header, headerAnimatedStyle]}>
-                    <Image
-                        source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
-                        style={[styles.avatar, { borderColor: colors.tint }]}
-                    />
-                    <ThemedText style={[styles.username, { color: colors.text }]}>
-                        {profile?.full_name || MOCK_USER.name}
-                    </ThemedText>
-                    <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
-                        {profile?.bio || MOCK_USER.bio}
-                    </ThemedText>
+            {/* Collection tab uses FlatList with numColumns for proper 3-column grid */}
+            {activeTab === 'collection' && (
+                <Animated.FlatList
+                    ref={flatListRef}
+                    data={isLoading || isError ? [] : watchedMovies}
+                    renderItem={renderCollectionItem}
+                    keyExtractor={(item) => item.id}
+                    numColumns={COLUMN_COUNT}
+                    ListHeaderComponent={renderCollectionListHeader}
+                    ListEmptyComponent={renderCollectionListEmpty}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
+                    columnWrapperStyle={watchedMovies?.length && !isLoading && !isError ? styles.columnWrapper : undefined}
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={colors.tint}
+                        />
+                    }
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
 
-                    {/* Stats Row */}
-                    <View style={[styles.statsContainer, { borderColor: colors.border }]}>
-                        <View style={styles.statItem}>
-                            <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                                {stats.watched}
-                            </ThemedText>
-                            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                                Watched
-                            </ThemedText>
+            {/* First Takes and Lists tabs use ScrollView */}
+            {activeTab !== 'collection' && (
+                <Animated.ScrollView
+                    ref={scrollViewRef}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={colors.tint}
+                        />
+                    }
+                >
+                    {/* Collapsible Profile Header */}
+                    <Animated.View style={[styles.header, headerAnimatedStyle]}>
+                        <Image
+                            source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
+                            style={[styles.avatar, { borderColor: colors.tint }]}
+                        />
+                        <ThemedText style={[styles.username, { color: colors.text }]}>
+                            {profile?.full_name || MOCK_USER.name}
+                        </ThemedText>
+                        <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
+                            {profile?.bio || MOCK_USER.bio}
+                        </ThemedText>
+
+                        {/* Stats Row */}
+                        <View style={[styles.statsContainer, { borderColor: colors.border }]}>
+                            <View style={styles.statItem}>
+                                <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                                    {stats.watched}
+                                </ThemedText>
+                                <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                                    Watched
+                                </ThemedText>
+                            </View>
+                            <View style={styles.statItem}>
+                                <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                                    {stats.firstTakes}
+                                </ThemedText>
+                                <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                                    First Takes
+                                </ThemedText>
+                            </View>
+                            <View style={styles.statItem}>
+                                <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                                    {stats.lists}
+                                </ThemedText>
+                                <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                                    Lists
+                                </ThemedText>
+                            </View>
                         </View>
-                        <View style={styles.statItem}>
-                            <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                                {stats.firstTakes}
-                            </ThemedText>
-                            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                                First Takes
-                            </ThemedText>
-                        </View>
-                        <View style={styles.statItem}>
-                            <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                                {stats.lists}
-                            </ThemedText>
-                            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                                Lists
-                            </ThemedText>
-                        </View>
+                    </Animated.View>
+
+                    {/* Tab Bar */}
+                    <View style={[styles.tabBar, { backgroundColor: colors.background }]}>
+                        {renderTabBar()}
                     </View>
-                </Animated.View>
 
-                {/* Tab Bar */}
-                <View style={[styles.tabBar, { backgroundColor: colors.background }]}>
-                    {renderTabBar()}
-                </View>
-
-                {/* Tab Content */}
-                <View style={styles.content}>
-                    {renderTabContent()}
-                </View>
-            </Animated.ScrollView>
+                    {/* Tab Content */}
+                    <View style={styles.content}>
+                        {renderTabContent()}
+                    </View>
+                </Animated.ScrollView>
+            )}
 
             {/* Sticky Tab Bar Overlay - appears when header is collapsed */}
             <Animated.View
@@ -719,14 +800,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         minHeight: 400,
     },
-    // Collection grid styles
-    collectionGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
+    // FlatList column wrapper for 3-column grid
+    columnWrapper: {
+        paddingHorizontal: Spacing.lg,
         gap: GRID_GAP,
-    },
-    gridItem: {
-        width: CARD_WIDTH,
+        marginTop: GRID_GAP,
     },
     sectionSubtitle: {
         fontSize: 12,
