@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import {
   fetchJourneyById,
+  fetchJourneysByTmdbId,
+  createNewJourney,
   updateJourney,
   deleteJourney,
 } from '@/lib/movie-service';
@@ -93,5 +95,73 @@ export function useJourneyMutations() {
     deleteJourney: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending,
     deleteError: deleteMutation.error,
+  };
+}
+
+// Type for journeys with associated first take
+export interface JourneysWithFirstTake {
+  journeys: UserMovie[];
+  firstTake: FirstTake | null;
+}
+
+// Fetch all journeys for a movie with the associated First Take
+async function fetchJourneysWithFirstTake(
+  userId: string,
+  tmdbId: number
+): Promise<JourneysWithFirstTake> {
+  // Fetch all journeys for this movie
+  const journeys = await fetchJourneysByTmdbId(userId, tmdbId);
+
+  // Fetch the associated First Take for this movie
+  const { data: firstTake, error } = await supabase
+    .from('first_takes')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch first take');
+  }
+
+  return {
+    journeys,
+    firstTake: firstTake as FirstTake | null,
+  };
+}
+
+// Hook to fetch all journeys for a movie (supports rewatches)
+export function useJourneysByMovie(tmdbId: number | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['journeysByMovie', tmdbId, user?.id],
+    queryFn: () => fetchJourneysWithFirstTake(user!.id, tmdbId!),
+    enabled: !!tmdbId && !!user?.id,
+  });
+}
+
+// Hook providing mutation for creating new journeys (rewatches)
+export function useCreateJourney() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const createMutation = useMutation({
+    mutationFn: (existingJourney: UserMovie) =>
+      createNewJourney(user!.id, existingJourney),
+    onSuccess: (newJourney) => {
+      // Invalidate journeys for this movie
+      queryClient.invalidateQueries({
+        queryKey: ['journeysByMovie', newJourney.tmdb_id],
+      });
+      // Invalidate user movies list
+      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+    },
+  });
+
+  return {
+    createJourney: createMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    createError: createMutation.error,
   };
 }

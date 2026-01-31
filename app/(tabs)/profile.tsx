@@ -168,7 +168,7 @@ export default function ProfileScreen() {
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<UserMovie>) => (
         <CollectionGridCard
             posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
-            onPress={() => router.push(`/journey/${item.id}`)}
+            onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
             style={{ width: CARD_WIDTH }}
         />
     ), []);
