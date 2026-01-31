@@ -21,7 +21,9 @@ import {
   Pressable,
   ActivityIndicator,
   ImageBackground,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -133,19 +135,28 @@ const perforatedStyles = (colors: ThemeColors) => StyleSheet.create({
   },
 });
 
+// Header height constant
+const HEADER_HEIGHT = 100; // paddingTop (60) + content (~40)
+
 export default function JourneyCardScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   // Fetch journey data
   const { data: journeyData, isLoading, isError } = useJourney(id);
   const journey = journeyData;
   const firstTake = journeyData?.firstTake;
 
+  // Calculate available height for ticket card
+  // Screen height - header - top safe area - bottom safe area - padding
+  const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
+
   // Dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, ticketHeight), [colors, ticketHeight]);
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -350,8 +361,8 @@ export default function JourneyCardScreen() {
   );
 }
 
-// Create styles function that takes theme colors
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+// Create styles function that takes theme colors and ticket height
+const createStyles = (colors: ThemeColors, ticketHeight: number) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -361,7 +372,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: Spacing.md,
+    flexGrow: 1,
   },
 
   // Ambient Background
@@ -411,17 +423,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
 
-  // Ticket Card
+  // Ticket Card - fills available height
   ticketCard: {
     backgroundColor: '#1a1a20',
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     marginTop: Spacing.md,
+    minHeight: ticketHeight,
   },
 
-  // Hero Section
+  // Hero Section - expands to fill available space
   heroSection: {
-    height: 300,
+    flex: 1,
+    minHeight: 250,
     position: 'relative',
   },
   heroImage: {
