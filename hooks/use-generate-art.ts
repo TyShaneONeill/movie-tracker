@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/hooks/use-auth';
 
 interface GenerateArtRequest {
   journeyId: string;
@@ -16,16 +15,13 @@ interface GenerateArtResponse {
 }
 
 async function generateJourneyArt(
-  request: GenerateArtRequest,
-  accessToken: string
+  request: GenerateArtRequest
 ): Promise<GenerateArtResponse> {
+  // Supabase automatically includes the user's JWT from the current session
   const { data, error } = await supabase.functions.invoke<GenerateArtResponse>(
     'generate-journey-art',
     {
       body: request,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
     }
   );
 
@@ -42,14 +38,10 @@ async function generateJourneyArt(
 
 export function useGenerateArt() {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
 
   const mutation = useMutation({
     mutationFn: async (request: GenerateArtRequest) => {
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-      return generateJourneyArt(request, session.access_token);
+      return generateJourneyArt(request);
     },
     onSuccess: (data, variables) => {
       // Invalidate journey queries to refresh the data
