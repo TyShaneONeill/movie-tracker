@@ -77,7 +77,6 @@ const styles = StyleSheet.create({
     aspectRatio: 2 / 3,
     borderRadius: BorderRadius.sm,
     overflow: 'hidden',
-    position: 'relative',
   },
   image: {
     width: '100%',
