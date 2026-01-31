@@ -95,6 +95,14 @@ export function getPrimaryGenreSync(genreIds: number[]): string {
 }
 
 /**
+ * Get all genre names synchronously for an array of genre IDs
+ */
+export function getGenreNamesByIds(genreIds: number[]): string[] {
+  if (!genreIds?.length) return [];
+  return genreIds.map(id => getGenreNameSync(id)).filter(name => name !== 'Movie');
+}
+
+/**
  * Preload the genre cache (call early in app lifecycle)
  */
 export function preloadGenres(): void {

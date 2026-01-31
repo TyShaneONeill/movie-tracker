@@ -170,6 +170,10 @@ export interface Database {
           cover_photo_index: number;
           journey_created_at: string | null;
           journey_updated_at: string | null;
+          // AI poster fields
+          ai_poster_url: string | null;
+          ai_poster_rarity: 'common' | 'holographic' | null;
+          display_poster: 'original' | 'ai_generated';
         };
         Insert: {
           id?: string;
@@ -204,6 +208,10 @@ export interface Database {
           cover_photo_index?: number;
           journey_created_at?: string | null;
           journey_updated_at?: string | null;
+          // AI poster fields
+          ai_poster_url?: string | null;
+          ai_poster_rarity?: 'common' | 'holographic' | null;
+          display_poster?: 'original' | 'ai_generated';
         };
         Update: {
           id?: string;
@@ -238,6 +246,10 @@ export interface Database {
           cover_photo_index?: number;
           journey_created_at?: string | null;
           journey_updated_at?: string | null;
+          // AI poster fields
+          ai_poster_url?: string | null;
+          ai_poster_rarity?: 'common' | 'holographic' | null;
+          display_poster?: 'original' | 'ai_generated';
         };
       };
       user_movie_likes: {
@@ -573,4 +585,11 @@ export interface JourneyUpdate {
   watched_with?: string[] | null;
   journey_notes?: string | null;
   journey_tagline?: string | null;
+  display_poster?: 'original' | 'ai_generated';
 }
+
+// AI poster rarity type
+export type AiPosterRarity = 'common' | 'holographic';
+
+// Display poster type
+export type DisplayPoster = 'original' | 'ai_generated';

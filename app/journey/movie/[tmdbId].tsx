@@ -32,7 +32,9 @@ import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import { useJourneysByMovie, useCreateJourney } from '@/hooks/use-journey';
+import { useJourneysByMovie, useCreateJourney, useJourneyMutations } from '@/hooks/use-journey';
+import { useGenerateArt } from '@/hooks/use-generate-art';
+import { getGenreNamesByIds } from '@/lib/genre-service';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 
 // Type for the colors object
@@ -166,6 +168,9 @@ interface JourneyTicketProps {
   ticketHeight: number;
   ticketWidth: number;
   infoPageWidth: number;
+  onGenerateArt: () => void;
+  onTogglePoster: () => void;
+  isGenerating: boolean;
 }
 
 function JourneyTicket({
@@ -176,6 +181,9 @@ function JourneyTicket({
   ticketHeight,
   ticketWidth,
   infoPageWidth,
+  onGenerateArt,
+  onTogglePoster,
+  isGenerating,
 }: JourneyTicketProps) {
   const [infoPageIndex, setInfoPageIndex] = useState(0);
 
@@ -185,9 +193,16 @@ function JourneyTicket({
     setInfoPageIndex(pageIndex);
   }, [infoPageWidth]);
 
-  const heroImageUrl = journey.journey_photos?.[0]
-    ? journey.journey_photos[0]
-    : getTMDBImageUrl(journey.poster_path ?? null, 'w780');
+  // Determine which poster to show
+  const showAiPoster = journey.display_poster === 'ai_generated' && journey.ai_poster_url;
+  const heroImageUrl = showAiPoster
+    ? journey.ai_poster_url
+    : journey.journey_photos?.[0]
+      ? journey.journey_photos[0]
+      : getTMDBImageUrl(journey.poster_path ?? null, 'w780');
+
+  const hasAiPoster = !!journey.ai_poster_url;
+  const isHolographic = journey.ai_poster_rarity === 'holographic';
 
   const styles = useMemo(() => createTicketStyles(colors, ticketHeight, ticketWidth, infoPageWidth), [colors, ticketHeight, ticketWidth, infoPageWidth]);
 
@@ -219,17 +234,57 @@ function JourneyTicket({
           </LinearGradient>
         </View>
 
-        {/* Edit button */}
-        <Link href={`/journey/edit/${journey.id}` as never} asChild>
-          <Pressable style={styles.editButton}>
-            <BlurView intensity={20} tint={effectiveTheme} style={styles.editBlurContainer}>
-              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </Svg>
-            </BlurView>
-          </Pressable>
-        </Link>
+        {/* Top right buttons row */}
+        <View style={styles.heroButtonsRow}>
+          {/* Generate Art / Toggle Poster button */}
+          {isGenerating ? (
+            <View style={styles.generateButton}>
+              <BlurView intensity={20} tint={effectiveTheme} style={styles.generateBlurContainer}>
+                <ActivityIndicator size="small" color={colors.tint} />
+              </BlurView>
+            </View>
+          ) : hasAiPoster ? (
+            <Pressable style={styles.generateButton} onPress={onTogglePoster}>
+              <BlurView intensity={20} tint={effectiveTheme} style={styles.generateBlurContainer}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                  <Path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+                </Svg>
+              </BlurView>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.generateButton} onPress={onGenerateArt}>
+              <BlurView intensity={20} tint={effectiveTheme} style={styles.generateBlurContainer}>
+                <Text style={styles.generateButtonText}>AI</Text>
+              </BlurView>
+            </Pressable>
+          )}
+
+          {/* Edit button */}
+          <Link href={`/journey/edit/${journey.id}` as never} asChild>
+            <Pressable style={styles.editButton}>
+              <BlurView intensity={20} tint={effectiveTheme} style={styles.editBlurContainer}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                  <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </Svg>
+              </BlurView>
+            </Pressable>
+          </Link>
+        </View>
+
+        {/* Holographic Rarity Badge */}
+        {isHolographic && showAiPoster && (
+          <View style={styles.rarityBadge}>
+            <LinearGradient
+              colors={['#FFD700', '#FFA500', '#FFD700']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.rarityBadgeGradient}
+            >
+              <Text style={styles.rarityBadgeText}>RARE</Text>
+            </LinearGradient>
+          </View>
+        )}
       </View>
 
       {/* Perforated Edge */}
@@ -406,6 +461,13 @@ export default function JourneyCarouselScreen() {
   // Create journey mutation
   const { createJourney, isCreating } = useCreateJourney();
 
+  // AI art generation
+  const { generateArt, isGenerating } = useGenerateArt();
+  const { updateJourney } = useJourneyMutations();
+
+  // Track which journey is currently generating
+  const [generatingJourneyId, setGeneratingJourneyId] = useState<string | null>(null);
+
   // Calculate dimensions
   const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
   const ticketWidth = screenWidth - (CAROUSEL_HORIZONTAL_PADDING * 2);
@@ -444,6 +506,40 @@ export default function JourneyCarouselScreen() {
       console.error('Failed to create new journey:', error);
     }
   };
+
+  // Handle generate AI art for a journey
+  const handleGenerateArt = useCallback(async (journey: UserMovie) => {
+    setGeneratingJourneyId(journey.id);
+    try {
+      // Get genre names from genre_ids
+      const genreNames = journey.genre_ids
+        ? getGenreNamesByIds(journey.genre_ids)
+        : [];
+
+      await generateArt({
+        journeyId: journey.id,
+        movieTitle: journey.title,
+        genres: genreNames,
+      });
+    } catch (error) {
+      console.error('Failed to generate art:', error);
+    } finally {
+      setGeneratingJourneyId(null);
+    }
+  }, [generateArt]);
+
+  // Handle toggle between original and AI poster
+  const handleTogglePoster = useCallback(async (journey: UserMovie) => {
+    const newDisplayPoster = journey.display_poster === 'ai_generated' ? 'original' : 'ai_generated';
+    try {
+      await updateJourney({
+        journeyId: journey.id,
+        data: { display_poster: newDisplayPoster },
+      });
+    } catch (error) {
+      console.error('Failed to toggle poster:', error);
+    }
+  }, [updateJourney]);
 
   // Get backdrop from first journey
   const backdropUrl = journeys[0]
@@ -554,6 +650,9 @@ export default function JourneyCarouselScreen() {
             ticketHeight={ticketHeight}
             ticketWidth={ticketWidth}
             infoPageWidth={infoPageWidth}
+            onGenerateArt={() => handleGenerateArt(journey)}
+            onTogglePoster={() => handleTogglePoster(journey)}
+            isGenerating={generatingJourneyId === journey.id}
           />
         ))}
         {/* Add New Journey Card */}
@@ -759,10 +858,34 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     letterSpacing: 1,
     fontWeight: '700',
   },
-  editButton: {
+  heroButtonsRow: {
     position: 'absolute',
     top: 16,
     right: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  generateButton: {
+    width: 36,
+    height: 36,
+    overflow: 'hidden',
+    borderRadius: BorderRadius.full,
+  },
+  generateBlurContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: BorderRadius.full,
+  },
+  generateButtonText: {
+    ...Typography.caption.medium,
+    color: colors.tint,
+    fontWeight: '700',
+    fontSize: 10,
+  },
+  editButton: {
     width: 36,
     height: 36,
     overflow: 'hidden',
@@ -775,6 +898,23 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: BorderRadius.full,
+  },
+  rarityBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+  },
+  rarityBadgeGradient: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  rarityBadgeText: {
+    ...Typography.caption.medium,
+    color: '#000000',
+    fontWeight: '800',
+    letterSpacing: 1,
+    fontSize: 10,
   },
   titleSection: {
     paddingHorizontal: Spacing.lg,
