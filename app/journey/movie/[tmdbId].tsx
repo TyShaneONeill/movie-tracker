@@ -520,7 +520,9 @@ export default function JourneyCarouselScreen() {
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerLabel}>
-            JOURNEY {Math.min(currentJourneyIndex + 1, journeys.length)} OF {journeys.length}
+            {currentJourneyIndex >= journeys.length
+              ? 'NEW JOURNEY'
+              : `JOURNEY ${currentJourneyIndex + 1} OF ${journeys.length}`}
           </Text>
           <Text style={styles.headerTitle} numberOfLines={1}>{movieTitle}</Text>
         </View>
