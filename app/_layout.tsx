@@ -28,9 +28,13 @@ import { useOnboarding, OnboardingProvider } from '@/hooks/use-onboarding';
 import { Colors } from '@/constants/theme';
 import { handleAuthDeepLink } from '@/lib/deep-link-handler';
 import { supabase } from '@/lib/supabase';
+import { preloadGenres } from '@/lib/genre-service';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
+
+// Preload genres for faster UI rendering
+preloadGenres();
 
 export const unstable_settings = {
   anchor: '(tabs)',

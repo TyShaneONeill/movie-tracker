@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { SearchMoviesResponse, TMDBMovie, SearchType, MovieDetailResponse, MovieListType, MovieListResponse } from './tmdb.types';
 import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus, UserMovieLike, UserMovieLikeInsert } from './database.types';
+import { getMovieDetailsWithCache } from './movie-cache-service';
 
 // Search movies (title or actor)
 export async function searchMovies(
@@ -26,8 +27,8 @@ export async function searchMovies(
   return data;
 }
 
-// Get movie details by TMDB ID
-export async function getMovieDetails(
+// Fetch movie details directly from TMDB (via Edge Function)
+async function fetchMovieDetailsFromTMDB(
   movieId: number
 ): Promise<MovieDetailResponse> {
   const { data, error } = await supabase.functions.invoke<MovieDetailResponse>(
@@ -45,6 +46,18 @@ export async function getMovieDetails(
     throw new Error('No data returned from movie details');
   }
 
+  return data;
+}
+
+// Get movie details by TMDB ID (cache-first strategy)
+// Checks Supabase cache first, falls back to TMDB if not cached or stale
+export async function getMovieDetails(
+  movieId: number
+): Promise<MovieDetailResponse> {
+  const { data } = await getMovieDetailsWithCache(
+    movieId,
+    fetchMovieDetailsFromTMDB
+  );
   return data;
 }
 

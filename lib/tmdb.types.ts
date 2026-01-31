@@ -10,7 +10,14 @@ export interface MovieListResponse {
   dates?: { minimum: string; maximum: string };
 }
 
-// Genre ID to name mapping
+// Genre lookup - uses local Supabase cache with hardcoded fallback
+// Import the sync version for use in render functions
+import { getPrimaryGenreSync } from './genre-service';
+
+// Re-export for backwards compatibility
+export const getPrimaryGenre = getPrimaryGenreSync;
+
+// Hardcoded fallback map (kept for reference, actual lookup uses genre-service)
 export const TMDB_GENRE_MAP: Record<number, string> = {
   28: 'Action',
   12: 'Adventure',
@@ -31,12 +38,6 @@ export const TMDB_GENRE_MAP: Record<number, string> = {
   10752: 'War',
   37: 'Western',
 };
-
-// Get primary genre name from genre IDs
-export function getPrimaryGenre(genreIds: number[]): string {
-  if (!genreIds?.length) return 'Movie';
-  return TMDB_GENRE_MAP[genreIds[0]] ?? 'Movie';
-}
 
 // TMDB Movie from API response
 export interface TMDBMovie {
