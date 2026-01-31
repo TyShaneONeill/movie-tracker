@@ -11,7 +11,7 @@
  * - Barcode footer with ticket ID
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import {
   ActivityIndicator,
   ImageBackground,
   useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
@@ -62,6 +64,29 @@ function getLocationBadgeText(locationType: string | null): string {
     default:
       return 'VIEWING';
   }
+}
+
+// Helper to format time nicely
+function formatTime(timeString: string | null): string {
+  if (!timeString) return 'Not set';
+  // Time string is in HH:MM format
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+}
+
+// Helper to format watch format nicely
+function formatWatchFormat(format: string | null): string {
+  if (!format) return 'Not set';
+  // Capitalize first letter of each word
+  return format.toUpperCase();
+}
+
+// Helper to format price
+function formatPrice(price: number | null): string {
+  if (price === null || price === undefined) return 'Not set';
+  return `$${price.toFixed(2)}`;
 }
 
 // Barcode component
@@ -143,8 +168,11 @@ export default function JourneyCardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { height: screenHeight } = useWindowDimensions();
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+
+  // Info carousel state
+  const [infoPageIndex, setInfoPageIndex] = useState(0);
 
   // Fetch journey data
   const { data: journeyData, isLoading, isError } = useJourney(id);
@@ -155,8 +183,18 @@ export default function JourneyCardScreen() {
   // Screen height - header - top safe area - bottom safe area - padding
   const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
 
+  // Calculate info carousel page width (screen width - horizontal paddings)
+  const infoPageWidth = screenWidth - (Spacing.md * 4) - (Spacing.lg * 2);
+
   // Dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors, ticketHeight), [colors, ticketHeight]);
+  const styles = useMemo(() => createStyles(colors, ticketHeight, infoPageWidth), [colors, ticketHeight, infoPageWidth]);
+
+  // Handle info carousel scroll
+  const handleInfoScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const pageIndex = Math.round(offsetX / infoPageWidth);
+    setInfoPageIndex(pageIndex);
+  }, [infoPageWidth]);
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -311,29 +349,74 @@ export default function JourneyCardScreen() {
             )}
           </View>
 
-          {/* Info Grid */}
-          <View style={styles.infoGrid}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>DATE</Text>
-                <Text style={styles.infoValue}>{formatDate(journey.watched_at)}</Text>
+          {/* Info Carousel */}
+          <View style={styles.infoCarouselContainer}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={handleInfoScroll}
+              scrollEventThrottle={16}
+              decelerationRate="fast"
+              snapToInterval={infoPageWidth}
+              snapToAlignment="start"
+              contentContainerStyle={styles.infoCarouselContent}
+            >
+              {/* Page 1: Core Info */}
+              <View style={[styles.infoPage, { width: infoPageWidth }]}>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>DATE</Text>
+                    <Text style={styles.infoValue}>{formatDate(journey.watched_at)}</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>CINEMA</Text>
+                    <Text style={styles.infoValue}>{journey.location_name || 'Not set'}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>SEAT</Text>
+                    <Text style={styles.infoValue}>{journey.seat_location || 'Not set'}</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>WITH</Text>
+                    <Text style={styles.infoValue}>
+                      {journey.watched_with?.join(', ') || 'Solo'}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>CINEMA</Text>
-                <Text style={styles.infoValue}>{journey.location_name || 'Not set'}</Text>
+
+              {/* Page 2: Extended Details */}
+              <View style={[styles.infoPage, { width: infoPageWidth }]}>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>TIME</Text>
+                    <Text style={styles.infoValue}>{formatTime(journey.watch_time)}</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>FORMAT</Text>
+                    <Text style={styles.infoValue}>{formatWatchFormat(journey.watch_format)}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>AUDITORIUM</Text>
+                    <Text style={styles.infoValue}>{journey.auditorium || 'Not set'}</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>PRICE</Text>
+                    <Text style={styles.infoValue}>{formatPrice(journey.ticket_price)}</Text>
+                  </View>
+                </View>
               </View>
-            </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>SEAT</Text>
-                <Text style={styles.infoValue}>{journey.seat_location || 'Not set'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>WITH</Text>
-                <Text style={styles.infoValue}>
-                  {journey.watched_with?.join(', ') || 'Solo'}
-                </Text>
-              </View>
+            </ScrollView>
+
+            {/* Dot Indicators */}
+            <View style={styles.dotsContainer}>
+              <View style={[styles.dot, infoPageIndex === 0 && styles.dotActive]} />
+              <View style={[styles.dot, infoPageIndex === 1 && styles.dotActive]} />
             </View>
           </View>
 
@@ -361,8 +444,8 @@ export default function JourneyCardScreen() {
   );
 }
 
-// Create styles function that takes theme colors and ticket height
-const createStyles = (colors: ThemeColors, ticketHeight: number) => StyleSheet.create({
+// Create styles function that takes theme colors, ticket height, and info page width
+const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: number) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -494,14 +577,20 @@ const createStyles = (colors: ThemeColors, ticketHeight: number) => StyleSheet.c
     fontStyle: 'italic',
   },
 
-  // Info Grid
-  infoGrid: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+  // Info Carousel
+  infoCarouselContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: BorderRadius.md,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
+    overflow: 'hidden',
+  },
+  infoCarouselContent: {
+    // Content container for horizontal scroll
+  },
+  infoPage: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
@@ -519,6 +608,22 @@ const createStyles = (colors: ThemeColors, ticketHeight: number) => StyleSheet.c
   infoValue: {
     ...Typography.body.baseMedium,
     color: colors.text,
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: Spacing.sm,
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  dotActive: {
+    backgroundColor: colors.text,
   },
 
   // Notes Section
