@@ -15,13 +15,16 @@ interface GenerateArtResponse {
 }
 
 async function generateJourneyArt(
-  request: GenerateArtRequest
+  request: GenerateArtRequest,
+  accessToken: string
 ): Promise<GenerateArtResponse> {
-  // Supabase automatically includes the user's JWT from the current session
   const { data, error } = await supabase.functions.invoke<GenerateArtResponse>(
     'generate-journey-art',
     {
       body: request,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     }
   );
 
@@ -41,7 +44,13 @@ export function useGenerateArt() {
 
   const mutation = useMutation({
     mutationFn: async (request: GenerateArtRequest) => {
-      return generateJourneyArt(request);
+      // Get session to extract access token
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        throw new Error('Not authenticated');
+      }
+      const accessToken = sessionData.session.access_token;
+      return generateJourneyArt(request, accessToken);
     },
     onSuccess: (data, variables) => {
       // Invalidate journey queries to refresh the data
