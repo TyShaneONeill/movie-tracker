@@ -382,6 +382,7 @@ function AddJourneyCard({ colors, ticketHeight, ticketWidth, onPress, isCreating
 // Header height constant
 const HEADER_HEIGHT = 100;
 const CAROUSEL_HORIZONTAL_PADDING = Spacing.md;
+const CARD_GAP = Spacing.md; // Gap between carousel cards
 
 export default function JourneyCarouselScreen() {
   const router = useRouter();
@@ -418,7 +419,7 @@ export default function JourneyCarouselScreen() {
   // Handle carousel scroll
   const handleCarouselScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const pageIndex = Math.round(offsetX / ticketWidth);
+    const pageIndex = Math.round(offsetX / (ticketWidth + CARD_GAP));
     setCurrentJourneyIndex(pageIndex);
   }, [ticketWidth]);
 
@@ -531,13 +532,13 @@ export default function JourneyCarouselScreen() {
       <ScrollView
         ref={carouselRef}
         horizontal
-        pagingEnabled
+        pagingEnabled={false}
         showsHorizontalScrollIndicator={false}
         onScroll={handleCarouselScroll}
         scrollEventThrottle={16}
         decelerationRate="fast"
-        snapToInterval={ticketWidth}
-        snapToAlignment="center"
+        snapToInterval={ticketWidth + CARD_GAP}
+        snapToAlignment="start"
         contentContainerStyle={styles.carouselContent}
       >
         {journeys.map((journey) => (
@@ -715,14 +716,18 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     width: ticketWidth,
     backgroundColor: '#1a1a20',
     borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
     marginTop: Spacing.md,
+    marginRight: CARD_GAP,
     minHeight: ticketHeight,
+    // Note: No overflow hidden - allows notches to show background
   },
   heroSection: {
     flex: 1,
     minHeight: 250,
     position: 'relative',
+    overflow: 'hidden',
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
   },
   heroImage: {
     width: '100%',
@@ -874,8 +879,8 @@ const createAddCardStyles = (colors: ThemeColors, ticketHeight: number, ticketWi
     width: ticketWidth,
     backgroundColor: '#1a1a20',
     borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
     marginTop: Spacing.md,
+    marginRight: CARD_GAP,
     minHeight: ticketHeight,
     borderWidth: 2,
     borderColor: colors.border,
