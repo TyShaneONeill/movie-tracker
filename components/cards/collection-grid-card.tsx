@@ -73,11 +73,10 @@ export function CollectionGridCard({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
     aspectRatio: 2 / 3,
     borderRadius: BorderRadius.sm,
     overflow: 'hidden',
-    position: 'relative',
   },
   image: {
     width: '100%',
