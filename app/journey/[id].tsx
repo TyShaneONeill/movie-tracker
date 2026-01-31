@@ -25,7 +25,7 @@ import {
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Svg, { Path, Rect, Line } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -140,7 +140,7 @@ export default function JourneyCardScreen() {
   const colors = Colors[effectiveTheme];
 
   // Fetch journey data
-  const { data: journeyData, isLoading, isError, refetch } = useJourney(id);
+  const { data: journeyData, isLoading, isError } = useJourney(id);
   const journey = journeyData;
   const firstTake = journeyData?.firstTake;
 
@@ -345,17 +345,6 @@ export default function JourneyCardScreen() {
           </View>
         </View>
 
-        {/* Log New Journey Button (Placeholder for Phase 3) */}
-        <View style={styles.bottomSection}>
-          <Pressable style={styles.addJourneyButton} disabled>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.textTertiary} strokeWidth={2}>
-              <Line x1={12} y1={5} x2={12} y2={19} />
-              <Line x1={5} y1={12} x2={19} y2={12} />
-            </Svg>
-            <Text style={styles.addJourneyText}>Log New Journey</Text>
-          </Pressable>
-          <Text style={styles.comingSoonLabel}>Coming Soon</Text>
-        </View>
       </ScrollView>
     </View>
   );
@@ -428,8 +417,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
 
   // Hero Section
@@ -549,34 +536,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...Typography.caption.medium,
     color: colors.textTertiary,
     letterSpacing: 1,
-  },
-
-  // Bottom Section
-  bottomSection: {
-    marginTop: Spacing.xl,
-    alignItems: 'center',
-  },
-  addJourneyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    opacity: 0.5,
-  },
-  addJourneyText: {
-    ...Typography.body.baseMedium,
-    color: colors.textTertiary,
-  },
-  comingSoonLabel: {
-    ...Typography.caption.default,
-    color: colors.textTertiary,
-    marginTop: Spacing.xs,
   },
 
   // Loading state styles
