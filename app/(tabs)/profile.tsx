@@ -137,14 +137,16 @@ export default function ProfileScreen() {
 
     // Handle tab change - scroll to top and expand header
     const handleTabChange = useCallback((tab: TabType) => {
+        // Reset scroll position immediately to prevent sticky header duplication
+        scrollY.value = 0;
         setActiveTab(tab);
         // Scroll to top to expand header (use appropriate ref based on which tab we're switching to)
         if (tab === 'collection') {
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
         } else {
-            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         }
-    }, []);
+    }, [scrollY]);
 
     // Handle refresh
     const handleRefresh = useCallback(async () => {
