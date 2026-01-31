@@ -31,15 +31,17 @@ import type { UserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 // Constants for header animation
-const HEADER_MAX_HEIGHT = 180; // Full header height (avatar, name, bio, stats)
+const HEADER_MAX_HEIGHT = 230; // Full header height (avatar, name, bio, stats)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
-const HEADER_SCROLL_DISTANCE = 150; // Scroll distance to fully collapse
+const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
 
+// Grid layout constants
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const GRID_GAP = Spacing.sm;
-const GRID_PADDING = Spacing.lg;
-const CARD_WIDTH = (SCREEN_WIDTH - (GRID_PADDING * 2) - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+// Content area has paddingHorizontal: Spacing.lg, so available width for grid is:
+const AVAILABLE_WIDTH = SCREEN_WIDTH - (Spacing.lg * 2);
+const CARD_WIDTH = (AVAILABLE_WIDTH - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 export default function ProfileScreen() {
     const { effectiveTheme } = useTheme();
@@ -393,6 +395,35 @@ export default function ProfileScreen() {
         </View>
     );
 
+    const TAB_CONFIG: { key: TabType; label: string }[] = [
+        { key: 'collection', label: 'Collection' },
+        { key: 'first-takes', label: 'First Takes' },
+        { key: 'lists', label: 'Lists' },
+    ];
+
+    const renderTabBar = () => (
+        <>
+            {TAB_CONFIG.map(({ key, label }) => (
+                <Pressable
+                    key={key}
+                    onPress={() => handleTabChange(key)}
+                    style={({ pressed }) => [
+                        styles.tabItem,
+                        activeTab === key && { borderBottomColor: colors.tint },
+                        { opacity: pressed ? 0.7 : 1 },
+                    ]}
+                >
+                    <ThemedText style={[
+                        styles.tabLabel,
+                        { color: activeTab === key ? colors.text : colors.textSecondary }
+                    ]}>
+                        {label}
+                    </ThemedText>
+                </Pressable>
+            ))}
+        </>
+    );
+
     const renderTabContent = () => {
         if (activeTab === 'collection') {
             if (isLoading) {
@@ -573,53 +604,9 @@ export default function ProfileScreen() {
                     </View>
                 </Animated.View>
 
-                {/* Sticky Tab Bar */}
+                {/* Tab Bar */}
                 <View style={[styles.tabBar, { backgroundColor: colors.background }]}>
-                    <Pressable
-                        onPress={() => handleTabChange('collection')}
-                        style={({ pressed }) => [
-                            styles.tabItem,
-                            activeTab === 'collection' && { borderBottomColor: colors.tint },
-                            { opacity: pressed ? 0.7 : 1 },
-                        ]}
-                    >
-                        <ThemedText style={[
-                            styles.tabLabel,
-                            { color: activeTab === 'collection' ? colors.text : colors.textSecondary }
-                        ]}>
-                            Collection
-                        </ThemedText>
-                    </Pressable>
-                    <Pressable
-                        onPress={() => handleTabChange('first-takes')}
-                        style={({ pressed }) => [
-                            styles.tabItem,
-                            activeTab === 'first-takes' && { borderBottomColor: colors.tint },
-                            { opacity: pressed ? 0.7 : 1 },
-                        ]}
-                    >
-                        <ThemedText style={[
-                            styles.tabLabel,
-                            { color: activeTab === 'first-takes' ? colors.text : colors.textSecondary }
-                        ]}>
-                            First Takes
-                        </ThemedText>
-                    </Pressable>
-                    <Pressable
-                        onPress={() => handleTabChange('lists')}
-                        style={({ pressed }) => [
-                            styles.tabItem,
-                            activeTab === 'lists' && { borderBottomColor: colors.tint },
-                            { opacity: pressed ? 0.7 : 1 },
-                        ]}
-                    >
-                        <ThemedText style={[
-                            styles.tabLabel,
-                            { color: activeTab === 'lists' ? colors.text : colors.textSecondary }
-                        ]}>
-                            Lists
-                        </ThemedText>
-                    </Pressable>
+                    {renderTabBar()}
                 </View>
 
                 {/* Tab Content */}
@@ -638,51 +625,7 @@ export default function ProfileScreen() {
                 pointerEvents="box-none"
             >
                 <View style={[styles.stickyTabBarContainer, { borderBottomColor: colors.border }]}>
-                    <Pressable
-                        onPress={() => handleTabChange('collection')}
-                        style={({ pressed }) => [
-                            styles.tabItem,
-                            activeTab === 'collection' && { borderBottomColor: colors.tint },
-                            { opacity: pressed ? 0.7 : 1 },
-                        ]}
-                    >
-                        <ThemedText style={[
-                            styles.tabLabel,
-                            { color: activeTab === 'collection' ? colors.text : colors.textSecondary }
-                        ]}>
-                            Collection
-                        </ThemedText>
-                    </Pressable>
-                    <Pressable
-                        onPress={() => handleTabChange('first-takes')}
-                        style={({ pressed }) => [
-                            styles.tabItem,
-                            activeTab === 'first-takes' && { borderBottomColor: colors.tint },
-                            { opacity: pressed ? 0.7 : 1 },
-                        ]}
-                    >
-                        <ThemedText style={[
-                            styles.tabLabel,
-                            { color: activeTab === 'first-takes' ? colors.text : colors.textSecondary }
-                        ]}>
-                            First Takes
-                        </ThemedText>
-                    </Pressable>
-                    <Pressable
-                        onPress={() => handleTabChange('lists')}
-                        style={({ pressed }) => [
-                            styles.tabItem,
-                            activeTab === 'lists' && { borderBottomColor: colors.tint },
-                            { opacity: pressed ? 0.7 : 1 },
-                        ]}
-                    >
-                        <ThemedText style={[
-                            styles.tabLabel,
-                            { color: activeTab === 'lists' ? colors.text : colors.textSecondary }
-                        ]}>
-                            Lists
-                        </ThemedText>
-                    </Pressable>
+                    {renderTabBar()}
                 </View>
             </Animated.View>
         </SafeAreaView>
