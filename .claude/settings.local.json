@@ -70,7 +70,8 @@
       "WebFetch(domain:moltbot.you)",
       "Bash(docker:*)",
       "Bash(docker compose:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(node:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -157,7 +157,7 @@ export function FeedItemCard({
       : reviewText;
 
     return (
-      <View style={styles.spoilerWrapper}>
+      <View style={[styles.spoilerWrapper, shouldHide && styles.spoilerWrapperWithButton]}>
         {/* Review text - completely hidden when spoiler is active */}
         <Text
           style={[
@@ -348,6 +348,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: BorderRadius.sm,
+  },
+  spoilerWrapperWithButton: {
+    minHeight: 40, // Ensure enough room for spoiler button
   },
   spoilerOverlay: {
     position: 'absolute',
