@@ -8,7 +8,7 @@ import Animated, {
     Extrapolation,
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +45,7 @@ const CARD_WIDTH = (AVAILABLE_WIDTH - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_
 
 export default function ProfileScreen() {
     const { effectiveTheme } = useTheme();
+    const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const scrollViewRef = useRef<Animated.ScrollView>(null);
@@ -657,7 +658,7 @@ export default function ProfileScreen() {
             <Animated.View
                 style={[
                     styles.stickyTabBarOverlay,
-                    { backgroundColor: colors.background },
+                    { backgroundColor: colors.background, top: insets.top },
                     stickyTabBarStyle
                 ]}
                 pointerEvents="box-none"
