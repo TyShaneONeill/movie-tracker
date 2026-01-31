@@ -19,7 +19,7 @@ import IconButton from '@/components/ui/icon-button';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
-import { useMovieList } from '@/hooks/use-movie-lists';
+import { useHomeMovieLists } from '@/hooks/use-home-movie-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { useActivityFeed, formatRelativeTime } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
@@ -57,10 +57,14 @@ export default function HomeScreen() {
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
 
-  // Fetch movie lists
-  const { movies: trendingMovies, isLoading: trendingLoading, refetch: refetchTrending } = useMovieList({ type: 'trending' });
-  const { movies: nowPlayingMovies, isLoading: nowPlayingLoading, refetch: refetchNowPlaying } = useMovieList({ type: 'now_playing' });
-  const { movies: upcomingMovies, isLoading: upcomingLoading, refetch: refetchUpcoming } = useMovieList({ type: 'upcoming' });
+  // Fetch movie lists with validation and deduplication
+  const {
+    trendingMovies,
+    nowPlayingMovies,
+    upcomingMovies,
+    isLoading: moviesLoading,
+    refetch: refetchMovies,
+  } = useHomeMovieLists();
 
   // Fetch activity feed (20 most recent First Takes)
   const { data: activityFeed, isLoading: activityLoading, refetch: refetchActivity } = useActivityFeed(20);
@@ -69,14 +73,9 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      refetchTrending(),
-      refetchNowPlaying(),
-      refetchUpcoming(),
-      refetchActivity(),
-    ]);
+    await Promise.all([refetchMovies(), refetchActivity()]);
     setRefreshing(false);
-  }, [refetchTrending, refetchNowPlaying, refetchUpcoming, refetchActivity]);
+  }, [refetchMovies, refetchActivity]);
 
   const handleThemeToggle = () => {
     setThemePreference(effectiveTheme === 'dark' ? 'light' : 'dark');
@@ -145,7 +144,7 @@ export default function HomeScreen() {
             actionText="See All"
             onActionPress={() => router.push('/category/trending')}
           />
-          {trendingLoading ? (
+          {moviesLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.tint} />
             </View>
@@ -177,7 +176,7 @@ export default function HomeScreen() {
             actionText="See All"
             onActionPress={() => router.push('/category/now_playing')}
           />
-          {nowPlayingLoading ? (
+          {moviesLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.tint} />
             </View>
@@ -209,7 +208,7 @@ export default function HomeScreen() {
             actionText="See All"
             onActionPress={() => router.push('/category/upcoming')}
           />
-          {upcomingLoading ? (
+          {moviesLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.tint} />
             </View>
