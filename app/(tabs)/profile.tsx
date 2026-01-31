@@ -1,5 +1,12 @@
-import { useState } from 'react';
-import { StyleSheet, View, Pressable, FlatList, ScrollView, Image, RefreshControl } from 'react-native';
+import { useState, useCallback, useRef } from 'react';
+import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    interpolate,
+    Extrapolation,
+} from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -23,11 +30,27 @@ import type { UserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'lists';
 
+// Constants for header animation
+const HEADER_MAX_HEIGHT = 180; // Full header height (avatar, name, bio, stats)
+const HEADER_MIN_HEIGHT = 0; // Collapsed header height
+const HEADER_SCROLL_DISTANCE = 150; // Scroll distance to fully collapse
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const COLUMN_COUNT = 3;
+const GRID_GAP = Spacing.sm;
+const GRID_PADDING = Spacing.lg;
+const CARD_WIDTH = (SCREEN_WIDTH - (GRID_PADDING * 2) - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+
 export default function ProfileScreen() {
     const { effectiveTheme } = useTheme();
     const [activeTab, setActiveTab] = useState<TabType>('collection');
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const scrollViewRef = useRef<Animated.ScrollView>(null);
 
     const colors = Colors[effectiveTheme];
+
+    // Animated scroll value
+    const scrollY = useSharedValue(0);
 
     // Fetch user profile and stats
     const { profile, stats, refetch: refetchProfile, refetchStats } = useProfile();
@@ -37,7 +60,6 @@ export default function ProfileScreen() {
         movies: watchedMovies,
         isLoading,
         isError,
-        isRefetching,
         refetch,
     } = useUserMovies('watched');
 
@@ -50,7 +72,6 @@ export default function ProfileScreen() {
         data: userLists,
         isLoading: listsLoading,
         isError: listsError,
-        isRefetching: listsRefetching,
         refetch: refetchLists,
     } = useUserLists();
 
@@ -59,15 +80,87 @@ export default function ProfileScreen() {
         data: firstTakes,
         isLoading: takesLoading,
         isError: takesError,
-        isRefetching: takesRefetching,
         refetch: refetchTakes,
     } = useFirstTakes();
 
-    const renderCollectionItem = ({ item }: { item: UserMovie }) => (
-        <CollectionGridCard
-            posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
-            onPress={() => router.push(`/movie/${item.tmdb_id}`)}
-        />
+    // Scroll handler for tracking scroll position
+    const scrollHandler = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            scrollY.value = event.contentOffset.y;
+        },
+    });
+
+    // Animated style for collapsible header
+    const headerAnimatedStyle = useAnimatedStyle(() => {
+        const height = interpolate(
+            scrollY.value,
+            [0, HEADER_SCROLL_DISTANCE],
+            [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+            Extrapolation.CLAMP
+        );
+        const opacity = interpolate(
+            scrollY.value,
+            [0, HEADER_SCROLL_DISTANCE * 0.7],
+            [1, 0],
+            Extrapolation.CLAMP
+        );
+        return {
+            height,
+            opacity,
+            overflow: 'hidden' as const,
+        };
+    });
+
+    // Animated style for sticky tab bar overlay (appears when header collapses)
+    const stickyTabBarStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(
+            scrollY.value,
+            [HEADER_SCROLL_DISTANCE * 0.8, HEADER_SCROLL_DISTANCE],
+            [0, 1],
+            Extrapolation.CLAMP
+        );
+        const translateY = interpolate(
+            scrollY.value,
+            [HEADER_SCROLL_DISTANCE * 0.8, HEADER_SCROLL_DISTANCE],
+            [-10, 0],
+            Extrapolation.CLAMP
+        );
+        return {
+            opacity,
+            transform: [{ translateY }],
+        };
+    });
+
+    // Handle tab change - scroll to top and expand header
+    const handleTabChange = useCallback((tab: TabType) => {
+        setActiveTab(tab);
+        // Scroll to top to expand header
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    }, []);
+
+    // Handle refresh
+    const handleRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        // Scroll to top first to show the header
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+
+        await Promise.all([
+            refetchProfile(),
+            refetchStats(),
+            refetch(),
+            refetchLists(),
+            refetchTakes(),
+        ]);
+        setIsRefreshing(false);
+    }, [refetchProfile, refetchStats, refetch, refetchLists, refetchTakes]);
+
+    const renderCollectionItem = (item: UserMovie, index: number) => (
+        <View key={item.id} style={styles.gridItem}>
+            <CollectionGridCard
+                posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
+                onPress={() => router.push(`/movie/${item.tmdb_id}`)}
+            />
+        </View>
     );
 
     const renderEmptyCollection = () => (
@@ -314,18 +407,11 @@ export default function ProfileScreen() {
                 return renderEmptyCollection();
             }
 
+            // Render collection as a grid (not nested FlatList)
             return (
-                <FlatList
-                    data={watchedMovies}
-                    renderItem={renderCollectionItem}
-                    keyExtractor={item => item.id}
-                    numColumns={3}
-                    columnWrapperStyle={styles.collectionRow}
-                    contentContainerStyle={[styles.collectionGrid, { paddingBottom: 100 }]}
-                    showsVerticalScrollIndicator={false}
-                    onRefresh={() => { refetch(); refetchProfile(); refetchStats(); }}
-                    refreshing={isRefetching}
-                />
+                <View style={styles.collectionGrid}>
+                    {watchedMovies.map((movie, index) => renderCollectionItem(movie, index))}
+                </View>
             );
         } else if (activeTab === 'first-takes') {
             if (takesLoading) {
@@ -341,17 +427,7 @@ export default function ProfileScreen() {
             }
 
             return (
-                <ScrollView
-                    contentContainerStyle={styles.firstTakesContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={takesRefetching}
-                            onRefresh={() => refetchTakes()}
-                            tintColor={colors.tint}
-                        />
-                    }
-                >
+                <View style={styles.firstTakesContent}>
                     {firstTakes.map((take, index) => (
                         <View key={take.id}>
                             {index === 0 && (
@@ -370,7 +446,7 @@ export default function ProfileScreen() {
                             />
                         </View>
                     ))}
-                </ScrollView>
+                </View>
             );
         } else {
             // Lists tab
@@ -383,17 +459,7 @@ export default function ProfileScreen() {
             }
 
             return (
-                <ScrollView
-                    contentContainerStyle={styles.listsContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={listsRefetching}
-                            onRefresh={() => { refetchLists(); refetch(); }}
-                            tintColor={colors.tint}
-                        />
-                    }
-                >
+                <View style={styles.listsContent}>
                     {/* Special built-in lists: Watchlist and Watching */}
                     <View style={styles.specialListsRow}>
                         {renderSpecialListCard(
@@ -431,14 +497,14 @@ export default function ProfileScreen() {
                             ))}
                         </>
                     )}
-                </ScrollView>
+                </View>
             );
         }
     };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-            {/* Settings Icon */}
+            {/* Settings Icon - Fixed at top */}
             <View style={styles.settingsContainer}>
                 <Pressable
                     onPress={() => router.push('/settings')}
@@ -451,101 +517,174 @@ export default function ProfileScreen() {
                 </Pressable>
             </View>
 
-            {/* Profile Header */}
-            <View style={styles.header}>
-                <Image
-                    source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
-                    style={[styles.avatar, { borderColor: colors.tint }]}
-                />
-                <ThemedText style={[styles.username, { color: colors.text }]}>
-                    {profile?.full_name || MOCK_USER.name}
-                </ThemedText>
-                <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
-                    {profile?.bio || MOCK_USER.bio}
-                </ThemedText>
-            </View>
+            <Animated.ScrollView
+                ref={scrollViewRef}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={handleRefresh}
+                        tintColor={colors.tint}
+                    />
+                }
+            >
+                {/* Collapsible Profile Header */}
+                <Animated.View style={[styles.header, headerAnimatedStyle]}>
+                    <Image
+                        source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
+                        style={[styles.avatar, { borderColor: colors.tint }]}
+                    />
+                    <ThemedText style={[styles.username, { color: colors.text }]}>
+                        {profile?.full_name || MOCK_USER.name}
+                    </ThemedText>
+                    <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
+                        {profile?.bio || MOCK_USER.bio}
+                    </ThemedText>
 
-            {/* Stats Row */}
-            <View style={[styles.statsContainer, { borderColor: colors.border }]}>
-                <View style={styles.statItem}>
-                    <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                        {stats.watched}
-                    </ThemedText>
-                    <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                        Watched
-                    </ThemedText>
-                </View>
-                <View style={styles.statItem}>
-                    <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                        {stats.firstTakes}
-                    </ThemedText>
-                    <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                        First Takes
-                    </ThemedText>
-                </View>
-                <View style={styles.statItem}>
-                    <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                        {stats.lists}
-                    </ThemedText>
-                    <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                        Lists
-                    </ThemedText>
-                </View>
-            </View>
+                    {/* Stats Row */}
+                    <View style={[styles.statsContainer, { borderColor: colors.border }]}>
+                        <View style={styles.statItem}>
+                            <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                                {stats.watched}
+                            </ThemedText>
+                            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                                Watched
+                            </ThemedText>
+                        </View>
+                        <View style={styles.statItem}>
+                            <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                                {stats.firstTakes}
+                            </ThemedText>
+                            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                                First Takes
+                            </ThemedText>
+                        </View>
+                        <View style={styles.statItem}>
+                            <ThemedText style={[styles.statValue, { color: colors.text }]}>
+                                {stats.lists}
+                            </ThemedText>
+                            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
+                                Lists
+                            </ThemedText>
+                        </View>
+                    </View>
+                </Animated.View>
 
-            {/* Tab Bar */}
-            <View style={styles.tabBar}>
-                <Pressable
-                    onPress={() => setActiveTab('collection')}
-                    style={({ pressed }) => [
-                        styles.tabItem,
-                        activeTab === 'collection' && { borderBottomColor: colors.tint },
-                        { opacity: pressed ? 0.7 : 1 },
-                    ]}
-                >
-                    <ThemedText style={[
-                        styles.tabLabel,
-                        { color: activeTab === 'collection' ? colors.text : colors.textSecondary }
-                    ]}>
-                        Collection
-                    </ThemedText>
-                </Pressable>
-                <Pressable
-                    onPress={() => setActiveTab('first-takes')}
-                    style={({ pressed }) => [
-                        styles.tabItem,
-                        activeTab === 'first-takes' && { borderBottomColor: colors.tint },
-                        { opacity: pressed ? 0.7 : 1 },
-                    ]}
-                >
-                    <ThemedText style={[
-                        styles.tabLabel,
-                        { color: activeTab === 'first-takes' ? colors.text : colors.textSecondary }
-                    ]}>
-                        First Takes
-                    </ThemedText>
-                </Pressable>
-                <Pressable
-                    onPress={() => setActiveTab('lists')}
-                    style={({ pressed }) => [
-                        styles.tabItem,
-                        activeTab === 'lists' && { borderBottomColor: colors.tint },
-                        { opacity: pressed ? 0.7 : 1 },
-                    ]}
-                >
-                    <ThemedText style={[
-                        styles.tabLabel,
-                        { color: activeTab === 'lists' ? colors.text : colors.textSecondary }
-                    ]}>
-                        Lists
-                    </ThemedText>
-                </Pressable>
-            </View>
+                {/* Sticky Tab Bar */}
+                <View style={[styles.tabBar, { backgroundColor: colors.background }]}>
+                    <Pressable
+                        onPress={() => handleTabChange('collection')}
+                        style={({ pressed }) => [
+                            styles.tabItem,
+                            activeTab === 'collection' && { borderBottomColor: colors.tint },
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[
+                            styles.tabLabel,
+                            { color: activeTab === 'collection' ? colors.text : colors.textSecondary }
+                        ]}>
+                            Collection
+                        </ThemedText>
+                    </Pressable>
+                    <Pressable
+                        onPress={() => handleTabChange('first-takes')}
+                        style={({ pressed }) => [
+                            styles.tabItem,
+                            activeTab === 'first-takes' && { borderBottomColor: colors.tint },
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[
+                            styles.tabLabel,
+                            { color: activeTab === 'first-takes' ? colors.text : colors.textSecondary }
+                        ]}>
+                            First Takes
+                        </ThemedText>
+                    </Pressable>
+                    <Pressable
+                        onPress={() => handleTabChange('lists')}
+                        style={({ pressed }) => [
+                            styles.tabItem,
+                            activeTab === 'lists' && { borderBottomColor: colors.tint },
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[
+                            styles.tabLabel,
+                            { color: activeTab === 'lists' ? colors.text : colors.textSecondary }
+                        ]}>
+                            Lists
+                        </ThemedText>
+                    </Pressable>
+                </View>
 
-            {/* Tab Content */}
-            <View style={styles.content}>
-                {renderTabContent()}
-            </View>
+                {/* Tab Content */}
+                <View style={styles.content}>
+                    {renderTabContent()}
+                </View>
+            </Animated.ScrollView>
+
+            {/* Sticky Tab Bar Overlay - appears when header is collapsed */}
+            <Animated.View
+                style={[
+                    styles.stickyTabBarOverlay,
+                    { backgroundColor: colors.background },
+                    stickyTabBarStyle
+                ]}
+                pointerEvents="box-none"
+            >
+                <View style={[styles.stickyTabBarContainer, { borderBottomColor: colors.border }]}>
+                    <Pressable
+                        onPress={() => handleTabChange('collection')}
+                        style={({ pressed }) => [
+                            styles.tabItem,
+                            activeTab === 'collection' && { borderBottomColor: colors.tint },
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[
+                            styles.tabLabel,
+                            { color: activeTab === 'collection' ? colors.text : colors.textSecondary }
+                        ]}>
+                            Collection
+                        </ThemedText>
+                    </Pressable>
+                    <Pressable
+                        onPress={() => handleTabChange('first-takes')}
+                        style={({ pressed }) => [
+                            styles.tabItem,
+                            activeTab === 'first-takes' && { borderBottomColor: colors.tint },
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[
+                            styles.tabLabel,
+                            { color: activeTab === 'first-takes' ? colors.text : colors.textSecondary }
+                        ]}>
+                            First Takes
+                        </ThemedText>
+                    </Pressable>
+                    <Pressable
+                        onPress={() => handleTabChange('lists')}
+                        style={({ pressed }) => [
+                            styles.tabItem,
+                            activeTab === 'lists' && { borderBottomColor: colors.tint },
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[
+                            styles.tabLabel,
+                            { color: activeTab === 'lists' ? colors.text : colors.textSecondary }
+                        ]}>
+                            Lists
+                        </ThemedText>
+                    </Pressable>
+                </View>
+            </Animated.View>
         </SafeAreaView>
     );
 }
@@ -559,49 +698,68 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         paddingBottom: Spacing.sm,
     },
+    // Sticky tab bar overlay
+    stickyTabBarOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+    },
+    stickyTabBarContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.sm,
+        borderBottomWidth: 1,
+    },
+    scrollContent: {
+        paddingBottom: 100,
+    },
     header: {
         alignItems: 'center',
-        paddingVertical: Spacing.xl,
+        paddingTop: Spacing.md,
     },
     avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         borderWidth: 3,
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.sm,
     },
     username: {
         ...Typography.display.h3,
-        marginBottom: 4,
+        marginBottom: 2,
     },
     bio: {
-        ...Typography.body.base,
-    },
-    statValue: {
-        ...Typography.display.h4,
+        ...Typography.body.sm,
     },
     statsContainer: {
         flexDirection: 'row',
-        marginVertical: Spacing.lg,
-        paddingVertical: Spacing.md,
+        marginTop: Spacing.md,
+        paddingVertical: Spacing.sm,
         paddingHorizontal: Spacing.lg,
+        width: '100%',
         borderTopWidth: 1,
-        borderBottomWidth: 1,
     },
     statItem: {
         flex: 1,
         alignItems: 'center',
     },
+    statValue: {
+        ...Typography.display.h4,
+    },
     statLabel: {
         ...Typography.body.xs,
-        marginTop: 4,
+        marginTop: 2,
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     tabBar: {
         flexDirection: 'row',
         paddingHorizontal: Spacing.lg,
-        marginBottom: Spacing.md,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.sm,
     },
     tabItem: {
         flex: 1,
@@ -615,15 +773,17 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     content: {
-        flex: 1,
         paddingHorizontal: Spacing.lg,
+        minHeight: 400,
     },
+    // Collection grid styles
     collectionGrid: {
-        gap: Spacing.sm,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: GRID_GAP,
     },
-    collectionRow: {
-        gap: Spacing.sm,
-        marginBottom: Spacing.sm,
+    gridItem: {
+        width: CARD_WIDTH,
     },
     sectionSubtitle: {
         fontSize: 12,
@@ -632,49 +792,12 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.md,
         letterSpacing: 1,
     },
-    firstTakeCard: {
-        borderRadius: BorderRadius.md,
-        padding: Spacing.md,
-        marginBottom: Spacing.lg,
-        borderLeftWidth: 4,
-    },
-    firstTakeHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: Spacing.sm,
-    },
-    firstTakeInfo: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-        flex: 1,
-    },
-    firstTakePoster: {
-        width: 30,
-        height: 45,
-        borderRadius: 4,
-        backgroundColor: '#333',
-    },
-    firstTakeTitle: {
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    firstTakeTime: {
-        fontSize: 12,
-    },
-    firstTakeEmoji: {
-        fontSize: 20,
-    },
-    firstTakeQuote: {
-        fontSize: 14,
-        fontStyle: 'italic',
-        lineHeight: 20,
-    },
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         gap: Spacing.sm,
+        paddingVertical: Spacing.xl * 2,
     },
     emptyTitle: {
         ...Typography.display.h4,
@@ -707,7 +830,6 @@ const styles = StyleSheet.create({
     },
     // Lists tab styles
     listsContent: {
-        paddingBottom: 100,
         gap: Spacing.md,
     },
     listCard: {
@@ -722,7 +844,6 @@ const styles = StyleSheet.create({
     },
     // First Takes tab styles
     firstTakesContent: {
-        paddingBottom: 100,
     },
     firstTakesSkeleton: {
         gap: Spacing.md,
