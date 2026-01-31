@@ -4,10 +4,9 @@ import {
   FlatList,
   Text,
   ActivityIndicator,
-  ScrollView,
   RefreshControl,
 } from 'react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { router } from 'expo-router';
@@ -21,7 +20,8 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useHomeMovieLists } from '@/hooks/use-home-movie-lists';
 import { useAuth } from '@/hooks/use-auth';
-import { useActivityFeed, formatRelativeTime } from '@/hooks/use-activity-feed';
+import { useInfiniteActivityFeed } from '@/hooks/use-infinite-activity-feed';
+import { formatRelativeTime, type ActivityFeedItem } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 
 function SunIcon({ color }: { color: string }) {
@@ -66,8 +66,21 @@ export default function HomeScreen() {
     refetch: refetchMovies,
   } = useHomeMovieLists();
 
-  // Fetch activity feed (20 most recent First Takes)
-  const { data: activityFeed, isLoading: activityLoading, refetch: refetchActivity } = useActivityFeed(20);
+  // Fetch activity feed with infinite scroll pagination
+  const {
+    data: activityData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: activityLoading,
+    refetch: refetchActivity,
+  } = useInfiniteActivityFeed();
+
+  // Flatten pages into single array
+  const activityFeed = useMemo(
+    () => activityData?.pages.flatMap((page) => page.items) ?? [],
+    [activityData]
+  );
 
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -77,39 +90,52 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [refetchMovies, refetchActivity]);
 
-  const handleThemeToggle = () => {
+  // Handle infinite scroll
+  const handleEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleThemeToggle = useCallback(() => {
     setThemePreference(effectiveTheme === 'dark' ? 'light' : 'dark');
-  };
+  }, [effectiveTheme, setThemePreference]);
 
-  const handleSearchPress = () => {
+  const handleSearchPress = useCallback(() => {
     router.push('/search');
-  };
+  }, []);
 
-  const handleTrendingPress = (movieId: number) => {
+  const handleTrendingPress = useCallback((movieId: number) => {
     router.push(`/movie/${movieId}`);
-  };
+  }, []);
 
   const handleActivityMoviePress = (movieId: number) => {
     router.push(`/movie/${movieId}`);
   };
 
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top']}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.tint}
-          />
-        }
-      >
+  // Render activity feed item
+  const renderActivityItem = useCallback(
+    ({ item }: { item: ActivityFeedItem }) => (
+      <FeedItemCard
+        userName={item.userDisplayName ?? 'Anonymous'}
+        userAvatarUrl={item.userAvatarUrl ?? DEFAULT_AVATAR}
+        timestamp={formatRelativeTime(item.createdAt ?? '')}
+        movieTitle={item.movieTitle}
+        moviePosterUrl={getTMDBImageUrl(item.posterPath, 'w185') ?? ''}
+        rating={item.rating}
+        reviewText={item.quoteText}
+        isSpoiler={item.isSpoiler ?? undefined}
+        isCurrentUser={user?.id === item.userId}
+        onMoviePress={() => handleActivityMoviePress(item.tmdbId)}
+      />
+    ),
+    [user?.id]
+  );
+
+  // Header component with all movie sections
+  const ListHeader = useCallback(
+    () => (
+      <>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -233,49 +259,86 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Activity Feed Section */}
-        <View style={styles.section}>
+        {/* Activity Section Header */}
+        <View style={styles.activityHeader}>
           <SectionHeader title="Activity" />
-          {activityLoading ? (
+          {activityLoading && (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.tint} />
             </View>
-          ) : !activityFeed || activityFeed.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No activity yet. Be the first to share a First Take!
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.activityList}>
-              {activityFeed.map((item) => (
-                <FeedItemCard
-                  key={item.id}
-                  userName={item.userDisplayName ?? 'Anonymous'}
-                  userAvatarUrl={item.userAvatarUrl ?? DEFAULT_AVATAR}
-                  timestamp={formatRelativeTime(item.createdAt ?? '')}
-                  movieTitle={item.movieTitle}
-                  moviePosterUrl={getTMDBImageUrl(item.posterPath, 'w185') ?? ''}
-                  rating={item.rating}
-                  reviewText={item.quoteText}
-                  isSpoiler={item.isSpoiler ?? undefined}
-                  isCurrentUser={user?.id === item.userId}
-                  onMoviePress={() => handleActivityMoviePress(item.tmdbId)}
-                />
-              ))}
-            </View>
           )}
         </View>
-      </ScrollView>
+      </>
+    ),
+    [
+      colors.textSecondary,
+      colors.tint,
+      moviesLoading,
+      activityLoading,
+      trendingMovies,
+      nowPlayingMovies,
+      upcomingMovies,
+      handleThemeToggle,
+      handleSearchPress,
+      handleTrendingPress,
+    ]
+  );
+
+  // Footer component for loading more indicator
+  const ListFooter = useCallback(() => {
+    if (isFetchingNextPage) {
+      return (
+        <View style={styles.loadingFooter}>
+          <ActivityIndicator size="small" color={colors.tint} />
+        </View>
+      );
+    }
+    return null;
+  }, [isFetchingNextPage, colors.tint]);
+
+  // Empty component when no activity
+  const ListEmpty = useCallback(() => {
+    if (activityLoading) return null;
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          No activity yet. Be the first to share a First Take!
+        </Text>
+      </View>
+    );
+  }, [activityLoading, colors.textSecondary]);
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
+      <FlatList
+        data={activityFeed}
+        keyExtractor={(item) => item.id}
+        renderItem={renderActivityItem}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
+        ListEmptyComponent={ListEmpty}
+        ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.tint}
+          />
+        }
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  scrollView: {
     flex: 1,
   },
   contentContainer: {
@@ -303,12 +366,19 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: Spacing.lg,
   },
+  activityHeader: {
+    marginBottom: Spacing.sm,
+  },
   trendingList: {
     paddingVertical: Spacing.xs,
   },
   loadingContainer: {
     height: 200,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingFooter: {
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
   },
   emptyContainer: {
@@ -318,8 +388,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
-  },
-  activityList: {
-    gap: Spacing.md,
   },
 });
