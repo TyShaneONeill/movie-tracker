@@ -184,7 +184,8 @@ export default function JourneyCardScreen() {
   const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
 
   // Calculate info carousel page width (screen width - horizontal paddings)
-  const infoPageWidth = screenWidth - (Spacing.md * 4) - (Spacing.lg * 2);
+  // Info page width = container width (screen - scroll padding - container margins)
+  const infoPageWidth = screenWidth - (Spacing.md * 4);
 
   // Dynamic styles based on theme
   const styles = useMemo(() => createStyles(colors, ticketHeight, infoPageWidth), [colors, ticketHeight, infoPageWidth]);

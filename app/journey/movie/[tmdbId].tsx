@@ -409,7 +409,8 @@ export default function JourneyCarouselScreen() {
   // Calculate dimensions
   const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
   const ticketWidth = screenWidth - (CAROUSEL_HORIZONTAL_PADDING * 2);
-  const infoPageWidth = ticketWidth - (Spacing.md * 2) - (Spacing.lg * 2);
+  // Info page width = container width (ticket width minus container's horizontal margins)
+  const infoPageWidth = ticketWidth - (Spacing.md * 2);
 
   // Total pages = journeys + 1 (add new journey card)
   const totalPages = journeys.length + 1;
