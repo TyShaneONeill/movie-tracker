@@ -29,10 +29,11 @@ import { MultiFirstTakeModal, MovieInfo } from '@/components/multi-first-take-mo
 import type { ProcessedTicket } from '@/lib/ticket-processor';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
-import { addMovieToLibrary } from '@/lib/movie-service';
+import { addMovieToLibrary, updateJourney, getMovieByTmdbId } from '@/lib/movie-service';
 import { createFirstTake } from '@/lib/first-take-service';
 import { supabase } from '@/lib/supabase';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import type { JourneyUpdate } from '@/lib/database.types';
 
 // ============================================================================
 // Helpers
@@ -57,6 +58,65 @@ function convertTo24Hour(time12h: string): string {
   }
 
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+}
+
+/**
+ * Map watch format from ticket to database enum value
+ */
+function mapWatchFormat(format: string | null): JourneyUpdate['watch_format'] {
+  if (!format) return null;
+  const normalized = format.toLowerCase().replace(/\s+/g, '');
+
+  if (normalized.includes('imax')) return 'imax';
+  if (normalized.includes('dolby')) return 'dolby';
+  if (normalized.includes('3d')) return '3d';
+  if (normalized.includes('4dx') || normalized.includes('4d')) return '4dx';
+  if (normalized.includes('screenx')) return 'screenx';
+  if (normalized.includes('4k')) return '4k';
+
+  return 'standard';
+}
+
+/**
+ * Map ticket data to journey update fields
+ */
+function mapTicketToJourneyData(ticket: ProcessedTicket): JourneyUpdate {
+  // Combine seat row and number into seat_location
+  let seatLocation: string | null = null;
+  if (ticket.seatRow && ticket.seatNumber) {
+    seatLocation = `${ticket.seatRow}-${ticket.seatNumber}`;
+  } else if (ticket.seatRow) {
+    seatLocation = ticket.seatRow;
+  } else if (ticket.seatNumber) {
+    seatLocation = ticket.seatNumber;
+  }
+
+  // Build watched_at timestamp from date
+  let watchedAt: string | null = null;
+  if (ticket.date) {
+    // ticket.date is in YYYY-MM-DD format
+    watchedAt = `${ticket.date}T00:00:00Z`;
+  }
+
+  // Convert showtime to watch_time (HH:MM format)
+  let watchTime: string | null = null;
+  if (ticket.showtime) {
+    const time24 = convertTo24Hour(ticket.showtime);
+    // watch_time expects HH:MM format
+    watchTime = time24.slice(0, 5);
+  }
+
+  return {
+    watched_at: watchedAt,
+    watch_time: watchTime,
+    location_type: 'theater',
+    location_name: ticket.theaterName,
+    seat_location: seatLocation,
+    ticket_price: ticket.priceAmount,
+    auditorium: ticket.auditorium,
+    watch_format: mapWatchFormat(ticket.format),
+    ticket_id: ticket.confirmationNumber,
+  };
 }
 
 // ============================================================================
@@ -111,6 +171,9 @@ export default function TicketReviewScreen() {
   // Multi First Take modal state (for multiple movies)
   const [showMultiFirstTakeModal, setShowMultiFirstTakeModal] = useState(false);
   const [multiFirstTakeMovies, setMultiFirstTakeMovies] = useState<MovieInfo[]>([]);
+
+  // Journey ID for navigation after single movie scan
+  const [singleJourneyId, setSingleJourneyId] = useState<string | null>(null);
 
   // Count movies found
   const moviesFound = tickets.filter((t) => t.tmdbMatch !== null).length;
@@ -183,26 +246,37 @@ export default function TicketReviewScreen() {
       });
       setShowFirstTakeModal(false);
       setFirstTakeMovieInfo(null);
-      router.replace('/(tabs)/profile');
+      // Navigate to journey card if we have a journey ID, otherwise profile
+      if (singleJourneyId) {
+        router.replace(`/journey/${singleJourneyId}`);
+      } else {
+        router.replace('/(tabs)/profile');
+      }
     } catch (error) {
       // TODO: Replace with Sentry error tracking
       Alert.alert('Error', 'Failed to save your first take. Please try again.');
     } finally {
       setIsSubmittingFirstTake(false);
     }
-  }, [user, firstTakeMovieInfo, router]);
+  }, [user, firstTakeMovieInfo, router, singleJourneyId]);
 
   // Handle First Take modal close (skip without submitting)
   const handleFirstTakeClose = useCallback(() => {
     setShowFirstTakeModal(false);
     setFirstTakeMovieInfo(null);
-    router.replace('/(tabs)/profile');
-  }, [router]);
+    // Navigate to journey card if we have a journey ID, otherwise profile
+    if (singleJourneyId) {
+      router.replace(`/journey/${singleJourneyId}`);
+    } else {
+      router.replace('/(tabs)/profile');
+    }
+  }, [router, singleJourneyId]);
 
   // Handle Multi First Take modal complete
   const handleMultiFirstTakeComplete = useCallback(() => {
     setShowMultiFirstTakeModal(false);
     setMultiFirstTakeMovies([]);
+    // For multiple movies, go to profile to see all journeys
     router.replace('/(tabs)/profile');
   }, [router]);
 
@@ -231,31 +305,55 @@ export default function TicketReviewScreen() {
 
     setIsSaving(true);
 
+    // Track journey IDs for navigation
+    let createdJourneyIds: string[] = [];
+
     try {
       // Process each valid ticket
       const results = await Promise.allSettled(
         validTickets.map(async (ticket) => {
           const movie = ticket.tmdbMatch!.movie;
+          let journeyId: string | null = null;
 
           // 1. Add movie to user_movies with status "watched"
           try {
-            await addMovieToLibrary(user.id, movie, 'watched');
+            const userMovie = await addMovieToLibrary(user.id, movie, 'watched');
+            journeyId = userMovie.id;
           } catch (error: any) {
-            // If it's a duplicate, that's fine - the movie already exists
-            if (error.message !== 'DUPLICATE') {
+            // If it's a duplicate, get the existing movie record
+            if (error.message === 'DUPLICATE') {
+              const existingMovie = await getMovieByTmdbId(user.id, movie.id);
+              if (existingMovie) {
+                journeyId = existingMovie.id;
+              }
+            } else {
               throw error;
             }
           }
 
-          // 2. Add theater visit record
+          // 2. Update journey with parsed ticket data
+          if (journeyId) {
+            const journeyData = mapTicketToJourneyData(ticket);
+            try {
+              await updateJourney(journeyId, journeyData);
+              createdJourneyIds.push(journeyId);
+            } catch (journeyError) {
+              // Log but don't fail if journey update fails
+              console.warn('Failed to update journey data:', journeyError);
+              // Still track the ID for navigation
+              createdJourneyIds.push(journeyId);
+            }
+          }
+
+          // 3. Add theater visit record (legacy - keeping for backwards compatibility)
           const theaterVisitData = {
             user_id: user.id,
             tmdb_id: movie.id,
+            movie_title: movie.title,
             theater_name: ticket.theaterName,
             theater_chain: ticket.theaterChain,
-            showtime: ticket.date && ticket.showtime
-              ? `${ticket.date}T${convertTo24Hour(ticket.showtime)}`
-              : null,
+            show_date: ticket.date,
+            show_time: ticket.showtime ? convertTo24Hour(ticket.showtime).slice(0, 5) : null,
             seat_row: ticket.seatRow,
             seat_number: ticket.seatNumber,
             auditorium: ticket.auditorium,
@@ -279,7 +377,7 @@ export default function TicketReviewScreen() {
             // TODO: Add error tracking (e.g., Sentry)
           }
 
-          return movie.title;
+          return { title: movie.title, journeyId };
         })
       );
 
@@ -296,6 +394,10 @@ export default function TicketReviewScreen() {
         // If exactly 1 movie was added successfully, show First Take modal
         if (succeeded === 1 && validTickets.length === 1) {
           const movie = validTickets[0].tmdbMatch!.movie;
+          // Set journey ID for navigation after First Take modal
+          if (createdJourneyIds.length > 0) {
+            setSingleJourneyId(createdJourneyIds[0]);
+          }
           setFirstTakeMovieInfo({
             tmdbId: movie.id,
             title: movie.title,
@@ -328,7 +430,9 @@ export default function TicketReviewScreen() {
         }
       }
 
-      // For partial failures with only 1 success, or no successes, show success alert and navigate
+      // For single movie without First Take modal, navigate to journey card
+      // For multiple movies or failures, navigate to profile
+      const navigateToJourney = succeeded === 1 && createdJourneyIds.length === 1;
       const message = failed > 0
         ? `Added ${succeeded} movie${succeeded > 1 ? 's' : ''} to your watched list. ${failed} failed.`
         : `Added ${succeeded} movie${succeeded > 1 ? 's' : ''} to your watched list!`;
@@ -338,8 +442,14 @@ export default function TicketReviewScreen() {
         message,
         [
           {
-            text: 'OK',
-            onPress: () => router.replace('/(tabs)/profile'),
+            text: navigateToJourney ? 'View Journey' : 'OK',
+            onPress: () => {
+              if (navigateToJourney) {
+                router.replace(`/journey/${createdJourneyIds[0]}`);
+              } else {
+                router.replace('/(tabs)/profile');
+              }
+            },
           },
         ]
       );
