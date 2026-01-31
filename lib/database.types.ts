@@ -15,6 +15,7 @@ export interface Database {
           bio: string | null;
           first_take_prompt_enabled: boolean | null;
           theme_preference: string | null;
+          onboarding_completed: boolean | null;
         };
         Insert: {
           id: string;
@@ -26,6 +27,7 @@ export interface Database {
           bio?: string | null;
           first_take_prompt_enabled?: boolean | null;
           theme_preference?: string | null;
+          onboarding_completed?: boolean | null;
         };
         Update: {
           id?: string;
@@ -37,6 +39,7 @@ export interface Database {
           bio?: string | null;
           first_take_prompt_enabled?: boolean | null;
           theme_preference?: string | null;
+          onboarding_completed?: boolean | null;
         };
       };
       user_movies: {

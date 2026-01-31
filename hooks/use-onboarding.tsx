@@ -1,13 +1,6 @@
 import { useState, useEffect, useCallback, useContext, createContext, type ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/hooks/use-auth';
-
-const ONBOARDING_KEY_PREFIX = 'cinetrak_onboarding_complete_';
-
-// Helper to get user-specific storage key
-const getOnboardingKey = (userId: string | undefined) => {
-  return userId ? `${ONBOARDING_KEY_PREFIX}${userId}` : null;
-};
+import { supabase } from '@/lib/supabase';
 
 interface OnboardingContextType {
   hasCompletedOnboarding: boolean | null;
@@ -23,35 +16,33 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Re-check onboarding status whenever the user changes
+  // Fetch onboarding status from Supabase when user changes
   useEffect(() => {
     const checkOnboardingStatus = async () => {
-      // Wait for auth to be ready
-      if (authLoading) {
-        return;
-      }
+      if (authLoading) return;
 
-      // If no user, reset onboarding state (will be checked when user logs in)
       if (!user) {
         setHasCompletedOnboarding(null);
         setIsLoading(false);
         return;
       }
 
-      const key = getOnboardingKey(user.id);
-      if (!key) {
-        setHasCompletedOnboarding(false);
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        const value = await AsyncStorage.getItem(key);
-        // For new users, value will be null, so hasCompletedOnboarding should be false
-        const completed = value === 'true';
-        setHasCompletedOnboarding(completed);
-      } catch (error) {
-        // TODO: Replace with Sentry error tracking
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          // Profile might not exist yet (new user), default to false
+          setHasCompletedOnboarding(false);
+        } else {
+          // Use type assertion for the data since the column was just added
+          const profileData = data as { onboarding_completed: boolean | null } | null;
+          setHasCompletedOnboarding(profileData?.onboarding_completed ?? false);
+        }
+      } catch {
         // On error, default to false to ensure users see onboarding if there's an issue
         setHasCompletedOnboarding(false);
       } finally {
@@ -59,50 +50,54 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Set loading true when user changes to prevent stale state from being used
     setIsLoading(true);
     checkOnboardingStatus();
   }, [user?.id, authLoading]);
 
   const completeOnboarding = useCallback(async () => {
-    const key = getOnboardingKey(user?.id);
-    if (!key) {
-      // TODO: Replace with Sentry error tracking
-      return;
-    }
+    if (!user?.id) return;
 
     try {
-      await AsyncStorage.setItem(key, 'true');
+      // Use type assertion to work around Supabase client generic inference issue
+      const { error } = await (supabase
+        .from('profiles') as ReturnType<typeof supabase.from>)
+        .update({ onboarding_completed: true } as Record<string, unknown>)
+        .eq('id', user.id);
+
+      if (error) {
+        // TODO: Sentry error tracking
+        return;
+      }
+
       setHasCompletedOnboarding(true);
-    } catch (error) {
-      // TODO: Replace with Sentry error tracking
+    } catch {
+      // TODO: Sentry error tracking
     }
   }, [user?.id]);
 
   const resetOnboarding = useCallback(async () => {
-    const key = getOnboardingKey(user?.id);
-    if (!key) {
-      // TODO: Replace with Sentry error tracking
-      return;
-    }
+    if (!user?.id) return;
 
     try {
-      await AsyncStorage.removeItem(key);
+      // Use type assertion to work around Supabase client generic inference issue
+      const { error } = await (supabase
+        .from('profiles') as ReturnType<typeof supabase.from>)
+        .update({ onboarding_completed: false } as Record<string, unknown>)
+        .eq('id', user.id);
+
+      if (error) {
+        // TODO: Sentry error tracking
+        return;
+      }
+
       setHasCompletedOnboarding(false);
-    } catch (error) {
-      // TODO: Replace with Sentry error tracking
+    } catch {
+      // TODO: Sentry error tracking
     }
   }, [user?.id]);
 
-  const contextValue: OnboardingContextType = {
-    hasCompletedOnboarding,
-    isLoading,
-    completeOnboarding,
-    resetOnboarding,
-  };
-
   return (
-    <OnboardingContext.Provider value={contextValue}>
+    <OnboardingContext.Provider value={{ hasCompletedOnboarding, isLoading, completeOnboarding, resetOnboarding }}>
       {children}
     </OnboardingContext.Provider>
   );
