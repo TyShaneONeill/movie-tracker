@@ -31,9 +31,9 @@ import type { UserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 // Constants for header animation
-const HEADER_MAX_HEIGHT = 230; // Full header height (avatar, name, bio, stats)
+const HEADER_MAX_HEIGHT = 180; // Full header height (avatar, name, bio - stats merged into tabs)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
-const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
+const HEADER_SCROLL_DISTANCE = 130; // Scroll distance to fully collapse
 
 // Grid layout constants
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -403,32 +403,45 @@ export default function ProfileScreen() {
         </View>
     );
 
-    const TAB_CONFIG: { key: TabType; label: string }[] = [
-        { key: 'collection', label: 'Collection' },
-        { key: 'first-takes', label: 'First Takes' },
-        { key: 'lists', label: 'Lists' },
+    // Combined stat-tab configuration: each tab shows its count AND acts as navigation
+    const TAB_CONFIG: { key: TabType; label: string; statKey: 'watched' | 'firstTakes' | 'lists' }[] = [
+        { key: 'collection', label: 'Watched', statKey: 'watched' },
+        { key: 'first-takes', label: 'First Takes', statKey: 'firstTakes' },
+        { key: 'lists', label: 'Lists', statKey: 'lists' },
     ];
 
-    const renderTabBar = () => (
+    // Combined stat-tab bar: shows count + label, acts as navigation
+    const renderStatTabBar = () => (
         <>
-            {TAB_CONFIG.map(({ key, label }) => (
-                <Pressable
-                    key={key}
-                    onPress={() => handleTabChange(key)}
-                    style={({ pressed }) => [
-                        styles.tabItem,
-                        activeTab === key && { borderBottomColor: colors.tint },
-                        { opacity: pressed ? 0.7 : 1 },
-                    ]}
-                >
-                    <ThemedText style={[
-                        styles.tabLabel,
-                        { color: activeTab === key ? colors.text : colors.textSecondary }
-                    ]}>
-                        {label}
-                    </ThemedText>
-                </Pressable>
-            ))}
+            {TAB_CONFIG.map(({ key, label, statKey }) => {
+                const isActive = activeTab === key;
+                const count = stats[statKey];
+                return (
+                    <Pressable
+                        key={key}
+                        onPress={() => handleTabChange(key)}
+                        style={({ pressed }) => [
+                            styles.statTabItem,
+                            isActive && styles.statTabItemActive,
+                            isActive && { borderBottomColor: colors.tint },
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[
+                            styles.statTabValue,
+                            { color: isActive ? colors.text : colors.textSecondary }
+                        ]}>
+                            {count}
+                        </ThemedText>
+                        <ThemedText style={[
+                            styles.statTabLabel,
+                            { color: isActive ? colors.text : colors.textSecondary }
+                        ]}>
+                            {label}
+                        </ThemedText>
+                    </Pressable>
+                );
+            })}
         </>
     );
 
@@ -447,39 +460,11 @@ export default function ProfileScreen() {
                 <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
                     {profile?.bio || MOCK_USER.bio}
                 </ThemedText>
-
-                {/* Stats Row */}
-                <View style={[styles.statsContainer, { borderColor: colors.border }]}>
-                    <View style={styles.statItem}>
-                        <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                            {stats.watched}
-                        </ThemedText>
-                        <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                            Watched
-                        </ThemedText>
-                    </View>
-                    <View style={styles.statItem}>
-                        <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                            {stats.firstTakes}
-                        </ThemedText>
-                        <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                            First Takes
-                        </ThemedText>
-                    </View>
-                    <View style={styles.statItem}>
-                        <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                            {stats.lists}
-                        </ThemedText>
-                        <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                            Lists
-                        </ThemedText>
-                    </View>
-                </View>
             </Animated.View>
 
-            {/* Tab Bar */}
-            <View style={[styles.tabBar, { backgroundColor: colors.background }]}>
-                {renderTabBar()}
+            {/* Combined Stat-Tab Bar */}
+            <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                {renderStatTabBar()}
             </View>
         </>
     );
@@ -654,39 +639,11 @@ export default function ProfileScreen() {
                         <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
                             {profile?.bio || MOCK_USER.bio}
                         </ThemedText>
-
-                        {/* Stats Row */}
-                        <View style={[styles.statsContainer, { borderColor: colors.border }]}>
-                            <View style={styles.statItem}>
-                                <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                                    {stats.watched}
-                                </ThemedText>
-                                <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                                    Watched
-                                </ThemedText>
-                            </View>
-                            <View style={styles.statItem}>
-                                <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                                    {stats.firstTakes}
-                                </ThemedText>
-                                <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                                    First Takes
-                                </ThemedText>
-                            </View>
-                            <View style={styles.statItem}>
-                                <ThemedText style={[styles.statValue, { color: colors.text }]}>
-                                    {stats.lists}
-                                </ThemedText>
-                                <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                                    Lists
-                                </ThemedText>
-                            </View>
-                        </View>
                     </Animated.View>
 
-                    {/* Tab Bar */}
-                    <View style={[styles.tabBar, { backgroundColor: colors.background }]}>
-                        {renderTabBar()}
+                    {/* Combined Stat-Tab Bar */}
+                    <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                        {renderStatTabBar()}
                     </View>
 
                     {/* Tab Content */}
@@ -696,7 +653,7 @@ export default function ProfileScreen() {
                 </Animated.ScrollView>
             )}
 
-            {/* Sticky Tab Bar Overlay - appears when header is collapsed */}
+            {/* Sticky Stat-Tab Bar Overlay - appears when header is collapsed */}
             <Animated.View
                 style={[
                     styles.stickyTabBarOverlay,
@@ -705,8 +662,8 @@ export default function ProfileScreen() {
                 ]}
                 pointerEvents="box-none"
             >
-                <View style={[styles.stickyTabBarContainer, { borderBottomColor: colors.border }]}>
-                    {renderTabBar()}
+                <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
+                    {renderStatTabBar()}
                 </View>
             </Animated.View>
         </SafeAreaView>
@@ -730,7 +687,7 @@ const styles = StyleSheet.create({
         right: 0,
         zIndex: 100,
     },
-    stickyTabBarContainer: {
+    stickyStatTabBarContainer: {
         flexDirection: 'row',
         paddingHorizontal: Spacing.lg,
         paddingTop: Spacing.sm,
@@ -758,43 +715,33 @@ const styles = StyleSheet.create({
     bio: {
         ...Typography.body.sm,
     },
-    statsContainer: {
-        flexDirection: 'row',
-        marginTop: Spacing.md,
-        paddingVertical: Spacing.sm,
-        paddingHorizontal: Spacing.lg,
-        width: '100%',
-        borderTopWidth: 1,
-    },
-    statItem: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    statValue: {
-        ...Typography.display.h4,
-    },
-    statLabel: {
-        ...Typography.body.xs,
-        marginTop: 2,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    tabBar: {
+    // Combined stat-tab bar styles
+    statTabBar: {
         flexDirection: 'row',
         paddingHorizontal: Spacing.lg,
         paddingTop: Spacing.md,
         paddingBottom: Spacing.sm,
+        borderBottomWidth: 1,
     },
-    tabItem: {
+    statTabItem: {
         flex: 1,
         alignItems: 'center',
         paddingBottom: Spacing.sm,
         borderBottomWidth: 2,
         borderBottomColor: 'transparent',
+        marginBottom: -1, // Overlap with container border
     },
-    tabLabel: {
-        fontWeight: '600',
-        fontSize: 16,
+    statTabItemActive: {
+        // Active state handled inline with colors.tint
+    },
+    statTabValue: {
+        ...Typography.display.h4,
+    },
+    statTabLabel: {
+        ...Typography.body.xs,
+        marginTop: 2,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     content: {
         paddingHorizontal: Spacing.lg,
