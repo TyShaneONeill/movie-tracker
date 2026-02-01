@@ -1,8 +1,12 @@
+// Initialize Sentry first (side-effect import)
+import '@/lib/sentry-init';
+
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
 import {
   useFonts,
@@ -26,6 +30,7 @@ import { QueryProvider } from '@/lib/query-client';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { useOnboarding, OnboardingProvider } from '@/hooks/use-onboarding';
 import { Colors } from '@/constants/theme';
+import { toastConfig } from '@/lib/toast-config';
 import { handleAuthDeepLink } from '@/lib/deep-link-handler';
 import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
@@ -161,6 +166,7 @@ function RootLayoutNav() {
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
+      <Toast config={toastConfig} />
     </NavigationThemeProvider>
   );
 }

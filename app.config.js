@@ -42,6 +42,7 @@ export default {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
+      "@sentry/react-native/expo",
       "expo-router",
       "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
