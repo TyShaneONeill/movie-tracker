@@ -26,7 +26,7 @@ import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useProfile } from '@/hooks/use-profile';
 import { MOCK_USER } from '@/lib/mock-data/users';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { UserMovie } from '@/lib/database.types';
+import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'lists';
 
@@ -49,7 +49,7 @@ export default function ProfileScreen() {
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const scrollViewRef = useRef<Animated.ScrollView>(null);
-    const flatListRef = useRef<Animated.FlatList<UserMovie>>(null);
+    const flatListRef = useRef<Animated.FlatList<GroupedUserMovie>>(null);
 
     const colors = Colors[effectiveTheme];
 
@@ -59,9 +59,9 @@ export default function ProfileScreen() {
     // Fetch user profile and stats
     const { profile, stats, refetch: refetchProfile, refetchStats } = useProfile();
 
-    // Fetch watched movies for collection
+    // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id)
     const {
-        movies: watchedMovies,
+        groupedMovies,
         isLoading,
         isError,
         refetch,
@@ -168,9 +168,10 @@ export default function ProfileScreen() {
         setIsRefreshing(false);
     }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes]);
 
-    const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<UserMovie>) => (
+    const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => (
         <CollectionGridCard
             posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
+            journeyCount={item.journeyCount}
             onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
             style={{ width: CARD_WIDTH }}
         />
@@ -593,15 +594,15 @@ export default function ProfileScreen() {
             {activeTab === 'collection' && (
                 <Animated.FlatList
                     ref={flatListRef}
-                    data={isLoading || isError ? [] : watchedMovies}
+                    data={isLoading || isError ? [] : groupedMovies}
                     renderItem={renderCollectionItem}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item) => `${item.tmdb_id}`}
                     numColumns={COLUMN_COUNT}
                     ListHeaderComponent={renderCollectionListHeader}
                     ListEmptyComponent={renderCollectionListEmpty}
                     onScroll={scrollHandler}
                     scrollEventThrottle={16}
-                    columnWrapperStyle={watchedMovies?.length && !isLoading && !isError ? styles.columnWrapper : undefined}
+                    columnWrapperStyle={groupedMovies?.length && !isLoading && !isError ? styles.columnWrapper : undefined}
                     contentContainerStyle={styles.scrollContent}
                     refreshControl={
                         <RefreshControl

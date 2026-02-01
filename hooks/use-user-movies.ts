@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -7,8 +8,35 @@ import {
   removeMovieFromLibrary,
   getMovieByTmdbId,
 } from '@/lib/movie-service';
-import type { UserMovie, MovieStatus } from '@/lib/database.types';
+import type { UserMovie, MovieStatus, GroupedUserMovie } from '@/lib/database.types';
 import type { TMDBMovie } from '@/lib/tmdb.types';
+
+/**
+ * Groups movies by tmdb_id and returns one entry per movie with journey count.
+ * Prioritizes the journey with AI art, otherwise most recent.
+ */
+function groupMoviesByTmdbId(movies: UserMovie[]): GroupedUserMovie[] {
+  const movieMap = new Map<number, { primary: UserMovie; count: number }>();
+
+  for (const movie of movies) {
+    const existing = movieMap.get(movie.tmdb_id);
+
+    if (existing) {
+      existing.count++;
+      // Prioritize journey with AI art, then most recent (already sorted by added_at DESC)
+      if (movie.ai_poster_url && !existing.primary.ai_poster_url) {
+        existing.primary = movie;
+      }
+    } else {
+      movieMap.set(movie.tmdb_id, { primary: movie, count: 1 });
+    }
+  }
+
+  return Array.from(movieMap.values()).map(({ primary, count }) => ({
+    ...primary,
+    journeyCount: count,
+  }));
+}
 
 export function useUserMovies(status?: MovieStatus) {
   const { user } = useAuth();
@@ -22,6 +50,12 @@ export function useUserMovies(status?: MovieStatus) {
     },
     enabled: !!user,
   });
+
+  // Group movies by tmdb_id for collection grid display
+  const groupedMovies = useMemo(() => {
+    if (!query.data) return [];
+    return groupMoviesByTmdbId(query.data);
+  }, [query.data]);
 
   const addMutation = useMutation({
     mutationFn: ({
@@ -58,6 +92,7 @@ export function useUserMovies(status?: MovieStatus) {
 
   return {
     movies: query.data ?? [],
+    groupedMovies,
     isLoading: query.isLoading,
     isError: query.isError,
     isRefetching: query.isRefetching,
