@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { SearchMoviesResponse, TMDBMovie, SearchType, MovieDetailResponse, MovieListType, MovieListResponse } from './tmdb.types';
-import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus, UserMovieLike, UserMovieLikeInsert } from './database.types';
+import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus, UserMovieLike, UserMovieLikeInsert, JourneyUpdate } from './database.types';
 import { getMovieDetailsWithCache } from './movie-cache-service';
 
 // Search movies (title or actor)
@@ -257,4 +257,117 @@ export async function unlikeMovie(
   if (error) {
     throw new Error(error.message || 'Failed to unlike movie');
   }
+}
+
+// Fetch a single journey by its user_movies.id
+export async function fetchJourneyById(
+  journeyId: string
+): Promise<UserMovie | null> {
+  const { data, error } = await supabase
+    .from('user_movies')
+    .select('*')
+    .eq('id', journeyId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch journey');
+  }
+
+  return data;
+}
+
+// Update journey fields
+export async function updateJourney(
+  journeyId: string,
+  data: JourneyUpdate
+): Promise<UserMovie> {
+  const updateData: UserMovieUpdate = {
+    ...data,
+    journey_updated_at: new Date().toISOString(),
+  };
+
+  const { data: updatedJourney, error } = (await (supabase
+    .from('user_movies') as any)
+    .update(updateData)
+    .eq('id', journeyId)
+    .select()
+    .single()) as { data: UserMovie; error: any };
+
+  if (error) {
+    throw new Error(error.message || 'Failed to update journey');
+  }
+
+  return updatedJourney;
+}
+
+// Delete a journey record
+export async function deleteJourney(journeyId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_movies')
+    .delete()
+    .eq('id', journeyId);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to delete journey');
+  }
+}
+
+// Fetch all journeys for a specific movie (for rewatches)
+export async function fetchJourneysByTmdbId(
+  userId: string,
+  tmdbId: number
+): Promise<UserMovie[]> {
+  const { data, error } = await supabase
+    .from('user_movies')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
+    .eq('status', 'watched')
+    .order('journey_number', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch journeys');
+  }
+
+  return data ?? [];
+}
+
+// Create a new journey for an existing movie (rewatch)
+export async function createNewJourney(
+  userId: string,
+  existingJourney: UserMovie
+): Promise<UserMovie> {
+  // First, get all existing journeys to determine the next journey number
+  const existingJourneys = await fetchJourneysByTmdbId(userId, existingJourney.tmdb_id);
+  const maxJourneyNumber = existingJourneys.reduce(
+    (max, j) => Math.max(max, j.journey_number || 1),
+    0
+  );
+
+  const insertData: UserMovieInsert = {
+    user_id: userId,
+    tmdb_id: existingJourney.tmdb_id,
+    status: 'watched',
+    title: existingJourney.title,
+    overview: existingJourney.overview,
+    poster_path: existingJourney.poster_path,
+    backdrop_path: existingJourney.backdrop_path,
+    release_date: existingJourney.release_date,
+    vote_average: existingJourney.vote_average,
+    genre_ids: existingJourney.genre_ids,
+    journey_number: maxJourneyNumber + 1,
+    journey_created_at: new Date().toISOString(),
+  };
+
+  const { data, error } = (await (supabase
+    .from('user_movies') as any)
+    .insert(insertData)
+    .select()
+    .single()) as { data: UserMovie; error: any };
+
+  if (error) {
+    throw new Error(error.message || 'Failed to create new journey');
+  }
+
+  return data;
 }

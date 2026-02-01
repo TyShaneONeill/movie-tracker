@@ -10,6 +10,7 @@ import Constants from 'expo-constants';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
+import { setSentryUser, captureException } from './sentry';
 import type { Session, User } from '@supabase/supabase-js';
 
 // Get Google client IDs from expo config (exposed via app.config.js extra)
@@ -82,6 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      // Set Sentry user context on initial load
+      setSentryUser(session?.user?.id ?? null);
       setIsLoading(false);
     });
 
@@ -90,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      // Update Sentry user context when auth state changes
+      setSentryUser(session?.user?.id ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -114,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
-        // TODO: Replace with Sentry error tracking
+        captureException(error as Error, { context: 'signOut' });
         throw error;
       }
       // Clear all cached queries to prevent stale user data
@@ -123,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setUser(null);
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error as Error, { context: 'signOut' });
       // Clear cache and state even if API call fails to ensure user is logged out locally
       queryClient.clear();
       setSession(null);
@@ -254,7 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        // TODO: Replace with Sentry error tracking
+        captureException(error as Error, { context: 'deleteAccount' });
         return { error: error as Error };
       }
 
@@ -271,7 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { error: null };
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error as Error, { context: 'deleteAccount' });
       return { error: error as Error };
     }
   };

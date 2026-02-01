@@ -8,7 +8,7 @@ import Animated, {
     Extrapolation,
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +45,7 @@ const CARD_WIDTH = (AVAILABLE_WIDTH - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_
 
 export default function ProfileScreen() {
     const { effectiveTheme } = useTheme();
+    const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const scrollViewRef = useRef<Animated.ScrollView>(null);
@@ -136,14 +137,16 @@ export default function ProfileScreen() {
 
     // Handle tab change - scroll to top and expand header
     const handleTabChange = useCallback((tab: TabType) => {
+        // Reset scroll position immediately to prevent sticky header duplication
+        scrollY.value = 0;
         setActiveTab(tab);
         // Scroll to top to expand header (use appropriate ref based on which tab we're switching to)
         if (tab === 'collection') {
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
         } else {
-            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         }
-    }, []);
+    }, [scrollY]);
 
     // Handle refresh
     const handleRefresh = useCallback(async () => {
@@ -168,7 +171,7 @@ export default function ProfileScreen() {
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<UserMovie>) => (
         <CollectionGridCard
             posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
-            onPress={() => router.push(`/movie/${item.tmdb_id}`)}
+            onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
             style={{ width: CARD_WIDTH }}
         />
     ), []);
@@ -657,7 +660,7 @@ export default function ProfileScreen() {
             <Animated.View
                 style={[
                     styles.stickyTabBarOverlay,
-                    { backgroundColor: colors.background },
+                    { backgroundColor: colors.background, top: insets.top },
                     stickyTabBarStyle
                 ]}
                 pointerEvents="box-none"
