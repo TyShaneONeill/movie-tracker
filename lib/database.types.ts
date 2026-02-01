@@ -593,3 +593,8 @@ export type AiPosterRarity = 'common' | 'holographic';
 
 // Display poster type
 export type DisplayPoster = 'original' | 'ai_generated';
+
+// Grouped user movie for collection grid (deduped by tmdb_id)
+export interface GroupedUserMovie extends UserMovie {
+  journeyCount: number;
+}

@@ -2,13 +2,14 @@
  * CollectionGridCard Component
  * Poster-only card for profile collection grid
  * Simple 2:3 aspect ratio card displaying movie poster
+ * Optionally shows journey count badge for multiple rewatches
  * Reference: ui-mocks/profile.html lines 35-47, 139-167 (.collection-item)
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { BorderRadius, Colors } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, Fonts } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 
 interface CollectionGridCardProps {
@@ -16,6 +17,11 @@ interface CollectionGridCardProps {
    * Movie poster URL (TMDB w500 size recommended)
    */
   posterUrl: string;
+
+  /**
+   * Number of journeys for this movie (shows badge if > 1)
+   */
+  journeyCount?: number;
 
   /**
    * Callback when card is pressed
@@ -37,20 +43,25 @@ interface CollectionGridCardProps {
  * - Small rounded corners (8px)
  * - Card background color as placeholder
  * - Press feedback with opacity change
+ * - Journey count badge when multiple rewatches exist
  *
  * @example
  * <CollectionGridCard
  *   posterUrl="https://image.tmdb.org/t/p/w500/..."
- *   onPress={() => navigation.navigate('movie', { id: 123 })}
+ *   journeyCount={3}
+ *   onPress={() => navigation.navigate('journey', { tmdbId: 123 })}
  * />
  */
 export function CollectionGridCard({
   posterUrl,
+  journeyCount,
   onPress,
   style,
 }: CollectionGridCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+
+  const showBadge = journeyCount && journeyCount > 1;
 
   return (
     <Pressable
@@ -67,6 +78,13 @@ export function CollectionGridCard({
         contentFit="cover"
         transition={200}
       />
+      {showBadge && (
+        <View style={styles.badgeContainer}>
+          <View style={[styles.badge, { backgroundColor: colors.tint }]}>
+            <Text style={styles.badgeText}>×{journeyCount}</Text>
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -81,5 +99,23 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  badgeContainer: {
+    position: 'absolute',
+    bottom: Spacing.xs,
+    right: Spacing.xs,
+  },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontFamily: Fonts.inter.bold,
+    fontWeight: '700',
   },
 });
