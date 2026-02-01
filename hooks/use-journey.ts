@@ -57,8 +57,9 @@ export function useJourney(journeyId: string | undefined) {
 }
 
 // Hook providing mutation functions for updating and deleting journeys
-export function useJourneyMutations() {
+export function useJourneyMutations(tmdbId?: number) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const updateMutation = useMutation({
     mutationFn: ({
@@ -68,13 +69,41 @@ export function useJourneyMutations() {
       journeyId: string;
       data: JourneyUpdate;
     }) => updateJourney(journeyId, data),
+    // Optimistic update for instant UI response
+    onMutate: async ({ journeyId, data }) => {
+      // Only cancel/update the specific query we know about
+      const queryKey = ['journeysByMovie', tmdbId, user?.id];
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot previous value for rollback
+      const previousData = queryClient.getQueryData<JourneysWithFirstTake>(queryKey);
+
+      // Optimistically update the specific query
+      if (previousData) {
+        queryClient.setQueryData<JourneysWithFirstTake>(queryKey, {
+          ...previousData,
+          journeys: previousData.journeys.map((j) =>
+            j.id === journeyId ? { ...j, ...data } : j
+          ),
+        });
+      }
+
+      return { previousData, queryKey };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousData && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousData);
+      }
+    },
     onSuccess: (updatedJourney) => {
-      // Invalidate specific journey query
-      queryClient.invalidateQueries({
-        queryKey: ['journey', updatedJourney.id],
-      });
-      // Invalidate user movies list
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      // Only invalidate on success, not onSettled (which runs on error too)
+      // Use a slight delay to avoid rapid successive invalidations
+      setTimeout(() => {
+        queryClient.invalidateQueries({
+          queryKey: ['journeysByMovie', updatedJourney.tmdb_id],
+        });
+      }, 100);
     },
   });
 

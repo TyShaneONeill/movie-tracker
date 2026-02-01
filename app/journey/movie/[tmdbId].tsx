@@ -111,6 +111,117 @@ function BarcodeVisual({ colors }: { colors: ThemeColors }) {
   );
 }
 
+// Poster Toggle Component
+interface PosterToggleProps {
+  isAiSelected: boolean;
+  isHolographic: boolean;
+  onToggle: () => void;
+  colors: ThemeColors;
+}
+
+function PosterToggle({ isAiSelected, isHolographic, onToggle, colors }: PosterToggleProps) {
+  return (
+    <View style={posterToggleStyles(colors).container}>
+      <Pressable
+        style={[
+          posterToggleStyles(colors).option,
+          !isAiSelected && posterToggleStyles(colors).optionSelected,
+        ]}
+        onPress={() => isAiSelected && onToggle()}
+      >
+        <View style={posterToggleStyles(colors).radioOuter}>
+          {!isAiSelected && <View style={posterToggleStyles(colors).radioInner} />}
+        </View>
+        <Text style={[
+          posterToggleStyles(colors).optionText,
+          !isAiSelected && posterToggleStyles(colors).optionTextSelected,
+        ]}>
+          Original
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={[
+          posterToggleStyles(colors).option,
+          isAiSelected && posterToggleStyles(colors).optionSelected,
+        ]}
+        onPress={() => !isAiSelected && onToggle()}
+      >
+        <View style={posterToggleStyles(colors).radioOuter}>
+          {isAiSelected && <View style={[
+            posterToggleStyles(colors).radioInner,
+            isHolographic && posterToggleStyles(colors).radioInnerHolo,
+          ]} />}
+        </View>
+        <Text style={[
+          posterToggleStyles(colors).optionText,
+          isAiSelected && posterToggleStyles(colors).optionTextSelected,
+        ]}>
+          AI Art
+        </Text>
+        {isHolographic && (
+          <Text style={posterToggleStyles(colors).holoBadge}>✨</Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+const posterToggleStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BorderRadius.md,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    gap: 6,
+  },
+  optionSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  radioOuter: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.textSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.tint,
+  },
+  radioInnerHolo: {
+    backgroundColor: '#FFD700',
+  },
+  optionText: {
+    ...Typography.caption.medium,
+    color: colors.textSecondary,
+  },
+  optionTextSelected: {
+    color: colors.text,
+  },
+  holoBadge: {
+    fontSize: 12,
+    marginLeft: 2,
+  },
+});
+
 // Perforated edge with notches
 function PerforatedEdge({ colors }: { colors: ThemeColors }) {
   return (
@@ -234,32 +345,8 @@ function JourneyTicket({
           </LinearGradient>
         </View>
 
-        {/* Top right buttons row */}
+        {/* Top right edit button */}
         <View style={styles.heroButtonsRow}>
-          {/* Generate Art / Toggle Poster button */}
-          {isGenerating ? (
-            <View style={styles.generateButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={styles.generateBlurContainer}>
-                <ActivityIndicator size="small" color={colors.tint} />
-              </BlurView>
-            </View>
-          ) : hasAiPoster ? (
-            <Pressable style={styles.generateButton} onPress={onTogglePoster}>
-              <BlurView intensity={20} tint={effectiveTheme} style={styles.generateBlurContainer}>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                  <Path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
-                </Svg>
-              </BlurView>
-            </Pressable>
-          ) : (
-            <Pressable style={styles.generateButton} onPress={onGenerateArt}>
-              <BlurView intensity={20} tint={effectiveTheme} style={styles.generateBlurContainer}>
-                <Text style={styles.generateButtonText}>AI</Text>
-              </BlurView>
-            </Pressable>
-          )}
-
-          {/* Edit button */}
           <Link href={`/journey/edit/${journey.id}` as never} asChild>
             <Pressable style={styles.editButton}>
               <BlurView intensity={20} tint={effectiveTheme} style={styles.editBlurContainer}>
@@ -286,6 +373,38 @@ function JourneyTicket({
           </View>
         )}
       </View>
+
+      {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
+      {hasAiPoster ? (
+        <PosterToggle
+          isAiSelected={!!showAiPoster}
+          isHolographic={isHolographic}
+          onToggle={onTogglePoster}
+          colors={colors}
+        />
+      ) : (
+        <View style={styles.generateArtSection}>
+          <Pressable
+            style={styles.generateArtButton}
+            onPress={onGenerateArt}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <ActivityIndicator size="small" color={colors.text} />
+                <Text style={styles.generateArtButtonText}>Generating...</Text>
+              </>
+            ) : (
+              <>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                  <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                </Svg>
+                <Text style={styles.generateArtButtonText}>Generate AI Art</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      )}
 
       {/* Perforated Edge */}
       <PerforatedEdge colors={colors} />
@@ -451,10 +570,11 @@ export default function JourneyCarouselScreen() {
   const [currentJourneyIndex, setCurrentJourneyIndex] = useState(0);
   const carouselRef = useRef<ScrollView>(null);
 
+  // Parse tmdbId once for all hooks
+  const parsedTmdbId = tmdbId ? parseInt(tmdbId, 10) : undefined;
+
   // Fetch all journeys for this movie
-  const { data: journeyData, isLoading, isError } = useJourneysByMovie(
-    tmdbId ? parseInt(tmdbId, 10) : undefined
-  );
+  const { data: journeyData, isLoading, isError } = useJourneysByMovie(parsedTmdbId);
   const journeys = journeyData?.journeys ?? [];
   const firstTake = journeyData?.firstTake ?? null;
 
@@ -463,7 +583,7 @@ export default function JourneyCarouselScreen() {
 
   // AI art generation
   const { generateArt, isGenerating } = useGenerateArt();
-  const { updateJourney } = useJourneyMutations();
+  const { updateJourney } = useJourneyMutations(parsedTmdbId);
 
   // Track which journey is currently generating
   const [generatingJourneyId, setGeneratingJourneyId] = useState<string | null>(null);
@@ -510,22 +630,23 @@ export default function JourneyCarouselScreen() {
   // Handle generate AI art for a journey
   const handleGenerateArt = useCallback(async (journey: UserMovie) => {
     setGeneratingJourneyId(journey.id);
-    try {
-      // Get genre names from genre_ids
-      const genreNames = journey.genre_ids
-        ? getGenreNamesByIds(journey.genre_ids)
-        : [];
+    // Get genre names from genre_ids
+    const genreNames = journey.genre_ids
+      ? getGenreNamesByIds(journey.genre_ids)
+      : [];
 
-      await generateArt({
-        journeyId: journey.id,
-        movieTitle: journey.title,
-        genres: genreNames,
-      });
-    } catch (error) {
-      console.error('Failed to generate art:', error);
-    } finally {
+    // Get the poster URL for style transfer
+    const posterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w780') || '';
+
+    // Fire and forget - errors handled globally via MutationCache toast
+    generateArt({
+      journeyId: journey.id,
+      movieTitle: journey.title,
+      genres: genreNames,
+      posterUrl,
+    }).finally(() => {
       setGeneratingJourneyId(null);
-    }
+    });
   }, [generateArt]);
 
   // Handle toggle between original and AI poster
@@ -865,25 +986,23 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     flexDirection: 'row',
     gap: 8,
   },
-  generateButton: {
-    width: 36,
-    height: 36,
-    overflow: 'hidden',
-    borderRadius: BorderRadius.full,
+  generateArtSection: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
-  generateBlurContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  generateArtButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: BorderRadius.full,
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: colors.tint,
+    borderRadius: BorderRadius.md,
   },
-  generateButtonText: {
-    ...Typography.caption.medium,
-    color: colors.tint,
-    fontWeight: '700',
-    fontSize: 10,
+  generateArtButtonText: {
+    ...Typography.button.primary,
+    color: colors.text,
   },
   editButton: {
     width: 36,

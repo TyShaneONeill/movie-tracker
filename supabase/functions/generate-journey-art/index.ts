@@ -11,6 +11,7 @@ interface GenerateArtRequest {
   journeyId: string;
   movieTitle: string;
   genres: string[];
+  posterUrl: string;
 }
 
 interface GenerateArtResponse {
@@ -20,11 +21,13 @@ interface GenerateArtResponse {
   error?: string;
 }
 
-interface ReplicatePrediction {
-  id: string;
-  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
-  output?: string[];
-  error?: string;
+interface OpenAIImageResponse {
+  created: number;
+  data: Array<{
+    url?: string;
+    b64_json?: string;
+    revised_prompt?: string;
+  }>;
 }
 
 // Roll for rarity (3% holographic)
@@ -33,88 +36,98 @@ function rollForRarity(): 'common' | 'holographic' {
   return roll < 0.03 ? 'holographic' : 'common';
 }
 
-// Build prompt based on rarity
-function buildPrompt(movieTitle: string, genres: string[], rarity: 'common' | 'holographic'): string {
-  const genreText = genres.length > 0 ? genres.join(', ') : 'Drama';
+// Generate image using style transfer with gpt-image-1.5 (optimized for style transfer)
+async function generateStyleTransfer(
+  posterUrl: string,
+  apiKey: string
+): Promise<string> {
+  console.log(`Fetching poster from: ${posterUrl}`);
 
-  const basePrompt = `Create a cartoon/animated style movie poster for "${movieTitle}". Genre: ${genreText}. Style: vibrant cartoon illustration, Pixar-like quality, movie poster composition, high quality digital art. Do not copy the original poster, create an original artistic interpretation.`;
-
-  if (rarity === 'holographic') {
-    return `${basePrompt} Make it SPECIAL and EPIC with golden/rainbow holographic elements, sparkles, shimmering effects, premium collector's edition feel, magical glow, celestial energy.`;
+  // Fetch the poster image
+  const imageResponse = await fetch(posterUrl);
+  if (!imageResponse.ok) {
+    throw new Error(`Failed to fetch poster image: ${imageResponse.status}`);
   }
 
-  return basePrompt;
-}
+  const imageArrayBuffer = await imageResponse.arrayBuffer();
+  const imageBlob = new Blob([imageArrayBuffer], { type: 'image/png' });
+  console.log(`Fetched poster, size: ${imageBlob.size} bytes`);
 
-// Create a prediction on Replicate
-async function createPrediction(prompt: string, apiToken: string): Promise<string> {
-  const response = await fetch('https://api.replicate.com/v1/predictions', {
+  // Simple prompt that works (like ChatGPT web)
+  const formData = new FormData();
+  formData.append('model', 'gpt-image-1.5');
+  formData.append('image', imageBlob, 'poster.png');
+  formData.append('prompt', 'Could you recreate this with a cartoon style?');
+  formData.append('size', '1024x1024');
+  formData.append('n', '1');
+
+  const response = await fetch('https://api.openai.com/v1/images/edits', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiToken}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'wait',
-    },
-    body: JSON.stringify({
-      // Using SDXL model for high quality image generation
-      version: 'da77bc59ee60423279fd632efb4795ab731d9e3ca9705ef3341091fb989b7eaf',
-      input: {
-        prompt: prompt,
-        negative_prompt: 'blurry, low quality, distorted, ugly, bad anatomy, text, watermark, signature',
-        width: 768,
-        height: 1024,
-        num_outputs: 1,
-        scheduler: 'K_EULER',
-        num_inference_steps: 30,
-        guidance_scale: 7.5,
-      },
-    }),
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+    body: formData,
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Replicate API error: ${response.status} - ${errorText}`);
+    const errorData = await response.json().catch(() => ({}));
+    console.error('OpenAI style transfer error:', errorData);
+    throw new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
   }
 
-  const prediction: ReplicatePrediction = await response.json();
-  return prediction.id;
+  const result = await response.json();
+  if (result.data?.[0]?.b64_json) {
+    return `data:image/png;base64,${result.data[0].b64_json}`;
+  }
+  if (result.data?.[0]?.url) {
+    return result.data[0].url;
+  }
+  throw new Error('No image returned from OpenAI');
 }
 
-// Poll for prediction result
-async function getPredictionResult(predictionId: string, apiToken: string): Promise<string> {
-  const maxAttempts = 60; // 2 minutes max
-  const pollInterval = 2000; // 2 seconds
+// Apply holographic effect to an already-generated cartoon image
+async function applyHolographicEffect(
+  cartoonImageBase64: string,
+  apiKey: string
+): Promise<string> {
+  console.log('Applying holographic effect...');
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
-      headers: {
-        'Authorization': `Bearer ${apiToken}`,
-      },
-    });
+  // Convert base64 to blob
+  const base64Data = cartoonImageBase64.replace('data:image/png;base64,', '');
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  const imageBlob = new Blob([bytes], { type: 'image/png' });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get prediction status: ${response.status}`);
-    }
+  const formData = new FormData();
+  formData.append('model', 'gpt-image-1.5');
+  formData.append('image', imageBlob, 'cartoon.png');
+  formData.append('prompt', 'Make this cartoon style movie poster look like a rare holographic trading card pull. Add holographic shimmer and rainbow effects.');
+  formData.append('size', '1024x1024');
+  formData.append('n', '1');
 
-    const prediction: ReplicatePrediction = await response.json();
+  const response = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+    body: formData,
+  });
 
-    if (prediction.status === 'succeeded') {
-      if (!prediction.output || prediction.output.length === 0) {
-        throw new Error('Prediction succeeded but no output received');
-      }
-      return prediction.output[0];
-    }
-
-    if (prediction.status === 'failed' || prediction.status === 'canceled') {
-      throw new Error(prediction.error || 'Image generation failed');
-    }
-
-    // Wait before next poll
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('OpenAI holographic effect error:', errorData);
+    throw new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
   }
 
-  throw new Error('Image generation timed out');
+  const result = await response.json();
+  if (result.data?.[0]?.b64_json) {
+    return `data:image/png;base64,${result.data[0].b64_json}`;
+  }
+  if (result.data?.[0]?.url) {
+    return result.data[0].url;
+  }
+  throw new Error('No image returned from OpenAI');
 }
+
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
@@ -132,13 +145,13 @@ Deno.serve(async (req: Request) => {
     }
 
     // Get environment variables
-    const REPLICATE_API_TOKEN = Deno.env.get('REPLICATE_API_TOKEN');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
-    if (!REPLICATE_API_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
-      throw new Error('Missing API configuration');
+    if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+      throw new Error('Missing API configuration - ensure OPENAI_API_KEY is set');
     }
 
     // Validate authorization
@@ -166,7 +179,7 @@ Deno.serve(async (req: Request) => {
 
     // Parse request body
     const body: GenerateArtRequest = await req.json();
-    const { journeyId, movieTitle, genres } = body;
+    const { journeyId, movieTitle, genres, posterUrl } = body;
 
     if (!journeyId || !movieTitle) {
       return new Response(
@@ -211,17 +224,28 @@ Deno.serve(async (req: Request) => {
     const rarity = rollForRarity();
     console.log(`Rarity roll: ${rarity} for journey ${journeyId}`);
 
-    // Build the prompt
-    const prompt = buildPrompt(movieTitle, genres || [], rarity);
-    console.log(`Generating art with prompt: ${prompt.substring(0, 100)}...`);
+    // Require posterUrl for style transfer
+    if (!posterUrl) {
+      return new Response(
+        JSON.stringify({ error: 'Poster URL is required for AI art generation' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Create prediction on Replicate
-    const predictionId = await createPrediction(prompt, REPLICATE_API_TOKEN);
-    console.log(`Created Replicate prediction: ${predictionId}`);
+    console.log('Using style transfer with simple prompt');
 
-    // Poll for result
-    const imageUrl = await getPredictionResult(predictionId, REPLICATE_API_TOKEN);
-    console.log(`Generated image URL: ${imageUrl}`);
+    // Step 1: Generate cartoon version
+    let imageUrl = await generateStyleTransfer(posterUrl, OPENAI_API_KEY);
+    console.log('Generated cartoon version');
+
+    // Step 2: If holographic, apply holographic effect
+    if (rarity === 'holographic') {
+      console.log('Applying holographic effect for rare pull');
+      imageUrl = await applyHolographicEffect(imageUrl, OPENAI_API_KEY);
+      console.log('Applied holographic effect');
+    }
+
+    console.log(`Final image URL: ${imageUrl.substring(0, 50)}...`);
 
     // Update journey record with AI poster
     const { error: updateError } = await supabaseAdmin

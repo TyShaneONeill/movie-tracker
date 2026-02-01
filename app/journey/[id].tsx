@@ -35,6 +35,8 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourney } from '@/hooks/use-journey';
+import { useGenerateArt } from '@/hooks/use-generate-art';
+import { getGenreNamesByIds } from '@/lib/genre-service';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -179,6 +181,9 @@ export default function JourneyCardScreen() {
   const journey = journeyData;
   const firstTake = journeyData?.firstTake;
 
+  // AI art generation
+  const { generateArt, isGenerating } = useGenerateArt();
+
   // Calculate available height for ticket card
   // Screen height - header - top safe area - bottom safe area - padding
   const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
@@ -205,7 +210,29 @@ export default function JourneyCardScreen() {
     }
   };
 
-  // Hero image - use first journey photo if available, otherwise poster
+  // Handle generate AI art
+  const handleGenerateArt = useCallback(async () => {
+    if (!journey) return;
+    try {
+      const genreNames = journey.genre_ids
+        ? getGenreNamesByIds(journey.genre_ids)
+        : [];
+      const posterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w780') || '';
+      await generateArt({
+        journeyId: journey.id,
+        movieTitle: journey.title,
+        genres: genreNames,
+        posterUrl,
+      });
+    } catch (error) {
+      console.error('Failed to generate art:', error);
+    }
+  }, [journey, generateArt]);
+
+  // Determine poster state
+  const hasAiPoster = !!journey?.ai_poster_url;
+
+  // Hero image - use journey photo if available, otherwise poster
   const heroImageUrl = journey?.journey_photos?.[0]
     ? journey.journey_photos[0]
     : getTMDBImageUrl(journey?.poster_path ?? null, 'w780');
@@ -326,7 +353,33 @@ export default function JourneyCardScreen() {
                 </Text>
               </LinearGradient>
             </View>
+
           </View>
+
+          {/* Generate AI Art Button - only show if no AI art exists */}
+          {!hasAiPoster && (
+            <View style={styles.posterOptionsSection}>
+              <Pressable
+                style={styles.generateArtButton}
+                onPress={handleGenerateArt}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.text} />
+                    <Text style={styles.generateArtButtonText}>Generating...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                      <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                    </Svg>
+                    <Text style={styles.generateArtButtonText}>Generate AI Art</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          )}
 
           {/* Perforated Edge */}
           <PerforatedEdge colors={colors} />
@@ -548,6 +601,26 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
     color: '#ffffff',
     letterSpacing: 1,
     fontWeight: '700',
+  },
+
+  // Poster Options Section
+  posterOptionsSection: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  generateArtButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: colors.tint,
+    borderRadius: BorderRadius.md,
+  },
+  generateArtButtonText: {
+    ...Typography.button.primary,
+    color: colors.text,
   },
 
   // Title Section
