@@ -7,6 +7,8 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
+import { Sentry } from '@/lib/sentry';
+import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
 
 function ChevronLeftIcon({ color }: { color: string }) {
@@ -43,6 +45,16 @@ export default function SettingsScreen() {
     } catch (error) {
       // TODO: Replace with Sentry error tracking
     }
+  };
+
+  const handleTestSentry = () => {
+    Sentry.captureException(new Error('Test error from CineTrak Settings'));
+    Toast.show({
+      type: 'success',
+      text1: 'Test error sent!',
+      text2: 'Check your Sentry dashboard',
+      visibilityTime: 3000,
+    });
   };
 
   const handleLogout = async () => {
@@ -268,6 +280,30 @@ export default function SettingsScreen() {
             <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>
         </View>
+
+        {/* Developer Section - Remove after testing */}
+        {__DEV__ && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>DEVELOPER</Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingsItem,
+                styles.firstItem,
+                styles.lastItem,
+                { backgroundColor: colors.card },
+                pressed && { backgroundColor: colors.backgroundSecondary }
+              ]}
+              onPress={handleTestSentry}
+            >
+              <View>
+                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Test Sentry Error</Text>
+                <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Send a test error to Sentry</Text>
+              </View>
+              <ChevronRightIcon color={colors.textSecondary} />
+            </Pressable>
+          </View>
+        )}
 
         {/* Logout Button */}
         <Pressable
