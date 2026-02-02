@@ -50,6 +50,54 @@ function rollForRarity(): 'common' | 'holographic' {
   return roll < 0.03 ? 'holographic' : 'common';
 }
 
+// Convert base64 data URL to Uint8Array for storage upload
+function base64ToUint8Array(base64DataUrl: string): Uint8Array {
+  const base64Data = base64DataUrl.replace(/^data:image\/\w+;base64,/, '');
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// Upload image to Supabase Storage and return public URL
+async function uploadToStorage(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  journeyId: string,
+  imageData: string | Uint8Array
+): Promise<string> {
+  const filePath = `${userId}/${journeyId}.png`;
+
+  // Convert to Uint8Array if it's a base64 data URL
+  const imageBytes = typeof imageData === 'string'
+    ? base64ToUint8Array(imageData)
+    : imageData;
+
+  console.log(`Uploading image to storage: ${filePath} (${imageBytes.length} bytes)`);
+
+  const { error: uploadError } = await supabase.storage
+    .from('journey-art')
+    .upload(filePath, imageBytes, {
+      contentType: 'image/png',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    console.error('Storage upload error:', uploadError);
+    throw new Error(`Failed to upload image: ${uploadError.message}`);
+  }
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('journey-art')
+    .getPublicUrl(filePath);
+
+  console.log(`Image uploaded, public URL: ${urlData.publicUrl}`);
+  return urlData.publicUrl;
+}
+
 // Generate image using style transfer with gpt-image-1.5 (optimized for style transfer)
 async function generateStyleTransfer(
   posterUrl: string,
@@ -284,24 +332,26 @@ Deno.serve(async (req: Request) => {
 
     console.log('Using style transfer with simple prompt');
 
-    // Step 1: Generate cartoon version
-    let imageUrl = await generateStyleTransfer(posterUrl, OPENAI_API_KEY);
+    // Step 1: Generate cartoon version (returns base64 data URL)
+    let imageDataUrl = await generateStyleTransfer(posterUrl, OPENAI_API_KEY);
     console.log('Generated cartoon version');
 
     // Step 2: If holographic, apply holographic effect
     if (rarity === 'holographic') {
       console.log('Applying holographic effect for rare pull');
-      imageUrl = await applyHolographicEffect(imageUrl, OPENAI_API_KEY);
+      imageDataUrl = await applyHolographicEffect(imageDataUrl, OPENAI_API_KEY);
       console.log('Applied holographic effect');
     }
 
-    console.log(`Final image URL: ${imageUrl.substring(0, 50)}...`);
+    // Step 3: Upload to Supabase Storage instead of storing base64 in database
+    const publicUrl = await uploadToStorage(supabaseAdmin, user.id, journeyId, imageDataUrl);
+    console.log(`Image uploaded to storage: ${publicUrl}`);
 
-    // Update journey record with AI poster
+    // Update journey record with storage URL (not base64)
     const { error: updateError } = await supabaseAdmin
       .from('user_movies')
       .update({
-        ai_poster_url: imageUrl,
+        ai_poster_url: publicUrl,
         ai_poster_rarity: rarity,
         display_poster: 'ai_generated',
         journey_updated_at: new Date().toISOString(),
@@ -310,12 +360,12 @@ Deno.serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Failed to update journey:', updateError);
-      // Still return success since image was generated
+      // Still return success since image was uploaded to storage
     }
 
     const response: GenerateArtResponse = {
       success: true,
-      imageUrl,
+      imageUrl: publicUrl,
       rarity,
     };
 

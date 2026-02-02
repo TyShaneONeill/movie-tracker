@@ -300,8 +300,33 @@ export async function updateJourney(
   return updatedJourney;
 }
 
-// Delete a journey record
+// Delete a journey record and clean up associated storage files
 export async function deleteJourney(journeyId: string): Promise<void> {
+  // First, fetch the journey to get user_id and check for AI art
+  const { data: journey, error: fetchError } = await supabase
+    .from('user_movies')
+    .select('user_id, ai_poster_url')
+    .eq('id', journeyId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(fetchError.message || 'Failed to fetch journey for deletion');
+  }
+
+  // If there's an AI poster stored in Supabase Storage, delete it
+  if (journey?.ai_poster_url && journey.ai_poster_url.includes('/storage/')) {
+    const filePath = `${journey.user_id}/${journeyId}.png`;
+    const { error: storageError } = await supabase.storage
+      .from('journey-art')
+      .remove([filePath]);
+
+    if (storageError) {
+      // Log but don't fail the deletion - orphaned files are less critical
+      console.warn('Failed to delete AI art from storage:', storageError);
+    }
+  }
+
+  // Delete the database record
   const { error } = await supabase
     .from('user_movies')
     .delete()
