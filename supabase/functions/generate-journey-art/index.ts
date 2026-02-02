@@ -6,6 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Allowed domains for poster URLs (SSRF protection)
+const ALLOWED_POSTER_DOMAINS = [
+  'image.tmdb.org',
+];
+
+function isAllowedPosterUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return ALLOWED_POSTER_DOMAINS.includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 // Types
 interface GenerateArtRequest {
   journeyId: string;
@@ -191,6 +205,33 @@ Deno.serve(async (req: Request) => {
     // Create admin client for database operations
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Rate limiting: Max 10 AI generations per user per day
+    const RATE_LIMIT_MAX = 10;
+    const RATE_LIMIT_WINDOW_HOURS = 24;
+
+    const windowStart = new Date();
+    windowStart.setHours(windowStart.getHours() - RATE_LIMIT_WINDOW_HOURS);
+
+    const { count: recentGenerations, error: countError } = await supabaseAdmin
+      .from('user_movies')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .not('ai_poster_url', 'is', null)
+      .gte('journey_updated_at', windowStart.toISOString());
+
+    if (countError) {
+      console.error('Rate limit check error:', countError);
+      // Continue anyway - don't block legitimate users due to check failure
+    } else if (recentGenerations !== null && recentGenerations >= RATE_LIMIT_MAX) {
+      console.warn(`Rate limit exceeded for user ${user.id}: ${recentGenerations} generations in ${RATE_LIMIT_WINDOW_HOURS}h`);
+      return new Response(
+        JSON.stringify({
+          error: `Rate limit exceeded. Maximum ${RATE_LIMIT_MAX} AI art generations per ${RATE_LIMIT_WINDOW_HOURS} hours.`
+        }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Verify the journey belongs to this user
     const { data: journey, error: journeyError } = await supabaseAdmin
       .from('user_movies')
@@ -228,6 +269,15 @@ Deno.serve(async (req: Request) => {
     if (!posterUrl) {
       return new Response(
         JSON.stringify({ error: 'Poster URL is required for AI art generation' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SSRF Protection: Only allow TMDB poster URLs
+    if (!isAllowedPosterUrl(posterUrl)) {
+      console.warn(`Blocked disallowed poster URL: ${posterUrl}`);
+      return new Response(
+        JSON.stringify({ error: 'Invalid poster URL. Only TMDB images are allowed.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
