@@ -13,7 +13,8 @@ import type { TMDBMovie } from '@/lib/tmdb.types';
 
 /**
  * Groups movies by tmdb_id and returns one entry per movie with journey count.
- * Prioritizes the journey with AI art, otherwise most recent.
+ * Prioritizes journeys where user explicitly set display_poster to 'ai_generated',
+ * then journeys with AI art available, then most recent.
  */
 function groupMoviesByTmdbId(movies: UserMovie[]): GroupedUserMovie[] {
   const movieMap = new Map<number, { primary: UserMovie; count: number }>();
@@ -23,8 +24,14 @@ function groupMoviesByTmdbId(movies: UserMovie[]): GroupedUserMovie[] {
 
     if (existing) {
       existing.count++;
-      // Prioritize journey with AI art, then most recent (already sorted by added_at DESC)
-      if (movie.ai_poster_url && !existing.primary.ai_poster_url) {
+      // Priority: 1) User explicitly set display_poster to ai_generated, 2) Has AI art, 3) Most recent
+      const currentHasExplicitAiPreference = existing.primary.display_poster === 'ai_generated' && existing.primary.ai_poster_url;
+      const newHasExplicitAiPreference = movie.display_poster === 'ai_generated' && movie.ai_poster_url;
+
+      if (newHasExplicitAiPreference && !currentHasExplicitAiPreference) {
+        existing.primary = movie;
+      } else if (!currentHasExplicitAiPreference && movie.ai_poster_url && !existing.primary.ai_poster_url) {
+        // Fallback: prioritize having AI art available
         existing.primary = movie;
       }
     } else {

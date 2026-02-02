@@ -170,7 +170,13 @@ export default function ProfileScreen() {
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => (
         <CollectionGridCard
-            posterUrl={item.poster_path ? getTMDBImageUrl(item.poster_path, 'w342') ?? '' : ''}
+            posterUrl={
+                item.display_poster === 'ai_generated' && item.ai_poster_url
+                    ? item.ai_poster_url
+                    : item.poster_path
+                        ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
+                        : ''
+            }
             journeyCount={item.journeyCount}
             onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
             style={{ width: CARD_WIDTH }}

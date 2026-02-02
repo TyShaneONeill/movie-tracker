@@ -23,6 +23,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -657,6 +658,16 @@ export default function JourneyCarouselScreen() {
         journeyId: journey.id,
         data: { display_poster: newDisplayPoster },
       });
+
+      // Show feedback toast when switching to AI art
+      if (newDisplayPoster === 'ai_generated') {
+        const isHolographic = journey.ai_poster_rarity === 'holographic';
+        Toast.show({
+          type: 'success',
+          text1: isHolographic ? '🌟 Rare art set as poster' : '✨ AI art set as poster',
+          text2: 'This artwork will display in your collection',
+        });
+      }
     } catch (error) {
       console.error('Failed to toggle poster:', error);
     }
