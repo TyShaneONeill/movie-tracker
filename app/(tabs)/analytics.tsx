@@ -6,6 +6,8 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useUserStats, type GenreStats } from '@/hooks/use-user-stats';
+import { useAuth } from '@/hooks/use-auth';
+import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 
 // Genre color palette for the donut chart
 const GENRE_COLORS = [
@@ -22,7 +24,19 @@ const GENRE_COLORS = [
 export default function AnalyticsScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { user } = useAuth();
   const { data: stats, isLoading, error } = useUserStats();
+
+  // Guest state - show sign in prompt
+  if (!user) {
+    return (
+      <GuestSignInPrompt
+        icon="stats-chart-outline"
+        title="Your Stats"
+        message="Sign in to see your viewing statistics and movie insights"
+      />
+    );
+  }
 
   // Loading state
   if (isLoading) {

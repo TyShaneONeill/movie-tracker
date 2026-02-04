@@ -28,6 +28,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useScanTicket, fetchScanStatus } from '@/hooks/use-scan-ticket';
 import { useAuth } from '@/lib/auth-context';
 import { imageUriToBase64, getMimeTypeFromUri } from '@/lib/image-utils';
+import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 
 // ============================================================================
 // Constants
@@ -320,38 +321,11 @@ export default function ScannerScreen() {
   // Not authenticated state - prompt user to sign in
   if (!user) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <SafeAreaView style={styles.permissionContainer}>
-          <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
-          <Text style={[styles.permissionTitle, { color: colors.text }]}>
-            Sign In Required
-          </Text>
-          <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
-            Sign in to scan movie tickets and log your cinema experiences. Your scans are limited to 3 per day.
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={() => router.push('/(auth)/signin')}
-          >
-            <Text style={styles.primaryButtonText}>Sign In</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.outlineButton,
-              { borderColor: colors.border },
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={() => router.push('/(auth)/signup')}
-          >
-            <Text style={[styles.outlineButtonText, { color: colors.text }]}>
-              Create Account
-            </Text>
-          </Pressable>
-        </SafeAreaView>
-      </View>
+      <GuestSignInPrompt
+        icon="ticket-outline"
+        title="Scan Tickets"
+        message="Sign in to scan movie tickets and log your cinema experiences"
+      />
     );
   }
 
