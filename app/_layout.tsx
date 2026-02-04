@@ -112,13 +112,20 @@ function useProtectedRoute() {
       return;
     }
 
-    if (!user && !inAuthGroup) {
+    if (!user && !inAuthGroup && !inOnboardingGroup) {
       // Not authenticated and not on auth screens
       if (isGuest) {
         // Guest mode - allow browsing
         return;
       }
       // Not in guest mode - show welcome screen (or signin if they've seen welcome)
+      if (!hasSeenWelcome) {
+        performNavigation('/(auth)/welcome');
+      } else {
+        performNavigation('/(auth)/signin');
+      }
+    } else if (!user && inOnboardingGroup) {
+      // User is in onboarding but not logged in - redirect to auth
       if (!hasSeenWelcome) {
         performNavigation('/(auth)/welcome');
       } else {
