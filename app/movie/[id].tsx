@@ -35,10 +35,11 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { MovieStatusActions } from '@/components/movie-status-actions';
+import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { useMovieDetail } from '@/hooks/use-movie-detail';
 import { useMovieActions } from '@/hooks/use-movie-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
-import { useAuth } from '@/hooks/use-auth';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
@@ -56,7 +57,7 @@ function formatRuntime(minutes: number | null): string {
 export default function MovieDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
@@ -130,21 +131,16 @@ export default function MovieDetailScreen() {
   };
 
   const handleLike = async () => {
-    if (!user) {
-      Alert.alert('Sign In Required', 'Please sign in to like movies.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
-      ]);
-      return;
-    }
-    const movieData = getMovieForSave();
-    if (movieData) {
-      try {
-        await toggleLike(movieData);
-      } catch {
-        Alert.alert('Error', 'Failed to update like status. Please try again.');
+    requireAuth(async () => {
+      const movieData = getMovieForSave();
+      if (movieData) {
+        try {
+          await toggleLike(movieData);
+        } catch {
+          Alert.alert('Error', 'Failed to update like status. Please try again.');
+        }
       }
-    }
+    }, 'Sign in to like movies');
   };
 
 
@@ -161,51 +157,45 @@ export default function MovieDetailScreen() {
   };
 
   const handleStatusChange = async (status: MovieStatus | null) => {
-    if (!user) {
-      Alert.alert('Sign In Required', 'Please sign in to track movies.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign In', onPress: () => router.push('/(auth)/signin') },
-      ]);
-      return;
-    }
+    requireAuth(async () => {
+      const movieData = getMovieForSave();
+      if (!movieData) return;
 
-    const movieData = getMovieForSave();
-    if (!movieData) return;
+      // Track if we're changing TO watched status (for First Take prompt)
+      const isChangingToWatched = status === 'watched' && currentStatus !== 'watched';
 
-    // Track if we're changing TO watched status (for First Take prompt)
-    const isChangingToWatched = status === 'watched' && currentStatus !== 'watched';
-
-    try {
-      if (status === null) {
-        // Remove from watchlist - show confirmation if user has First Take
-        if (hasFirstTake) {
-          Alert.alert(
-            'Remove Movie?',
-            'This will also delete your First Take for this movie.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Remove Both', style: 'destructive', onPress: performRemoval },
-            ]
-          );
-          return;
+      try {
+        if (status === null) {
+          // Remove from watchlist - show confirmation if user has First Take
+          if (hasFirstTake) {
+            Alert.alert(
+              'Remove Movie?',
+              'This will also delete your First Take for this movie.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Remove Both', style: 'destructive', onPress: performRemoval },
+              ]
+            );
+            return;
+          }
+          await removeFromWatchlist();
+        } else if (isSaved) {
+          // Movie already in watchlist, change status
+          await changeStatus(status);
+        } else {
+          // Add to watchlist with selected status
+          await addToWatchlist(movieData, status);
         }
-        await removeFromWatchlist();
-      } else if (isSaved) {
-        // Movie already in watchlist, change status
-        await changeStatus(status);
-      } else {
-        // Add to watchlist with selected status
-        await addToWatchlist(movieData, status);
-      }
 
-      // After successful status change to "watched", prompt for First Take
-      // Only if user doesn't already have a First Take and preference is enabled
-      if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled) {
-        setShowFirstTakeModal(true);
+        // After successful status change to "watched", prompt for First Take
+        // Only if user doesn't already have a First Take and preference is enabled
+        if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled) {
+          setShowFirstTakeModal(true);
+        }
+      } catch {
+        Alert.alert('Error', 'Failed to update movie status. Please try again.');
       }
-    } catch {
-      Alert.alert('Error', 'Failed to update movie status. Please try again.');
-    }
+    }, 'Sign in to track movies');
   };
 
   const handleFirstTakeSubmit = async (data: {
@@ -454,6 +444,13 @@ export default function MovieDetailScreen() {
         movieTitle={movie?.title ?? ''}
         moviePosterUrl={posterUrl ?? undefined}
         isSubmitting={isCreatingFirstTake}
+      />
+
+      {/* Login Prompt Modal */}
+      <LoginPromptModal
+        visible={isLoginPromptVisible}
+        onClose={hideLoginPrompt}
+        message={loginPromptMessage}
       />
     </View>
   );

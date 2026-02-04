@@ -327,7 +327,7 @@ export default function ScannerScreen() {
             Sign In Required
           </Text>
           <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
-            Please sign in to scan movie tickets. Your scans are limited to 3 per day.
+            Sign in to scan movie tickets and log your cinema experiences. Your scans are limited to 3 per day.
           </Text>
           <Pressable
             style={({ pressed }) => [
@@ -337,6 +337,18 @@ export default function ScannerScreen() {
             onPress={() => router.push('/(auth)/signin')}
           >
             <Text style={styles.primaryButtonText}>Sign In</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.outlineButton,
+              { borderColor: colors.border },
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => router.push('/(auth)/signup')}
+          >
+            <Text style={[styles.outlineButtonText, { color: colors.text }]}>
+              Create Account
+            </Text>
           </Pressable>
         </SafeAreaView>
       </View>

@@ -9,9 +9,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, Link } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
+
+import { useAuth } from '@/hooks/use-auth';
 
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
@@ -45,6 +47,7 @@ const CARD_WIDTH = (AVAILABLE_WIDTH - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_
 
 export default function ProfileScreen() {
     const { effectiveTheme } = useTheme();
+    const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -168,20 +171,24 @@ export default function ProfileScreen() {
         setIsRefreshing(false);
     }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes]);
 
-    const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => (
-        <CollectionGridCard
-            posterUrl={
-                item.display_poster === 'ai_generated' && item.ai_poster_url
-                    ? item.ai_poster_url
-                    : item.poster_path
-                        ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
-                        : ''
-            }
-            journeyCount={item.journeyCount}
-            onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
-            style={{ width: CARD_WIDTH }}
-        />
-    ), []);
+    const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
+        const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
+        return (
+            <CollectionGridCard
+                posterUrl={
+                    isAiPoster
+                        ? item.ai_poster_url!
+                        : item.poster_path
+                            ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
+                            : ''
+                }
+                isAiPoster={isAiPoster}
+                journeyCount={item.journeyCount}
+                onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
+                style={{ width: CARD_WIDTH }}
+            />
+        );
+    }, []);
 
     const renderEmptyCollection = () => (
         <View style={styles.emptyContainer}>
@@ -581,6 +588,45 @@ export default function ProfileScreen() {
         }
     };
 
+    // Guest state - show sign in prompt
+    if (!user) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+                <View style={styles.guestContainer}>
+                    <Ionicons name="person-circle-outline" size={80} color={colors.textSecondary} />
+                    <ThemedText style={[styles.guestTitle, { color: colors.text }]}>
+                        Your Profile
+                    </ThemedText>
+                    <ThemedText style={[styles.guestSubtitle, { color: colors.textSecondary }]}>
+                        Sign in to see your collection, watchlist, and first takes
+                    </ThemedText>
+                    <Link href="/(auth)/signin" asChild>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.guestPrimaryButton,
+                                { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+                            ]}
+                        >
+                            <ThemedText style={styles.guestPrimaryButtonText}>Sign In</ThemedText>
+                        </Pressable>
+                    </Link>
+                    <Link href="/(auth)/signup" asChild>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.guestOutlineButton,
+                                { borderColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+                            ]}
+                        >
+                            <ThemedText style={[styles.guestOutlineButtonText, { color: colors.tint }]}>
+                                Create Account
+                            </ThemedText>
+                        </Pressable>
+                    </Link>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
             {/* Settings Icon - Fixed at top */}
@@ -924,5 +970,48 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: Spacing.md,
+    },
+    // Guest state styles
+    guestContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.xl,
+        gap: Spacing.md,
+    },
+    guestTitle: {
+        ...Typography.display.h3,
+        marginTop: Spacing.md,
+        textAlign: 'center',
+    },
+    guestSubtitle: {
+        ...Typography.body.base,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: Spacing.md,
+    },
+    guestPrimaryButton: {
+        width: '100%',
+        height: 52,
+        borderRadius: BorderRadius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    guestPrimaryButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    guestOutlineButton: {
+        width: '100%',
+        height: 52,
+        borderRadius: BorderRadius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+    },
+    guestOutlineButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
     },
 });

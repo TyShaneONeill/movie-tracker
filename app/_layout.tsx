@@ -29,6 +29,7 @@ import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { QueryProvider } from '@/lib/query-client';
 import { ThemeProvider, useTheme } from '@/lib/theme-context';
 import { useOnboarding, OnboardingProvider } from '@/hooks/use-onboarding';
+import { GuestProvider, useGuest } from '@/lib/guest-context';
 import { Colors } from '@/constants/theme';
 import { toastConfig } from '@/lib/toast-config';
 import { handleAuthDeepLink } from '@/lib/deep-link-handler';
@@ -48,6 +49,7 @@ export const unstable_settings = {
 function useProtectedRoute() {
   const { user, isLoading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
+  const { isGuest, hasSeenWelcome, isLoading: guestLoading } = useGuest();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
@@ -88,7 +90,7 @@ function useProtectedRoute() {
   }, []);
 
   useEffect(() => {
-    if (!navigationState?.key || authLoading || onboardingLoading) {
+    if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) {
       return;
     }
 
@@ -99,7 +101,7 @@ function useProtectedRoute() {
     // This prevents "route not found" errors during initial render
     const performNavigation = (route: string) => {
       setTimeout(() => {
-        router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
+        router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(auth)/welcome' | '/(onboarding)');
       }, 0);
     };
 
@@ -111,8 +113,17 @@ function useProtectedRoute() {
     }
 
     if (!user && !inAuthGroup) {
-      // Not authenticated and not on auth screens → go to signin
-      performNavigation('/(auth)/signin');
+      // Not authenticated and not on auth screens
+      if (isGuest) {
+        // Guest mode - allow browsing
+        return;
+      }
+      // Not in guest mode - show welcome screen (or signin if they've seen welcome)
+      if (!hasSeenWelcome) {
+        performNavigation('/(auth)/welcome');
+      } else {
+        performNavigation('/(auth)/signin');
+      }
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding
       // (but don't redirect away from reset-password)
@@ -132,16 +143,17 @@ function useProtectedRoute() {
       // Authenticated and completed onboarding but still on onboarding → go to tabs
       performNavigation('/(tabs)');
     }
-  }, [user, segments, authLoading, onboardingLoading, hasCompletedOnboarding, navigationState?.key]);
+  }, [user, segments, authLoading, onboardingLoading, guestLoading, hasCompletedOnboarding, isGuest, hasSeenWelcome, navigationState?.key]);
 }
 
 function RootLayoutNav() {
   const { effectiveTheme } = useTheme();
   const { isLoading: authLoading } = useAuth();
   const { isLoading: onboardingLoading } = useOnboarding();
+  const { isLoading: guestLoading } = useGuest();
   useProtectedRoute();
 
-  if (authLoading || onboardingLoading) {
+  if (authLoading || onboardingLoading || guestLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: Colors[effectiveTheme].background }]}>
         <ActivityIndicator size="large" color={Colors[effectiveTheme].tint} />
@@ -196,13 +208,15 @@ export default function RootLayout() {
 
   return (
     <QueryProvider>
-      <AuthProvider>
-        <OnboardingProvider>
-          <ThemeProvider>
-            <RootLayoutNav />
-          </ThemeProvider>
-        </OnboardingProvider>
-      </AuthProvider>
+      <GuestProvider>
+        <AuthProvider>
+          <OnboardingProvider>
+            <ThemeProvider>
+              <RootLayoutNav />
+            </ThemeProvider>
+          </OnboardingProvider>
+        </AuthProvider>
+      </GuestProvider>
     </QueryProvider>
   );
 }

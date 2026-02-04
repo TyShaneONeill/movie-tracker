@@ -10,7 +10,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
@@ -19,11 +19,13 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { useGuest } from '@/lib/guest-context';
 
 export default function SignInScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { signIn, signInWithApple, signInWithGoogle, isGoogleSignInAvailable } = useAuth();
+  const { enterGuestMode } = useGuest();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -261,6 +263,20 @@ export default function SignInScreen() {
                 </Pressable>
               </Link>
             </View>
+            <Pressable
+              onPress={async () => {
+                await enterGuestMode();
+                router.replace('/(tabs)');
+              }}
+              style={({ pressed }) => [
+                styles.browseFirstButton,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <ThemedText style={[styles.browseFirstText, { color: colors.textSecondary }]}>
+                Just browsing? Continue as guest
+              </ThemedText>
+            </Pressable>
           </View>
         </ThemedView>
       </ScrollView>
@@ -393,5 +409,12 @@ const styles = StyleSheet.create({
   linkText: {
     ...Typography.body.sm,
     fontWeight: '600',
+  },
+  browseFirstButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+  },
+  browseFirstText: {
+    ...Typography.body.sm,
   },
 });
