@@ -54,6 +54,13 @@ export async function hasFreshCache(tmdbId: number): Promise<boolean> {
 export async function cacheMovieData(
   movieDetail: TMDBMovieDetail
 ): Promise<void> {
+  // Skip caching if user is not authenticated (e.g., guest mode)
+  // RLS policies only allow authenticated users to INSERT/UPDATE
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return;
+  }
+
   const insertData: CachedMovieInsert = {
     tmdb_id: movieDetail.id,
     title: movieDetail.title,

@@ -75,6 +75,10 @@ export function GuestProvider({ children }: { children: ReactNode }) {
 
   const enterGuestMode = useCallback(async () => {
     try {
+      // Clear any stale auth session before entering guest mode
+      // This prevents "Invalid Refresh Token" errors from leftover sessions
+      await supabase.auth.signOut();
+
       await Promise.all([
         AsyncStorage.setItem(GUEST_MODE_KEY, 'true'),
         AsyncStorage.setItem(HAS_SEEN_WELCOME_KEY, 'true'),
