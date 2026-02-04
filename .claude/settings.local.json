@@ -71,7 +71,18 @@
       "Bash(docker:*)",
       "Bash(docker compose:*)",
       "Bash(gh auth:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:cookbook.openai.com)",
+      "WebFetch(domain:www.datacamp.com)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:wavespeed.ai)",
+      "Bash(npx @sentry/wizard@latest:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:shopify.github.io)",
+      "Bash(head:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

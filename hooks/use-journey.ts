@@ -114,6 +114,8 @@ export function useJourneyMutations(tmdbId?: number) {
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
       // Invalidate all journey queries
       queryClient.invalidateQueries({ queryKey: ['journey'] });
+      // Invalidate journeys by movie (for carousel updates)
+      queryClient.invalidateQueries({ queryKey: ['journeysByMovie'] });
     },
   });
 

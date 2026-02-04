@@ -29,13 +29,17 @@ import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Fonts, Gradients } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourneysByMovie, useCreateJourney, useJourneyMutations } from '@/hooks/use-journey';
 import { useGenerateArt } from '@/hooks/use-generate-art';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 import { getGenreNamesByIds } from '@/lib/genre-service';
+import { PosterInspectionModal } from '@/components/poster-inspection';
+import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
+import * as Haptics from 'expo-haptics';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 
 // Type for the colors object
@@ -118,24 +122,25 @@ interface PosterToggleProps {
   isHolographic: boolean;
   onToggle: () => void;
   colors: ThemeColors;
+  isDark: boolean;
 }
 
-function PosterToggle({ isAiSelected, isHolographic, onToggle, colors }: PosterToggleProps) {
+function PosterToggle({ isAiSelected, isHolographic, onToggle, colors, isDark }: PosterToggleProps) {
   return (
-    <View style={posterToggleStyles(colors).container}>
+    <View style={posterToggleStyles(colors, isDark).container}>
       <Pressable
         style={[
-          posterToggleStyles(colors).option,
-          !isAiSelected && posterToggleStyles(colors).optionSelected,
+          posterToggleStyles(colors, isDark).option,
+          !isAiSelected && posterToggleStyles(colors, isDark).optionSelected,
         ]}
         onPress={() => isAiSelected && onToggle()}
       >
-        <View style={posterToggleStyles(colors).radioOuter}>
-          {!isAiSelected && <View style={posterToggleStyles(colors).radioInner} />}
+        <View style={posterToggleStyles(colors, isDark).radioOuter}>
+          {!isAiSelected && <View style={posterToggleStyles(colors, isDark).radioInner} />}
         </View>
         <Text style={[
-          posterToggleStyles(colors).optionText,
-          !isAiSelected && posterToggleStyles(colors).optionTextSelected,
+          posterToggleStyles(colors, isDark).optionText,
+          !isAiSelected && posterToggleStyles(colors, isDark).optionTextSelected,
         ]}>
           Original
         </Text>
@@ -143,32 +148,32 @@ function PosterToggle({ isAiSelected, isHolographic, onToggle, colors }: PosterT
 
       <Pressable
         style={[
-          posterToggleStyles(colors).option,
-          isAiSelected && posterToggleStyles(colors).optionSelected,
+          posterToggleStyles(colors, isDark).option,
+          isAiSelected && posterToggleStyles(colors, isDark).optionSelected,
         ]}
         onPress={() => !isAiSelected && onToggle()}
       >
-        <View style={posterToggleStyles(colors).radioOuter}>
+        <View style={posterToggleStyles(colors, isDark).radioOuter}>
           {isAiSelected && <View style={[
-            posterToggleStyles(colors).radioInner,
-            isHolographic && posterToggleStyles(colors).radioInnerHolo,
+            posterToggleStyles(colors, isDark).radioInner,
+            isHolographic && posterToggleStyles(colors, isDark).radioInnerHolo,
           ]} />}
         </View>
         <Text style={[
-          posterToggleStyles(colors).optionText,
-          isAiSelected && posterToggleStyles(colors).optionTextSelected,
+          posterToggleStyles(colors, isDark).optionText,
+          isAiSelected && posterToggleStyles(colors, isDark).optionTextSelected,
         ]}>
           AI Art
         </Text>
         {isHolographic && (
-          <Text style={posterToggleStyles(colors).holoBadge}>✨</Text>
+          <Text style={posterToggleStyles(colors, isDark).holoBadge}>✨</Text>
         )}
       </Pressable>
     </View>
   );
 }
 
-const posterToggleStyles = (colors: ThemeColors) => StyleSheet.create({
+const posterToggleStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -178,7 +183,7 @@ const posterToggleStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
     borderRadius: BorderRadius.md,
   },
   option: {
@@ -190,7 +195,7 @@ const posterToggleStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 6,
   },
   optionSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
   },
   radioOuter: {
     width: 16,
@@ -283,6 +288,7 @@ interface JourneyTicketProps {
   onGenerateArt: () => void;
   onTogglePoster: () => void;
   isGenerating: boolean;
+  onPosterTap: () => void;
 }
 
 function JourneyTicket({
@@ -296,6 +302,7 @@ function JourneyTicket({
   onGenerateArt,
   onTogglePoster,
   isGenerating,
+  onPosterTap,
 }: JourneyTicketProps) {
   const [infoPageIndex, setInfoPageIndex] = useState(0);
 
@@ -316,19 +323,26 @@ function JourneyTicket({
   const hasAiPoster = !!journey.ai_poster_url;
   const isHolographic = journey.ai_poster_rarity === 'holographic';
 
-  const styles = useMemo(() => createTicketStyles(colors, ticketHeight, ticketWidth, infoPageWidth), [colors, ticketHeight, ticketWidth, infoPageWidth]);
+  const isDark = effectiveTheme === 'dark';
+  const styles = useMemo(() => createTicketStyles(colors, ticketHeight, ticketWidth, infoPageWidth, isDark), [colors, ticketHeight, ticketWidth, infoPageWidth, isDark]);
 
   return (
     <View style={styles.ticketCard}>
       {/* Hero Image Area */}
-      <View style={styles.heroSection}>
+      <Pressable
+        onPress={onPosterTap}
+        style={({ pressed }) => [
+          styles.heroSection,
+          pressed && { opacity: 0.8 }
+        ]}
+      >
         <Image
           source={{ uri: heroImageUrl || undefined }}
           style={styles.heroImage}
           resizeMode="cover"
         />
         <LinearGradient
-          colors={['transparent', 'rgba(26, 26, 32, 0.8)']}
+          colors={['transparent', isDark ? 'rgba(26, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.8)']}
           style={styles.heroGradient}
         />
 
@@ -373,7 +387,7 @@ function JourneyTicket({
             </LinearGradient>
           </View>
         )}
-      </View>
+      </Pressable>
 
       {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
       {hasAiPoster ? (
@@ -382,6 +396,7 @@ function JourneyTicket({
           isHolographic={isHolographic}
           onToggle={onTogglePoster}
           colors={colors}
+          isDark={isDark}
         />
       ) : (
         <View style={styles.generateArtSection}>
@@ -567,6 +582,9 @@ export default function JourneyCarouselScreen() {
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
+  // Auth gating hook
+  const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
+
   // Journey carousel state
   const [currentJourneyIndex, setCurrentJourneyIndex] = useState(0);
   const carouselRef = useRef<ScrollView>(null);
@@ -589,6 +607,17 @@ export default function JourneyCarouselScreen() {
   // Track which journey is currently generating
   const [generatingJourneyId, setGeneratingJourneyId] = useState<string | null>(null);
 
+  // Poster inspection modal state
+  const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
+  const [selectedPosterJourney, setSelectedPosterJourney] = useState<UserMovie | null>(null);
+
+  // Handle poster tap for inspection modal
+  const handlePosterTap = useCallback((journey: UserMovie) => {
+    setSelectedPosterJourney(journey);
+    setIsPosterModalVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, []);
+
   // Calculate dimensions
   const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
   const ticketWidth = screenWidth - (CAROUSEL_HORIZONTAL_PADDING * 2);
@@ -597,6 +626,9 @@ export default function JourneyCarouselScreen() {
 
   // Total pages = journeys + 1 (add new journey card)
   const totalPages = journeys.length + 1;
+
+  // Theme detection
+  const isDark = effectiveTheme === 'dark';
 
   const styles = useMemo(() => createStyles(colors, ticketHeight, ticketWidth), [colors, ticketHeight, ticketWidth]);
 
@@ -618,37 +650,41 @@ export default function JourneyCarouselScreen() {
 
   // Handle create new journey
   const handleCreateJourney = async () => {
-    if (journeys.length === 0) return;
-    try {
-      const newJourney = await createJourney(journeys[0]);
-      // Navigate to the edit screen for the new journey
-      router.push(`/journey/edit/${newJourney.id}` as never);
-    } catch (error) {
-      console.error('Failed to create new journey:', error);
-    }
+    requireAuth(async () => {
+      if (journeys.length === 0) return;
+      try {
+        const newJourney = await createJourney(journeys[0]);
+        // Navigate to the edit screen for the new journey
+        router.push(`/journey/edit/${newJourney.id}` as never);
+      } catch (error) {
+        console.error('Failed to create new journey:', error);
+      }
+    }, 'Sign in to log another viewing');
   };
 
   // Handle generate AI art for a journey
   const handleGenerateArt = useCallback(async (journey: UserMovie) => {
-    setGeneratingJourneyId(journey.id);
-    // Get genre names from genre_ids
-    const genreNames = journey.genre_ids
-      ? getGenreNamesByIds(journey.genre_ids)
-      : [];
+    requireAuth(async () => {
+      setGeneratingJourneyId(journey.id);
+      // Get genre names from genre_ids
+      const genreNames = journey.genre_ids
+        ? getGenreNamesByIds(journey.genre_ids)
+        : [];
 
-    // Get the poster URL for style transfer
-    const posterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w780') || '';
+      // Get the poster URL for style transfer
+      const posterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w780') || '';
 
-    // Fire and forget - errors handled globally via MutationCache toast
-    generateArt({
-      journeyId: journey.id,
-      movieTitle: journey.title,
-      genres: genreNames,
-      posterUrl,
-    }).finally(() => {
-      setGeneratingJourneyId(null);
-    });
-  }, [generateArt]);
+      // Fire and forget - errors handled globally via MutationCache toast
+      generateArt({
+        journeyId: journey.id,
+        movieTitle: journey.title,
+        genres: genreNames,
+        posterUrl,
+      }).finally(() => {
+        setGeneratingJourneyId(null);
+      });
+    }, 'Sign in to generate AI art');
+  }, [generateArt, requireAuth]);
 
   // Handle toggle between original and AI poster
   const handleTogglePoster = useCallback(async (journey: UserMovie) => {
@@ -730,7 +766,7 @@ export default function JourneyCarouselScreen() {
           blurRadius={50}
         >
           <LinearGradient
-            colors={[colors.background, 'rgba(9, 9, 11, 0.8)', colors.background]}
+            colors={(isDark ? Gradients.overlayDark : Gradients.overlayLight) as [string, string, string]}
             style={StyleSheet.absoluteFill}
           />
         </ImageBackground>
@@ -785,6 +821,7 @@ export default function JourneyCarouselScreen() {
             onGenerateArt={() => handleGenerateArt(journey)}
             onTogglePoster={() => handleTogglePoster(journey)}
             isGenerating={generatingJourneyId === journey.id}
+            onPosterTap={() => handlePosterTap(journey)}
           />
         ))}
         {/* Add New Journey Card */}
@@ -810,6 +847,25 @@ export default function JourneyCarouselScreen() {
           />
         ))}
       </View>
+
+      {/* Poster Inspection Modal */}
+      <PosterInspectionModal
+        visible={isPosterModalVisible}
+        imageUrl={getTMDBImageUrl(selectedPosterJourney?.poster_path ?? null, 'w780') || ''}
+        aiImageUrl={selectedPosterJourney?.display_poster === 'ai_generated' ? selectedPosterJourney?.ai_poster_url : null}
+        movieTitle={selectedPosterJourney?.title || ''}
+        onClose={() => {
+          setIsPosterModalVisible(false);
+          setSelectedPosterJourney(null);
+        }}
+      />
+
+      {/* Login Prompt Modal */}
+      <LoginPromptModal
+        visible={isLoginPromptVisible}
+        onClose={hideLoginPrompt}
+        message={loginPromptMessage}
+      />
     </View>
   );
 }
@@ -945,10 +1001,10 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: nu
 });
 
 // Create styles for ticket cards
-const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: number, infoPageWidth: number) => StyleSheet.create({
+const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: number, infoPageWidth: number, isDark: boolean) => StyleSheet.create({
   ticketCard: {
     width: ticketWidth,
-    backgroundColor: '#1a1a20',
+    backgroundColor: colors.card,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.md,
     marginRight: CARD_GAP,
@@ -1073,7 +1129,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     fontStyle: 'italic',
   },
   infoCarouselContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
     borderRadius: BorderRadius.md,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
@@ -1121,7 +1177,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
     borderRadius: BorderRadius.md,
     borderLeftWidth: 3,
     borderLeftColor: colors.tint,
@@ -1150,7 +1206,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
 const createAddCardStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: number) => StyleSheet.create({
   card: {
     width: ticketWidth,
-    backgroundColor: '#1a1a20',
+    backgroundColor: colors.card,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.md,
     marginRight: CARD_GAP,

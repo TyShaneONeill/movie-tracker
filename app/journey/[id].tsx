@@ -30,13 +30,15 @@ import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
+import * as Haptics from 'expo-haptics';
+import { Colors, Spacing, BorderRadius, Fonts, Gradients } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourney } from '@/hooks/use-journey';
 import { useGenerateArt } from '@/hooks/use-generate-art';
 import { getGenreNamesByIds } from '@/lib/genre-service';
+import { PosterInspectionModal } from '@/components/poster-inspection';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -176,6 +178,9 @@ export default function JourneyCardScreen() {
   // Info carousel state
   const [infoPageIndex, setInfoPageIndex] = useState(0);
 
+  // Poster inspection modal state
+  const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
+
   // Fetch journey data
   const { data: journeyData, isLoading, isError } = useJourney(id);
   const journey = journeyData;
@@ -192,8 +197,11 @@ export default function JourneyCardScreen() {
   // Info page width = container width (screen - scroll padding - container margins)
   const infoPageWidth = screenWidth - (Spacing.md * 4);
 
+  // Theme detection
+  const isDark = effectiveTheme === 'dark';
+
   // Dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors, ticketHeight, infoPageWidth), [colors, ticketHeight, infoPageWidth]);
+  const styles = useMemo(() => createStyles(colors, ticketHeight, infoPageWidth, isDark), [colors, ticketHeight, infoPageWidth, isDark]);
 
   // Handle info carousel scroll
   const handleInfoScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -201,6 +209,12 @@ export default function JourneyCardScreen() {
     const pageIndex = Math.round(offsetX / infoPageWidth);
     setInfoPageIndex(pageIndex);
   }, [infoPageWidth]);
+
+  // Handle poster modal close
+  const handlePosterModalClose = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsPosterModalVisible(false);
+  }, []);
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -236,6 +250,12 @@ export default function JourneyCardScreen() {
   const heroImageUrl = journey?.journey_photos?.[0]
     ? journey.journey_photos[0]
     : getTMDBImageUrl(journey?.poster_path ?? null, 'w780');
+
+  // Handle poster tap for inspection modal (must be after heroImageUrl declaration)
+  const handlePosterTap = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsPosterModalVisible(true);
+  }, []);
 
   const backdropUrl = getTMDBImageUrl(journey?.backdrop_path ?? null, 'w780');
 
@@ -288,7 +308,7 @@ export default function JourneyCardScreen() {
           blurRadius={50}
         >
           <LinearGradient
-            colors={[colors.background, 'rgba(9, 9, 11, 0.8)', colors.background]}
+            colors={(isDark ? Gradients.overlayDark : Gradients.overlayLight) as [string, string, string]}
             style={StyleSheet.absoluteFill}
           />
         </ImageBackground>
@@ -329,32 +349,40 @@ export default function JourneyCardScreen() {
         {/* Ticket Card */}
         <View style={styles.ticketCard}>
           {/* Hero Image Area */}
-          <View style={styles.heroSection}>
-            <Image
-              source={{ uri: heroImageUrl || undefined }}
-              style={styles.heroImage}
-              resizeMode="cover"
-            />
-            <LinearGradient
-              colors={['transparent', 'rgba(26, 26, 32, 0.8)']}
-              style={styles.heroGradient}
-            />
-
-            {/* Location Badge */}
-            <View style={styles.locationBadge}>
+          <Pressable
+            onPress={handlePosterTap}
+            style={({ pressed }) => [
+              styles.heroSection,
+              pressed && { opacity: 0.8 }
+            ]}
+            android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
+          >
+              <Image
+                source={{ uri: heroImageUrl || undefined }}
+                style={styles.heroImage}
+                resizeMode="cover"
+              />
+              <View style={styles.heroGradient} pointerEvents="none">
               <LinearGradient
-                colors={['rgba(225, 29, 72, 0.9)', 'rgba(190, 18, 60, 0.9)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.badgeGradient}
-              >
-                <Text style={styles.badgeText}>
-                  {getLocationBadgeText(journey.location_type)}
-                </Text>
-              </LinearGradient>
+                colors={['transparent', isDark ? 'rgba(26, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.8)']}
+                style={StyleSheet.absoluteFill}
+              />
             </View>
 
-          </View>
+              {/* Location Badge */}
+              <View style={styles.locationBadge} pointerEvents="none">
+                <LinearGradient
+                  colors={['rgba(225, 29, 72, 0.9)', 'rgba(190, 18, 60, 0.9)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.badgeGradient}
+                >
+                  <Text style={styles.badgeText}>
+                    {getLocationBadgeText(journey.location_type)}
+                  </Text>
+                </LinearGradient>
+              </View>
+          </Pressable>
 
           {/* Generate AI Art Button - only show if no AI art exists */}
           {!hasAiPoster && (
@@ -494,12 +522,21 @@ export default function JourneyCardScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Poster Inspection Modal */}
+      <PosterInspectionModal
+        visible={isPosterModalVisible}
+        imageUrl={heroImageUrl || ''}
+        aiImageUrl={journey.ai_poster_url}
+        movieTitle={journey.title}
+        onClose={handlePosterModalClose}
+      />
     </View>
   );
 }
 
-// Create styles function that takes theme colors, ticket height, and info page width
-const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: number) => StyleSheet.create({
+// Create styles function that takes theme colors, ticket height, info page width, and theme
+const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: number, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -562,17 +599,16 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
 
   // Ticket Card - fills available height
   ticketCard: {
-    backgroundColor: '#1a1a20',
+    backgroundColor: colors.card,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     marginTop: Spacing.md,
     minHeight: ticketHeight,
   },
 
-  // Hero Section - expands to fill available space
+  // Hero Section
   heroSection: {
-    flex: 1,
-    minHeight: 250,
+    height: 350,
     position: 'relative',
   },
   heroImage: {
@@ -653,7 +689,7 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
 
   // Info Carousel
   infoCarouselContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
     borderRadius: BorderRadius.md,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
@@ -705,7 +741,7 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
     borderRadius: BorderRadius.md,
     borderLeftWidth: 3,
     borderLeftColor: colors.tint,
