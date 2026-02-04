@@ -32,6 +32,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { useJourneyMutations } from '@/hooks/use-journey';
 
 // Watch format options for dropdown
 const WATCH_FORMATS = [
@@ -94,7 +95,9 @@ export default function EditJourneyScreen() {
   // Mock data loading (will be replaced with useJourneyMutations hook)
   const [isLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Use the journey mutations hook for delete
+  const { deleteJourney, isDeleting } = useJourneyMutations();
 
   // Initialize form with mock data
   const initialData = useMemo(() => getMockJourneyData(id || ''), [id]);
@@ -211,27 +214,22 @@ export default function EditJourneyScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setIsDeleting(true);
-
-            // Log for Phase 1 (will be replaced with actual mutation)
-            console.log('Deleting journey:', id);
-
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            setIsDeleting(false);
-
-            // Navigate back
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/');
+            try {
+              await deleteJourney(id as string);
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            } catch (error) {
+              console.error('Failed to delete journey:', error);
+              Alert.alert('Error', 'Failed to delete journey. Please try again.');
             }
           },
         },
       ]
     );
-  }, [id, router]);
+  }, [id, router, deleteJourney]);
 
   // Handle add friend (using modal for cross-platform support)
   const handleAddFriend = useCallback(() => {

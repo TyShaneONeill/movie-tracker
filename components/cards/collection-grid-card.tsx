@@ -32,6 +32,11 @@ interface CollectionGridCardProps {
    * Additional style overrides for the container
    */
   style?: ViewStyle;
+
+  /**
+   * True if this is an AI-generated poster (uses contain instead of cover)
+   */
+  isAiPoster?: boolean;
 }
 
 /**
@@ -57,6 +62,7 @@ export function CollectionGridCard({
   journeyCount,
   onPress,
   style,
+  isAiPoster,
 }: CollectionGridCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -75,7 +81,7 @@ export function CollectionGridCard({
       <Image
         source={{ uri: posterUrl }}
         style={styles.image}
-        contentFit="cover"
+        contentFit={isAiPoster ? 'contain' : 'cover'}
         transition={200}
       />
       {showBadge && (

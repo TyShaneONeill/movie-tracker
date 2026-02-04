@@ -72,7 +72,7 @@ async function generateStyleTransfer(
   formData.append('model', 'gpt-image-1.5');
   formData.append('image', imageBlob, 'poster.png');
   formData.append('prompt', 'Could you recreate this with a cartoon style?');
-  formData.append('size', '1024x1024');
+  formData.append('size', '1024x1536');
   formData.append('n', '1');
 
   const response = await fetch('https://api.openai.com/v1/images/edits', {
@@ -117,7 +117,7 @@ async function applyHolographicEffect(
   formData.append('model', 'gpt-image-1.5');
   formData.append('image', imageBlob, 'cartoon.png');
   formData.append('prompt', 'Make this cartoon style movie poster look like a rare holographic trading card pull. Add holographic shimmer and rainbow effects.');
-  formData.append('size', '1024x1024');
+  formData.append('size', '1024x1536');
   formData.append('n', '1');
 
   const response = await fetch('https://api.openai.com/v1/images/edits', {
@@ -205,6 +205,14 @@ Deno.serve(async (req: Request) => {
     // Create admin client for database operations
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Dev users bypass rate limiting (comma-separated UUIDs in env var)
+    const DEV_USER_IDS = (Deno.env.get('DEV_USER_IDS') || '').split(',').map(id => id.trim()).filter(Boolean);
+    const isDevUser = DEV_USER_IDS.includes(user.id);
+
+    if (isDevUser) {
+      console.log(`Dev user ${user.id} - bypassing rate limit`);
+    }
+
     // Rate limiting: Max 10 AI generations per user per day
     const RATE_LIMIT_MAX = 10;
     const RATE_LIMIT_WINDOW_HOURS = 24;
@@ -222,7 +230,7 @@ Deno.serve(async (req: Request) => {
     if (countError) {
       console.error('Rate limit check error:', countError);
       // Continue anyway - don't block legitimate users due to check failure
-    } else if (recentGenerations !== null && recentGenerations >= RATE_LIMIT_MAX) {
+    } else if (!isDevUser && recentGenerations !== null && recentGenerations >= RATE_LIMIT_MAX) {
       console.warn(`Rate limit exceeded for user ${user.id}: ${recentGenerations} generations in ${RATE_LIMIT_WINDOW_HOURS}h`);
       return new Response(
         JSON.stringify({
