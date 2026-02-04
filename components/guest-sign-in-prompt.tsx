@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -50,29 +50,27 @@ export function GuestSignInPrompt({ icon, title, message }: GuestSignInPromptPro
         </Text>
 
         <View style={styles.buttonContainer}>
-          <Link href="/(auth)/signin" asChild>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>Sign In</Text>
-            </Pressable>
-          </Link>
+          <Pressable
+            onPress={() => router.push('/(auth)/signin')}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            <Text style={styles.primaryButtonText}>Sign In</Text>
+          </Pressable>
 
-          <Link href="/(auth)/signup" asChild>
-            <Pressable
-              style={({ pressed }) => [
-                styles.outlineButton,
-                { borderColor: colors.tint, opacity: pressed ? 0.9 : 1 },
-              ]}
-            >
-              <Text style={[styles.outlineButtonText, { color: colors.tint }]}>
-                Create Account
-              </Text>
-            </Pressable>
-          </Link>
+          <Pressable
+            onPress={() => router.push('/(auth)/signup')}
+            style={({ pressed }) => [
+              styles.outlineButton,
+              { borderColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            <Text style={[styles.outlineButtonText, { color: colors.tint }]}>
+              Create Account
+            </Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -104,8 +102,10 @@ const styles = StyleSheet.create({
   buttonContainer: {
     width: '100%',
     gap: Spacing.md,
+    alignItems: 'stretch',
   },
   primaryButton: {
+    width: '100%',
     height: 52,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
@@ -117,6 +117,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   outlineButton: {
+    width: '100%',
     height: 52,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
