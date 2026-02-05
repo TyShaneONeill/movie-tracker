@@ -478,6 +478,38 @@ export default function ProfileScreen() {
                 <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
                     {profile?.bio || MOCK_USER.bio}
                 </ThemedText>
+                {/* Follower/Following Stats */}
+                <View style={styles.followStats}>
+                    <Pressable
+                        onPress={() => user && router.push(`/followers/${user.id}`)}
+                        style={({ pressed }) => [
+                            styles.followStatItem,
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
+                            {profile?.followers_count ?? 0}
+                        </ThemedText>
+                        <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+                            Followers
+                        </ThemedText>
+                    </Pressable>
+                    <View style={[styles.followStatDivider, { backgroundColor: colors.border }]} />
+                    <Pressable
+                        onPress={() => user && router.push(`/following/${user.id}`)}
+                        style={({ pressed }) => [
+                            styles.followStatItem,
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
+                            {profile?.following_count ?? 0}
+                        </ThemedText>
+                        <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+                            Following
+                        </ThemedText>
+                    </Pressable>
+                </View>
             </Animated.View>
 
             {/* Combined Stat-Tab Bar */}
@@ -743,6 +775,28 @@ const styles = StyleSheet.create({
     },
     bio: {
         ...Typography.body.sm,
+    },
+    // Follower/Following stats
+    followStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: Spacing.sm,
+        gap: Spacing.md,
+    },
+    followStatItem: {
+        alignItems: 'center',
+        paddingHorizontal: Spacing.sm,
+    },
+    followStatValue: {
+        ...Typography.display.h4,
+    },
+    followStatLabel: {
+        ...Typography.body.xs,
+        marginTop: 2,
+    },
+    followStatDivider: {
+        width: 1,
+        height: 24,
     },
     // Combined stat-tab bar styles
     statTabBar: {
