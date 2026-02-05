@@ -29,6 +29,8 @@ import { useMovieSearch } from '@/hooks/use-movie-search';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useRecentSearches, type RecentSearch } from '@/hooks/use-recent-searches';
 import { MovieSearchCard } from '@/components/movie-search-card';
+import { UserSearchResult } from '@/components/social/UserSearchResult';
+import { useUserSearch } from '@/hooks/use-user-search';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBMovie, SearchType } from '@/lib/tmdb.types';
 
@@ -143,11 +145,21 @@ export default function SearchScreen() {
   } = useRecentSearches();
 
   // Movie search hook
-  const { movies, isLoading, isError, error } = useMovieSearch({
+  const { movies, isLoading: isMovieLoading, isError: isMovieError, error: movieError } = useMovieSearch({
     query: debouncedQuery,
     searchType,
-    enabled: debouncedQuery.length >= 2,
+    enabled: debouncedQuery.length >= 2 && activeCategory !== 'Users',
   });
+
+  // User search hook
+  const { users, isLoading: isUserLoading, isError: isUserError, error: userError } = useUserSearch(
+    activeCategory === 'Users' ? debouncedQuery : ''
+  );
+
+  // Combine loading/error states based on active category
+  const isLoading = activeCategory === 'Users' ? isUserLoading : isMovieLoading;
+  const isError = activeCategory === 'Users' ? isUserError : isMovieError;
+  const error = activeCategory === 'Users' ? userError : movieError;
 
   // Rotate genre posters every 5 seconds
   useEffect(() => {
@@ -280,6 +292,30 @@ export default function SearchScreen() {
                 {error?.message || 'Please try again'}
               </Text>
             </View>
+          ) : activeCategory === 'Users' ? (
+            users.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <Text style={[styles.centerTitle, { color: colors.text }]}>
+                  No users found
+                </Text>
+                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                  Try a different username
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={users}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <UserSearchResult
+                    user={item}
+                    onPress={() => router.push(`/user/${item.id}`)}
+                  />
+                )}
+                contentContainerStyle={styles.searchResultsContainer}
+                showsVerticalScrollIndicator={false}
+              />
+            )
           ) : movies.length === 0 ? (
             <View style={styles.centerContainer}>
               <Text style={[styles.centerTitle, { color: colors.text }]}>
