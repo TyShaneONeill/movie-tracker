@@ -1,506 +1,803 @@
-export type MovieStatus = 'watchlist' | 'watching' | 'watched';
-export type ThemePreference = 'light' | 'dark' | 'system';
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
   public: {
     Tables: {
-      profiles: {
-        Row: {
-          id: string;
-          created_at: string;
-          updated_at: string;
-          username: string | null;
-          full_name: string | null;
-          avatar_url: string | null;
-          bio: string | null;
-          first_take_prompt_enabled: boolean | null;
-          theme_preference: string | null;
-          onboarding_completed: boolean | null;
-        };
-        Insert: {
-          id: string;
-          created_at?: string;
-          updated_at?: string;
-          username?: string | null;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          bio?: string | null;
-          first_take_prompt_enabled?: boolean | null;
-          theme_preference?: string | null;
-          onboarding_completed?: boolean | null;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          updated_at?: string;
-          username?: string | null;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          bio?: string | null;
-          first_take_prompt_enabled?: boolean | null;
-          theme_preference?: string | null;
-          onboarding_completed?: boolean | null;
-        };
-      };
-      genres: {
-        Row: {
-          id: number;
-          name: string;
-          slug: string;
-        };
-        Insert: {
-          id: number;
-          name: string;
-          slug: string;
-        };
-        Update: {
-          id?: number;
-          name?: string;
-          slug?: string;
-        };
-      };
-      movies: {
-        Row: {
-          id: number;
-          tmdb_id: number;
-          imdb_id: string | null;
-          title: string;
-          original_title: string | null;
-          tagline: string | null;
-          overview: string | null;
-          release_date: string | null;
-          runtime_minutes: number | null;
-          status: string | null;
-          tmdb_vote_average: number | null;
-          tmdb_vote_count: number | null;
-          genre_ids: number[] | null;
-          adult: boolean | null;
-          original_language: string | null;
-          poster_path: string | null;
-          backdrop_path: string | null;
-          tmdb_popularity: number | null;
-          budget: number | null;
-          revenue: number | null;
-          tmdb_fetched_at: string | null;
-          created_at: string | null;
-          updated_at: string | null;
-        };
-        Insert: {
-          id?: number;
-          tmdb_id: number;
-          imdb_id?: string | null;
-          title: string;
-          original_title?: string | null;
-          tagline?: string | null;
-          overview?: string | null;
-          release_date?: string | null;
-          runtime_minutes?: number | null;
-          status?: string | null;
-          tmdb_vote_average?: number | null;
-          tmdb_vote_count?: number | null;
-          genre_ids?: number[] | null;
-          adult?: boolean | null;
-          original_language?: string | null;
-          poster_path?: string | null;
-          backdrop_path?: string | null;
-          tmdb_popularity?: number | null;
-          budget?: number | null;
-          revenue?: number | null;
-          tmdb_fetched_at?: string | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
-        Update: {
-          id?: number;
-          tmdb_id?: number;
-          imdb_id?: string | null;
-          title?: string;
-          original_title?: string | null;
-          tagline?: string | null;
-          overview?: string | null;
-          release_date?: string | null;
-          runtime_minutes?: number | null;
-          status?: string | null;
-          tmdb_vote_average?: number | null;
-          tmdb_vote_count?: number | null;
-          genre_ids?: number[] | null;
-          adult?: boolean | null;
-          original_language?: string | null;
-          poster_path?: string | null;
-          backdrop_path?: string | null;
-          tmdb_popularity?: number | null;
-          budget?: number | null;
-          revenue?: number | null;
-          tmdb_fetched_at?: string | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
-      };
-      user_movies: {
-        Row: {
-          id: string;
-          user_id: string;
-          tmdb_id: number;
-          status: string;
-          title: string;
-          overview: string | null;
-          poster_path: string | null;
-          backdrop_path: string | null;
-          release_date: string | null;
-          vote_average: number | null;
-          genre_ids: number[] | null;
-          is_liked: boolean | null;
-          added_at: string;
-          updated_at: string;
-          // Journey fields
-          journey_number: number;
-          watched_at: string | null;
-          watch_time: string | null;
-          location_type: 'theater' | 'home' | 'airplane' | 'outdoor' | 'other' | null;
-          location_name: string | null;
-          auditorium: string | null;
-          seat_location: string | null;
-          ticket_price: number | null;
-          ticket_id: string | null;
-          watch_format: 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx' | null;
-          watched_with: string[] | null;
-          journey_notes: string | null;
-          journey_tagline: string | null;
-          journey_photos: string[] | null;
-          cover_photo_index: number;
-          journey_created_at: string | null;
-          journey_updated_at: string | null;
-          // AI poster fields
-          ai_poster_url: string | null;
-          ai_poster_rarity: 'common' | 'holographic' | null;
-          display_poster: 'original' | 'ai_generated';
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          tmdb_id: number;
-          status?: string;
-          title: string;
-          overview?: string | null;
-          poster_path?: string | null;
-          backdrop_path?: string | null;
-          release_date?: string | null;
-          vote_average?: number | null;
-          genre_ids?: number[] | null;
-          is_liked?: boolean | null;
-          added_at?: string;
-          updated_at?: string;
-          // Journey fields
-          journey_number?: number;
-          watched_at?: string | null;
-          watch_time?: string | null;
-          location_type?: 'theater' | 'home' | 'airplane' | 'outdoor' | 'other' | null;
-          location_name?: string | null;
-          auditorium?: string | null;
-          seat_location?: string | null;
-          ticket_price?: number | null;
-          ticket_id?: string | null;
-          watch_format?: 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx' | null;
-          watched_with?: string[] | null;
-          journey_notes?: string | null;
-          journey_tagline?: string | null;
-          journey_photos?: string[] | null;
-          cover_photo_index?: number;
-          journey_created_at?: string | null;
-          journey_updated_at?: string | null;
-          // AI poster fields
-          ai_poster_url?: string | null;
-          ai_poster_rarity?: 'common' | 'holographic' | null;
-          display_poster?: 'original' | 'ai_generated';
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          tmdb_id?: number;
-          status?: string;
-          title?: string;
-          overview?: string | null;
-          poster_path?: string | null;
-          backdrop_path?: string | null;
-          release_date?: string | null;
-          vote_average?: number | null;
-          genre_ids?: number[] | null;
-          is_liked?: boolean | null;
-          added_at?: string;
-          updated_at?: string;
-          // Journey fields
-          journey_number?: number;
-          watched_at?: string | null;
-          watch_time?: string | null;
-          location_type?: 'theater' | 'home' | 'airplane' | 'outdoor' | 'other' | null;
-          location_name?: string | null;
-          auditorium?: string | null;
-          seat_location?: string | null;
-          ticket_price?: number | null;
-          ticket_id?: string | null;
-          watch_format?: 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx' | null;
-          watched_with?: string[] | null;
-          journey_notes?: string | null;
-          journey_tagline?: string | null;
-          journey_photos?: string[] | null;
-          cover_photo_index?: number;
-          journey_created_at?: string | null;
-          journey_updated_at?: string | null;
-          // AI poster fields
-          ai_poster_url?: string | null;
-          ai_poster_rarity?: 'common' | 'holographic' | null;
-          display_poster?: 'original' | 'ai_generated';
-        };
-      };
-      user_movie_likes: {
-        Row: {
-          id: string;
-          user_id: string;
-          tmdb_id: number;
-          title: string;
-          poster_path: string | null;
-          created_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          tmdb_id: number;
-          title: string;
-          poster_path?: string | null;
-          created_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          tmdb_id?: number;
-          title?: string;
-          poster_path?: string | null;
-          created_at?: string | null;
-        };
-      };
-      user_lists: {
-        Row: {
-          id: string;
-          user_id: string;
-          name: string;
-          description: string | null;
-          is_public: boolean | null;
-          created_at: string | null;
-          updated_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          name: string;
-          description?: string | null;
-          is_public?: boolean | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          name?: string;
-          description?: string | null;
-          is_public?: boolean | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
-      };
-      list_movies: {
-        Row: {
-          id: string;
-          list_id: string;
-          tmdb_id: number;
-          title: string;
-          poster_path: string | null;
-          position: number;
-          added_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          list_id: string;
-          tmdb_id: number;
-          title: string;
-          poster_path?: string | null;
-          position?: number;
-          added_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          list_id?: string;
-          tmdb_id?: number;
-          title?: string;
-          poster_path?: string | null;
-          position?: number;
-          added_at?: string | null;
-        };
-      };
       first_takes: {
         Row: {
-          id: string;
-          user_id: string;
-          tmdb_id: number;
-          movie_title: string;
-          poster_path: string | null;
-          reaction_emoji: string;
-          quote_text: string;
-          is_spoiler: boolean | null;
-          rating: number | null;
-          created_at: string | null;
-          updated_at: string | null;
-        };
+          created_at: string | null
+          id: string
+          is_spoiler: boolean | null
+          movie_title: string
+          poster_path: string | null
+          quote_text: string
+          rating: number | null
+          reaction_emoji: string
+          tmdb_id: number
+          updated_at: string | null
+          user_id: string
+        }
         Insert: {
-          id?: string;
-          user_id: string;
-          tmdb_id: number;
-          movie_title: string;
-          poster_path?: string | null;
-          reaction_emoji?: string;
-          quote_text: string;
-          is_spoiler?: boolean | null;
-          rating?: number | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
+          created_at?: string | null
+          id?: string
+          is_spoiler?: boolean | null
+          movie_title: string
+          poster_path?: string | null
+          quote_text: string
+          rating?: number | null
+          reaction_emoji?: string
+          tmdb_id: number
+          updated_at?: string | null
+          user_id: string
+        }
         Update: {
-          id?: string;
-          user_id?: string;
-          tmdb_id?: number;
-          movie_title?: string;
-          poster_path?: string | null;
-          reaction_emoji?: string;
-          quote_text?: string;
-          is_spoiler?: boolean | null;
-          rating?: number | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
-      };
+          created_at?: string | null
+          id?: string
+          is_spoiler?: boolean | null
+          movie_title?: string
+          poster_path?: string | null
+          quote_text?: string
+          rating?: number | null
+          reaction_emoji?: string
+          tmdb_id?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      follows: {
+        Row: {
+          created_at: string | null
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      genres: {
+        Row: {
+          id: number
+          name: string
+          slug: string
+        }
+        Insert: {
+          id: number
+          name: string
+          slug: string
+        }
+        Update: {
+          id?: number
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      list_movies: {
+        Row: {
+          added_at: string | null
+          id: string
+          list_id: string
+          position: number
+          poster_path: string | null
+          title: string
+          tmdb_id: number
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          list_id: string
+          position?: number
+          poster_path?: string | null
+          title: string
+          tmdb_id: number
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          list_id?: string
+          position?: number
+          poster_path?: string | null
+          title?: string
+          tmdb_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "list_movies_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "user_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movies: {
+        Row: {
+          adult: boolean | null
+          backdrop_path: string | null
+          budget: number | null
+          created_at: string | null
+          genre_ids: number[] | null
+          id: number
+          imdb_id: string | null
+          original_language: string | null
+          original_title: string | null
+          overview: string | null
+          poster_path: string | null
+          release_date: string | null
+          revenue: number | null
+          runtime_minutes: number | null
+          status: string | null
+          tagline: string | null
+          title: string
+          tmdb_fetched_at: string | null
+          tmdb_id: number
+          tmdb_popularity: number | null
+          tmdb_vote_average: number | null
+          tmdb_vote_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          adult?: boolean | null
+          backdrop_path?: string | null
+          budget?: number | null
+          created_at?: string | null
+          genre_ids?: number[] | null
+          id?: number
+          imdb_id?: string | null
+          original_language?: string | null
+          original_title?: string | null
+          overview?: string | null
+          poster_path?: string | null
+          release_date?: string | null
+          revenue?: number | null
+          runtime_minutes?: number | null
+          status?: string | null
+          tagline?: string | null
+          title: string
+          tmdb_fetched_at?: string | null
+          tmdb_id: number
+          tmdb_popularity?: number | null
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          adult?: boolean | null
+          backdrop_path?: string | null
+          budget?: number | null
+          created_at?: string | null
+          genre_ids?: number[] | null
+          id?: number
+          imdb_id?: string | null
+          original_language?: string | null
+          original_title?: string | null
+          overview?: string | null
+          poster_path?: string | null
+          release_date?: string | null
+          revenue?: number | null
+          runtime_minutes?: number | null
+          status?: string | null
+          tagline?: string | null
+          title?: string
+          tmdb_fetched_at?: string | null
+          tmdb_id?: number
+          tmdb_popularity?: number | null
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          first_take_prompt_enabled: boolean | null
+          followers_count: number | null
+          following_count: number | null
+          full_name: string | null
+          id: string
+          onboarding_completed: boolean | null
+          theme_preference: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          first_take_prompt_enabled?: boolean | null
+          followers_count?: number | null
+          following_count?: number | null
+          full_name?: string | null
+          id: string
+          onboarding_completed?: boolean | null
+          theme_preference?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          first_take_prompt_enabled?: boolean | null
+          followers_count?: number | null
+          following_count?: number | null
+          full_name?: string | null
+          id?: string
+          onboarding_completed?: boolean | null
+          theme_preference?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       scan_usage: {
         Row: {
-          user_id: string;
-          daily_count: number | null;
-          last_scan_date: string | null;
-          lifetime_scans: number | null;
-          updated_at: string | null;
-          bypass_rate_limit: boolean | null;
-        };
+          bypass_rate_limit: boolean | null
+          daily_count: number | null
+          last_scan_date: string | null
+          lifetime_scans: number | null
+          updated_at: string | null
+          user_id: string
+        }
         Insert: {
-          user_id: string;
-          daily_count?: number | null;
-          last_scan_date?: string | null;
-          lifetime_scans?: number | null;
-          updated_at?: string | null;
-          bypass_rate_limit?: boolean | null;
-        };
+          bypass_rate_limit?: boolean | null
+          daily_count?: number | null
+          last_scan_date?: string | null
+          lifetime_scans?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
         Update: {
-          user_id?: string;
-          daily_count?: number | null;
-          last_scan_date?: string | null;
-          lifetime_scans?: number | null;
-          updated_at?: string | null;
-          bypass_rate_limit?: boolean | null;
-        };
-      };
+          bypass_rate_limit?: boolean | null
+          daily_count?: number | null
+          last_scan_date?: string | null
+          lifetime_scans?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       theater_visits: {
         Row: {
-          id: string;
-          user_id: string;
-          tmdb_id: number;
-          movie_title: string;
-          theater_name: string | null;
-          theater_chain: string | null;
-          show_date: string | null;
-          show_time: string | null;
-          seat_row: string | null;
-          seat_number: string | null;
-          auditorium: string | null;
-          format: string | null;
-          price_amount: number | null;
-          price_currency: string | null;
-          ticket_type: string | null;
-          confirmation_number: string | null;
-          is_verified: boolean | null;
-          confidence_score: number | null;
-          scan_notes: string | null;
-          created_at: string | null;
-          updated_at: string | null;
-        };
+          auditorium: string | null
+          confidence_score: number | null
+          confirmation_number: string | null
+          created_at: string | null
+          format: string | null
+          id: string
+          is_verified: boolean | null
+          movie_title: string
+          price_amount: number | null
+          price_currency: string | null
+          scan_notes: string | null
+          seat_number: string | null
+          seat_row: string | null
+          show_date: string | null
+          show_time: string | null
+          theater_chain: string | null
+          theater_name: string | null
+          ticket_type: string | null
+          tmdb_id: number
+          updated_at: string | null
+          user_id: string
+        }
         Insert: {
-          id?: string;
-          user_id: string;
-          tmdb_id: number;
-          movie_title: string;
-          theater_name?: string | null;
-          theater_chain?: string | null;
-          show_date?: string | null;
-          show_time?: string | null;
-          seat_row?: string | null;
-          seat_number?: string | null;
-          auditorium?: string | null;
-          format?: string | null;
-          price_amount?: number | null;
-          price_currency?: string | null;
-          ticket_type?: string | null;
-          confirmation_number?: string | null;
-          is_verified?: boolean | null;
-          confidence_score?: number | null;
-          scan_notes?: string | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
+          auditorium?: string | null
+          confidence_score?: number | null
+          confirmation_number?: string | null
+          created_at?: string | null
+          format?: string | null
+          id?: string
+          is_verified?: boolean | null
+          movie_title: string
+          price_amount?: number | null
+          price_currency?: string | null
+          scan_notes?: string | null
+          seat_number?: string | null
+          seat_row?: string | null
+          show_date?: string | null
+          show_time?: string | null
+          theater_chain?: string | null
+          theater_name?: string | null
+          ticket_type?: string | null
+          tmdb_id: number
+          updated_at?: string | null
+          user_id: string
+        }
         Update: {
-          id?: string;
-          user_id?: string;
-          tmdb_id?: number;
-          movie_title?: string;
-          theater_name?: string | null;
-          theater_chain?: string | null;
-          show_date?: string | null;
-          show_time?: string | null;
-          seat_row?: string | null;
-          seat_number?: string | null;
-          auditorium?: string | null;
-          format?: string | null;
-          price_amount?: number | null;
-          price_currency?: string | null;
-          ticket_type?: string | null;
-          confirmation_number?: string | null;
-          is_verified?: boolean | null;
-          confidence_score?: number | null;
-          scan_notes?: string | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        };
-      };
-    };
-    Views: Record<string, never>;
+          auditorium?: string | null
+          confidence_score?: number | null
+          confirmation_number?: string | null
+          created_at?: string | null
+          format?: string | null
+          id?: string
+          is_verified?: boolean | null
+          movie_title?: string
+          price_amount?: number | null
+          price_currency?: string | null
+          scan_notes?: string | null
+          seat_number?: string | null
+          seat_row?: string | null
+          show_date?: string | null
+          show_time?: string | null
+          theater_chain?: string | null
+          theater_name?: string | null
+          ticket_type?: string | null
+          tmdb_id?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_lists: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_movie_likes: {
+        Row: {
+          created_at: string | null
+          id: string
+          poster_path: string | null
+          title: string
+          tmdb_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          poster_path?: string | null
+          title: string
+          tmdb_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          poster_path?: string | null
+          title?: string
+          tmdb_id?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_movies: {
+        Row: {
+          added_at: string
+          ai_poster_rarity: string | null
+          ai_poster_url: string | null
+          auditorium: string | null
+          backdrop_path: string | null
+          cover_photo_index: number | null
+          display_poster: string | null
+          genre_ids: number[] | null
+          id: string
+          is_liked: boolean | null
+          journey_created_at: string | null
+          journey_notes: string | null
+          journey_number: number | null
+          journey_photos: string[] | null
+          journey_tagline: string | null
+          journey_updated_at: string | null
+          location_name: string | null
+          location_type: string | null
+          overview: string | null
+          poster_path: string | null
+          release_date: string | null
+          seat_location: string | null
+          status: string
+          ticket_id: string | null
+          ticket_price: number | null
+          title: string
+          tmdb_id: number
+          updated_at: string
+          user_id: string
+          vote_average: number | null
+          watch_format: string | null
+          watch_time: string | null
+          watched_at: string | null
+          watched_with: string[] | null
+        }
+        Insert: {
+          added_at?: string
+          ai_poster_rarity?: string | null
+          ai_poster_url?: string | null
+          auditorium?: string | null
+          backdrop_path?: string | null
+          cover_photo_index?: number | null
+          display_poster?: string | null
+          genre_ids?: number[] | null
+          id?: string
+          is_liked?: boolean | null
+          journey_created_at?: string | null
+          journey_notes?: string | null
+          journey_number?: number | null
+          journey_photos?: string[] | null
+          journey_tagline?: string | null
+          journey_updated_at?: string | null
+          location_name?: string | null
+          location_type?: string | null
+          overview?: string | null
+          poster_path?: string | null
+          release_date?: string | null
+          seat_location?: string | null
+          status?: string
+          ticket_id?: string | null
+          ticket_price?: number | null
+          title: string
+          tmdb_id: number
+          updated_at?: string
+          user_id: string
+          vote_average?: number | null
+          watch_format?: string | null
+          watch_time?: string | null
+          watched_at?: string | null
+          watched_with?: string[] | null
+        }
+        Update: {
+          added_at?: string
+          ai_poster_rarity?: string | null
+          ai_poster_url?: string | null
+          auditorium?: string | null
+          backdrop_path?: string | null
+          cover_photo_index?: number | null
+          display_poster?: string | null
+          genre_ids?: number[] | null
+          id?: string
+          is_liked?: boolean | null
+          journey_created_at?: string | null
+          journey_notes?: string | null
+          journey_number?: number | null
+          journey_photos?: string[] | null
+          journey_tagline?: string | null
+          journey_updated_at?: string | null
+          location_name?: string | null
+          location_type?: string | null
+          overview?: string | null
+          poster_path?: string | null
+          release_date?: string | null
+          seat_location?: string | null
+          status?: string
+          ticket_id?: string | null
+          ticket_price?: number | null
+          title?: string
+          tmdb_id?: number
+          updated_at?: string
+          user_id?: string
+          vote_average?: number | null
+          watch_format?: string | null
+          watch_time?: string | null
+          watched_at?: string | null
+          watched_with?: string[] | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
-      check_and_increment_scan: {
-        Args: { p_daily_limit?: number; p_user_id: string };
-        Returns: unknown;
-      };
+      check_and_increment_scan:
+        | {
+            Args: { p_user_id: string }
+            Returns: {
+              can_scan: boolean
+              next_reset_at: string
+              scans_remaining: number
+            }[]
+          }
+        | { Args: { p_daily_limit?: number; p_user_id: string }; Returns: Json }
+      get_journey_for_movie: {
+        Args: { p_tmdb_id: number }
+        Returns: {
+          added_at: string
+          ai_poster_rarity: string
+          ai_poster_url: string
+          backdrop_path: string
+          cinema_location: string
+          display_poster: string
+          first_viewing: boolean
+          genre_ids: number[]
+          id: string
+          journey_created_at: string
+          journey_number: number
+          journey_updated_at: string
+          notes: string
+          overview: string
+          poster_path: string
+          rating: number
+          release_date: string
+          status: string
+          theater_name: string
+          title: string
+          tmdb_id: number
+          user_id: string
+          vote_average: number
+          watch_provider: string
+          watched_with: string[]
+        }[]
+      }
+      get_journey_with_movie: {
+        Args: { p_journey_id: string }
+        Returns: {
+          added_at: string
+          ai_poster_rarity: string
+          ai_poster_url: string
+          backdrop_path: string
+          cinema_location: string
+          display_poster: string
+          first_viewing: boolean
+          genre_ids: number[]
+          id: string
+          journey_created_at: string
+          journey_number: number
+          journey_updated_at: string
+          notes: string
+          overview: string
+          poster_path: string
+          rating: number
+          release_date: string
+          status: string
+          theater_name: string
+          title: string
+          tmdb_id: number
+          user_id: string
+          vote_average: number
+          watch_provider: string
+          watched_with: string[]
+        }[]
+      }
+      get_movie_journeys: {
+        Args: { p_tmdb_id: number }
+        Returns: {
+          added_at: string
+          ai_poster_rarity: string
+          ai_poster_url: string
+          backdrop_path: string
+          cinema_location: string
+          display_poster: string
+          first_viewing: boolean
+          genre_ids: number[]
+          id: string
+          journey_created_at: string
+          journey_number: number
+          journey_updated_at: string
+          notes: string
+          overview: string
+          poster_path: string
+          rating: number
+          release_date: string
+          status: string
+          theater_name: string
+          title: string
+          tmdb_id: number
+          user_id: string
+          vote_average: number
+          watch_provider: string
+          watched_with: string[]
+        }[]
+      }
       get_user_monthly_activity: {
-        Args: { p_user_id: string };
-        Returns: Array<{
-          count: number;
-          month: string;
-          month_label: string;
-        }>;
-      };
+        Args: { p_user_id: string }
+        Returns: {
+          count: number
+          month: string
+          month_label: string
+        }[]
+      }
       get_user_stats_summary: {
-        Args: { p_user_id: string };
-        Returns: Array<{
-          avg_rating: number;
-          total_first_takes: number;
-          total_watched: number;
-        }>;
-      };
-    };
-    Enums: Record<string, never>;
-  };
+        Args: { p_user_id: string }
+        Returns: {
+          avg_rating: number
+          total_first_takes: number
+          total_watched: number
+        }[]
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
+
+// ============================================
+// Custom Helper Types
+// ============================================
+
+export type MovieStatus = 'watchlist' | 'watching' | 'watched';
+export type ThemePreference = 'light' | 'dark' | 'system';
 
 // Helper types for user movies
 export type UserMovie = Database['public']['Tables']['user_movies']['Row'];
@@ -536,6 +833,11 @@ export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Updat
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+// Helper types for follows
+export type Follow = Database['public']['Tables']['follows']['Row'];
+export type FollowInsert = Database['public']['Tables']['follows']['Insert'];
+export type FollowUpdate = Database['public']['Tables']['follows']['Update'];
 
 // Helper types for genres
 export type Genre = Database['public']['Tables']['genres']['Row'];
