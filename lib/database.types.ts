@@ -1,5 +1,3 @@
-npm warn exec The following package was not found and will be installed: supabase@2.75.3
-npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
 export type Json =
   | string
   | number
@@ -793,8 +791,112 @@ export const Constants = {
     Enums: {},
   },
 } as const
-npm notice
-npm notice New major version of npm available! 10.9.4 -> 11.9.0
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.9.0
-npm notice To update run: npm install -g npm@11.9.0
-npm notice
+
+// ============================================
+// Custom Helper Types
+// ============================================
+
+export type MovieStatus = 'watchlist' | 'watching' | 'watched';
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+// Helper types for user movies
+export type UserMovie = Database['public']['Tables']['user_movies']['Row'];
+export type UserMovieInsert = Database['public']['Tables']['user_movies']['Insert'];
+export type UserMovieUpdate = Database['public']['Tables']['user_movies']['Update'];
+
+// Helper types for user movie likes
+export type UserMovieLike = Database['public']['Tables']['user_movie_likes']['Row'];
+export type UserMovieLikeInsert = Database['public']['Tables']['user_movie_likes']['Insert'];
+
+// Helper types for user lists
+export type UserList = Database['public']['Tables']['user_lists']['Row'];
+export type UserListInsert = Database['public']['Tables']['user_lists']['Insert'];
+export type UserListUpdate = Database['public']['Tables']['user_lists']['Update'];
+
+// Helper types for list movies
+export type ListMovie = Database['public']['Tables']['list_movies']['Row'];
+export type ListMovieInsert = Database['public']['Tables']['list_movies']['Insert'];
+export type ListMovieUpdate = Database['public']['Tables']['list_movies']['Update'];
+
+// Composite type for list with movies
+export interface UserListWithMovies extends UserList {
+  movies: ListMovie[];
+  movie_count: number;
+}
+
+// Helper types for first takes
+export type FirstTake = Database['public']['Tables']['first_takes']['Row'];
+export type FirstTakeInsert = Database['public']['Tables']['first_takes']['Insert'];
+export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Update'];
+
+// Helper types for profiles
+export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+// Helper types for follows
+export type Follow = Database['public']['Tables']['follows']['Row'];
+export type FollowInsert = Database['public']['Tables']['follows']['Insert'];
+export type FollowUpdate = Database['public']['Tables']['follows']['Update'];
+
+// Helper types for genres
+export type Genre = Database['public']['Tables']['genres']['Row'];
+
+// Helper types for movies cache
+export type CachedMovie = Database['public']['Tables']['movies']['Row'];
+export type CachedMovieInsert = Database['public']['Tables']['movies']['Insert'];
+export type CachedMovieUpdate = Database['public']['Tables']['movies']['Update'];
+
+// User stats types (from get-user-stats Edge Function)
+export interface UserStatsResponse {
+  summary: {
+    totalWatched: number;
+    totalFirstTakes: number;
+    averageRating: number | null;
+  };
+  genres: Array<{
+    genreId: number;
+    genreName: string;
+    count: number;
+    percentage: number;
+  }>;
+  monthlyActivity: Array<{
+    month: string;
+    monthLabel: string;
+    count: number;
+  }>;
+}
+
+// Location type enum for journey cards
+export type LocationType = 'theater' | 'home' | 'airplane' | 'outdoor' | 'other';
+
+// Watch format enum for journey cards
+export type WatchFormat = 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx';
+
+// Helper type for journey updates
+export interface JourneyUpdate {
+  watched_at?: string | null;
+  watch_time?: string | null;
+  location_type?: LocationType | null;
+  location_name?: string | null;
+  auditorium?: string | null;
+  seat_location?: string | null;
+  ticket_price?: number | null;
+  ticket_id?: string | null;
+  watch_format?: WatchFormat | null;
+  watched_with?: string[] | null;
+  journey_notes?: string | null;
+  journey_tagline?: string | null;
+  display_poster?: 'original' | 'ai_generated';
+}
+
+// AI poster rarity type
+export type AiPosterRarity = 'common' | 'holographic';
+
+// Display poster type
+export type DisplayPoster = 'original' | 'ai_generated';
+
+// Grouped user movie for collection grid (deduped by tmdb_id)
+export interface GroupedUserMovie extends UserMovie {
+  journeyCount: number;
+}
