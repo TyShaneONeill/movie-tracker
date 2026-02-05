@@ -405,23 +405,35 @@ export default function UserProfileScreen() {
 
           {/* Follower/Following Stats */}
           <View style={styles.followStats}>
-            <View style={styles.followStatItem}>
+            <Pressable
+              onPress={() => router.push(`/followers/${id}`)}
+              style={({ pressed }) => [
+                styles.followStatItem,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
               <Text style={[styles.followStatValue, { color: colors.text }]}>
                 {profile.followers_count ?? 0}
               </Text>
               <Text style={[styles.followStatLabel, { color: colors.textSecondary }]}>
                 Followers
               </Text>
-            </View>
+            </Pressable>
             <View style={styles.followStatDivider} />
-            <View style={styles.followStatItem}>
+            <Pressable
+              onPress={() => router.push(`/following/${id}`)}
+              style={({ pressed }) => [
+                styles.followStatItem,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
               <Text style={[styles.followStatValue, { color: colors.text }]}>
                 {profile.following_count ?? 0}
               </Text>
               <Text style={[styles.followStatLabel, { color: colors.textSecondary }]}>
                 Following
               </Text>
-            </View>
+            </Pressable>
           </View>
 
           {/* Follow Button */}
