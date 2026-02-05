@@ -92,6 +92,51 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type: string
+          actor_id: string | null
+          data: Record<string, unknown>
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: string
+          actor_id?: string | null
+          data?: Record<string, unknown>
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: string
+          actor_id?: string | null
+          data?: Record<string, unknown>
+          read?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       genres: {
         Row: {
           id: number
@@ -838,6 +883,11 @@ export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 export type Follow = Database['public']['Tables']['follows']['Row'];
 export type FollowInsert = Database['public']['Tables']['follows']['Insert'];
 export type FollowUpdate = Database['public']['Tables']['follows']['Update'];
+
+// Helper types for notifications
+export type Notification = Database['public']['Tables']['notifications']['Row'];
+export type NotificationInsert = Database['public']['Tables']['notifications']['Insert'];
+export type NotificationUpdate = Database['public']['Tables']['notifications']['Update'];
 
 // Helper types for genres
 export type Genre = Database['public']['Tables']['genres']['Row'];
