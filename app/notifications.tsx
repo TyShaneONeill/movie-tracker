@@ -290,6 +290,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   backButton: {
+    width: 80,
     padding: Spacing.xs,
   },
   headerTitle: {
