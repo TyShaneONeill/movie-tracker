@@ -16,6 +16,8 @@ export interface Database {
           first_take_prompt_enabled: boolean | null;
           theme_preference: string | null;
           onboarding_completed: boolean | null;
+          followers_count: number | null;
+          following_count: number | null;
         };
         Insert: {
           id: string;
@@ -28,6 +30,8 @@ export interface Database {
           first_take_prompt_enabled?: boolean | null;
           theme_preference?: string | null;
           onboarding_completed?: boolean | null;
+          followers_count?: number | null;
+          following_count?: number | null;
         };
         Update: {
           id?: string;
@@ -40,6 +44,28 @@ export interface Database {
           first_take_prompt_enabled?: boolean | null;
           theme_preference?: string | null;
           onboarding_completed?: boolean | null;
+          followers_count?: number | null;
+          following_count?: number | null;
+        };
+      };
+      follows: {
+        Row: {
+          id: string;
+          follower_id: string;
+          following_id: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          follower_id: string;
+          following_id: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          follower_id?: string;
+          following_id?: string;
+          created_at?: string | null;
         };
       };
       genres: {
@@ -536,6 +562,11 @@ export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Updat
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+// Helper types for follows
+export type Follow = Database['public']['Tables']['follows']['Row'];
+export type FollowInsert = Database['public']['Tables']['follows']['Insert'];
+export type FollowUpdate = Database['public']['Tables']['follows']['Update'];
 
 // Helper types for genres
 export type Genre = Database['public']['Tables']['genres']['Row'];
