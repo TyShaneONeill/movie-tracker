@@ -34,9 +34,9 @@ import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 // Constants for header animation
-const HEADER_MAX_HEIGHT = 180; // Full header height (avatar, name, bio - stats merged into tabs)
+const HEADER_MAX_HEIGHT = 230; // Full header height (avatar, name, bio, follower stats)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
-const HEADER_SCROLL_DISTANCE = 130; // Scroll distance to fully collapse
+const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
 
 // Grid layout constants
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
