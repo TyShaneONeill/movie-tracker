@@ -27,6 +27,7 @@ import { useUserMovies } from '@/hooks/use-user-movies';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useProfile } from '@/hooks/use-profile';
+import { useNotifications } from '@/hooks/use-notifications';
 import { MOCK_USER } from '@/lib/mock-data/users';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
@@ -62,6 +63,9 @@ export default function ProfileScreen() {
 
     // Fetch user profile and stats
     const { profile, stats, refetch: refetchProfile, refetchStats } = useProfile();
+
+    // Fetch notification unread count
+    const { unreadCount } = useNotifications();
 
     // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id)
     const {
@@ -634,11 +638,27 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-            {/* Settings Icon - Fixed at top */}
-            <View style={styles.settingsContainer}>
+            {/* Header Icons - Fixed at top */}
+            <View style={styles.headerIconsContainer}>
+                {/* Notification Icon */}
+                <Pressable
+                    onPress={() => router.push('/notifications')}
+                    style={({ pressed }) => [styles.headerIconButton, { opacity: pressed ? 0.7 : 1 }]}
+                >
+                    <Ionicons name="notifications-outline" size={24} color={colors.text} />
+                    {unreadCount > 0 && (
+                        <View style={[styles.notificationBadge, { backgroundColor: colors.tint }]}>
+                            <ThemedText style={styles.notificationBadgeText}>
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </ThemedText>
+                        </View>
+                    )}
+                </Pressable>
+
+                {/* Settings Icon */}
                 <Pressable
                     onPress={() => router.push('/settings')}
-                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                    style={({ pressed }) => [styles.headerIconButton, { opacity: pressed ? 0.7 : 1 }]}
                 >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <Circle cx={12} cy={12} r={3} />
@@ -735,10 +755,32 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    settingsContainer: {
-        alignItems: 'flex-end',
+    headerIconsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
         paddingHorizontal: Spacing.lg,
         paddingBottom: Spacing.sm,
+        gap: Spacing.md,
+    },
+    headerIconButton: {
+        position: 'relative',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -6,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    notificationBadgeText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#fff',
     },
     // Sticky tab bar overlay
     stickyTabBarOverlay: {
