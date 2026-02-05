@@ -13,7 +13,7 @@ export async function followUser(
     following_id: targetUserId,
   };
 
-  const { error } = await (supabase.from('follows') as any).insert(insertData);
+  const { error } = await supabase.from('follows').insert(insertData);
 
   if (error) {
     // Check for unique constraint violation (already following)
@@ -31,7 +31,7 @@ export async function unfollowUser(
   currentUserId: string,
   targetUserId: string
 ): Promise<void> {
-  const { error } = await (supabase.from('follows') as any)
+  const { error } = await supabase.from('follows')
     .delete()
     .eq('follower_id', currentUserId)
     .eq('following_id', targetUserId);
@@ -48,7 +48,7 @@ export async function isFollowing(
   currentUserId: string,
   targetUserId: string
 ): Promise<boolean> {
-  const { data, error } = await (supabase.from('follows') as any)
+  const { data, error } = await supabase.from('follows')
     .select('follower_id')
     .eq('follower_id', currentUserId)
     .eq('following_id', targetUserId)
@@ -65,7 +65,7 @@ export async function isFollowing(
  * Get all followers for a user
  */
 export async function getFollowers(userId: string): Promise<Profile[]> {
-  const { data, error } = await (supabase.from('follows') as any)
+  const { data, error } = await supabase.from('follows')
     .select('follower:profiles!follower_id(*)')
     .eq('following_id', userId);
 
@@ -81,7 +81,7 @@ export async function getFollowers(userId: string): Promise<Profile[]> {
  * Get all users that a user is following
  */
 export async function getFollowing(userId: string): Promise<Profile[]> {
-  const { data, error } = await (supabase.from('follows') as any)
+  const { data, error } = await supabase.from('follows')
     .select('following:profiles!following_id(*)')
     .eq('follower_id', userId);
 
