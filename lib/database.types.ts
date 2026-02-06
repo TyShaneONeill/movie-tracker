@@ -216,6 +216,8 @@ export type Database = {
           tmdb_id: number
           tmdb_popularity: number | null
           tmdb_vote_average: number | null
+          trailer_name: string | null
+          trailer_youtube_key: string | null
           tmdb_vote_count: number | null
           updated_at: string | null
         }
@@ -241,6 +243,8 @@ export type Database = {
           tmdb_id: number
           tmdb_popularity?: number | null
           tmdb_vote_average?: number | null
+          trailer_name?: string | null
+          trailer_youtube_key?: string | null
           tmdb_vote_count?: number | null
           updated_at?: string | null
         }
@@ -266,6 +270,8 @@ export type Database = {
           tmdb_id?: number
           tmdb_popularity?: number | null
           tmdb_vote_average?: number | null
+          trailer_name?: string | null
+          trailer_youtube_key?: string | null
           tmdb_vote_count?: number | null
           updated_at?: string | null
         }

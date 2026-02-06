@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { CachedMovie, CachedMovieInsert } from './database.types';
-import type { MovieDetailResponse, TMDBMovieDetail } from './tmdb.types';
+import type { MovieDetailResponse, TMDBMovieDetail, TMDBVideo } from './tmdb.types';
 
 // Cache staleness threshold (30 days in milliseconds)
 const CACHE_STALE_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000;
@@ -52,7 +52,8 @@ export async function hasFreshCache(tmdbId: number): Promise<boolean> {
  * This is async and non-blocking - caller doesn't need to wait
  */
 export async function cacheMovieData(
-  movieDetail: TMDBMovieDetail
+  movieDetail: TMDBMovieDetail,
+  trailer?: TMDBVideo | null
 ): Promise<void> {
   // Skip caching if user is not authenticated (e.g., guest mode)
   // RLS policies only allow authenticated users to INSERT/UPDATE
@@ -74,6 +75,8 @@ export async function cacheMovieData(
     genre_ids: movieDetail.genre_ids,
     poster_path: movieDetail.poster_path,
     backdrop_path: movieDetail.backdrop_path,
+    trailer_youtube_key: trailer?.key ?? null,
+    trailer_name: trailer?.name ?? null,
     tmdb_fetched_at: new Date().toISOString(),
   };
 
@@ -129,10 +132,23 @@ export async function getMovieDetailsWithCache(
 
   // Step 2: If cached and fresh, return it
   if (cached && isCacheFresh(cached.tmdb_fetched_at)) {
+    const cachedTrailer: TMDBVideo | null = cached.trailer_youtube_key
+      ? {
+          id: '',
+          key: cached.trailer_youtube_key,
+          site: 'YouTube',
+          type: 'Trailer',
+          official: true,
+          name: cached.trailer_name ?? 'Trailer',
+          published_at: '',
+        }
+      : null;
+
     return {
       data: {
         movie: cachedMovieToTMDBDetail(cached),
         cast: [], // Cast not cached yet - will need TMDB for full cast
+        trailer: cachedTrailer,
       },
       fromCache: true,
     };
@@ -142,7 +158,7 @@ export async function getMovieDetailsWithCache(
   const tmdbData = await fetchFromTMDB(tmdbId);
 
   // Step 4: Cache the result async (don't wait)
-  cacheMovieData(tmdbData.movie).catch((err) =>
+  cacheMovieData(tmdbData.movie, tmdbData.trailer).catch((err) =>
     console.error('Background cache failed:', err)
   );
 

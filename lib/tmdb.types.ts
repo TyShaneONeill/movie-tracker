@@ -96,10 +96,27 @@ export interface TMDBCastMember {
   order: number;
 }
 
+// Video from TMDB /movie/{id}/videos endpoint
+export interface TMDBVideo {
+  id: string;
+  key: string;           // YouTube video ID
+  site: string;          // "YouTube" | "Vimeo"
+  type: string;          // "Trailer" | "Teaser" | "Clip" | "Featurette"
+  official: boolean;
+  name: string;
+  published_at: string;
+}
+
+export interface TMDBVideosResponse {
+  id: number;
+  results: TMDBVideo[];
+}
+
 // Response from get-movie-details Edge Function
 export interface MovieDetailResponse {
   movie: TMDBMovieDetail;
   cast: TMDBCastMember[];
+  trailer: TMDBVideo | null;
 }
 
 // TMDB image URL helpers
