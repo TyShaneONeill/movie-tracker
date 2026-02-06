@@ -157,6 +157,7 @@ export async function getMovieDetailsWithCache(
         cast: cachedCast,
         crew: cachedCrew,
         trailer: cachedTrailer,
+        watchProviders: {},
       },
       fromCache: true,
     };

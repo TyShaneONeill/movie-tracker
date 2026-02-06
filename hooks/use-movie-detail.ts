@@ -6,6 +6,7 @@ import type {
   TMDBCastMember,
   TMDBCrewMember,
   TMDBVideo,
+  TMDBWatchProviders,
 } from '@/lib/tmdb.types';
 
 interface UseMovieDetailOptions {
@@ -18,6 +19,7 @@ interface UseMovieDetailResult {
   cast: TMDBCastMember[];
   crew: TMDBCrewMember[];
   trailer: TMDBVideo | null;
+  watchProviders: Record<string, TMDBWatchProviders>;
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
@@ -47,6 +49,7 @@ export function useMovieDetail({
     cast: data?.cast ?? [],
     crew: data?.crew ?? [],
     trailer: data?.trailer ?? null,
+    watchProviders: data?.watchProviders ?? {},
     isLoading,
     isError,
     error: error ?? null,

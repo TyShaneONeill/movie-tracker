@@ -121,12 +121,28 @@ export interface TMDBVideosResponse {
   results: TMDBVideo[];
 }
 
+// Watch provider from TMDB /movie/{id}/watch/providers endpoint
+export interface TMDBWatchProvider {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string;
+}
+
+// Watch providers for a specific country
+export interface TMDBWatchProviders {
+  flatrate?: TMDBWatchProvider[];  // Subscription streaming
+  rent?: TMDBWatchProvider[];
+  buy?: TMDBWatchProvider[];
+  link?: string;  // TMDB watch page link
+}
+
 // Response from get-movie-details Edge Function
 export interface MovieDetailResponse {
   movie: TMDBMovieDetail;
   cast: TMDBCastMember[];
   crew: TMDBCrewMember[];
   trailer: TMDBVideo | null;
+  watchProviders: Record<string, TMDBWatchProviders>;
 }
 
 // TMDB image URL helpers
