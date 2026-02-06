@@ -198,6 +198,7 @@ export type Database = {
           adult: boolean | null
           backdrop_path: string | null
           budget: number | null
+          cached_cast: Json | null
           created_at: string | null
           genre_ids: number[] | null
           id: number
@@ -225,6 +226,7 @@ export type Database = {
           adult?: boolean | null
           backdrop_path?: string | null
           budget?: number | null
+          cached_cast?: Json | null
           created_at?: string | null
           genre_ids?: number[] | null
           id?: number
@@ -252,6 +254,7 @@ export type Database = {
           adult?: boolean | null
           backdrop_path?: string | null
           budget?: number | null
+          cached_cast?: Json | null
           created_at?: string | null
           genre_ids?: number[] | null
           id?: number

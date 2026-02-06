@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { CachedMovie, CachedMovieInsert } from './database.types';
-import type { MovieDetailResponse, TMDBMovieDetail, TMDBVideo } from './tmdb.types';
+import type { MovieDetailResponse, TMDBCastMember, TMDBMovieDetail, TMDBVideo } from './tmdb.types';
 
 // Cache staleness threshold (30 days in milliseconds)
 const CACHE_STALE_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000;
@@ -53,7 +53,8 @@ export async function hasFreshCache(tmdbId: number): Promise<boolean> {
  */
 export async function cacheMovieData(
   movieDetail: TMDBMovieDetail,
-  trailer?: TMDBVideo | null
+  trailer?: TMDBVideo | null,
+  cast?: TMDBCastMember[]
 ): Promise<void> {
   // Skip caching if user is not authenticated (e.g., guest mode)
   // RLS policies only allow authenticated users to INSERT/UPDATE
@@ -77,6 +78,7 @@ export async function cacheMovieData(
     backdrop_path: movieDetail.backdrop_path,
     trailer_youtube_key: trailer?.key ?? null,
     trailer_name: trailer?.name ?? null,
+    cached_cast: cast ? JSON.parse(JSON.stringify(cast)) : null,
     tmdb_fetched_at: new Date().toISOString(),
   };
 
@@ -144,10 +146,12 @@ export async function getMovieDetailsWithCache(
         }
       : null;
 
+    const cachedCast = (cached.cached_cast as TMDBCastMember[] | null) ?? [];
+
     return {
       data: {
         movie: cachedMovieToTMDBDetail(cached),
-        cast: [], // Cast not cached yet - will need TMDB for full cast
+        cast: cachedCast,
         trailer: cachedTrailer,
       },
       fromCache: true,
@@ -158,7 +162,7 @@ export async function getMovieDetailsWithCache(
   const tmdbData = await fetchFromTMDB(tmdbId);
 
   // Step 4: Cache the result async (don't wait)
-  cacheMovieData(tmdbData.movie, tmdbData.trailer).catch((err) =>
+  cacheMovieData(tmdbData.movie, tmdbData.trailer, tmdbData.cast).catch((err) =>
     console.error('Background cache failed:', err)
   );
 
