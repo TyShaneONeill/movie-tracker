@@ -18,6 +18,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { getFriendlyErrorMessage } from '@/lib/error-messages';
 
 export default function ResetPasswordScreen() {
   const { effectiveTheme } = useTheme();
@@ -51,7 +52,7 @@ export default function ResetPasswordScreen() {
       const { error: updateError } = await updatePassword(newPassword);
 
       if (updateError) {
-        setError(updateError.message);
+        setError(getFriendlyErrorMessage(updateError));
         return;
       }
 

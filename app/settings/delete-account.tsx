@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import Svg, { Path, Polyline } from 'react-native-svg';
@@ -80,7 +81,7 @@ export default function DeleteAccountScreen() {
         const { error: deleteError } = await deleteAccount();
 
         if (deleteError) {
-          setError(deleteError.message);
+          setError(getFriendlyErrorMessage(deleteError));
           setIsLoading(false);
         } else {
           // Navigate to signin screen on success

@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/hooks/use-auth';
+import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { Typography } from '@/constants/typography';
@@ -42,6 +44,7 @@ export default function SignUpScreen() {
   };
 
   const handleSignUp = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -55,7 +58,7 @@ export default function SignUpScreen() {
       const { error: signUpError, needsEmailConfirmation } = await signUp(email, password);
 
       if (signUpError) {
-        setError(signUpError.message);
+        setError(getFriendlyErrorMessage(signUpError));
         return;
       }
 
@@ -68,7 +71,7 @@ export default function SignUpScreen() {
       const { error: signInError } = await signIn(email, password);
 
       if (signInError) {
-        setError(signInError.message);
+        setError(getFriendlyErrorMessage(signInError));
         return;
       }
 
@@ -82,6 +85,7 @@ export default function SignUpScreen() {
   };
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple' | 'meta') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (provider === 'meta') {
       alert('Meta sign-in coming soon');
       return;
@@ -106,7 +110,7 @@ export default function SignUpScreen() {
       const message = err instanceof Error ? err.message : 'Authentication failed';
       // Don't show error for user cancellation
       if (!message.includes('cancelled')) {
-        setError(message);
+        setError(getFriendlyErrorMessage(message));
       }
     } finally {
       setIsSubmitting(false);

@@ -227,6 +227,7 @@ export default function JourneyCardScreen() {
   // Handle generate AI art
   const handleGenerateArt = useCallback(async () => {
     if (!journey) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const genreNames = journey.genre_ids
         ? getGenreNamesByIds(journey.genre_ids)
@@ -238,6 +239,7 @@ export default function JourneyCardScreen() {
         genres: genreNames,
         posterUrl,
       });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Failed to generate art:', error);
     }
