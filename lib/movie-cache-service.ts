@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { CachedMovie, CachedMovieInsert } from './database.types';
-import type { MovieDetailResponse, TMDBCastMember, TMDBMovieDetail, TMDBVideo } from './tmdb.types';
+import type { MovieDetailResponse, TMDBCastMember, TMDBCrewMember, TMDBMovieDetail, TMDBVideo } from './tmdb.types';
 
 // Cache staleness threshold (30 days in milliseconds)
 const CACHE_STALE_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000;
@@ -54,7 +54,8 @@ export async function hasFreshCache(tmdbId: number): Promise<boolean> {
 export async function cacheMovieData(
   movieDetail: TMDBMovieDetail,
   trailer?: TMDBVideo | null,
-  cast?: TMDBCastMember[]
+  cast?: TMDBCastMember[],
+  crew?: TMDBCrewMember[]
 ): Promise<void> {
   // Skip caching if user is not authenticated (e.g., guest mode)
   // RLS policies only allow authenticated users to INSERT/UPDATE
@@ -79,6 +80,7 @@ export async function cacheMovieData(
     trailer_youtube_key: trailer?.key ?? null,
     trailer_name: trailer?.name ?? null,
     cached_cast: cast ? JSON.parse(JSON.stringify(cast)) : null,
+    cached_crew: crew ? JSON.parse(JSON.stringify(crew)) : null,
     tmdb_fetched_at: new Date().toISOString(),
   };
 
@@ -147,11 +149,13 @@ export async function getMovieDetailsWithCache(
       : null;
 
     const cachedCast = (cached.cached_cast as TMDBCastMember[] | null) ?? [];
+    const cachedCrew = (cached.cached_crew as TMDBCrewMember[] | null) ?? [];
 
     return {
       data: {
         movie: cachedMovieToTMDBDetail(cached),
         cast: cachedCast,
+        crew: cachedCrew,
         trailer: cachedTrailer,
       },
       fromCache: true,
@@ -162,7 +166,7 @@ export async function getMovieDetailsWithCache(
   const tmdbData = await fetchFromTMDB(tmdbId);
 
   // Step 4: Cache the result async (don't wait)
-  cacheMovieData(tmdbData.movie, tmdbData.trailer, tmdbData.cast).catch((err) =>
+  cacheMovieData(tmdbData.movie, tmdbData.trailer, tmdbData.cast, tmdbData.crew).catch((err) =>
     console.error('Background cache failed:', err)
   );
 

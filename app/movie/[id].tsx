@@ -69,7 +69,7 @@ export default function MovieDetailScreen() {
   const [showTrailerModal, setShowTrailerModal] = useState(false);
 
   // Fetch movie details using the hook
-  const { movie, cast, trailer, isLoading, isError, error } = useMovieDetail({
+  const { movie, cast, crew, trailer, isLoading, isError, error } = useMovieDetail({
     movieId: id || '',
     enabled: !!id,
   });
@@ -377,6 +377,45 @@ export default function MovieDetailScreen() {
           {/* Synopsis */}
           <Text style={dynamicStyles.synopsis}>{movie.overview || 'No synopsis available.'}</Text>
 
+          {/* Crew Section */}
+          {crew.length > 0 && (() => {
+            const directors = crew.filter(c => c.job === 'Director');
+            const writers = crew.filter(c => ['Writer', 'Screenplay', 'Story'].includes(c.job));
+            const uniqueWriters = writers.filter((w, i, arr) => arr.findIndex(x => x.id === w.id) === i);
+            const composers = crew.filter(c => c.job === 'Original Music Composer');
+
+            const crewRows = [
+              { label: 'Directed by', members: directors },
+              { label: 'Written by', members: uniqueWriters },
+              { label: 'Music by', members: composers },
+            ].filter(row => row.members.length > 0);
+
+            if (crewRows.length === 0) return null;
+
+            return (
+              <View style={dynamicStyles.crewSection}>
+                {crewRows.map((row) => (
+                  <View key={row.label} style={dynamicStyles.crewRow}>
+                    <Text style={dynamicStyles.crewLabel}>{row.label}</Text>
+                    <View style={dynamicStyles.crewNames}>
+                      {row.members.map((member, index) => (
+                        <React.Fragment key={member.id}>
+                          {index > 0 && <Text style={dynamicStyles.crewSeparator}>, </Text>}
+                          <Text
+                            style={dynamicStyles.crewName}
+                            onPress={() => router.push(`/person/${member.id}`)}
+                          >
+                            {member.name}
+                          </Text>
+                        </React.Fragment>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
+
           {/* Status Actions - Want to Watch / Watching */}
           <View style={dynamicStyles.statusActionsContainer}>
             <MovieStatusActions
@@ -672,6 +711,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 24,
     marginTop: Spacing.md,
+  },
+
+  // Crew
+  crewSection: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  crewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  crewLabel: {
+    ...Typography.body.sm,
+    color: colors.textSecondary,
+    width: 90,
+    flexShrink: 0,
+  },
+  crewNames: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  crewName: {
+    ...Typography.body.smMedium,
+    color: colors.text,
+  },
+  crewSeparator: {
+    ...Typography.body.sm,
+    color: colors.textSecondary,
   },
 
   // Status Actions
