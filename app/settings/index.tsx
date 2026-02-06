@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform, Linking } from 'react-native';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -34,12 +35,14 @@ export default function SettingsScreen() {
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
 
   const handleThemeToggle = async (isDarkMode: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // When toggle is ON = dark mode, when OFF = light mode
     // We don't use 'system' from the toggle - it's a simple on/off
     await setThemePreference(isDarkMode ? 'dark' : 'light');
   };
 
   const handleFirstTakePromptToggle = async (value: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await updatePreference('firstTakePromptEnabled', value);
     } catch (error) {

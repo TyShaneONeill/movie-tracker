@@ -1,5 +1,6 @@
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle, Polyline } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
 
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -120,6 +121,7 @@ export function MovieStatusActions({
   const watchedColor = colors.accentSecondary;
 
   const handleWatchlist = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isWatchlist) {
       onStatusChange(null);
     } else {
@@ -128,6 +130,7 @@ export function MovieStatusActions({
   };
 
   const handleWatching = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isWatching) {
       onStatusChange(null);
     } else {
@@ -136,6 +139,7 @@ export function MovieStatusActions({
   };
 
   const handleWatched = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isWatched) {
       onStatusChange(null);
     } else {

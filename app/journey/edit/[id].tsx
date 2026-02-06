@@ -28,6 +28,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import Svg, { Path } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
 
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -149,6 +150,7 @@ export default function EditJourneyScreen() {
 
   // Handle cancel
   const handleCancel = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -158,6 +160,7 @@ export default function EditJourneyScreen() {
 
   // Handle save
   const handleSave = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsUpdating(true);
 
     const journeyData = {
@@ -181,6 +184,7 @@ export default function EditJourneyScreen() {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     setIsUpdating(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     // Navigate back
     if (router.canGoBack()) {
@@ -205,6 +209,7 @@ export default function EditJourneyScreen() {
 
   // Handle delete
   const handleDelete = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       'Delete Journey',
       'Are you sure you want to delete this journey? This action cannot be undone.',
@@ -216,6 +221,7 @@ export default function EditJourneyScreen() {
           onPress: async () => {
             try {
               await deleteJourney(id as string);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               if (router.canGoBack()) {
                 router.back();
               } else {

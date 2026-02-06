@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 
 import { useTheme } from '@/lib/theme-context';
@@ -125,6 +126,8 @@ export default function EditProfileScreen() {
   };
 
   const handleSave = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     // Validate form
     const validationErrors = validateForm(formData);
     if (Object.keys(validationErrors).length > 0) {
@@ -140,6 +143,7 @@ export default function EditProfileScreen() {
         bio: formData.bio || undefined,
       });
 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Navigate back after save
       router.back();
     } catch (error) {

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -43,6 +44,7 @@ export default function SignUpScreen() {
   };
 
   const handleSignUp = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -83,6 +85,7 @@ export default function SignUpScreen() {
   };
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple' | 'meta') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (provider === 'meta') {
       alert('Meta sign-in coming soon');
       return;

@@ -27,6 +27,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -131,6 +132,7 @@ export default function MovieDetailScreen() {
   };
 
   const handleLike = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     requireAuth(async () => {
       const movieData = getMovieForSave();
       if (movieData) {
@@ -146,6 +148,7 @@ export default function MovieDetailScreen() {
 
   // Helper function to perform the actual removal
   const performRemoval = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       if (hasFirstTake) {
         await deleteTake();
@@ -157,6 +160,7 @@ export default function MovieDetailScreen() {
   };
 
   const handleStatusChange = async (status: MovieStatus | null) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     requireAuth(async () => {
       const movieData = getMovieForSave();
       if (!movieData) return;
@@ -192,6 +196,9 @@ export default function MovieDetailScreen() {
         if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled) {
           setShowFirstTakeModal(true);
         }
+
+        // Success haptic after action completes
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {
         Alert.alert('Error', 'Failed to update movie status. Please try again.');
       }

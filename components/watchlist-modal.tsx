@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -97,7 +98,10 @@ export function WatchlistModal({
                       isSelected && styles.optionSelected,
                       pressed && styles.optionPressed,
                     ]}
-                    onPress={() => onSelect(option.status)}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onSelect(option.status);
+                    }}
                     disabled={isLoading}
                   >
                     <Text style={styles.optionIcon}>{option.icon}</Text>
@@ -126,6 +130,7 @@ export function WatchlistModal({
                   pressed && styles.removeButtonPressed,
                 ]}
                 onPress={() => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                   if (hasFirstTake) {
                     setShowRemoveConfirmation(true);
                   } else {

@@ -13,6 +13,7 @@ import {
   ScrollView,
   Keyboard,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Slider from '@react-native-community/slider';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -51,6 +52,7 @@ export function FirstTakeModal({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     await onSubmit({
       rating,
@@ -58,6 +60,7 @@ export function FirstTakeModal({
       isSpoiler,
     });
 
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     // Reset state after successful submit
     setRating(5);
     setQuoteText('');
@@ -65,6 +68,7 @@ export function FirstTakeModal({
   };
 
   const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Reset state on close
     setRating(5);
     setQuoteText('');
