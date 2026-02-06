@@ -1,371 +1,558 @@
 /**
  * Person Detail Screen
- * Matches ui-mocks/person_detail.html
+ * Displays actor/director profile with biography and filmography
  *
  * Features:
- * - Centered avatar with gradient background effect
- * - Name, role (Director/Actor), age
- * - Stats bubbles (Credits count, Avg Rating)
- * - Biography text with "Read more" truncation
- * - Known For horizontal poster scroll
- * - Full filmography list
+ * - Profile photo with name and role
+ * - Biography section (expandable)
+ * - "Known For" horizontal scroll (top 5 movies)
+ * - Full filmography grid (tappable → movie detail)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   Pressable,
+  ActivityIndicator,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import Svg, { Path } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { usePersonDetail } from '@/hooks/use-person-detail';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import type { TMDBMovieCredit } from '@/lib/tmdb.types';
 
-// Mock data for the person (in real app, fetch by ID)
-const MOCK_PERSON = {
-  id: '1',
-  name: 'Timothée Chalamet',
-  role: 'Actor',
-  age: 29,
-  credits: 32,
-  avgRating: 8.1,
-  avatarUrl: 'https://image.tmdb.org/t/p/w500/lFDe5Fj28u10y8yqecjW1k06j5.jpg',
-  biography: 'Timothée Hal Chalamet is an American and French actor. He has received various accolades, including nominations for an Academy Award, two Golden Globe Awards, and three BAFTA Film Awards. Chalamet began his career as a teenager in television, appearing in the drama series Homeland in 2012.',
-  knownFor: [
-    {
-      id: '1',
-      title: 'Dune: Part Two',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-    },
-    {
-      id: '2',
-      title: 'Wonka',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/8c4a8kE7PizaGQQnditMmI1xbRp.jpg',
-    },
-    {
-      id: '3',
-      title: 'Dune',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/1E5baAaEse26fej7uHkjPo37wq.jpg',
-    },
-  ],
-  filmography: [
-    {
-      id: '1',
-      title: 'Dune: Part Two',
-      character: 'Paul Atreides',
-      year: '2024',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-    },
-    {
-      id: '2',
-      title: 'Wonka',
-      character: 'Willy Wonka',
-      year: '2023',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/8c4a8kE7PizaGQQnditMmI1xbRp.jpg',
-    },
-    {
-      id: '3',
-      title: 'Bones and All',
-      character: 'Lee',
-      year: '2022',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/ygO9lowFMXWtgVxR95lBpSdRf.jpg',
-    },
-  ],
-};
+// Grid layout constants
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const COLUMN_COUNT = 3;
+const GRID_GAP = Spacing.sm;
+const AVAILABLE_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
+const CARD_WIDTH = (AVAILABLE_WIDTH - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
+
+// Known For horizontal scroll card width
+const KNOWN_FOR_CARD_WIDTH = 120;
+
+// Back icon component
+const BackIcon = ({ color = 'white' }: { color?: string }) => (
+  <Svg
+    width={24}
+    height={24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+  >
+    <Path d="M19 12H5M12 19l-7-7 7-7" />
+  </Svg>
+);
+
+/**
+ * Format birthday to readable format and calculate age
+ */
+function formatBirthdayWithAge(birthday: string | null, deathday: string | null): string {
+  if (!birthday) return '';
+
+  const birthDate = new Date(birthday);
+  const options: Intl.DateTimeFormatOptions = {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  };
+  const formattedDate = birthDate.toLocaleDateString('en-US', options);
+
+  // Calculate age
+  const endDate = deathday ? new Date(deathday) : new Date();
+  let age = endDate.getFullYear() - birthDate.getFullYear();
+  const monthDiff = endDate.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && endDate.getDate() < birthDate.getDate())) {
+    age--;
+  }
+
+  if (deathday) {
+    return `${formattedDate} (${age} years old at death)`;
+  }
+
+  return `${formattedDate} (${age} years old)`;
+}
+
+/**
+ * Get year from release date
+ */
+function getYear(releaseDate: string | null): string {
+  if (!releaseDate) return '';
+  return releaseDate.split('-')[0];
+}
 
 export default function PersonDetailScreen() {
   const router = useRouter();
-  // TODO: Use params.id for fetching person data from API
-  useLocalSearchParams();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const [biographyExpanded, setBiographyExpanded] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
 
-  // In a real app, fetch person by params.id
-  const person = MOCK_PERSON;
+  // Fetch person details
+  const { person, filmography, knownFor, isLoading, isError, error } = usePersonDetail({
+    personId: id || '',
+    enabled: !!id,
+  });
 
-  const handleNavigateToMovie = (movieId: string) => {
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
+  const handleMoviePress = (movieId: number) => {
     router.push(`/movie/${movieId}`);
   };
 
-  const truncatedBio = person.biography.slice(0, 200) + '...';
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
+
+  // Truncate biography for collapsed view
+  const MAX_BIO_LENGTH = 200;
+  const shouldTruncateBio = person?.biography && person.biography.length > MAX_BIO_LENGTH;
+  const displayBio = bioExpanded
+    ? person?.biography
+    : person?.biography?.slice(0, MAX_BIO_LENGTH) + (shouldTruncateBio ? '...' : '');
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={dynamicStyles.container}>
+        <View style={dynamicStyles.header}>
+          <Pressable
+            onPress={handleGoBack}
+            style={({ pressed }) => [dynamicStyles.backButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <BackIcon color={colors.text} />
+          </Pressable>
+          <Text style={dynamicStyles.headerTitle}>Loading...</Text>
+          <View style={dynamicStyles.headerSpacer} />
+        </View>
+        <View style={dynamicStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (isError || !person) {
+    return (
+      <SafeAreaView style={dynamicStyles.container}>
+        <View style={dynamicStyles.header}>
+          <Pressable
+            onPress={handleGoBack}
+            style={({ pressed }) => [dynamicStyles.backButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <BackIcon color={colors.text} />
+          </Pressable>
+          <Text style={dynamicStyles.headerTitle}>Error</Text>
+          <View style={dynamicStyles.headerSpacer} />
+        </View>
+        <View style={dynamicStyles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.tint} />
+          <Text style={dynamicStyles.errorTitle}>Person not found</Text>
+          <Text style={dynamicStyles.errorSubtitle}>
+            {error?.message || 'Could not load person details'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const profileUrl = getTMDBImageUrl(person.profile_path, 'w500');
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header with back and share buttons */}
-      <View style={styles.headerButtons}>
+    <SafeAreaView style={dynamicStyles.container}>
+      {/* Navigation Header */}
+      <View style={dynamicStyles.header}>
         <Pressable
-          onPress={() => router.back()}
-          style={styles.headerButton}
+          onPress={handleGoBack}
+          style={({ pressed }) => [dynamicStyles.backButton, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <BlurView intensity={20} tint="dark" style={styles.blurButton}>
-            <Text style={styles.buttonIcon}>←</Text>
-          </BlurView>
+          <BackIcon color={colors.text} />
         </Pressable>
-
-        <Pressable
-          onPress={() => {
-            // Share functionality would go here
-          }}
-          style={styles.headerButton}
-        >
-          <BlurView intensity={20} tint="dark" style={styles.blurButton}>
-            <Text style={styles.buttonIcon}>⋮</Text>
-          </BlurView>
-        </Pressable>
+        <Text style={dynamicStyles.headerTitle} numberOfLines={1}>
+          {person.name}
+        </Text>
+        <View style={dynamicStyles.headerSpacer} />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={dynamicStyles.scrollContent}
       >
-        {/* Person Header with gradient background */}
-        <LinearGradient
-          colors={[colors.card, colors.background]}
-          style={styles.personHeader}
-        >
-          <Image
-            source={{ uri: person.avatarUrl }}
-            style={styles.personAvatar}
-          />
-          <Text style={[styles.personName, { color: colors.text }]}>
-            {person.name}
-          </Text>
-          <Text style={[styles.personMeta, { color: colors.textSecondary }]}>
-            {person.role} • {person.age} years old
-          </Text>
-
-          {/* Stats bubbles */}
-          <View style={styles.statsRow}>
-            <View style={[styles.statBubble, { backgroundColor: colors.backgroundSecondary }]}>
-              <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                {person.credits} Credits
-              </Text>
+        {/* Profile Header */}
+        <View style={dynamicStyles.profileHeader}>
+          {/* Profile Photo */}
+          {profileUrl ? (
+            <Image
+              source={{ uri: profileUrl }}
+              style={dynamicStyles.profilePhoto}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : (
+            <View style={[dynamicStyles.profilePhoto, dynamicStyles.profilePhotoPlaceholder]}>
+              <Ionicons name="person" size={60} color={colors.textSecondary} />
             </View>
-            <View style={[styles.statBubble, { backgroundColor: colors.backgroundSecondary }]}>
-              <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                {person.avgRating} Avg Rating
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
+          )}
 
-        {/* Biography Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Biography
-          </Text>
-          <Text style={[styles.biographyText, { color: colors.textSecondary }]}>
-            {biographyExpanded ? person.biography : truncatedBio}
-            {!biographyExpanded && (
-              <Text
-                onPress={() => setBiographyExpanded(true)}
-                style={[styles.readMore, { color: colors.tint }]}
-              >
-                {' '}Read more
-              </Text>
-            )}
-          </Text>
+          {/* Name & Role */}
+          <Text style={dynamicStyles.name}>{person.name}</Text>
+          <Text style={dynamicStyles.role}>{person.known_for_department}</Text>
+
+          {/* Birth Info */}
+          {person.birthday && (
+            <Text style={dynamicStyles.birthInfo}>
+              {formatBirthdayWithAge(person.birthday, person.deathday)}
+            </Text>
+          )}
+          {person.place_of_birth && (
+            <Text style={dynamicStyles.birthPlace}>{person.place_of_birth}</Text>
+          )}
         </View>
 
-        {/* Known For Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Known For
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.knownForScroll}
-          >
-            {person.knownFor.map((movie) => (
+        {/* Biography */}
+        {person.biography && (
+          <View style={dynamicStyles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Biography</Text>
+            <Text style={dynamicStyles.biography}>{displayBio}</Text>
+            {shouldTruncateBio && (
               <Pressable
-                key={movie.id}
-                onPress={() => handleNavigateToMovie(movie.id)}
-                style={styles.knownForCard}
+                onPress={() => setBioExpanded(!bioExpanded)}
+                style={({ pressed }) => [
+                  dynamicStyles.readMoreButton,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
               >
-                <Image
-                  source={{ uri: movie.posterUrl }}
-                  style={styles.knownForPoster}
-                />
-                <Text style={[styles.knownForTitle, { color: colors.text }]}>
-                  {movie.title}
+                <Text style={dynamicStyles.readMoreText}>
+                  {bioExpanded ? 'Read Less' : 'Read More'}
                 </Text>
               </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+            )}
+          </View>
+        )}
 
-        {/* Filmography Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Filmography
-          </Text>
-          {person.filmography.map((film) => (
-            <Pressable
-              key={film.id}
-              onPress={() => handleNavigateToMovie(film.id)}
-              style={[styles.filmographyItem, { backgroundColor: colors.card }]}
+        {/* Known For */}
+        {knownFor.length > 0 && (
+          <View style={dynamicStyles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Known For</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={dynamicStyles.knownForScroll}
             >
-              <Image
-                source={{ uri: film.posterUrl }}
-                style={styles.filmPoster}
-              />
-              <View style={styles.filmInfo}>
-                <Text style={[styles.filmTitle, { color: colors.text }]}>
-                  {film.title}
-                </Text>
-                <Text style={[styles.filmCharacter, { color: colors.textSecondary }]}>
-                  as {film.character}
-                </Text>
-              </View>
-              <Text style={[styles.filmYear, { color: colors.textSecondary }]}>
-                {film.year}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+              {knownFor.map((movie) => (
+                <Pressable
+                  key={`known-${movie.id}`}
+                  onPress={() => handleMoviePress(movie.id)}
+                  style={({ pressed }) => [
+                    dynamicStyles.knownForCard,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  {movie.poster_path ? (
+                    <Image
+                      source={{ uri: getTMDBImageUrl(movie.poster_path, 'w342') ?? undefined }}
+                      style={dynamicStyles.knownForPoster}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        dynamicStyles.knownForPoster,
+                        dynamicStyles.knownForPosterPlaceholder,
+                      ]}
+                    >
+                      <Ionicons name="film-outline" size={32} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <Text style={dynamicStyles.knownForTitle} numberOfLines={2}>
+                    {movie.title}
+                  </Text>
+                  {movie.character && (
+                    <Text style={dynamicStyles.knownForCharacter} numberOfLines={1}>
+                      {movie.character}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
-        {/* Bottom padding for safe area */}
-        <View style={{ height: 90 }} />
+        {/* Filmography */}
+        {filmography.length > 0 && (
+          <View style={dynamicStyles.section}>
+            <Text style={dynamicStyles.sectionTitle}>
+              Filmography ({filmography.length})
+            </Text>
+            <View style={dynamicStyles.filmographyGrid}>
+              {filmography.map((movie) => (
+                <Pressable
+                  key={`film-${movie.id}`}
+                  onPress={() => handleMoviePress(movie.id)}
+                  style={({ pressed }) => [
+                    dynamicStyles.filmCard,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  {movie.poster_path ? (
+                    <Image
+                      source={{ uri: getTMDBImageUrl(movie.poster_path, 'w342') ?? undefined }}
+                      style={dynamicStyles.filmPoster}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View
+                      style={[dynamicStyles.filmPoster, dynamicStyles.filmPosterPlaceholder]}
+                    >
+                      <Ionicons name="film-outline" size={24} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  {/* Year badge */}
+                  {movie.release_date && (
+                    <View style={dynamicStyles.yearBadge}>
+                      <Text style={dynamicStyles.yearBadgeText}>
+                        {getYear(movie.release_date)}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Empty filmography state */}
+        {filmography.length === 0 && (
+          <View style={dynamicStyles.emptyContainer}>
+            <Ionicons name="film-outline" size={48} color={colors.textSecondary} />
+            <Text style={dynamicStyles.emptyTitle}>No filmography available</Text>
+          </View>
+        )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: Spacing.xl,
-  },
-  headerButtons: {
-    position: 'absolute',
-    top: Spacing.md,
-    left: Spacing.md,
-    right: Spacing.md,
-    zIndex: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  headerButton: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.full,
-    overflow: 'hidden',
-  },
-  blurButton: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonIcon: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  personHeader: {
-    alignItems: 'center',
-    paddingTop: Spacing.xl + 40, // Account for header buttons
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.md,
-  },
-  personAvatar: {
-    width: 120,
-    height: 120,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.md,
-    borderWidth: 4,
-    borderColor: '#09090b',
-  },
-  personName: {
-    ...Typography.display.h2,
-    textAlign: 'center',
-  },
-  personMeta: {
-    ...Typography.body.base,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  statBubble: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: BorderRadius.full,
-  },
-  statText: {
-    ...Typography.body.sm,
-  },
-  section: {
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    ...Typography.display.h3,
-    marginBottom: Spacing.md,
-  },
-  biographyText: {
-    ...Typography.body.sm,
-    lineHeight: 22.4, // 1.6 line-height from HTML mock
-    marginBottom: Spacing.lg,
-  },
-  readMore: {
-    ...Typography.body.sm,
-    fontWeight: '600',
-  },
-  knownForScroll: {
-    gap: Spacing.md,
-    paddingBottom: Spacing.md,
-  },
-  knownForCard: {
-    width: 140,
-  },
-  knownForPoster: {
-    width: 140,
-    height: 210,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-  },
-  knownForTitle: {
-    ...Typography.body.sm,
-    fontWeight: '600',
-  },
-  filmographyItem: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-  },
-  filmPoster: {
-    width: 50,
-    height: 75,
-    borderRadius: BorderRadius.sm,
-  },
-  filmInfo: {
-    flex: 1,
-  },
-  filmTitle: {
-    ...Typography.body.base,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  filmCharacter: {
-    ...Typography.body.sm,
-  },
-  filmYear: {
-    ...Typography.body.sm,
-  },
-});
+// Type for the colors object
+type ThemeColors = typeof Colors.dark;
+
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+    },
+    backButton: {
+      padding: Spacing.xs,
+    },
+    headerTitle: {
+      flex: 1,
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      textAlign: 'center',
+      marginHorizontal: Spacing.sm,
+    },
+    headerSpacer: {
+      width: 32,
+    },
+    scrollContent: {
+      paddingBottom: 100,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.xl,
+      gap: Spacing.sm,
+    },
+    errorTitle: {
+      ...Typography.display.h4,
+      color: colors.text,
+      marginTop: Spacing.md,
+    },
+    errorSubtitle: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+
+    // Profile Header
+    profileHeader: {
+      alignItems: 'center',
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.lg,
+      paddingBottom: Spacing.xl,
+    },
+    profilePhoto: {
+      width: 150,
+      height: 150,
+      borderRadius: 75,
+      backgroundColor: colors.card,
+      borderWidth: 3,
+      borderColor: colors.tint,
+    },
+    profilePhotoPlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    name: {
+      ...Typography.display.h2,
+      color: colors.text,
+      marginTop: Spacing.lg,
+      textAlign: 'center',
+    },
+    role: {
+      ...Typography.body.base,
+      color: colors.tint,
+      marginTop: Spacing.xs,
+      fontWeight: '600',
+    },
+    birthInfo: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      marginTop: Spacing.sm,
+    },
+    birthPlace: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      marginTop: Spacing.xs,
+      textAlign: 'center',
+    },
+
+    // Section
+    section: {
+      paddingHorizontal: Spacing.lg,
+      marginTop: Spacing.lg,
+    },
+    sectionTitle: {
+      ...Typography.display.h4,
+      color: colors.text,
+      marginBottom: Spacing.md,
+    },
+
+    // Biography
+    biography: {
+      ...Typography.body.base,
+      color: colors.textSecondary,
+      lineHeight: 24,
+    },
+    readMoreButton: {
+      marginTop: Spacing.sm,
+    },
+    readMoreText: {
+      ...Typography.body.sm,
+      color: colors.tint,
+      fontWeight: '600',
+    },
+
+    // Known For
+    knownForScroll: {
+      gap: Spacing.md,
+      paddingRight: Spacing.lg,
+    },
+    knownForCard: {
+      width: KNOWN_FOR_CARD_WIDTH,
+    },
+    knownForPoster: {
+      width: KNOWN_FOR_CARD_WIDTH,
+      aspectRatio: 2 / 3,
+      borderRadius: BorderRadius.md,
+      backgroundColor: colors.card,
+    },
+    knownForPosterPlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    knownForTitle: {
+      ...Typography.body.sm,
+      color: colors.text,
+      fontWeight: '600',
+      marginTop: Spacing.xs,
+    },
+    knownForCharacter: {
+      ...Typography.caption.default,
+      color: colors.textSecondary,
+    },
+
+    // Filmography Grid
+    filmographyGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: GRID_GAP,
+    },
+    filmCard: {
+      width: CARD_WIDTH,
+      position: 'relative',
+    },
+    filmPoster: {
+      width: '100%',
+      aspectRatio: 2 / 3,
+      borderRadius: BorderRadius.sm,
+      backgroundColor: colors.card,
+    },
+    filmPosterPlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    yearBadge: {
+      position: 'absolute',
+      bottom: Spacing.xs,
+      right: Spacing.xs,
+      backgroundColor: 'rgba(0, 0, 0, 0.75)',
+      paddingHorizontal: Spacing.xs,
+      paddingVertical: 2,
+      borderRadius: BorderRadius.xs,
+    },
+    yearBadgeText: {
+      ...Typography.caption.default,
+      color: 'white',
+      fontSize: 10,
+      fontWeight: '600',
+    },
+
+    // Empty state
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: Spacing.xl * 2,
+      gap: Spacing.sm,
+    },
+    emptyTitle: {
+      ...Typography.display.h4,
+      color: colors.text,
+    },
+  });

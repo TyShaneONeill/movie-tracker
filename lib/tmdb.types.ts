@@ -119,6 +119,40 @@ export interface MovieDetailResponse {
   trailer: TMDBVideo | null;
 }
 
+// Person detail from TMDB /person/{id}
+export interface TMDBPerson {
+  id: number;
+  name: string;
+  biography: string | null;
+  birthday: string | null;
+  deathday: string | null;
+  place_of_birth: string | null;
+  profile_path: string | null;
+  known_for_department: string;
+  popularity: number;
+  also_known_as: string[];
+  gender: number; // 0: not specified, 1: female, 2: male, 3: non-binary
+}
+
+// Movie credit for a person's filmography
+export interface TMDBMovieCredit {
+  id: number;
+  title: string;
+  character?: string; // For cast
+  job?: string; // For crew
+  poster_path: string | null;
+  release_date: string | null;
+  vote_average: number;
+  popularity: number;
+}
+
+// Response from get-person-details Edge Function
+export interface PersonDetailResponse {
+  person: TMDBPerson;
+  filmography: TMDBMovieCredit[];
+  knownFor: TMDBMovieCredit[];
+}
+
 // TMDB image URL helpers
 export const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
 
