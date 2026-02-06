@@ -133,6 +133,7 @@ export async function getMovieDetailsWithCache(
       data: {
         movie: cachedMovieToTMDBDetail(cached),
         cast: [], // Cast not cached yet - will need TMDB for full cast
+        trailer: null, // Trailer not cached - will need TMDB for trailer
       },
       fromCache: true,
     };

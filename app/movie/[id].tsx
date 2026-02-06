@@ -38,6 +38,7 @@ import { Typography } from '@/constants/typography';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
+import { TrailerModal } from '@/components/modals/trailer-modal';
 import { useMovieDetail } from '@/hooks/use-movie-detail';
 import { useMovieActions } from '@/hooks/use-movie-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
@@ -65,9 +66,10 @@ export default function MovieDetailScreen() {
 
   // Modal state for First Take
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
+  const [showTrailerModal, setShowTrailerModal] = useState(false);
 
   // Fetch movie details using the hook
-  const { movie, cast, isLoading, isError, error } = useMovieDetail({
+  const { movie, cast, trailer, isLoading, isError, error } = useMovieDetail({
     movieId: id || '',
     enabled: !!id,
   });
@@ -114,7 +116,11 @@ export default function MovieDetailScreen() {
     }
   };
 
-  // handlePlayTrailer removed - Coming Soon feature
+  const handlePlayTrailer = () => {
+    if (!trailer) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowTrailerModal(true);
+  };
 
   // Convert movie detail to TMDBMovie format for saving
   const getMovieForSave = (): TMDBMovie | null => {
@@ -327,12 +333,20 @@ export default function MovieDetailScreen() {
             {/* More options button hidden - Coming Soon */}
           </View>
 
-          {/* Play Button - Coming Soon */}
-          <View style={dynamicStyles.playButtonDisabled}>
-            <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
-              <Text style={dynamicStyles.playIconDisabled}>▶</Text>
-            </BlurView>
-          </View>
+          {/* Play Trailer Button */}
+          {trailer && (
+            <Pressable
+              onPress={handlePlayTrailer}
+              style={({ pressed }) => [
+                dynamicStyles.playButton,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
+                <Text style={dynamicStyles.playIcon}>▶</Text>
+              </BlurView>
+            </Pressable>
+          )}
         </ImageBackground>
 
         {/* Content Container - Overlaps hero by 120px */}
@@ -486,6 +500,16 @@ export default function MovieDetailScreen() {
         onClose={hideLoginPrompt}
         message={loginPromptMessage}
       />
+
+      {/* Trailer Modal */}
+      {trailer && (
+        <TrailerModal
+          visible={showTrailerModal}
+          onClose={() => setShowTrailerModal(false)}
+          videoKey={trailer.key}
+          trailerName={trailer.name}
+        />
+      )}
     </View>
   );
 }
