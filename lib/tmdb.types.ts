@@ -96,6 +96,15 @@ export interface TMDBCastMember {
   order: number;
 }
 
+// Crew member in movie credits
+export interface TMDBCrewMember {
+  id: number;
+  name: string;
+  job: string;
+  department: string;
+  profile_path: string | null;
+}
+
 // Video from TMDB /movie/{id}/videos endpoint
 export interface TMDBVideo {
   id: string;
@@ -116,6 +125,7 @@ export interface TMDBVideosResponse {
 export interface MovieDetailResponse {
   movie: TMDBMovieDetail;
   cast: TMDBCastMember[];
+  crew: TMDBCrewMember[];
   trailer: TMDBVideo | null;
 }
 

@@ -199,6 +199,7 @@ export type Database = {
           backdrop_path: string | null
           budget: number | null
           cached_cast: Json | null
+          cached_crew: Json | null
           created_at: string | null
           genre_ids: number[] | null
           id: number
@@ -227,6 +228,7 @@ export type Database = {
           backdrop_path?: string | null
           budget?: number | null
           cached_cast?: Json | null
+          cached_crew?: Json | null
           created_at?: string | null
           genre_ids?: number[] | null
           id?: number
@@ -255,6 +257,7 @@ export type Database = {
           backdrop_path?: string | null
           budget?: number | null
           cached_cast?: Json | null
+          cached_crew?: Json | null
           created_at?: string | null
           genre_ids?: number[] | null
           id?: number
