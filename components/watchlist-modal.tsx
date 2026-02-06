@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -101,6 +102,14 @@ export function WatchlistModal({
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       onSelect(option.status);
+                      // Show toast based on selected status
+                      const toastMessage = option.status === 'watchlist' ? 'Added to Watchlist' :
+                                           option.status === 'watching' ? 'Now Watching' : 'Marked as Watched';
+                      Toast.show({
+                        type: 'success',
+                        text1: toastMessage,
+                        visibilityTime: 2000,
+                      });
                     }}
                     disabled={isLoading}
                   >
@@ -135,6 +144,11 @@ export function WatchlistModal({
                     setShowRemoveConfirmation(true);
                   } else {
                     onRemove();
+                    Toast.show({
+                      type: 'success',
+                      text1: 'Removed from List',
+                      visibilityTime: 2000,
+                    });
                   }
                 }}
                 disabled={isLoading}
@@ -170,6 +184,11 @@ export function WatchlistModal({
                     onPress={() => {
                       setShowRemoveConfirmation(false);
                       onRemove?.();
+                      Toast.show({
+                        type: 'success',
+                        text1: 'Removed from List',
+                        visibilityTime: 2000,
+                      });
                     }}
                     disabled={isLoading}
                   >

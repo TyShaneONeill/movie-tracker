@@ -1,10 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
 import { useAuth } from './use-auth';
 import {
   isFollowing,
   followUser,
   unfollowUser,
 } from '@/lib/follow-service';
+
+interface UseFollowOptions {
+  /** Username to display in toast notifications (e.g., "johndoe" becomes "@johndoe") */
+  username?: string | null;
+}
 
 interface UseFollowResult {
   isFollowing: boolean;
@@ -14,7 +20,8 @@ interface UseFollowResult {
   error: Error | null;
 }
 
-export function useFollow(targetUserId: string): UseFollowResult {
+export function useFollow(targetUserId: string, options?: UseFollowOptions): UseFollowResult {
+  const { username } = options ?? {};
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -74,7 +81,23 @@ export function useFollow(targetUserId: string): UseFollowResult {
         );
       }
     },
-    onSuccess: () => {
+    onSuccess: (isNowFollowing) => {
+      // Show toast notification
+      const displayName = username ? `@${username}` : 'user';
+      if (isNowFollowing) {
+        Toast.show({
+          type: 'success',
+          text1: `Following ${displayName}`,
+          visibilityTime: 2000,
+        });
+      } else {
+        Toast.show({
+          type: 'info',
+          text1: `Unfollowed ${displayName}`,
+          visibilityTime: 2000,
+        });
+      }
+
       // Invalidate relevant queries to refetch fresh data
       queryClient.invalidateQueries({
         queryKey: ['followStatus', user?.id, targetUserId],

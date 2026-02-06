@@ -68,7 +68,7 @@ export function UserSearchResult({ user, onPress }: UserSearchResultProps) {
         </View>
 
         {/* Follow Button */}
-        <FollowButton userId={user.id} size="sm" style={styles.followButton} />
+        <FollowButton userId={user.id} username={user.username} size="sm" style={styles.followButton} />
       </ThemedView>
     </Pressable>
   );
