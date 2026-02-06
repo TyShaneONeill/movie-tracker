@@ -14,6 +14,7 @@ import {
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import Svg, { Path } from 'react-native-svg';
@@ -64,7 +65,7 @@ export default function ChangePasswordScreen() {
       const { error: updateError } = await updatePassword(newPassword);
 
       if (updateError) {
-        setError(updateError.message);
+        setError(getFriendlyErrorMessage(updateError));
       } else {
         setSuccess(true);
         // Clear form

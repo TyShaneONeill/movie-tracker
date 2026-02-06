@@ -20,6 +20,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useGuest } from '@/lib/guest-context';
+import { getFriendlyErrorMessage } from '@/lib/error-messages';
 
 export default function SignInScreen() {
   const { effectiveTheme } = useTheme();
@@ -53,7 +54,7 @@ export default function SignInScreen() {
       const { error: signInError } = await signIn(email, password);
 
       if (signInError) {
-        setError(signInError.message);
+        setError(getFriendlyErrorMessage(signInError));
         return;
       }
 
@@ -91,7 +92,7 @@ export default function SignInScreen() {
       const message = err instanceof Error ? err.message : 'Authentication failed';
       // Don't show error for user cancellation
       if (!message.includes('cancelled') && !message.includes('failed')) {
-        setError(message);
+        setError(getFriendlyErrorMessage(message));
       }
     } finally {
       setIsSubmitting(false);
