@@ -437,7 +437,7 @@ export default function UserProfileScreen() {
           </View>
 
           {/* Follow Button */}
-          <FollowButton userId={id!} style={styles.followButton} />
+          <FollowButton userId={id!} username={profile.username} style={styles.followButton} />
         </View>
 
         {/* Tab Bar */}

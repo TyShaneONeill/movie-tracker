@@ -31,6 +31,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import { Colors, Spacing, BorderRadius, Fonts, Gradients } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -240,6 +241,11 @@ export default function JourneyCardScreen() {
         posterUrl,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Toast.show({
+        type: 'success',
+        text1: 'AI art generated!',
+        visibilityTime: 2000,
+      });
     } catch (error) {
       console.error('Failed to generate art:', error);
     }

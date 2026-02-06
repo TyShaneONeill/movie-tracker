@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { getFriendlyErrorMessage } from '@/lib/error-messages';
@@ -68,6 +69,11 @@ export default function ChangePasswordScreen() {
         setError(getFriendlyErrorMessage(updateError));
       } else {
         setSuccess(true);
+        Toast.show({
+          type: 'success',
+          text1: 'Password changed',
+          visibilityTime: 2000,
+        });
         // Clear form
         setNewPassword('');
         setConfirmPassword('');

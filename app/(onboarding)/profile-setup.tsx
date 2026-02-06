@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -128,6 +129,11 @@ export default function ProfileSetupScreen() {
         await queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       }
 
+      Toast.show({
+        type: 'success',
+        text1: 'Profile saved',
+        visibilityTime: 2000,
+      });
       await completeOnboarding();
       router.replace('/(tabs)');
     } catch (err) {

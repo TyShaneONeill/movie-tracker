@@ -14,6 +14,7 @@ import {
   Keyboard,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import Slider from '@react-native-community/slider';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -60,6 +61,11 @@ export function FirstTakeModal({
       isSpoiler,
     });
 
+    Toast.show({
+      type: 'success',
+      text1: 'First Take posted!',
+      visibilityTime: 2000,
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     // Reset state after successful submit
     setRating(5);

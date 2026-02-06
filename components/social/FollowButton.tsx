@@ -28,6 +28,8 @@ import { useFollow } from '@/hooks/use-follow';
 interface FollowButtonProps {
   /** The user ID to follow/unfollow */
   userId: string;
+  /** The username for toast notifications (without @ prefix) */
+  username?: string | null;
   /** Button size variant */
   size?: 'sm' | 'md';
   /** Additional styles */
@@ -45,11 +47,11 @@ interface FollowButtonProps {
  * // Small size with custom style
  * <FollowButton userId="user-123" size="sm" style={{ marginLeft: 8 }} />
  */
-export function FollowButton({ userId, size = 'md', style }: FollowButtonProps) {
+export function FollowButton({ userId, username, size = 'md', style }: FollowButtonProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
-  const { isFollowing, isLoadingStatus, isTogglingFollow, toggleFollow } = useFollow(userId);
+  const { isFollowing, isLoadingStatus, isTogglingFollow, toggleFollow } = useFollow(userId, { username });
   const isLoading = isLoadingStatus || isTogglingFollow;
 
   // Track if user is currently pressing the button (for unfollow intent state)

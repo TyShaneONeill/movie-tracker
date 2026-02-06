@@ -28,6 +28,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -154,6 +155,11 @@ export default function MovieDetailScreen() {
         await deleteTake();
       }
       await removeFromWatchlist();
+      Toast.show({
+        type: 'success',
+        text1: 'Removed from List',
+        visibilityTime: 2000,
+      });
     } catch {
       Alert.alert('Error', 'Failed to remove movie. Please try again.');
     }
@@ -183,12 +189,33 @@ export default function MovieDetailScreen() {
             return;
           }
           await removeFromWatchlist();
+          Toast.show({
+            type: 'success',
+            text1: 'Removed from List',
+            visibilityTime: 2000,
+          });
         } else if (isSaved) {
           // Movie already in watchlist, change status
           await changeStatus(status);
+          // Show toast based on new status
+          const toastMessage = status === 'watchlist' ? 'Added to Watchlist' :
+                               status === 'watching' ? 'Now Watching' : 'Marked as Watched';
+          Toast.show({
+            type: 'success',
+            text1: toastMessage,
+            visibilityTime: 2000,
+          });
         } else {
           // Add to watchlist with selected status
           await addToWatchlist(movieData, status);
+          // Show toast based on new status
+          const toastMessage = status === 'watchlist' ? 'Added to Watchlist' :
+                               status === 'watching' ? 'Now Watching' : 'Marked as Watched';
+          Toast.show({
+            type: 'success',
+            text1: toastMessage,
+            visibilityTime: 2000,
+          });
         }
 
         // After successful status change to "watched", prompt for First Take

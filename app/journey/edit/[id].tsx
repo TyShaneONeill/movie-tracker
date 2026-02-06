@@ -29,6 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -186,6 +187,14 @@ export default function EditJourneyScreen() {
     setIsUpdating(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    // Show toast before navigation so user sees it
+    const isNewJourney = id === 'new';
+    Toast.show({
+      type: 'success',
+      text1: isNewJourney ? 'Journey created' : 'Journey updated',
+      visibilityTime: 2000,
+    });
+
     // Navigate back
     if (router.canGoBack()) {
       router.back();
@@ -193,6 +202,7 @@ export default function EditJourneyScreen() {
       router.replace('/');
     }
   }, [
+    id,
     tagline,
     notes,
     watchedAt,
@@ -222,6 +232,12 @@ export default function EditJourneyScreen() {
             try {
               await deleteJourney(id as string);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              // Show toast before navigation so user sees it
+              Toast.show({
+                type: 'info',
+                text1: 'Journey deleted',
+                visibilityTime: 2000,
+              });
               if (router.canGoBack()) {
                 router.back();
               } else {

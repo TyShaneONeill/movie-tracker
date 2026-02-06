@@ -15,6 +15,7 @@ import {
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
+import Toast from 'react-native-toast-message';
 
 import { useTheme } from '@/lib/theme-context';
 import { useProfile } from '@/hooks/use-profile';
@@ -144,6 +145,11 @@ export default function EditProfileScreen() {
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Toast.show({
+        type: 'success',
+        text1: 'Profile saved',
+        visibilityTime: 2000,
+      });
       // Navigate back after save
       router.back();
     } catch (error) {
@@ -157,6 +163,11 @@ export default function EditProfileScreen() {
   const handleImageSelected = async (uri: string, mimeType?: string) => {
     try {
       await updateAvatar({ imageUri: uri, mimeType });
+      Toast.show({
+        type: 'success',
+        text1: 'Profile picture updated',
+        visibilityTime: 2000,
+      });
     } catch (error) {
       // TODO: Replace with Sentry error tracking
       Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');

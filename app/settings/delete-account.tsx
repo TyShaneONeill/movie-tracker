@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { getFriendlyErrorMessage } from '@/lib/error-messages';
@@ -84,6 +85,12 @@ export default function DeleteAccountScreen() {
           setError(getFriendlyErrorMessage(deleteError));
           setIsLoading(false);
         } else {
+          // Show toast before navigation so user sees it
+          Toast.show({
+            type: 'info',
+            text1: 'Account deleted',
+            visibilityTime: 2000,
+          });
           // Navigate to signin screen on success
           router.replace('/(auth)/signin');
         }
