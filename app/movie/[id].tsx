@@ -436,7 +436,7 @@ export default function MovieDetailScreen() {
                 contentContainerStyle={dynamicStyles.castScrollContent}
               >
                 {cast.slice(0, 10).map((person) => (
-                  <Pressable key={person.id} style={dynamicStyles.castCard}>
+                  <Pressable key={person.id} style={dynamicStyles.castCard} onPress={() => router.push(`/person/${person.id}`)}>
                     <Image
                       source={{ uri: getTMDBImageUrl(person.profile_path, 'w185') || undefined }}
                       style={dynamicStyles.castImage}

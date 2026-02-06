@@ -1,236 +1,294 @@
 /**
  * Person Detail Screen
- * Matches ui-mocks/person_detail.html
  *
  * Features:
  * - Centered avatar with gradient background effect
- * - Name, role (Director/Actor), age
+ * - Name, department, age
  * - Stats bubbles (Credits count, Avg Rating)
  * - Biography text with "Read more" truncation
  * - Known For horizontal poster scroll
  * - Full filmography list
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
-  Image,
   Pressable,
+  ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePersonDetail } from '@/hooks/use-person-detail';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 
-// Mock data for the person (in real app, fetch by ID)
-const MOCK_PERSON = {
-  id: '1',
-  name: 'Timothée Chalamet',
-  role: 'Actor',
-  age: 29,
-  credits: 32,
-  avgRating: 8.1,
-  avatarUrl: 'https://image.tmdb.org/t/p/w500/lFDe5Fj28u10y8yqecjW1k06j5.jpg',
-  biography: 'Timothée Hal Chalamet is an American and French actor. He has received various accolades, including nominations for an Academy Award, two Golden Globe Awards, and three BAFTA Film Awards. Chalamet began his career as a teenager in television, appearing in the drama series Homeland in 2012.',
-  knownFor: [
-    {
-      id: '1',
-      title: 'Dune: Part Two',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-    },
-    {
-      id: '2',
-      title: 'Wonka',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/8c4a8kE7PizaGQQnditMmI1xbRp.jpg',
-    },
-    {
-      id: '3',
-      title: 'Dune',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/1E5baAaEse26fej7uHkjPo37wq.jpg',
-    },
-  ],
-  filmography: [
-    {
-      id: '1',
-      title: 'Dune: Part Two',
-      character: 'Paul Atreides',
-      year: '2024',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-    },
-    {
-      id: '2',
-      title: 'Wonka',
-      character: 'Willy Wonka',
-      year: '2023',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/8c4a8kE7PizaGQQnditMmI1xbRp.jpg',
-    },
-    {
-      id: '3',
-      title: 'Bones and All',
-      character: 'Lee',
-      year: '2022',
-      posterUrl: 'https://image.tmdb.org/t/p/w200/ygO9lowFMXWtgVxR95lBpSdRf.jpg',
-    },
-  ],
+const getAge = (birthday: string | null, deathday: string | null): number | null => {
+  if (!birthday) return null;
+  const birth = new Date(birthday);
+  const end = deathday ? new Date(deathday) : new Date();
+  let age = end.getFullYear() - birth.getFullYear();
+  const monthDiff = end.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && end.getDate() < birth.getDate())) age--;
+  return age;
 };
 
 export default function PersonDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  // TODO: Use params.id for fetching person data from API
-  useLocalSearchParams();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const insets = useSafeAreaInsets();
+  const { person, movieCredits, isLoading, isError, error } = usePersonDetail({ personId: id ?? '' });
+
   const [biographyExpanded, setBiographyExpanded] = useState(false);
 
-  // In a real app, fetch person by params.id
-  const person = MOCK_PERSON;
+  const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
-  const handleNavigateToMovie = (movieId: string) => {
-    router.push(`/movie/${movieId}`);
-  };
+  const knownFor = useMemo(() => {
+    if (!movieCredits.length) return [];
+    return [...movieCredits].sort((a, b) => b.popularity - a.popularity).slice(0, 5);
+  }, [movieCredits]);
 
-  const truncatedBio = person.biography.slice(0, 200) + '...';
+  const avgRating = useMemo(() => {
+    const rated = movieCredits.filter((c) => c.vote_average > 0);
+    if (!rated.length) return null;
+    const sum = rated.reduce((acc, c) => acc + c.vote_average, 0);
+    return (sum / rated.length).toFixed(1);
+  }, [movieCredits]);
+
+  const handleGoBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <View style={dynamicStyles.container}>
+        <View style={dynamicStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+        </View>
+        <View style={[dynamicStyles.backButtonContainer, { top: insets.top + Spacing.xs }]}>
+          <Pressable onPress={handleGoBack} style={dynamicStyles.backButton}>
+            <BlurView intensity={80} tint={effectiveTheme} style={dynamicStyles.blurButton}>
+              <Ionicons name="chevron-back" size={24} color={colors.text} />
+            </BlurView>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (isError || !person) {
+    return (
+      <View style={dynamicStyles.container}>
+        <View style={dynamicStyles.errorContainer}>
+          <Text style={dynamicStyles.errorTitle}>Something went wrong</Text>
+          <Text style={dynamicStyles.errorSubtitle}>
+            {error?.message || 'Could not load person details'}
+          </Text>
+          <Pressable onPress={handleGoBack} style={dynamicStyles.errorBackButton}>
+            <Text style={dynamicStyles.errorBackButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  const age = getAge(person.birthday, person.deathday);
+  const profileUrl = getTMDBImageUrl(person.profile_path, 'w185');
+  const hasBio = person.biography && person.biography.length > 0;
+  const bioNeedsTruncation = hasBio && person.biography.length > 200;
+  const displayBio = biographyExpanded || !bioNeedsTruncation
+    ? person.biography
+    : person.biography.slice(0, 200) + '...';
+
+  const metaParts: string[] = [];
+  if (person.known_for_department) metaParts.push(person.known_for_department);
+  if (age !== null) metaParts.push(person.deathday ? `Died at ${age}` : `${age} years old`);
+  if (person.place_of_birth) metaParts.push(person.place_of_birth);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header with back and share buttons */}
-      <View style={styles.headerButtons}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.headerButton}
-        >
-          <BlurView intensity={20} tint="dark" style={styles.blurButton}>
-            <Text style={styles.buttonIcon}>←</Text>
-          </BlurView>
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            // Share functionality would go here
-          }}
-          style={styles.headerButton}
-        >
-          <BlurView intensity={20} tint="dark" style={styles.blurButton}>
-            <Text style={styles.buttonIcon}>⋮</Text>
+    <View style={dynamicStyles.container}>
+      {/* Back button */}
+      <View style={[dynamicStyles.backButtonContainer, { top: insets.top + Spacing.xs }]}>
+        <Pressable onPress={handleGoBack} style={dynamicStyles.backButton}>
+          <BlurView intensity={80} tint={effectiveTheme} style={dynamicStyles.blurButton}>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </BlurView>
         </Pressable>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={dynamicStyles.scrollContent}
       >
-        {/* Person Header with gradient background */}
+        {/* Profile Header */}
         <LinearGradient
           colors={[colors.card, colors.background]}
-          style={styles.personHeader}
+          style={dynamicStyles.profileHeader}
         >
-          <Image
-            source={{ uri: person.avatarUrl }}
-            style={styles.personAvatar}
-          />
-          <Text style={[styles.personName, { color: colors.text }]}>
-            {person.name}
-          </Text>
-          <Text style={[styles.personMeta, { color: colors.textSecondary }]}>
-            {person.role} • {person.age} years old
-          </Text>
+          {profileUrl ? (
+            <Image
+              source={{ uri: profileUrl }}
+              style={dynamicStyles.avatar}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : (
+            <View style={[dynamicStyles.avatar, dynamicStyles.avatarPlaceholder]}>
+              <Ionicons name="person" size={48} color={colors.textSecondary} />
+            </View>
+          )}
+          <Text style={dynamicStyles.personName}>{person.name}</Text>
+          {metaParts.length > 0 && (
+            <Text style={dynamicStyles.personMeta}>
+              {metaParts.join(' \u2022 ')}
+            </Text>
+          )}
 
-          {/* Stats bubbles */}
-          <View style={styles.statsRow}>
-            <View style={[styles.statBubble, { backgroundColor: colors.backgroundSecondary }]}>
-              <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                {person.credits} Credits
+          {/* Stats Row */}
+          <View style={dynamicStyles.statsRow}>
+            <View style={dynamicStyles.statBubble}>
+              <Text style={dynamicStyles.statText}>
+                {movieCredits.length} Credits
               </Text>
             </View>
-            <View style={[styles.statBubble, { backgroundColor: colors.backgroundSecondary }]}>
-              <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                {person.avgRating} Avg Rating
-              </Text>
-            </View>
+            {avgRating && (
+              <View style={dynamicStyles.statBubble}>
+                <Text style={dynamicStyles.statText}>
+                  {avgRating} Avg Rating
+                </Text>
+              </View>
+            )}
           </View>
         </LinearGradient>
 
         {/* Biography Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Biography
-          </Text>
-          <Text style={[styles.biographyText, { color: colors.textSecondary }]}>
-            {biographyExpanded ? person.biography : truncatedBio}
-            {!biographyExpanded && (
-              <Text
-                onPress={() => setBiographyExpanded(true)}
-                style={[styles.readMore, { color: colors.tint }]}
-              >
-                {' '}Read more
-              </Text>
-            )}
-          </Text>
-        </View>
+        {hasBio && (
+          <View style={dynamicStyles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Biography</Text>
+            <Text style={dynamicStyles.bioText}>
+              {displayBio}
+              {bioNeedsTruncation && !biographyExpanded && (
+                <Text
+                  onPress={() => setBiographyExpanded(true)}
+                  style={dynamicStyles.readMoreText}
+                >
+                  {' '}Read more
+                </Text>
+              )}
+              {bioNeedsTruncation && biographyExpanded && (
+                <Text
+                  onPress={() => setBiographyExpanded(false)}
+                  style={dynamicStyles.readMoreText}
+                >
+                  {' '}Read less
+                </Text>
+              )}
+            </Text>
+          </View>
+        )}
 
         {/* Known For Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Known For
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.knownForScroll}
-          >
-            {person.knownFor.map((movie) => (
-              <Pressable
-                key={movie.id}
-                onPress={() => handleNavigateToMovie(movie.id)}
-                style={styles.knownForCard}
-              >
-                <Image
-                  source={{ uri: movie.posterUrl }}
-                  style={styles.knownForPoster}
-                />
-                <Text style={[styles.knownForTitle, { color: colors.text }]}>
-                  {movie.title}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+        {knownFor.length > 0 && (
+          <View style={dynamicStyles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Known For</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={dynamicStyles.knownForScroll}
+              contentContainerStyle={dynamicStyles.knownForScrollContent}
+            >
+              {knownFor.map((credit) => {
+                const posterUrl = getTMDBImageUrl(credit.poster_path, 'w342');
+                return (
+                  <Pressable
+                    key={credit.credit_id}
+                    onPress={() => router.push(`/movie/${credit.id}`)}
+                    style={dynamicStyles.knownForCard}
+                  >
+                    {posterUrl ? (
+                      <Image
+                        source={{ uri: posterUrl }}
+                        style={dynamicStyles.knownForPoster}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    ) : (
+                      <View style={[dynamicStyles.knownForPoster, dynamicStyles.posterPlaceholder]}>
+                        <Ionicons name="film-outline" size={32} color={colors.textSecondary} />
+                      </View>
+                    )}
+                    <Text style={dynamicStyles.knownForTitle} numberOfLines={2}>
+                      {credit.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Filmography Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Filmography
-          </Text>
-          {person.filmography.map((film) => (
-            <Pressable
-              key={film.id}
-              onPress={() => handleNavigateToMovie(film.id)}
-              style={[styles.filmographyItem, { backgroundColor: colors.card }]}
-            >
-              <Image
-                source={{ uri: film.posterUrl }}
-                style={styles.filmPoster}
-              />
-              <View style={styles.filmInfo}>
-                <Text style={[styles.filmTitle, { color: colors.text }]}>
-                  {film.title}
-                </Text>
-                <Text style={[styles.filmCharacter, { color: colors.textSecondary }]}>
-                  as {film.character}
-                </Text>
+        {movieCredits.length > 0 && (
+          <View style={dynamicStyles.section}>
+            <View style={dynamicStyles.filmographyHeader}>
+              <Text style={dynamicStyles.sectionTitle}>Filmography</Text>
+              <View style={dynamicStyles.countBadge}>
+                <Text style={dynamicStyles.countBadgeText}>{movieCredits.length}</Text>
               </View>
-              <Text style={[styles.filmYear, { color: colors.textSecondary }]}>
-                {film.year}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+            </View>
+            {movieCredits.map((credit) => {
+              const thumbUrl = getTMDBImageUrl(credit.poster_path, 'w154');
+              const year = credit.release_date?.split('-')[0];
+              return (
+                <Pressable
+                  key={credit.credit_id}
+                  onPress={() => router.push(`/movie/${credit.id}`)}
+                  style={dynamicStyles.filmographyRow}
+                >
+                  {thumbUrl ? (
+                    <Image
+                      source={{ uri: thumbUrl }}
+                      style={dynamicStyles.filmographyPoster}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={[dynamicStyles.filmographyPoster, dynamicStyles.posterPlaceholder]}>
+                      <Ionicons name="film-outline" size={20} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <View style={dynamicStyles.filmographyInfo}>
+                    <Text style={dynamicStyles.filmographyTitle} numberOfLines={1}>
+                      {credit.title}
+                    </Text>
+                    {credit.character ? (
+                      <Text style={dynamicStyles.filmographyCharacter} numberOfLines={1}>
+                        as {credit.character}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {year ? (
+                    <Text style={dynamicStyles.filmographyYear}>{year}</Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         {/* Bottom padding for safe area */}
         <View style={{ height: 90 }} />
@@ -239,133 +297,219 @@ export default function PersonDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: Spacing.xl,
-  },
-  headerButtons: {
-    position: 'absolute',
-    top: Spacing.md,
-    left: Spacing.md,
-    right: Spacing.md,
-    zIndex: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  headerButton: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.full,
-    overflow: 'hidden',
-  },
-  blurButton: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonIcon: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  personHeader: {
-    alignItems: 'center',
-    paddingTop: Spacing.xl + 40, // Account for header buttons
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.md,
-  },
-  personAvatar: {
-    width: 120,
-    height: 120,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.md,
-    borderWidth: 4,
-    borderColor: '#09090b',
-  },
-  personName: {
-    ...Typography.display.h2,
-    textAlign: 'center',
-  },
-  personMeta: {
-    ...Typography.body.base,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  statBubble: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: BorderRadius.full,
-  },
-  statText: {
-    ...Typography.body.sm,
-  },
-  section: {
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    ...Typography.display.h3,
-    marginBottom: Spacing.md,
-  },
-  biographyText: {
-    ...Typography.body.sm,
-    lineHeight: 22.4, // 1.6 line-height from HTML mock
-    marginBottom: Spacing.lg,
-  },
-  readMore: {
-    ...Typography.body.sm,
-    fontWeight: '600',
-  },
-  knownForScroll: {
-    gap: Spacing.md,
-    paddingBottom: Spacing.md,
-  },
-  knownForCard: {
-    width: 140,
-  },
-  knownForPoster: {
-    width: 140,
-    height: 210,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-  },
-  knownForTitle: {
-    ...Typography.body.sm,
-    fontWeight: '600',
-  },
-  filmographyItem: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-  },
-  filmPoster: {
-    width: 50,
-    height: 75,
-    borderRadius: BorderRadius.sm,
-  },
-  filmInfo: {
-    flex: 1,
-  },
-  filmTitle: {
-    ...Typography.body.base,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  filmCharacter: {
-    ...Typography.body.sm,
-  },
-  filmYear: {
-    ...Typography.body.sm,
-  },
-});
+type ThemeColors = typeof Colors.dark;
+
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      paddingBottom: Spacing.xl,
+    },
+
+    // Loading
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    // Error
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.lg,
+    },
+    errorTitle: {
+      ...Typography.display.h4,
+      color: colors.text,
+      marginBottom: Spacing.sm,
+    },
+    errorSubtitle: {
+      ...Typography.body.base,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: Spacing.lg,
+    },
+    errorBackButton: {
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.lg,
+      backgroundColor: colors.tint,
+      borderRadius: BorderRadius.md,
+    },
+    errorBackButtonText: {
+      ...Typography.button.primary,
+      color: Colors.dark.text,
+    },
+
+    // Back button
+    backButtonContainer: {
+      position: 'absolute',
+      left: Spacing.md,
+      zIndex: 10,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: BorderRadius.full,
+      overflow: 'hidden',
+    },
+    blurButton: {
+      width: '100%',
+      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    // Profile Header
+    profileHeader: {
+      alignItems: 'center',
+      paddingTop: 80,
+      paddingBottom: Spacing.xl,
+      paddingHorizontal: Spacing.md,
+    },
+    avatar: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      borderWidth: 4,
+      borderColor: colors.tint,
+      marginBottom: Spacing.md,
+    },
+    avatarPlaceholder: {
+      backgroundColor: colors.backgroundSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    personName: {
+      ...Typography.display.h2,
+      color: colors.text,
+      textAlign: 'center',
+    },
+    personMeta: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      marginTop: Spacing.xs,
+      marginBottom: Spacing.md,
+      textAlign: 'center',
+    },
+
+    // Stats
+    statsRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    statBubble: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: BorderRadius.lg,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+    },
+    statText: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+
+    // Sections
+    section: {
+      paddingHorizontal: Spacing.md,
+    },
+    sectionTitle: {
+      ...Typography.display.h4,
+      color: colors.text,
+      marginTop: Spacing.lg,
+      marginBottom: Spacing.md,
+    },
+
+    // Biography
+    bioText: {
+      ...Typography.body.base,
+      color: colors.textSecondary,
+      lineHeight: 24,
+    },
+    readMoreText: {
+      ...Typography.body.smMedium,
+      color: colors.tint,
+    },
+
+    // Known For
+    knownForScroll: {
+      marginHorizontal: -Spacing.md,
+    },
+    knownForScrollContent: {
+      paddingHorizontal: Spacing.md,
+      gap: Spacing.md,
+      paddingBottom: Spacing.md,
+    },
+    knownForCard: {
+      width: 140,
+    },
+    knownForPoster: {
+      width: 140,
+      height: 210,
+      borderRadius: BorderRadius.md,
+      marginBottom: Spacing.sm,
+    },
+    knownForTitle: {
+      ...Typography.body.sm,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    posterPlaceholder: {
+      backgroundColor: colors.backgroundSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    // Filmography
+    filmographyHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      marginTop: Spacing.lg,
+      marginBottom: Spacing.md,
+    },
+    countBadge: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: BorderRadius.full,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 2,
+    },
+    countBadgeText: {
+      ...Typography.body.xs,
+      color: colors.textSecondary,
+    },
+    filmographyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: Spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: Spacing.md,
+    },
+    filmographyPoster: {
+      width: 50,
+      height: 75,
+      borderRadius: BorderRadius.sm,
+    },
+    filmographyInfo: {
+      flex: 1,
+    },
+    filmographyTitle: {
+      ...Typography.body.base,
+      color: colors.text,
+      fontWeight: '600',
+      marginBottom: 2,
+    },
+    filmographyCharacter: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+    filmographyYear: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+  });
