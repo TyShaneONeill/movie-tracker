@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { SearchMoviesResponse, TMDBMovie, SearchType, MovieDetailResponse, MovieListType, MovieListResponse } from './tmdb.types';
+import type { SearchMoviesResponse, TMDBMovie, SearchType, MovieDetailResponse, MovieListType, MovieListResponse, PersonDetailResponse } from './tmdb.types';
 import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus, UserMovieLike, UserMovieLikeInsert, JourneyUpdate } from './database.types';
 import { getMovieDetailsWithCache } from './movie-cache-service';
 
@@ -330,6 +330,28 @@ export async function fetchJourneysByTmdbId(
   }
 
   return data ?? [];
+}
+
+// Fetch person details from TMDB (via Edge Function)
+export async function getPersonDetails(
+  personId: number
+): Promise<PersonDetailResponse> {
+  const { data, error } = await supabase.functions.invoke<PersonDetailResponse>(
+    'get-person-details',
+    {
+      body: { personId },
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch person details');
+  }
+
+  if (!data) {
+    throw new Error('No data returned from person details');
+  }
+
+  return data;
 }
 
 // Create a new journey for an existing movie (rewatch)

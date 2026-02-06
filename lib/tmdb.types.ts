@@ -138,3 +138,63 @@ export function getTMDBImageUrl(
   if (!path) return null;
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 }
+
+// Person details from TMDB /person/{id}
+export interface TMDBPerson {
+  id: number;
+  name: string;
+  biography: string;
+  birthday: string | null;
+  deathday: string | null;
+  place_of_birth: string | null;
+  profile_path: string | null;
+  known_for_department: string;
+  popularity: number;
+  gender: number;
+  also_known_as: string[];
+  homepage: string | null;
+  imdb_id: string | null;
+}
+
+// Movie credit for a person (cast)
+export interface TMDBPersonMovieCredit {
+  id: number;
+  title: string;
+  original_title: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_date: string;
+  vote_average: number;
+  vote_count: number;
+  genre_ids: number[];
+  overview: string;
+  popularity: number;
+  character: string;
+  credit_id: string;
+  order: number;
+}
+
+// Crew credit for a person (directing, producing, etc.)
+export interface TMDBPersonCrewCredit {
+  id: number;
+  title: string;
+  original_title: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_date: string;
+  vote_average: number;
+  vote_count: number;
+  genre_ids: number[];
+  overview: string;
+  popularity: number;
+  credit_id: string;
+  department: string;
+  job: string;
+}
+
+// Response from get-person-details Edge Function
+export interface PersonDetailResponse {
+  person: TMDBPerson;
+  movieCredits: TMDBPersonMovieCredit[];
+  crewCredits: TMDBPersonCrewCredit[];
+}
