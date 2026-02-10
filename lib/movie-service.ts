@@ -27,6 +27,29 @@ export async function searchMovies(
   return data;
 }
 
+// Discover movies by genre
+export async function discoverMoviesByGenre(
+  genreId: number,
+  page: number = 1
+): Promise<SearchMoviesResponse> {
+  const { data, error } = await supabase.functions.invoke<SearchMoviesResponse>(
+    'discover-movies',
+    {
+      body: { genreId, page },
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message || 'Failed to discover movies');
+  }
+
+  if (!data) {
+    throw new Error('No data returned from discover');
+  }
+
+  return data;
+}
+
 // Fetch movie details directly from TMDB (via Edge Function)
 async function fetchMovieDetailsFromTMDB(
   movieId: number

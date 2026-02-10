@@ -26,6 +26,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { Tag } from '@/components/ui/tag';
 import { useMovieSearch } from '@/hooks/use-movie-search';
+import { useDiscoverMovies } from '@/hooks/use-discover-movies';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useRecentSearches, type RecentSearch } from '@/hooks/use-recent-searches';
 import { MovieSearchCard } from '@/components/movie-search-card';
@@ -132,6 +133,7 @@ export default function SearchScreen() {
   // Search type state - setter will be used when search type toggle UI is implemented
   const [searchType] = useState<SearchType>('title');
   const [posterIndices, setPosterIndices] = useState<Record<number, number>>({});
+  const [selectedGenre, setSelectedGenre] = useState<{ id: number; name: string } | null>(null);
 
   // Debounce the search query
   const debouncedQuery = useDebouncedValue(searchQuery, 300);
@@ -155,6 +157,20 @@ export default function SearchScreen() {
   const { users, isLoading: isUserLoading, isError: isUserError, error: userError } = useUserSearch(
     activeCategory === 'Users' ? debouncedQuery : ''
   );
+
+  // Discover movies by genre hook
+  const {
+    movies: genreMovies,
+    isLoading: isGenreLoading,
+    isError: isGenreError,
+    error: genreError,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useDiscoverMovies({
+    genreId: selectedGenre?.id ?? null,
+    enabled: selectedGenre !== null,
+  });
 
   // Combine loading/error states based on active category
   const isLoading = activeCategory === 'Users' ? isUserLoading : isMovieLoading;
@@ -202,9 +218,12 @@ export default function SearchScreen() {
   }, [removeRecentSearch]);
 
   const handleGenrePress = useCallback((genreId: number, genreName: string) => {
-    // TODO: Navigate to genre search results
-    // For now, set the search query to the genre name
-    setSearchQuery(genreName);
+    setSelectedGenre({ id: genreId, name: genreName });
+    setSearchQuery('');
+  }, []);
+
+  const handleClearGenre = useCallback(() => {
+    setSelectedGenre(null);
   }, []);
 
   const handleMoviePress = useCallback((movie: TMDBMovie) => {
@@ -219,7 +238,7 @@ export default function SearchScreen() {
     router.push(`/movie/${movie.id}`);
   }, [addRecentSearch]);
 
-  const showSearchResults = debouncedQuery.length >= 2;
+  const showSearchResults = debouncedQuery.length >= 2 || selectedGenre !== null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -240,13 +259,21 @@ export default function SearchScreen() {
               placeholder="Movies, people, lists..."
               placeholderTextColor={colors.textTertiary}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                if (text.length > 0 && selectedGenre) {
+                  setSelectedGenre(null);
+                }
+              }}
               autoFocus
               returnKeyType="search"
             />
             {searchQuery.length > 0 && (
               <Pressable
-                onPress={() => setSearchQuery('')}
+                onPress={() => {
+                  setSearchQuery('');
+                  setSelectedGenre(null);
+                }}
                 style={({ pressed }) => [styles.clearInputButton, { opacity: pressed ? 0.5 : 1 }]}
               >
                 <XIcon color={colors.textSecondary} />
@@ -271,70 +298,140 @@ export default function SearchScreen() {
             />
           ))}
         </ScrollView>
+
+        {/* Active Genre Chip */}
+        {selectedGenre && (
+          <View style={styles.genreChipContainer}>
+            <View style={[styles.genreChip, { backgroundColor: colors.tint }]}>
+              <Text style={styles.genreChipText}>{selectedGenre.name}</Text>
+              <Pressable
+                onPress={handleClearGenre}
+                hitSlop={8}
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+              >
+                <XIcon color="white" />
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Content */}
       {showSearchResults ? (
         <View style={styles.content}>
-          {isLoading ? (
-            <View style={styles.centerContainer}>
-              <ActivityIndicator size="large" color={colors.tint} />
-              <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                Searching...
-              </Text>
-            </View>
-          ) : isError ? (
-            <View style={styles.centerContainer}>
-              <Text style={[styles.centerTitle, { color: colors.text }]}>
-                Something went wrong
-              </Text>
-              <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                {error?.message || 'Please try again'}
-              </Text>
-            </View>
-          ) : activeCategory === 'Users' ? (
-            users.length === 0 ? (
+          {selectedGenre ? (
+            // Genre discover results
+            isGenreLoading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.tint} />
+                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                  Finding {selectedGenre.name} movies...
+                </Text>
+              </View>
+            ) : isGenreError ? (
               <View style={styles.centerContainer}>
                 <Text style={[styles.centerTitle, { color: colors.text }]}>
-                  No users found
+                  Something went wrong
                 </Text>
                 <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                  Try a different username
+                  {genreError?.message || 'Please try again'}
+                </Text>
+              </View>
+            ) : genreMovies.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <Text style={[styles.centerTitle, { color: colors.text }]}>
+                  No movies found
+                </Text>
+                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                  No {selectedGenre.name} movies available
                 </Text>
               </View>
             ) : (
               <FlatList
-                data={users}
-                keyExtractor={(item) => item.id}
+                data={genreMovies}
+                keyExtractor={(item) => String(item.id)}
                 renderItem={({ item }) => (
-                  <UserSearchResult
-                    user={item}
-                    onPress={() => router.push(`/user/${item.id}`)}
-                  />
+                  <MovieSearchCard movie={item} onPress={handleMoviePress} />
+                )}
+                contentContainerStyle={styles.searchResultsContainer}
+                showsVerticalScrollIndicator={false}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage();
+                  }
+                }}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                  isFetchingNextPage ? (
+                    <View style={styles.loadingFooter}>
+                      <ActivityIndicator size="small" color={colors.tint} />
+                    </View>
+                  ) : null
+                }
+              />
+            )
+          ) : (
+            // Text search results (existing logic)
+            isLoading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={colors.tint} />
+                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                  Searching...
+                </Text>
+              </View>
+            ) : isError ? (
+              <View style={styles.centerContainer}>
+                <Text style={[styles.centerTitle, { color: colors.text }]}>
+                  Something went wrong
+                </Text>
+                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                  {error?.message || 'Please try again'}
+                </Text>
+              </View>
+            ) : activeCategory === 'Users' ? (
+              users.length === 0 ? (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.centerTitle, { color: colors.text }]}>
+                    No users found
+                  </Text>
+                  <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                    Try a different username
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={users}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <UserSearchResult
+                      user={item}
+                      onPress={() => router.push(`/user/${item.id}`)}
+                    />
+                  )}
+                  contentContainerStyle={styles.searchResultsContainer}
+                  showsVerticalScrollIndicator={false}
+                />
+              )
+            ) : movies.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <Text style={[styles.centerTitle, { color: colors.text }]}>
+                  No results found
+                </Text>
+                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                  Try a different search term
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={movies}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={({ item }) => (
+                  <MovieSearchCard movie={item} onPress={handleMoviePress} />
                 )}
                 contentContainerStyle={styles.searchResultsContainer}
                 showsVerticalScrollIndicator={false}
               />
             )
-          ) : movies.length === 0 ? (
-            <View style={styles.centerContainer}>
-              <Text style={[styles.centerTitle, { color: colors.text }]}>
-                No results found
-              </Text>
-              <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                Try a different search term
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={movies}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={({ item }) => (
-                <MovieSearchCard movie={item} onPress={handleMoviePress} />
-              )}
-              contentContainerStyle={styles.searchResultsContainer}
-              showsVerticalScrollIndicator={false}
-            />
           )}
         </View>
       ) : (
@@ -599,5 +696,27 @@ const styles = StyleSheet.create({
   centerText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  genreChipContainer: {
+    flexDirection: 'row',
+    paddingTop: Spacing.sm,
+  },
+  genreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  genreChipText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  loadingFooter: {
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
   },
 });
