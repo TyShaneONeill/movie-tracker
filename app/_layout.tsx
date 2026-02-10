@@ -35,6 +35,8 @@ import { toastConfig } from '@/lib/toast-config';
 import { handleAuthDeepLink } from '@/lib/deep-link-handler';
 import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
+import { NetworkProvider } from '@/lib/network-context';
+import { OfflineBanner } from '@/components/offline-banner';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -190,6 +192,7 @@ function RootLayoutNav() {
       </Stack>
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
       <Toast config={toastConfig} />
+      <OfflineBanner />
     </NavigationThemeProvider>
   );
 }
@@ -219,15 +222,17 @@ export default function RootLayout() {
 
   return (
     <QueryProvider>
-      <GuestProvider>
-        <AuthProvider>
-          <OnboardingProvider>
-            <ThemeProvider>
-              <RootLayoutNav />
-            </ThemeProvider>
-          </OnboardingProvider>
-        </AuthProvider>
-      </GuestProvider>
+      <NetworkProvider>
+        <GuestProvider>
+          <AuthProvider>
+            <OnboardingProvider>
+              <ThemeProvider>
+                <RootLayoutNav />
+              </ThemeProvider>
+            </OnboardingProvider>
+          </AuthProvider>
+        </GuestProvider>
+      </NetworkProvider>
     </QueryProvider>
   );
 }
