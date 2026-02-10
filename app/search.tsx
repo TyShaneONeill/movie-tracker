@@ -34,6 +34,8 @@ import { UserSearchResult } from '@/components/social/UserSearchResult';
 import { useUserSearch } from '@/hooks/use-user-search';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBMovie, SearchType } from '@/lib/tmdb.types';
+import { useMovieList } from '@/hooks/use-movie-lists';
+import { SearchSkeletonList } from '@/components/search-skeleton';
 
 // SVG Icons
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
@@ -170,6 +172,11 @@ export default function SearchScreen() {
   } = useDiscoverMovies({
     genreId: selectedGenre?.id ?? null,
     enabled: selectedGenre !== null,
+  });
+
+  // Trending movies for empty state
+  const { movies: trendingMovies } = useMovieList({
+    type: 'trending',
   });
 
   // Combine loading/error states based on active category
@@ -322,12 +329,7 @@ export default function SearchScreen() {
           {selectedGenre ? (
             // Genre discover results
             isGenreLoading ? (
-              <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.tint} />
-                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                  Finding {selectedGenre.name} movies...
-                </Text>
-              </View>
+              <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
             ) : isGenreError ? (
               <View style={styles.centerContainer}>
                 <Text style={[styles.centerTitle, { color: colors.text }]}>
@@ -373,12 +375,7 @@ export default function SearchScreen() {
           ) : (
             // Text search results (existing logic)
             isLoading ? (
-              <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.tint} />
-                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                  Searching...
-                </Text>
-              </View>
+              <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
             ) : isError ? (
               <View style={styles.centerContainer}>
                 <Text style={[styles.centerTitle, { color: colors.text }]}>
@@ -440,6 +437,44 @@ export default function SearchScreen() {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
+          {/* Trending Now Section */}
+          {trendingMovies.length > 0 && (
+            <>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: colors.textSecondary, marginTop: Spacing.sm, marginBottom: Spacing.sm },
+                ]}
+              >
+                TRENDING NOW
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.trendingScrollContent}
+                style={styles.trendingScroll}
+              >
+                {trendingMovies.slice(0, 10).map((movie) => (
+                  <Pressable
+                    key={movie.id}
+                    onPress={() => handleMoviePress(movie)}
+                    style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
+                  >
+                    <Image
+                      source={{ uri: getTMDBImageUrl(movie.poster_path, 'w185') || undefined }}
+                      style={[styles.trendingPoster, { backgroundColor: colors.card }]}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                    <Text style={[styles.trendingTitle, { color: colors.text }]} numberOfLines={2}>
+                      {movie.title}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
           {/* Recent Searches Section */}
           {recentSearches.length > 0 && (
             <>
@@ -718,5 +753,28 @@ const styles = StyleSheet.create({
   loadingFooter: {
     paddingVertical: Spacing.lg,
     alignItems: 'center',
+  },
+  // Trending section
+  trendingScroll: {
+    marginHorizontal: -Spacing.md,
+  },
+  trendingScrollContent: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  trendingCard: {
+    width: 110,
+  },
+  trendingPoster: {
+    width: 110,
+    height: 165,
+    borderRadius: BorderRadius.md,
+    marginBottom: 6,
+  },
+  trendingTitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
+    textAlign: 'center',
   },
 });
