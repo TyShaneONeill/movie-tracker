@@ -36,6 +36,7 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBMovie, SearchType } from '@/lib/tmdb.types';
 import { useMovieList } from '@/hooks/use-movie-lists';
 import { SearchSkeletonList } from '@/components/search-skeleton';
+import { useNetwork } from '@/lib/network-context';
 
 // SVG Icons
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
@@ -130,6 +131,7 @@ const GENRES_DATA = [
 export default function SearchScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { isOffline } = useNetwork();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Top Results');
   // Search type state - setter will be used when search type toggle UI is implemented
@@ -329,7 +331,18 @@ export default function SearchScreen() {
           {selectedGenre ? (
             // Genre discover results
             isGenreLoading ? (
-              <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+              isOffline ? (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.centerTitle, { color: colors.text }]}>
+                    You&apos;re offline
+                  </Text>
+                  <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                    Connect to the internet to browse genres
+                  </Text>
+                </View>
+              ) : (
+                <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+              )
             ) : isGenreError ? (
               <View style={styles.centerContainer}>
                 <Text style={[styles.centerTitle, { color: colors.text }]}>
@@ -375,7 +388,18 @@ export default function SearchScreen() {
           ) : (
             // Text search results (existing logic)
             isLoading ? (
-              <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+              isOffline ? (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.centerTitle, { color: colors.text }]}>
+                    You&apos;re offline
+                  </Text>
+                  <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                    Connect to the internet to search for movies
+                  </Text>
+                </View>
+              ) : (
+                <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+              )
             ) : isError ? (
               <View style={styles.centerContainer}>
                 <Text style={[styles.centerTitle, { color: colors.text }]}>
