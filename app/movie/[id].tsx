@@ -26,8 +26,10 @@ import {
   ImageBackground,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,7 +48,7 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { TMDBMovie } from '@/lib/tmdb.types';
+import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
 import type { MovieStatus } from '@/lib/database.types';
 
 // Helper to format runtime from minutes to "Xh Ym" format
@@ -69,7 +71,7 @@ export default function MovieDetailScreen() {
   const [showTrailerModal, setShowTrailerModal] = useState(false);
 
   // Fetch movie details using the hook
-  const { movie, cast, crew, trailer, isLoading, isError, error } = useMovieDetail({
+  const { movie, cast, crew, trailer, watchProviders, isLoading, isError, error } = useMovieDetail({
     movieId: id || '',
     enabled: !!id,
   });
@@ -107,6 +109,11 @@ export default function MovieDetailScreen() {
   const movieGenres = movie?.genres?.map(g => g.name) ?? [];
   const backdropUrl = getTMDBImageUrl(movie?.backdrop_path ?? null, 'original');
   const posterUrl = getTMDBImageUrl(movie?.poster_path ?? null, 'w342');
+
+  // Determine user's country for watch providers
+  const countryCode = Localization.getLocales()[0]?.regionCode || 'US';
+  const countryProviders: TMDBWatchProviders | undefined = watchProviders?.[countryCode];
+  const watchLink = countryProviders?.link;
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -490,36 +497,77 @@ export default function MovieDetailScreen() {
           )}
 
           {/* Where to Watch Section */}
-          <View style={dynamicStyles.sectionHeaderRow}>
-            <Text style={[dynamicStyles.sectionTitle, dynamicStyles.streamingSectionTitle]}>
-              Where to Watch
-            </Text>
-            <View style={dynamicStyles.comingSoonBadge}>
-              <Text style={dynamicStyles.comingSoonBadgeText}>Coming Soon</Text>
-            </View>
-          </View>
-
-          <View style={dynamicStyles.streamingServiceDisabled}>
-            <View style={dynamicStyles.streamingIcon}>
-              <Text style={dynamicStyles.streamingIconText}>MAX</Text>
-            </View>
-            <View style={dynamicStyles.streamingInfo}>
-              <Text style={dynamicStyles.streamingNameDisabled}>Stream on Max</Text>
-              <Text style={dynamicStyles.streamingType}>Subscription</Text>
-            </View>
-            <Text style={dynamicStyles.chevronIcon}>→</Text>
-          </View>
-
-          <View style={dynamicStyles.streamingServiceDisabled}>
-            <View style={[dynamicStyles.streamingIcon, dynamicStyles.rentIcon]}>
-              <Text style={dynamicStyles.rentIconText}>💳</Text>
-            </View>
-            <View style={dynamicStyles.streamingInfo}>
-              <Text style={dynamicStyles.streamingNameDisabled}>Rent or Buy</Text>
-              <Text style={dynamicStyles.streamingType}>From $19.99</Text>
-            </View>
-            <Text style={dynamicStyles.chevronIcon}>→</Text>
-          </View>
+          {countryProviders && (countryProviders.flatrate?.length || countryProviders.rent?.length || countryProviders.buy?.length) ? (
+            <>
+              <Text style={dynamicStyles.sectionTitle}>Where to Watch</Text>
+              {countryProviders.flatrate && countryProviders.flatrate.length > 0 && (
+                <View style={dynamicStyles.providerCategory}>
+                  <Text style={dynamicStyles.providerCategoryLabel}>Stream</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={dynamicStyles.providerRow}>
+                    {countryProviders.flatrate.map((provider) => (
+                      <Pressable
+                        key={provider.provider_id}
+                        onPress={() => watchLink && Linking.openURL(watchLink)}
+                        style={({ pressed }) => [dynamicStyles.providerItem, pressed && { opacity: 0.7 }]}
+                      >
+                        <Image
+                          source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
+                          style={dynamicStyles.providerLogo}
+                        />
+                        <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {countryProviders.rent && countryProviders.rent.length > 0 && (
+                <View style={dynamicStyles.providerCategory}>
+                  <Text style={dynamicStyles.providerCategoryLabel}>Rent</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={dynamicStyles.providerRow}>
+                    {countryProviders.rent.map((provider) => (
+                      <Pressable
+                        key={provider.provider_id}
+                        onPress={() => watchLink && Linking.openURL(watchLink)}
+                        style={({ pressed }) => [dynamicStyles.providerItem, pressed && { opacity: 0.7 }]}
+                      >
+                        <Image
+                          source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
+                          style={dynamicStyles.providerLogo}
+                        />
+                        <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {countryProviders.buy && countryProviders.buy.length > 0 && (
+                <View style={dynamicStyles.providerCategory}>
+                  <Text style={dynamicStyles.providerCategoryLabel}>Buy</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={dynamicStyles.providerRow}>
+                    {countryProviders.buy.map((provider) => (
+                      <Pressable
+                        key={provider.provider_id}
+                        onPress={() => watchLink && Linking.openURL(watchLink)}
+                        style={({ pressed }) => [dynamicStyles.providerItem, pressed && { opacity: 0.7 }]}
+                      >
+                        <Image
+                          source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
+                          style={dynamicStyles.providerLogo}
+                        />
+                        <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              <Text style={dynamicStyles.justWatchAttribution}>Powered by JustWatch</Text>
+            </>
+          ) : (
+            <>
+              <Text style={dynamicStyles.sectionTitle}>Where to Watch</Text>
+              <Text style={dynamicStyles.noProvidersText}>Not available for streaming in your region</Text>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -844,94 +892,46 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Streaming Section
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.xs,
-  },
-  streamingSectionTitle: {
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  comingSoonBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  comingSoonBadgeText: {
-    ...Typography.caption.default,
-    fontSize: 11,
-    color: colors.textTertiary,
-  },
-  streamingService: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  // Watch Providers
+  providerCategory: {
     marginTop: Spacing.sm,
   },
-  streamingServiceDisabled: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: Spacing.sm,
-    opacity: 0.5,
-  },
-  streamingIcon: {
-    width: 48,
-    height: 48,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streamingIconText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  rentIcon: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  rentIconText: {
-    fontSize: 24,
-  },
-  streamingInfo: {
-    flex: 1,
-  },
-  streamingName: {
-    ...Typography.body.baseMedium,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  streamingNameDisabled: {
-    ...Typography.body.baseMedium,
+  providerCategoryLabel: {
+    ...Typography.body.smMedium,
     color: colors.textSecondary,
-    fontWeight: '600',
+    marginBottom: Spacing.sm,
   },
-  streamingType: {
+  providerRow: {
+    gap: Spacing.md,
+    paddingBottom: Spacing.xs,
+  },
+  providerItem: {
+    alignItems: 'center',
+    width: 64,
+  },
+  providerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: colors.card,
+    marginBottom: 4,
+  },
+  providerName: {
+    ...Typography.caption.default,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontSize: 10,
+  },
+  justWatchAttribution: {
+    ...Typography.caption.default,
+    color: colors.textTertiary,
+    marginTop: Spacing.sm,
+    fontSize: 11,
+  },
+  noProvidersText: {
     ...Typography.body.sm,
     color: colors.textSecondary,
-  },
-  chevronIcon: {
-    fontSize: 20,
-    color: colors.textSecondary,
+    marginTop: Spacing.xs,
   },
 
   // Action Sheet styles removed - more options hidden for now

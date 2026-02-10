@@ -59,6 +59,7 @@ export default {
         },
       ],
       "expo-secure-store",
+      "expo-localization",
       [
         "expo-image-picker",
         {
