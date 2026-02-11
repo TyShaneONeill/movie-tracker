@@ -67,6 +67,13 @@ export default {
           cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to take a profile picture.",
         },
       ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          androidAppId: "ca-app-pub-3940256099942544~3347511713",
+          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,

@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useInfiniteActivityFeed } from '@/hooks/use-infinite-activity-feed';
 import { formatRelativeTime, type ActivityFeedItem } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
+import { BannerAdComponent } from '@/components/ads/banner-ad';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -258,6 +259,9 @@ export default function HomeScreen() {
             />
           )}
         </View>
+
+        {/* Ad Banner */}
+        <BannerAdComponent />
 
         {/* Activity Section Header */}
         <View style={styles.activityHeader}>
