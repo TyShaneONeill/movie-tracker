@@ -8,6 +8,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useUserStats, type GenreStats } from '@/hooks/use-user-stats';
 import { useAuth } from '@/hooks/use-auth';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
+import { BannerAdComponent } from '@/components/ads/banner-ad';
 
 // Genre color palette for the donut chart
 const GENRE_COLORS = [
@@ -88,6 +89,7 @@ export default function AnalyticsScreen() {
               Start watching movies to see your viewing statistics here
             </Text>
           </View>
+          <BannerAdComponent />
         </ScrollView>
       </SafeAreaView>
     );
@@ -177,6 +179,9 @@ export default function AnalyticsScreen() {
             </View>
           </View>
         </View>
+
+        {/* Ad Banner */}
+        <BannerAdComponent />
 
       </ScrollView>
     </SafeAreaView>

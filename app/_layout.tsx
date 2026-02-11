@@ -37,6 +37,7 @@ import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
 import { NetworkProvider } from '@/lib/network-context';
 import { OfflineBanner } from '@/components/offline-banner';
+import { AdsProvider } from '@/lib/ads-context';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -223,15 +224,17 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <NetworkProvider>
-        <GuestProvider>
-          <AuthProvider>
-            <OnboardingProvider>
-              <ThemeProvider>
-                <RootLayoutNav />
-              </ThemeProvider>
-            </OnboardingProvider>
-          </AuthProvider>
-        </GuestProvider>
+        <AdsProvider>
+          <GuestProvider>
+            <AuthProvider>
+              <OnboardingProvider>
+                <ThemeProvider>
+                  <RootLayoutNav />
+                </ThemeProvider>
+              </OnboardingProvider>
+            </AuthProvider>
+          </GuestProvider>
+        </AdsProvider>
       </NetworkProvider>
     </QueryProvider>
   );

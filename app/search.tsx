@@ -37,6 +37,7 @@ import type { TMDBMovie, SearchType } from '@/lib/tmdb.types';
 import { useMovieList } from '@/hooks/use-movie-lists';
 import { SearchSkeletonList } from '@/components/search-skeleton';
 import { useNetwork } from '@/lib/network-context';
+import { BannerAdComponent } from '@/components/ads/banner-ad';
 
 // SVG Icons
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
@@ -598,6 +599,9 @@ export default function SearchScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* Bottom Banner Ad */}
+      <BannerAdComponent />
     </SafeAreaView>
   );
 }
