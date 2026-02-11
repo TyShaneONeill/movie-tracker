@@ -29,6 +29,9 @@ import { useScanTicket, fetchScanStatus } from '@/hooks/use-scan-ticket';
 import { useAuth } from '@/lib/auth-context';
 import { imageUriToBase64, getMimeTypeFromUri } from '@/lib/image-utils';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
+import { RewardedAdButton } from '@/components/ads/rewarded-ad-button';
+import { useAds } from '@/lib/ads-context';
+import { supabase } from '@/lib/supabase';
 
 // ============================================================================
 // Constants
@@ -89,6 +92,7 @@ export default function ScannerScreen() {
 
   // Auth state - check if user is logged in
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { adsEnabled } = useAds();
 
   // Permission state
   const [cameraPermission, setCameraPermission] = useState<PermissionStatus>('undetermined');
@@ -241,6 +245,24 @@ export default function ScannerScreen() {
   }, [scanTicket, clearError]);
 
   // ============================================================================
+  // Rewarded Ad Handler
+  // ============================================================================
+
+  const handleAdReward = useCallback(async () => {
+    if (!user) return;
+    const { error: rpcError } = await supabase.rpc('increment_bonus_scans', {
+      p_user_id: user.id,
+    });
+    if (rpcError) {
+      console.log('Failed to increment bonus scans:', rpcError);
+      return;
+    }
+    // Re-fetch scan status to update UI
+    const status = await fetchScanStatus();
+    setScansRemaining(status.scansRemaining);
+  }, [user]);
+
+  // ============================================================================
   // Camera and Gallery Actions
   // ============================================================================
 
@@ -380,6 +402,11 @@ export default function ScannerScreen() {
           <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
             {"You've used all 3 scans for today. Your limit resets at midnight."}
           </Text>
+          {adsEnabled && (
+            <View style={{ width: '100%', paddingHorizontal: Spacing.xl, marginBottom: Spacing.md }}>
+              <RewardedAdButton onRewardEarned={handleAdReward} />
+            </View>
+          )}
           <Pressable
             style={({ pressed }) => [
               styles.primaryButton,
