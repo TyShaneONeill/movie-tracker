@@ -330,6 +330,7 @@ export type Database = {
       }
       scan_usage: {
         Row: {
+          bonus_scans: number | null
           bypass_rate_limit: boolean | null
           daily_count: number | null
           last_scan_date: string | null
@@ -338,6 +339,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bonus_scans?: number | null
           bypass_rate_limit?: boolean | null
           daily_count?: number | null
           last_scan_date?: string | null
@@ -346,6 +348,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bonus_scans?: number | null
           bypass_rate_limit?: boolean | null
           daily_count?: number | null
           last_scan_date?: string | null
@@ -610,6 +613,12 @@ export type Database = {
             }[]
           }
         | { Args: { p_daily_limit?: number; p_user_id: string }; Returns: Json }
+      increment_bonus_scans: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
       get_journey_for_movie: {
         Args: { p_tmdb_id: number }
         Returns: {

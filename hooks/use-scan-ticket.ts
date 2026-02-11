@@ -381,6 +381,7 @@ export async function fetchScanStatus(): Promise<{
   scansRemaining: number;
   usedToday: number;
   dailyLimit: number;
+  bonusScans: number;
 }> {
   const { data: sessionData } = await supabase.auth.getSession();
 
@@ -389,6 +390,7 @@ export async function fetchScanStatus(): Promise<{
       scansRemaining: DAILY_SCAN_LIMIT,
       usedToday: 0,
       dailyLimit: DAILY_SCAN_LIMIT,
+      bonusScans: 0,
     };
   }
 
@@ -398,9 +400,9 @@ export async function fetchScanStatus(): Promise<{
   // Note: scan_usage table may not be in generated types, using type assertion
   const { data, error } = await (supabase as any)
     .from('scan_usage')
-    .select('daily_count, last_scan_date, bypass_rate_limit')
+    .select('daily_count, last_scan_date, bypass_rate_limit, bonus_scans')
     .eq('user_id', userId)
-    .single() as { data: { daily_count: number; last_scan_date: string; bypass_rate_limit: boolean } | null; error: any };
+    .single() as { data: { daily_count: number; last_scan_date: string; bypass_rate_limit: boolean; bonus_scans: number | null } | null; error: any };
 
   if (error || !data) {
     // No record means user hasn't scanned yet - they have all 3
@@ -408,6 +410,7 @@ export async function fetchScanStatus(): Promise<{
       scansRemaining: DAILY_SCAN_LIMIT,
       usedToday: 0,
       dailyLimit: DAILY_SCAN_LIMIT,
+      bonusScans: 0,
     };
   }
 
@@ -417,24 +420,29 @@ export async function fetchScanStatus(): Promise<{
       scansRemaining: 999,
       usedToday: data.daily_count || 0,
       dailyLimit: 999,
+      bonusScans: 0,
     };
   }
 
-  // If last scan was on a different day, count resets
+  // If last scan was on a different day, count resets (bonus included)
   if (data.last_scan_date !== today) {
     return {
       scansRemaining: DAILY_SCAN_LIMIT,
       usedToday: 0,
       dailyLimit: DAILY_SCAN_LIMIT,
+      bonusScans: 0,
     };
   }
 
   const usedToday = data.daily_count || 0;
-  const scansRemaining = Math.max(0, DAILY_SCAN_LIMIT - usedToday);
+  const bonusScans = data.bonus_scans || 0;
+  const effectiveLimit = DAILY_SCAN_LIMIT + bonusScans;
+  const scansRemaining = Math.max(0, effectiveLimit - usedToday);
 
   return {
     scansRemaining,
     usedToday,
     dailyLimit: DAILY_SCAN_LIMIT,
+    bonusScans,
   };
 }
