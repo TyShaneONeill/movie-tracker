@@ -24,6 +24,8 @@ import { useInfiniteActivityFeed } from '@/hooks/use-infinite-activity-feed';
 import { formatRelativeTime, type ActivityFeedItem } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
+import { NativeFeedAd } from '@/components/ads/native-feed-ad';
+import { useAds } from '@/lib/ads-context';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -53,10 +55,17 @@ function SearchIcon({ color }: { color: string }) {
 // Default avatar for users without one
 const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
 
+const AD_INTERVAL = 25;
+
+type FeedListItem =
+  | { type: 'activity'; data: ActivityFeedItem }
+  | { type: 'ad'; id: string };
+
 export default function HomeScreen() {
   const { effectiveTheme, setThemePreference } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
+  const { adsEnabled } = useAds();
 
   // Fetch movie lists with validation and deduplication
   const {
@@ -82,6 +91,18 @@ export default function HomeScreen() {
     () => activityData?.pages.flatMap((page) => page.items) ?? [],
     [activityData]
   );
+
+  // Interleave ad items every AD_INTERVAL items
+  const feedWithAds = useMemo((): FeedListItem[] => {
+    const items: FeedListItem[] = [];
+    for (let i = 0; i < activityFeed.length; i++) {
+      if (adsEnabled && i > 0 && i % AD_INTERVAL === 0) {
+        items.push({ type: 'ad', id: `ad-${i}` });
+      }
+      items.push({ type: 'activity', data: activityFeed[i] });
+    }
+    return items;
+  }, [activityFeed, adsEnabled]);
 
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -114,22 +135,27 @@ export default function HomeScreen() {
     router.push(`/movie/${movieId}`);
   };
 
-  // Render activity feed item
-  const renderActivityItem = useCallback(
-    ({ item }: { item: ActivityFeedItem }) => (
-      <FeedItemCard
-        userName={item.userDisplayName ?? 'Anonymous'}
-        userAvatarUrl={item.userAvatarUrl ?? DEFAULT_AVATAR}
-        timestamp={formatRelativeTime(item.createdAt ?? '')}
-        movieTitle={item.movieTitle}
-        moviePosterUrl={getTMDBImageUrl(item.posterPath, 'w185') ?? ''}
-        rating={item.rating}
-        reviewText={item.quoteText}
-        isSpoiler={item.isSpoiler ?? undefined}
-        isCurrentUser={user?.id === item.userId}
-        onMoviePress={() => handleActivityMoviePress(item.tmdbId)}
-      />
-    ),
+  // Render activity feed item or ad
+  const renderFeedItem = useCallback(
+    ({ item }: { item: FeedListItem }) => {
+      if (item.type === 'ad') return <NativeFeedAd />;
+
+      const feed = item.data;
+      return (
+        <FeedItemCard
+          userName={feed.userDisplayName ?? 'Anonymous'}
+          userAvatarUrl={feed.userAvatarUrl ?? DEFAULT_AVATAR}
+          timestamp={formatRelativeTime(feed.createdAt ?? '')}
+          movieTitle={feed.movieTitle}
+          moviePosterUrl={getTMDBImageUrl(feed.posterPath, 'w185') ?? ''}
+          rating={feed.rating}
+          reviewText={feed.quoteText}
+          isSpoiler={feed.isSpoiler ?? undefined}
+          isCurrentUser={user?.id === feed.userId}
+          onMoviePress={() => handleActivityMoviePress(feed.tmdbId)}
+        />
+      );
+    },
     [user?.id]
   );
 
@@ -318,9 +344,9 @@ export default function HomeScreen() {
       edges={['top']}
     >
       <FlatList
-        data={activityFeed}
-        keyExtractor={(item) => item.id}
-        renderItem={renderActivityItem}
+        data={feedWithAds}
+        keyExtractor={(item) => item.type === 'ad' ? item.id : item.data.id}
+        renderItem={renderFeedItem}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
         ListEmptyComponent={ListEmpty}
