@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform, Linking } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -275,7 +276,7 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
-            onPress={() => Linking.openURL('https://cinetrak.app/privacy')}
+            onPress={() => WebBrowser.openBrowserAsync('https://cinetrak.app/privacy')}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy Policy</Text>
