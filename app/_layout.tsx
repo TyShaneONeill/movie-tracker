@@ -37,6 +37,7 @@ import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
 import { NetworkProvider } from '@/lib/network-context';
 import { OfflineBanner } from '@/components/offline-banner';
+import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { AdsProvider } from '@/lib/ads-context';
 
 // Keep the splash screen visible while we fetch resources
@@ -216,6 +217,13 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // Request App Tracking Transparency permission before ads load (iOS 14.5+)
+  useEffect(() => {
+    (async () => {
+      await requestTrackingPermissionsAsync();
+    })();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;
