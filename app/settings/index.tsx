@@ -275,7 +275,7 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
-            onPress={() => Linking.openURL('https://gist.github.com/TyShaneONeill/0bcc1d2bba353c2e4ac98b3ef398445c')}
+            onPress={() => Linking.openURL('https://cinetrak.app/privacy')}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy Policy</Text>

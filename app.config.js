@@ -15,6 +15,7 @@ export default {
       associatedDomains: ["applinks:cinetrak.app"],
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        NSUserTrackingUsageDescription: "This allows CineTrak to show you relevant movie recommendations and ads.",
         CFBundleURLTypes: [
           {
             CFBundleURLName: "com.cinetrak.app",
@@ -58,6 +59,7 @@ export default {
           },
         },
       ],
+      "expo-tracking-transparency",
       "expo-secure-store",
       "expo-localization",
       [
@@ -71,7 +73,7 @@ export default {
         "react-native-google-mobile-ads",
         {
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
-          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          iosAppId: "ca-app-pub-5311715630678079~6367572841",
         },
       ],
     ],
