@@ -45,6 +45,9 @@ export function NativeFeedAd() {
   if (!adsEnabled || !AdComponents || failed) return null;
 
   const { BannerAd, BannerAdSize, TestIds } = AdComponents;
+  const unitId = __DEV__
+    ? TestIds.ADAPTIVE_BANNER
+    : 'ca-app-pub-5311715630678079/5869703809';
 
   return (
     <View style={styles.container}>
@@ -58,7 +61,7 @@ export function NativeFeedAd() {
       )}
       <Animated.View style={{ opacity: fadeAnim }}>
         <BannerAd
-          unitId={TestIds.ADAPTIVE_BANNER}
+          unitId={unitId}
           size={BannerAdSize.MEDIUM_RECTANGLE}
           requestOptions={{
             requestNonPersonalizedAdsOnly: true,

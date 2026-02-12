@@ -89,7 +89,7 @@ export default function AnalyticsScreen() {
               Start watching movies to see your viewing statistics here
             </Text>
           </View>
-          <BannerAdComponent />
+          <BannerAdComponent placement="stats" />
         </ScrollView>
       </SafeAreaView>
     );
@@ -181,7 +181,7 @@ export default function AnalyticsScreen() {
         </View>
 
         {/* Ad Banner */}
-        <BannerAdComponent />
+        <BannerAdComponent placement="stats" />
 
       </ScrollView>
     </SafeAreaView>

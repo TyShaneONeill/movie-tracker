@@ -287,7 +287,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Ad Banner */}
-        <BannerAdComponent />
+        <BannerAdComponent placement="home" />
 
         {/* Activity Section Header */}
         <View style={styles.activityHeader}>

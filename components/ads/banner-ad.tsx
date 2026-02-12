@@ -22,17 +22,30 @@ try {
   // Native module not available (e.g., Expo Go)
 }
 
-export function BannerAdComponent() {
+type BannerPlacement = 'home' | 'search' | 'stats';
+
+const BANNER_AD_UNIT_IDS: Record<BannerPlacement, string> = {
+  home: 'ca-app-pub-5311715630678079/5872641021',
+  search: 'ca-app-pub-5311715630678079/2765028314',
+  stats: 'ca-app-pub-5311715630678079/7182785474',
+};
+
+interface BannerAdProps {
+  placement: BannerPlacement;
+}
+
+export function BannerAdComponent({ placement }: BannerAdProps) {
   const { adsEnabled } = useAds();
 
   if (!adsEnabled || !AdComponents) return null;
 
   const { BannerAd, BannerAdSize, TestIds } = AdComponents;
+  const unitId = __DEV__ ? TestIds.ADAPTIVE_BANNER : BANNER_AD_UNIT_IDS[placement];
 
   return (
     <View style={styles.container}>
       <BannerAd
-        unitId={TestIds.ADAPTIVE_BANNER}
+        unitId={unitId}
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={{
           requestNonPersonalizedAdsOnly: true,

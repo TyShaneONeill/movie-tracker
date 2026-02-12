@@ -32,7 +32,10 @@ export function useRewardedAd() {
     unsubscribersRef.current.forEach((unsub) => unsub());
     unsubscribersRef.current = [];
 
-    const ad = AdModule.RewardedAd.createForAdRequest(AdModule.TestIds.REWARDED, {
+    const adUnitId = __DEV__
+      ? AdModule.TestIds.REWARDED
+      : 'ca-app-pub-5311715630678079/1683046782';
+    const ad = AdModule.RewardedAd.createForAdRequest(adUnitId, {
       requestNonPersonalizedAdsOnly: true,
     });
 
