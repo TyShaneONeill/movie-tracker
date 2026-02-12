@@ -601,7 +601,7 @@ export default function SearchScreen() {
       )}
 
       {/* Bottom Banner Ad */}
-      <BannerAdComponent />
+      <BannerAdComponent placement="search" />
     </SafeAreaView>
   );
 }
