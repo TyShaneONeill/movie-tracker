@@ -6,6 +6,7 @@ import {
   updateProfileAvatarUrl,
   deleteAvatar,
 } from '@/lib/avatar-service';
+import { captureException } from '@/lib/sentry';
 import type { Database, Profile } from '@/lib/database.types';
 
 /**
@@ -23,7 +24,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     if (error.code === 'PGRST116') {
       return null;
     }
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'fetch-profile' });
     throw error;
   }
 
@@ -59,7 +60,7 @@ async function createOrFetchProfile(userId: string): Promise<Profile> {
     if (insertError.code === '23505') {
       // Profile already exists, this is fine - continue to fetch
     } else {
-      // TODO: Replace with Sentry error tracking
+      captureException(insertError instanceof Error ? insertError : new Error(String(insertError)), { context: 'create-or-fetch-profile-insert' });
       throw insertError;
     }
   }
@@ -73,7 +74,7 @@ async function createOrFetchProfile(userId: string): Promise<Profile> {
     .single();
 
   if (fetchError) {
-    // TODO: Replace with Sentry error tracking
+    captureException(fetchError instanceof Error ? fetchError : new Error(String(fetchError)), { context: 'create-or-fetch-profile-fetch' });
     throw fetchError;
   }
 
@@ -229,7 +230,7 @@ export function useProfile() {
         .single() as { data: Profile | null; error: any };
 
       if (error) {
-        // TODO: Replace with Sentry error tracking
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'update-profile' });
         throw error;
       }
 

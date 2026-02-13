@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { supabase } from './supabase';
 import { getFileExtension } from './image-utils';
+import { captureException } from '@/lib/sentry';
 import type { Database } from './database.types';
 
 const AVATARS_BUCKET = 'avatars';
@@ -45,7 +46,7 @@ export async function uploadAvatar(
       });
 
     if (uploadError) {
-      // TODO: Replace with Sentry error tracking
+      captureException(uploadError instanceof Error ? uploadError : new Error(String(uploadError)), { context: 'avatar-upload' });
       return {
         success: false,
         error: uploadError.message,
@@ -65,7 +66,7 @@ export async function uploadAvatar(
       url,
     };
   } catch (error) {
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'avatar-upload' });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to upload avatar',
@@ -96,7 +97,7 @@ export async function deleteAvatar(userId: string): Promise<{ success: boolean; 
       .list(userId);
 
     if (listError) {
-      // TODO: Replace with Sentry error tracking
+      captureException(listError instanceof Error ? listError : new Error(String(listError)), { context: 'avatar-delete-list' });
       return { success: false, error: listError.message };
     }
 
@@ -111,13 +112,13 @@ export async function deleteAvatar(userId: string): Promise<{ success: boolean; 
       .remove(filePaths);
 
     if (deleteError) {
-      // TODO: Replace with Sentry error tracking
+      captureException(deleteError instanceof Error ? deleteError : new Error(String(deleteError)), { context: 'avatar-delete-remove' });
       return { success: false, error: deleteError.message };
     }
 
     return { success: true };
   } catch (error) {
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'avatar-delete' });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete avatar',
@@ -144,13 +145,13 @@ export async function updateProfileAvatarUrl(
       .eq('id', userId);
 
     if (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'avatar-update-profile' });
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (error) {
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'avatar-update-profile' });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update profile',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
@@ -9,7 +9,7 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
-import { Sentry } from '@/lib/sentry';
+import { Sentry, captureException } from '@/lib/sentry';
 import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
 
@@ -47,7 +47,7 @@ export default function SettingsScreen() {
     try {
       await updatePreference('firstTakePromptEnabled', value);
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-first-take-prompt-toggle' });
     }
   };
 
@@ -67,7 +67,7 @@ export default function SettingsScreen() {
         await signOut();
         router.replace('/(auth)/signin');
       } catch (error) {
-        // TODO: Replace with Sentry error tracking
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-logout' });
         router.replace('/(auth)/signin');
       }
     };

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { pickImage, takePhoto } from '@/lib/image-utils';
+import { captureException } from '@/lib/sentry';
 
 interface AvatarPickerProps {
   /** Current avatar URL */
@@ -54,7 +55,7 @@ export function AvatarPicker({
         await onImageSelected(result.uri, result.type);
       }
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'avatar-picker-select-image' });
       Alert.alert(
         'Upload Failed',
         error instanceof Error ? error.message : 'Failed to upload image. Please try again.',

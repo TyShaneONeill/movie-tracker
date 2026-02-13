@@ -32,6 +32,7 @@ import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 import { RewardedAdButton } from '@/components/ads/rewarded-ad-button';
 import { useAds } from '@/lib/ads-context';
 import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/sentry';
 
 // ============================================================================
 // Constants
@@ -121,7 +122,7 @@ export default function ScannerScreen() {
       const { status } = await ImagePicker.getCameraPermissionsAsync();
       setCameraPermission(status as PermissionStatus);
     } catch (err) {
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-check-camera-permission' });
       setCameraPermission('undetermined');
     } finally {
       setIsCheckingPermission(false);
@@ -138,7 +139,7 @@ export default function ScannerScreen() {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       setCameraPermission(status as PermissionStatus);
     } catch (err) {
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-request-camera-permission' });
     }
   }, []);
 
@@ -150,7 +151,7 @@ export default function ScannerScreen() {
         await Linking.openSettings();
       }
     } catch (err) {
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-open-settings' });
     }
   }, []);
 
@@ -167,8 +168,7 @@ export default function ScannerScreen() {
           setScansRemaining(status.scansRemaining);
         })
         .catch((err) => {
-          // Default to 3 if fetch fails
-          // TODO: Add error tracking (e.g., Sentry)
+          captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-fetch-scan-status' });
           setScansRemaining(3);
         });
     } else if (!user && !isAuthLoading) {
@@ -239,8 +239,7 @@ export default function ScannerScreen() {
         },
       });
     } catch (err) {
-      // Error is already set by the hook
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-process-image' });
     }
   }, [scanTicket, clearError]);
 
@@ -292,7 +291,7 @@ export default function ScannerScreen() {
       const asset = result.assets[0];
       await processImage(asset.uri, asset.mimeType);
     } catch (err) {
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-camera-capture' });
     }
   }, [cameraPermission, requestCameraPermission, processImage]);
 
@@ -321,7 +320,7 @@ export default function ScannerScreen() {
       const asset = result.assets[0];
       await processImage(asset.uri, asset.mimeType);
     } catch (err) {
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-gallery-select' });
     }
   }, [processImage]);
 
