@@ -92,51 +92,6 @@ export type Database = {
           },
         ]
       }
-      notifications: {
-        Row: {
-          id: string
-          user_id: string
-          type: string
-          actor_id: string | null
-          data: Record<string, unknown>
-          read: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          type: string
-          actor_id?: string | null
-          data?: Record<string, unknown>
-          read?: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          type?: string
-          actor_id?: string | null
-          data?: Record<string, unknown>
-          read?: boolean
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notifications_actor_id_fkey"
-            columns: ["actor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       genres: {
         Row: {
           id: number
@@ -218,9 +173,9 @@ export type Database = {
           tmdb_id: number
           tmdb_popularity: number | null
           tmdb_vote_average: number | null
+          tmdb_vote_count: number | null
           trailer_name: string | null
           trailer_youtube_key: string | null
-          tmdb_vote_count: number | null
           updated_at: string | null
         }
         Insert: {
@@ -247,9 +202,9 @@ export type Database = {
           tmdb_id: number
           tmdb_popularity?: number | null
           tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
           trailer_name?: string | null
           trailer_youtube_key?: string | null
-          tmdb_vote_count?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -276,15 +231,61 @@ export type Database = {
           tmdb_id?: number
           tmdb_popularity?: number | null
           tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
           trailer_name?: string | null
           trailer_youtube_key?: string | null
-          tmdb_vote_count?: number | null
           updated_at?: string | null
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          actor_id: string | null
+          created_at: string | null
+          data: Json | null
+          id: string
+          read: boolean | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          read?: boolean | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          read?: boolean | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          account_tier: string
           avatar_url: string | null
           bio: string | null
           created_at: string
@@ -295,10 +296,12 @@ export type Database = {
           id: string
           onboarding_completed: boolean | null
           theme_preference: string | null
+          tier_expires_at: string | null
           updated_at: string
           username: string | null
         }
         Insert: {
+          account_tier?: string
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
@@ -309,10 +312,12 @@ export type Database = {
           id: string
           onboarding_completed?: boolean | null
           theme_preference?: string | null
+          tier_expires_at?: string | null
           updated_at?: string
           username?: string | null
         }
         Update: {
+          account_tier?: string
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
@@ -323,6 +328,7 @@ export type Database = {
           id?: string
           onboarding_completed?: boolean | null
           theme_preference?: string | null
+          tier_expires_at?: string | null
           updated_at?: string
           username?: string | null
         }
@@ -603,20 +609,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      check_and_increment_scan:
-        | {
-            Args: { p_user_id: string }
-            Returns: {
-              can_scan: boolean
-              next_reset_at: string
-              scans_remaining: number
-            }[]
-          }
-        | { Args: { p_daily_limit?: number; p_user_id: string }; Returns: Json }
-      increment_bonus_scans: {
-        Args: {
-          p_user_id: string
-        }
+      check_and_increment_scan: {
+        Args: { p_daily_limit?: number; p_user_id: string }
         Returns: Json
       }
       get_journey_for_movie: {
@@ -725,6 +719,7 @@ export type Database = {
           total_watched: number
         }[]
       }
+      increment_bonus_scans: { Args: { p_user_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

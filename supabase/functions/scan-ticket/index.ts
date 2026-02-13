@@ -67,6 +67,8 @@ interface ProcessedTicket {
 interface ScanTicketResponse {
   success: boolean;
   scansRemaining: number;
+  dailyLimit: number;
+  accountTier: string;
   tickets: ProcessedTicket[];
   extractionConfidence: number;
   notes: string;
@@ -75,6 +77,8 @@ interface ScanTicketResponse {
 interface RateLimitResult {
   allowed: boolean;
   scans_remaining: number;
+  daily_limit: number;
+  account_tier: string;
   reset_at: string;
 }
 
@@ -602,6 +606,8 @@ Deno.serve(async (req: Request) => {
           success: false,
           error: 'Daily scan limit reached',
           scansRemaining: 0,
+          dailyLimit: rateLimitResult.daily_limit,
+          accountTier: rateLimitResult.account_tier,
           resetAt: rateLimitResult.reset_at,
         }),
         { status: 429, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
@@ -657,6 +663,8 @@ Deno.serve(async (req: Request) => {
     const response: ScanTicketResponse = {
       success: true,
       scansRemaining: rateLimitResult.scans_remaining,
+      dailyLimit: rateLimitResult.daily_limit,
+      accountTier: rateLimitResult.account_tier,
       tickets: deduplicatedTickets,
       extractionConfidence: extraction.confidence_score,
       notes: extraction.notes,

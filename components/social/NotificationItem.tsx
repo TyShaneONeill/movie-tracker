@@ -17,16 +17,10 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import type { Notification } from '@/lib/database.types';
 
 interface NotificationItemProps {
-  notification: {
-    id: string;
-    type: string; // 'follow', 'like_first_take', etc.
-    actor_id: string | null;
-    data: Record<string, unknown>;
-    read: boolean;
-    created_at: string;
-  };
+  notification: Notification;
   actorProfile?: {
     id: string;
     username: string | null;
@@ -39,7 +33,8 @@ interface NotificationItemProps {
 /**
  * Formats a date string into a relative time (e.g., "2 minutes ago")
  */
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(dateString: string | null): string {
+  if (!dateString) return '';
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -111,7 +106,7 @@ export function NotificationItem({
   const message = getNotificationMessage(
     notification.type,
     actorName,
-    notification.data
+    (notification.data ?? {}) as Record<string, unknown>
   );
 
   const relativeTime = formatRelativeTime(notification.created_at);
