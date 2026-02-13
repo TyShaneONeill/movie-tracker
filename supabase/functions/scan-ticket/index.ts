@@ -562,6 +562,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Reject images over 10MB (base64 length * 3/4 ≈ decoded byte size)
+    const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+    const estimatedBytes = Math.ceil(image.length * 3 / 4);
+    if (estimatedBytes > MAX_IMAGE_BYTES) {
+      return new Response(
+        JSON.stringify({ error: 'Image too large. Maximum size is 10MB.' }),
+        { status: 413, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
+
     const validMimeTypes = ['image/heic', 'image/jpeg', 'image/png', 'image/webp'];
     if (!mimeType || !validMimeTypes.includes(mimeType)) {
       return new Response(
