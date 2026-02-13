@@ -47,7 +47,7 @@ function rollForRarity(): 'common' | 'holographic' {
   return roll < 0.03 ? 'holographic' : 'common';
 }
 
-// Generate image using style transfer with gpt-image-1.5 (optimized for style transfer)
+// Generate image using style transfer with gpt-image-1.5 (OpenAI image editing)
 async function generateStyleTransfer(
   posterUrl: string,
   apiKey: string
@@ -87,9 +87,6 @@ async function generateStyleTransfer(
   const result = await response.json();
   if (result.data?.[0]?.b64_json) {
     return `data:image/png;base64,${result.data[0].b64_json}`;
-  }
-  if (result.data?.[0]?.url) {
-    return result.data[0].url;
   }
   throw new Error('No image returned from OpenAI');
 }
@@ -132,9 +129,6 @@ async function applyHolographicEffect(
   const result = await response.json();
   if (result.data?.[0]?.b64_json) {
     return `data:image/png;base64,${result.data[0].b64_json}`;
-  }
-  if (result.data?.[0]?.url) {
-    return result.data[0].url;
   }
   throw new Error('No image returned from OpenAI');
 }
@@ -189,7 +183,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request body
-    const body: GenerateArtRequest = await req.json();
+    let body: GenerateArtRequest;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
     const { journeyId, movieTitle, genres, posterUrl } = body;
 
     if (!journeyId || !movieTitle) {
@@ -315,7 +317,10 @@ Deno.serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Failed to update journey:', updateError);
-      // Still return success since image was generated
+      return new Response(
+        JSON.stringify({ error: 'Failed to save generated art. Please try again.' }),
+        { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
     }
 
     const response: GenerateArtResponse = {

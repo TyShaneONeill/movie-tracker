@@ -241,11 +241,6 @@ export default function JourneyCardScreen() {
         posterUrl,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Toast.show({
-        type: 'success',
-        text1: 'AI art generated!',
-        visibilityTime: 2000,
-      });
     } catch (error) {
       console.error('Failed to generate art:', error);
     }

@@ -32,16 +32,28 @@ async function generateJourneyArt(
   );
 
   if (error) {
-    // Extract detailed error info for debugging (similar to use-scan-ticket.ts)
+    // Extract detailed error from FunctionsHttpError response
     const fnErrorAny = error as any;
     const httpStatus = fnErrorAny.status || fnErrorAny.context?.status;
+
     let errorBody: any = null;
     try {
-      if (fnErrorAny.context?.body) {
+      // Method 1: context.json() (FunctionsHttpError — context is a Response object)
+      if (typeof fnErrorAny.context?.json === 'function') {
+        errorBody = await fnErrorAny.context.json();
+      }
+      // Method 2: context.body as string (older SDK versions)
+      else if (typeof fnErrorAny.context?.body === 'string') {
         errorBody = JSON.parse(fnErrorAny.context.body);
       }
+      // Method 3: error.data
+      else if (fnErrorAny.data) {
+        errorBody = typeof fnErrorAny.data === 'string'
+          ? JSON.parse(fnErrorAny.data)
+          : fnErrorAny.data;
+      }
     } catch {
-      /* ignore parse errors */
+      // Body parsing failed
     }
 
     console.error('[GenerateArt] Error:', {
