@@ -104,7 +104,7 @@ export interface UseScanTicketResult {
 // ============================================================================
 
 const ERROR_MESSAGES: Record<ScanTicketErrorType, string> = {
-  rate_limit: "You've used all 3 scans today. Try again tomorrow.",
+  rate_limit: "You've reached your daily scan limit. Try again tomorrow.",
   extraction_failed: "Couldn't read the ticket. Try with better lighting.",
   network_error: "Connection failed. Check your internet.",
   auth_error: "Please sign in to scan tickets.",
@@ -178,34 +178,47 @@ export function useScanTicket(): UseScanTicketResult {
       // Handle function errors
       if (fnError) {
         // Parse error response for specific error types
-        const errorMessage = fnError.message || '';
-
-        // Try to get HTTP status from FunctionsHttpError
-        // Supabase client may include status in the error context
         const fnErrorAny = fnError as any;
+
+        // Try multiple ways to get HTTP status and body from Supabase FunctionsHttpError
         const httpStatus = fnErrorAny.status || fnErrorAny.context?.status;
 
-        // Try to parse response body for structured error info
-        let errorBody: { error?: string; scansRemaining?: number } | null = null;
+        let errorBody: any = null;
         try {
-          if (fnErrorAny.context?.body) {
-            errorBody = JSON.parse(fnErrorAny.context.body);
+          // Method 1: context.json() (FunctionsHttpError in newer Supabase JS)
+          if (typeof fnErrorAny.context?.json === 'function') {
+            errorBody = await fnErrorAny.context.json();
+          }
+          // Method 2: context.body as string
+          else if (fnErrorAny.context?.body) {
+            errorBody = typeof fnErrorAny.context.body === 'string'
+              ? JSON.parse(fnErrorAny.context.body)
+              : fnErrorAny.context.body;
+          }
+          // Method 3: error.data
+          else if (fnErrorAny.data) {
+            errorBody = typeof fnErrorAny.data === 'string'
+              ? JSON.parse(fnErrorAny.data)
+              : fnErrorAny.data;
           }
         } catch {
-          // Ignore JSON parse errors
+          // Body parsing failed, continue with other checks
         }
 
-        // Check for rate limit (429) - check status, body, or message
+        const errorMessage = fnError.message || '';
+
+        // Check for rate limit (429) - check parsed body first, then status, then message strings
         if (
-          httpStatus === 429 ||
-          errorBody?.error?.toLowerCase().includes('limit') ||
           errorBody?.scansRemaining === 0 ||
-          errorMessage.includes('rate limit') ||
+          errorBody?.error?.toLowerCase().includes('limit') ||
+          httpStatus === 429 ||
           errorMessage.includes('429') ||
+          errorMessage.includes('rate limit') ||
           errorMessage.includes('Daily scan limit')
         ) {
+          const limit = errorBody?.dailyLimit || 'your daily';
           setErrorType('rate_limit');
-          setError(ERROR_MESSAGES.rate_limit);
+          setError(`You've reached ${typeof limit === 'number' ? `your ${limit}` : limit} scan limit. Try again tomorrow.`);
           throw new Error(ERROR_MESSAGES.rate_limit);
         }
 
@@ -370,7 +383,8 @@ export function useScanTicket(): UseScanTicketResult {
 // Scan Status Utility
 // ============================================================================
 
-const DAILY_SCAN_LIMIT = 3;
+const DEFAULT_DAILY_SCAN_LIMIT = 3;
+const PREMIUM_DAILY_SCAN_LIMIT = 20;
 
 /**
  * Fetch the current scan status for the authenticated user
@@ -386,9 +400,9 @@ export async function fetchScanStatus(): Promise<{
 
   if (!sessionData?.session?.user) {
     return {
-      scansRemaining: DAILY_SCAN_LIMIT,
+      scansRemaining: DEFAULT_DAILY_SCAN_LIMIT,
       usedToday: 0,
-      dailyLimit: DAILY_SCAN_LIMIT,
+      dailyLimit: DEFAULT_DAILY_SCAN_LIMIT,
       bonusScans: 0,
     };
   }
@@ -403,12 +417,22 @@ export async function fetchScanStatus(): Promise<{
     .eq('user_id', userId)
     .single() as { data: { daily_count: number; last_scan_date: string; bypass_rate_limit: boolean; bonus_scans: number | null } | null; error: any };
 
+  // Fetch user's account tier for correct limit
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('account_tier')
+    .eq('id', userId)
+    .single();
+
+  const accountTier = profile?.account_tier || 'free';
+  const baseDailyLimit = accountTier === 'dev' ? 999 : accountTier === 'premium' ? PREMIUM_DAILY_SCAN_LIMIT : DEFAULT_DAILY_SCAN_LIMIT;
+
   if (error || !data) {
-    // No record means user hasn't scanned yet - they have all 3
+    // No record means user hasn't scanned yet - they have full limit
     return {
-      scansRemaining: DAILY_SCAN_LIMIT,
+      scansRemaining: baseDailyLimit,
       usedToday: 0,
-      dailyLimit: DAILY_SCAN_LIMIT,
+      dailyLimit: baseDailyLimit,
       bonusScans: 0,
     };
   }
@@ -426,22 +450,22 @@ export async function fetchScanStatus(): Promise<{
   // If last scan was on a different day, count resets (bonus included)
   if (data.last_scan_date !== today) {
     return {
-      scansRemaining: DAILY_SCAN_LIMIT,
+      scansRemaining: baseDailyLimit,
       usedToday: 0,
-      dailyLimit: DAILY_SCAN_LIMIT,
+      dailyLimit: baseDailyLimit,
       bonusScans: 0,
     };
   }
 
   const usedToday = data.daily_count || 0;
   const bonusScans = data.bonus_scans || 0;
-  const effectiveLimit = DAILY_SCAN_LIMIT + bonusScans;
+  const effectiveLimit = baseDailyLimit + bonusScans;
   const scansRemaining = Math.max(0, effectiveLimit - usedToday);
 
   return {
     scansRemaining,
     usedToday,
-    dailyLimit: DAILY_SCAN_LIMIT,
+    dailyLimit: baseDailyLimit,
     bonusScans,
   };
 }
