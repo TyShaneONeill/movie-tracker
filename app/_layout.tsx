@@ -39,6 +39,7 @@ import { NetworkProvider } from '@/lib/network-context';
 import { OfflineBanner } from '@/components/offline-banner';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { AdsProvider } from '@/lib/ads-context';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -237,7 +238,9 @@ export default function RootLayout() {
             <AuthProvider>
               <OnboardingProvider>
                 <ThemeProvider>
-                  <RootLayoutNav />
+                  <ErrorBoundary>
+                    <RootLayoutNav />
+                  </ErrorBoundary>
                 </ThemeProvider>
               </OnboardingProvider>
             </AuthProvider>
