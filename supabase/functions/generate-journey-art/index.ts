@@ -1,10 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders } from '../_shared/cors.ts';
 
 // Allowed domains for poster URLs (SSRF protection)
 const ALLOWED_POSTER_DOMAINS = [
@@ -146,7 +143,7 @@ async function applyHolographicEffect(
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -154,7 +151,7 @@ Deno.serve(async (req: Request) => {
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
-        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 405, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -173,7 +170,7 @@ Deno.serve(async (req: Request) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Authorization required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -187,7 +184,7 @@ Deno.serve(async (req: Request) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid authorization token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -198,7 +195,7 @@ Deno.serve(async (req: Request) => {
     if (!journeyId || !movieTitle) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: journeyId and movieTitle' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -236,7 +233,7 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({
           error: `Rate limit exceeded. Maximum ${RATE_LIMIT_MAX} AI art generations per ${RATE_LIMIT_WINDOW_HOURS} hours.`
         }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 429, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -250,14 +247,14 @@ Deno.serve(async (req: Request) => {
     if (journeyError || !journey) {
       return new Response(
         JSON.stringify({ error: 'Journey not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
     if (journey.user_id !== user.id) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized to modify this journey' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -265,7 +262,7 @@ Deno.serve(async (req: Request) => {
     if (journey.ai_poster_url) {
       return new Response(
         JSON.stringify({ error: 'AI poster already generated for this journey' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -277,7 +274,7 @@ Deno.serve(async (req: Request) => {
     if (!posterUrl) {
       return new Response(
         JSON.stringify({ error: 'Poster URL is required for AI art generation' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -286,7 +283,7 @@ Deno.serve(async (req: Request) => {
       console.warn(`Blocked disallowed poster URL: ${posterUrl}`);
       return new Response(
         JSON.stringify({ error: 'Invalid poster URL. Only TMDB images are allowed.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -328,7 +325,7 @@ Deno.serve(async (req: Request) => {
     };
 
     return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       status: 200,
     });
 
@@ -339,7 +336,7 @@ Deno.serve(async (req: Request) => {
         success: false,
         error: error.message || 'Failed to generate art'
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
