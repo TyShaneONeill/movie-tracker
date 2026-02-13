@@ -41,13 +41,21 @@ interface OpenAIImageResponse {
   }>;
 }
 
+// Custom error for OpenAI safety rejections
+class SafetyRejectionError extends Error {
+  constructor() {
+    super('This movie poster could not be processed by our AI. Try a different journey.');
+    this.name = 'SafetyRejectionError';
+  }
+}
+
 // Roll for rarity (3% holographic)
 function rollForRarity(): 'common' | 'holographic' {
   const roll = Math.random();
   return roll < 0.03 ? 'holographic' : 'common';
 }
 
-// Generate image using style transfer with gpt-image-1.5 (optimized for style transfer)
+// Generate image using style transfer with gpt-image-1.5 (OpenAI image editing)
 async function generateStyleTransfer(
   posterUrl: string,
   apiKey: string
@@ -80,16 +88,17 @@ async function generateStyleTransfer(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData?.error?.message || '';
     console.error('OpenAI style transfer error:', errorData);
-    throw new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+    if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
+      throw new SafetyRejectionError();
+    }
+    throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
   }
 
   const result = await response.json();
   if (result.data?.[0]?.b64_json) {
     return `data:image/png;base64,${result.data[0].b64_json}`;
-  }
-  if (result.data?.[0]?.url) {
-    return result.data[0].url;
   }
   throw new Error('No image returned from OpenAI');
 }
@@ -125,16 +134,17 @@ async function applyHolographicEffect(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData?.error?.message || '';
     console.error('OpenAI holographic effect error:', errorData);
-    throw new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+    if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
+      throw new SafetyRejectionError();
+    }
+    throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
   }
 
   const result = await response.json();
   if (result.data?.[0]?.b64_json) {
     return `data:image/png;base64,${result.data[0].b64_json}`;
-  }
-  if (result.data?.[0]?.url) {
-    return result.data[0].url;
   }
   throw new Error('No image returned from OpenAI');
 }
@@ -189,7 +199,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request body
-    const body: GenerateArtRequest = await req.json();
+    let body: GenerateArtRequest;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
     const { journeyId, movieTitle, genres, posterUrl } = body;
 
     if (!journeyId || !movieTitle) {
@@ -315,7 +333,10 @@ Deno.serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Failed to update journey:', updateError);
-      // Still return success since image was generated
+      return new Response(
+        JSON.stringify({ error: 'Failed to save generated art. Please try again.' }),
+        { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
     }
 
     const response: GenerateArtResponse = {
@@ -331,12 +352,15 @@ Deno.serve(async (req: Request) => {
 
   } catch (error) {
     console.error('Error generating journey art:', error);
+
+    const status = error instanceof SafetyRejectionError ? 422 : 500;
+
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message || 'Failed to generate art'
       }),
-      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      { status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
