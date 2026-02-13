@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/sentry';
 import type { Database } from '@/lib/database.types';
 
 export interface UserPreferences {
@@ -36,7 +37,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     if (error.code === 'PGRST116') {
       return null;
     }
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'fetch-user-preferences' });
     throw error;
   }
 
@@ -72,7 +73,7 @@ async function updateUserPreference(
     .eq('id', userId);
 
   if (error) {
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'update-user-preference' });
     throw error;
   }
 }

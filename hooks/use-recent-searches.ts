@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { captureException } from '@/lib/sentry';
 
 const STORAGE_KEY = '@cinetrak/recent_searches';
 const MAX_RECENT_SEARCHES = 10;
@@ -41,7 +42,7 @@ export function useRecentSearches(): UseRecentSearchesResult {
         setRecentSearches(parsed);
       }
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'load-recent-searches' });
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +52,7 @@ export function useRecentSearches(): UseRecentSearchesResult {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(searches));
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'save-recent-searches' });
     }
   };
 
@@ -91,7 +92,7 @@ export function useRecentSearches(): UseRecentSearchesResult {
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'clear-recent-searches' });
     }
   }, []);
 

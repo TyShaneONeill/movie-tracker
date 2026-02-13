@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Alert, Platform } from 'react-native';
+import { captureException } from '@/lib/sentry';
 
 export interface ImagePickerResult {
   uri: string;
@@ -161,12 +162,12 @@ export async function imageUriToBase64(uri: string): Promise<string> {
     });
     return base64;
   } catch (error) {
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'image-uri-to-base64-native' });
     // Try web fallback method as last resort
     try {
       return await webImageToBase64(uri);
     } catch (fallbackError) {
-      // TODO: Replace with Sentry error tracking
+      captureException(fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError)), { context: 'image-uri-to-base64-fallback' });
       throw new Error('Failed to read image file');
     }
   }
@@ -197,7 +198,7 @@ async function webImageToBase64(uri: string): Promise<string> {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'web-image-to-base64' });
     throw new Error('Failed to convert web image to base64');
   }
 }

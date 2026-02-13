@@ -1,4 +1,5 @@
 import { searchMovies } from './movie-service';
+import { captureException } from '@/lib/sentry';
 import type { TMDBMovie } from './tmdb.types';
 
 // ============================================================================
@@ -588,7 +589,7 @@ export async function findTMDBMatch(
       originalTitle: rawTitle,
     };
   } catch (error) {
-    // TODO: Replace with Sentry error tracking
+    captureException(error instanceof Error ? error : new Error(String(error)), { context: 'tmdb-match', rawTitle });
     return null;
   }
 }

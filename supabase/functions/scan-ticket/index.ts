@@ -328,7 +328,7 @@ async function searchTMDB(
 
     const response = await fetch(searchUrl.toString());
     if (!response.ok) {
-      // TODO: Add error tracking (e.g., Sentry)
+      console.error('[scan-ticket] TMDB search failed:', response.status, response.statusText);
       return null;
     }
 
@@ -355,7 +355,7 @@ async function searchTMDB(
       confidence,
     };
   } catch (error) {
-    // TODO: Add error tracking (e.g., Sentry)
+    console.error('[scan-ticket] TMDB search error:', error);
     return null;
   }
 }
@@ -449,7 +449,7 @@ async function extractWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text();
-    // TODO: Add error tracking (e.g., Sentry)
+    console.error('[scan-ticket] Gemini API error:', response.status, errorText);
     throw new Error(`Gemini API error: ${response.status}`);
   }
 
@@ -492,7 +492,7 @@ async function extractWithGemini(
       notes: parsed.notes || '',
     };
   } catch (parseError) {
-    // TODO: Add error tracking (e.g., Sentry)
+    console.error('[scan-ticket] Failed to parse Gemini extraction response:', parseError);
     throw new Error('Failed to parse ticket extraction response');
   }
 }
@@ -583,7 +583,7 @@ Deno.serve(async (req: Request) => {
     );
 
     if (rateLimitError) {
-      // TODO: Add error tracking (e.g., Sentry)
+      console.error('[scan-ticket] Rate limit check failed:', rateLimitError);
       throw new Error('Failed to check rate limit');
     }
 
@@ -606,7 +606,7 @@ Deno.serve(async (req: Request) => {
     try {
       extraction = await extractWithGemini(image, mimeType, GEMINI_API_KEY);
     } catch (geminiError) {
-      // TODO: Add error tracking (e.g., Sentry)
+      console.error('[scan-ticket] Gemini extraction failed:', geminiError);
       return new Response(
         JSON.stringify({
           success: false,
@@ -661,7 +661,7 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (error) {
-    // TODO: Add error tracking (e.g., Sentry)
+    console.error('[scan-ticket] Unhandled error:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

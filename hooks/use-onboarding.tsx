@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useContext, createContext, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/sentry';
 
 interface OnboardingContextType {
   hasCompletedOnboarding: boolean | null;
@@ -65,13 +66,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         .eq('id', user.id);
 
       if (error) {
-        // TODO: Sentry error tracking
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'complete-onboarding-update' });
         return;
       }
 
       setHasCompletedOnboarding(true);
-    } catch {
-      // TODO: Sentry error tracking
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'complete-onboarding' });
     }
   }, [user?.id]);
 
@@ -86,13 +87,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         .eq('id', user.id);
 
       if (error) {
-        // TODO: Sentry error tracking
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'reset-onboarding-update' });
         return;
       }
 
       setHasCompletedOnboarding(false);
-    } catch {
-      // TODO: Sentry error tracking
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'reset-onboarding' });
     }
   }, [user?.id]);
 

@@ -25,6 +25,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { supabase } from '@/lib/supabase';
 import { uploadAvatar, updateProfileAvatarUrl } from '@/lib/avatar-service';
+import { captureException } from '@/lib/sentry';
 
 export default function ProfileSetupScreen() {
   const { effectiveTheme } = useTheme();
@@ -59,7 +60,7 @@ export default function ProfileSetupScreen() {
         setError(result.error || 'Failed to upload image');
       }
     } catch (err) {
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'profile-setup-avatar-upload' });
       setError('Failed to upload image');
     } finally {
       setIsUploadingAvatar(false);
@@ -119,7 +120,7 @@ export default function ProfileSetupScreen() {
           .eq('id', user.id);
 
         if (updateError) {
-          // TODO: Replace with Sentry error tracking
+          captureException(new Error(updateError.message), { context: 'profile-setup-update-profile' });
           setError('Failed to update profile. Please try again.');
           setIsSubmitting(false);
           return;
@@ -137,7 +138,7 @@ export default function ProfileSetupScreen() {
       await completeOnboarding();
       router.replace('/(tabs)');
     } catch (err) {
-      // TODO: Replace with Sentry error tracking
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'profile-setup-complete' });
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);

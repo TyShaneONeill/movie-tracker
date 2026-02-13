@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/sentry';
 import { useAuth } from '@/hooks/use-auth';
 import type { ThemePreference } from '@/lib/database.types';
 
@@ -45,7 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           setThemePreferenceState(cached as ThemePreference);
         }
       } catch (error) {
-        // TODO: Replace with Sentry error tracking
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'theme-load' });
       }
       setIsLoading(false);
     };
@@ -67,7 +68,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (error) {
-          // TODO: Replace with Sentry error tracking
+          captureException(error instanceof Error ? error : new Error(String(error)), { context: 'theme-sync-supabase-fetch' });
           return;
         }
 
@@ -80,7 +81,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           await AsyncStorage.setItem(THEME_STORAGE_KEY, serverPref);
         }
       } catch (error) {
-        // TODO: Replace with Sentry error tracking
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'theme-sync-supabase' });
       }
     };
 
@@ -96,7 +97,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem(THEME_STORAGE_KEY, preference);
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'theme-save' });
     }
 
     // Persist to Supabase if user is logged in
@@ -113,10 +114,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           .eq('id', user.id);
 
         if (error) {
-          // TODO: Replace with Sentry error tracking
+          captureException(error instanceof Error ? error : new Error(String(error)), { context: 'theme-save-supabase' });
         }
       } catch (error) {
-        // TODO: Replace with Sentry error tracking
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'theme-save-supabase' });
       }
     }
   }, [user]);

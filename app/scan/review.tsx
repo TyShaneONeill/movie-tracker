@@ -34,6 +34,7 @@ import { createFirstTake } from '@/lib/first-take-service';
 import { supabase } from '@/lib/supabase';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { JourneyUpdate } from '@/lib/database.types';
+import { captureException } from '@/lib/sentry';
 
 // ============================================================================
 // Helpers
@@ -253,7 +254,7 @@ export default function TicketReviewScreen() {
         router.replace('/(tabs)/profile');
       }
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'ticket-review-first-take-submit' });
       Alert.alert('Error', 'Failed to save your first take. Please try again.');
     } finally {
       setIsSubmittingFirstTake(false);
@@ -373,8 +374,7 @@ export default function TicketReviewScreen() {
             .insert(theaterVisitData);
 
           if (visitError) {
-            // Log but don't fail if theater_visits table doesn't exist
-            // TODO: Add error tracking (e.g., Sentry)
+            captureException(new Error(visitError.message), { context: 'ticket-review-theater-visit-insert' });
           }
 
           return { title: movie.title, journeyId };
@@ -454,7 +454,7 @@ export default function TicketReviewScreen() {
         ]
       );
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'ticket-review-add-all-to-watched' });
       Alert.alert(
         'Error',
         'Failed to add movies to your watched list. Please try again.',

@@ -29,6 +29,7 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { createFirstTake } from '@/lib/first-take-service';
 import { useAuth } from '@/hooks/use-auth';
+import { captureException } from '@/lib/sentry';
 
 const MAX_QUOTE_LENGTH = 140;
 
@@ -150,7 +151,7 @@ export function MultiFirstTakeModal({
         setCurrentIndex((prev) => prev + 1);
       }
     } catch (error: any) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'multi-first-take-submit' });
 
       // Handle duplicate first take gracefully
       if (error.message === 'DUPLICATE_FIRST_TAKE') {

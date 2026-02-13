@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/sentry';
 import type { ExtractedTicket, ProcessedTicket, TMDBMatch } from '@/lib/ticket-processor';
 import { processExtractedTickets } from '@/lib/ticket-processor';
 import type { TMDBMovie } from '@/lib/tmdb.types';
@@ -140,9 +141,7 @@ export function useScanTicket(): UseScanTicketResult {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !sessionData?.session) {
-        if (DEBUG_AUTH) {
-          // TODO: Replace with Sentry error tracking
-        }
+        captureException(sessionError instanceof Error ? sessionError : new Error(String(sessionError ?? 'No active session')), { context: 'scan-ticket-auth' });
         setErrorType('auth_error');
         setError(ERROR_MESSAGES.auth_error);
         throw new Error(ERROR_MESSAGES.auth_error);

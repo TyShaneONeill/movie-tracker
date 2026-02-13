@@ -22,6 +22,7 @@ import { useProfile } from '@/hooks/use-profile';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
+import { captureException } from '@/lib/sentry';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -153,8 +154,7 @@ export default function EditProfileScreen() {
       // Navigate back after save
       router.back();
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
-      // TODO: Show error toast
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'edit-profile-save' });
     } finally {
       setIsSaving(false);
     }
@@ -169,7 +169,7 @@ export default function EditProfileScreen() {
         visibilityTime: 2000,
       });
     } catch (error) {
-      // TODO: Replace with Sentry error tracking
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'edit-profile-avatar-upload' });
       Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
     }
   };
