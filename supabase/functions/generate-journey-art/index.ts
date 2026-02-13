@@ -41,6 +41,14 @@ interface OpenAIImageResponse {
   }>;
 }
 
+// Custom error for OpenAI safety rejections
+class SafetyRejectionError extends Error {
+  constructor() {
+    super('This movie poster could not be processed by our AI. Try a different journey.');
+    this.name = 'SafetyRejectionError';
+  }
+}
+
 // Roll for rarity (3% holographic)
 function rollForRarity(): 'common' | 'holographic' {
   const roll = Math.random();
@@ -80,8 +88,12 @@ async function generateStyleTransfer(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData?.error?.message || '';
     console.error('OpenAI style transfer error:', errorData);
-    throw new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+    if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
+      throw new SafetyRejectionError();
+    }
+    throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
   }
 
   const result = await response.json();
@@ -122,8 +134,12 @@ async function applyHolographicEffect(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData?.error?.message || '';
     console.error('OpenAI holographic effect error:', errorData);
-    throw new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+    if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
+      throw new SafetyRejectionError();
+    }
+    throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
   }
 
   const result = await response.json();
@@ -336,12 +352,15 @@ Deno.serve(async (req: Request) => {
 
   } catch (error) {
     console.error('Error generating journey art:', error);
+
+    const status = error instanceof SafetyRejectionError ? 422 : 500;
+
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message || 'Failed to generate art'
       }),
-      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      { status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
