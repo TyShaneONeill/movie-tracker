@@ -218,6 +218,8 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
               ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              // 160px card + 16px separator
+              getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
           )}
         </View>
@@ -250,6 +252,8 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
               ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              // 160px card + 16px separator
+              getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
           )}
         </View>
@@ -282,6 +286,8 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
               ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              // 160px card + 16px separator
+              getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
           )}
         </View>
@@ -355,6 +361,9 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

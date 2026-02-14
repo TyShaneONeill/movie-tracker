@@ -681,6 +681,9 @@ export default function ProfileScreen() {
                     scrollEventThrottle={16}
                     columnWrapperStyle={groupedMovies?.length && !isLoading && !isError ? styles.columnWrapper : undefined}
                     contentContainerStyle={styles.scrollContent}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
                     refreshControl={
                         <RefreshControl
                             refreshing={isRefreshing}
