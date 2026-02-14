@@ -26,6 +26,7 @@ import { useOnboarding } from '@/hooks/use-onboarding';
 import { supabase } from '@/lib/supabase';
 import { uploadAvatar, updateProfileAvatarUrl } from '@/lib/avatar-service';
 import { captureException } from '@/lib/sentry';
+import { useUsernameValidation } from '@/hooks/use-username-validation';
 
 export default function ProfileSetupScreen() {
   const { effectiveTheme } = useTheme();
@@ -42,6 +43,7 @@ export default function ProfileSetupScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const usernameValidation = useUsernameValidation(username, user?.id);
 
   const handleImageSelected = async (imageUri: string, mimeType?: string) => {
     if (!user) return;
@@ -96,20 +98,6 @@ export default function ProfileSetupScreen() {
       }
 
       if (username.trim()) {
-        // Check if username is taken
-        const { data: existing } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('username', username.trim().toLowerCase())
-          .neq('id', user.id)
-          .single();
-
-        if (existing) {
-          setError('This username is already taken');
-          setIsSubmitting(false);
-          return;
-        }
-
         updates.username = username.trim().toLowerCase();
       }
 
@@ -233,9 +221,40 @@ export default function ProfileSetupScreen() {
                 maxLength={20}
                 editable={!isSubmitting}
               />
-              <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>
-                3-20 characters, letters, numbers, and underscores only
-              </ThemedText>
+              {usernameValidation.status === 'idle' && (
+                <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>
+                  3-20 characters, letters, numbers, and underscores only
+                </ThemedText>
+              )}
+              {usernameValidation.status === 'invalid' && (
+                <ThemedText style={[styles.hint, { color: '#ef4444' }]}>
+                  {usernameValidation.error}
+                </ThemedText>
+              )}
+              {usernameValidation.status === 'checking' && (
+                <View style={styles.usernameStatusRow}>
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                  <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>
+                    Checking...
+                  </ThemedText>
+                </View>
+              )}
+              {usernameValidation.status === 'available' && (
+                <View style={styles.usernameStatusRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.accentSecondary} />
+                  <ThemedText style={[styles.hint, { color: colors.accentSecondary }]}>
+                    Available
+                  </ThemedText>
+                </View>
+              )}
+              {usernameValidation.status === 'taken' && (
+                <View style={styles.usernameStatusRow}>
+                  <Ionicons name="close-circle" size={16} color="#ef4444" />
+                  <ThemedText style={[styles.hint, { color: '#ef4444' }]}>
+                    Username taken
+                  </ThemedText>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -248,7 +267,7 @@ export default function ProfileSetupScreen() {
               { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
             ]}
             onPress={handleComplete}
-            disabled={isSubmitting || isUploadingAvatar}
+            disabled={isSubmitting || isUploadingAvatar || (!!username && usernameValidation.status !== 'available' && usernameValidation.status !== 'idle')}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" />
@@ -328,6 +347,12 @@ const styles = StyleSheet.create({
   hint: {
     ...Typography.body.xs,
     marginTop: Spacing.xs,
+  },
+  usernameStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
   footer: {
     paddingHorizontal: Spacing.lg,
