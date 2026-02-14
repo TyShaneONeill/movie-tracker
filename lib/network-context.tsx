@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 
 interface NetworkContextType {
@@ -23,8 +23,13 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const value = useMemo(() => ({
+    isOffline,
+    isInternetReachable,
+  }), [isOffline, isInternetReachable]);
+
   return (
-    <NetworkContext.Provider value={{ isOffline, isInternetReachable }}>
+    <NetworkContext.Provider value={value}>
       {children}
     </NetworkContext.Provider>
   );
