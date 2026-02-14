@@ -87,8 +87,9 @@ export function useUserStats() {
     queryKey: ['userStats', user?.id],
     queryFn: fetchUserStats,
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes — stats change infrequently
     gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
+    refetchOnMount: false, // Only refresh via pull-to-refresh
   });
 }
 

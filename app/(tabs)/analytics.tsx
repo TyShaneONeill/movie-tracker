@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, G } from 'react-native-svg';
 
@@ -26,7 +27,14 @@ export default function AnalyticsScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
-  const { data: stats, isLoading, error } = useUserStats();
+  const { data: stats, isLoading, error, refetch } = useUserStats();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   // Guest state - show sign in prompt
   if (!user) {
@@ -73,7 +81,13 @@ export default function AnalyticsScreen() {
   if (isEmpty) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
+          }
+        >
           <View style={styles.header}>
             <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
           </View>
@@ -107,7 +121,13 @@ export default function AnalyticsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
+        }
+      >
         {/* Header with Title */}
         <View style={styles.header}>
           <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
