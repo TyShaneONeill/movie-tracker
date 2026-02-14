@@ -52,25 +52,105 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     enabled: !!user && tmdbId > 0,
   });
 
-  // Mutation to add movie to watchlist
+  // Mutation to add movie to watchlist (optimistic)
   const addMutation = useMutation({
     mutationFn: async ({ movie, status }: { movie: TMDBMovie; status: MovieStatus }) => {
       if (!user) throw new Error('Not authenticated');
       return addMovieToLibrary(user.id, movie, status);
     },
-    onSuccess: () => {
+    onMutate: async ({ movie, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
+
+      const previousMovie = queryClient.getQueryData<UserMovie | null>(
+        ['userMovie', user?.id, tmdbId]
+      );
+
+      const now = new Date().toISOString();
+      queryClient.setQueryData<UserMovie>(
+        ['userMovie', user?.id, tmdbId],
+        {
+          id: 'optimistic',
+          user_id: user!.id,
+          tmdb_id: movie.id,
+          status,
+          title: movie.title,
+          overview: movie.overview || null,
+          poster_path: movie.poster_path,
+          backdrop_path: movie.backdrop_path,
+          release_date: movie.release_date || null,
+          vote_average: movie.vote_average || null,
+          genre_ids: movie.genre_ids || [],
+          added_at: now,
+          updated_at: now,
+          ai_poster_rarity: null,
+          ai_poster_url: null,
+          auditorium: null,
+          cover_photo_index: null,
+          display_poster: null,
+          is_liked: null,
+          journey_created_at: null,
+          journey_notes: null,
+          journey_number: null,
+          journey_photos: null,
+          journey_tagline: null,
+          journey_updated_at: null,
+          location_name: null,
+          location_type: null,
+          seat_location: null,
+          ticket_id: null,
+          ticket_price: null,
+          watch_format: null,
+          watch_time: null,
+          watched_at: null,
+          watched_with: null,
+        } as UserMovie
+      );
+
+      return { previousMovie };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousMovie !== undefined) {
+        queryClient.setQueryData(
+          ['userMovie', user?.id, tmdbId],
+          context.previousMovie
+        );
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
     },
   });
 
-  // Mutation to remove movie from watchlist
+  // Mutation to remove movie from watchlist (optimistic)
   const removeMutation = useMutation({
     mutationFn: async () => {
       if (!userMovie) throw new Error('Movie not in watchlist');
       return removeMovieFromLibrary(userMovie.id);
     },
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
+
+      const previousMovie = queryClient.getQueryData<UserMovie | null>(
+        ['userMovie', user?.id, tmdbId]
+      );
+
+      queryClient.setQueryData<UserMovie | null>(
+        ['userMovie', user?.id, tmdbId],
+        null
+      );
+
+      return { previousMovie };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousMovie !== undefined) {
+        queryClient.setQueryData(
+          ['userMovie', user?.id, tmdbId],
+          context.previousMovie
+        );
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
     },

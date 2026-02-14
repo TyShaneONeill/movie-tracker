@@ -35,6 +35,8 @@ import type { UserMovie, UserMovieLike } from '@/lib/database.types';
 
 const mockUseAuth = useAuth as jest.Mock;
 const mockGetMovieByTmdbId = getMovieByTmdbId as jest.Mock;
+const mockAddMovieToLibrary = addMovieToLibrary as jest.Mock;
+const mockRemoveMovieFromLibrary = removeMovieFromLibrary as jest.Mock;
 const mockUpdateMovieStatus = updateMovieStatus as jest.Mock;
 const mockGetMovieLike = getMovieLike as jest.Mock;
 const mockLikeMovie = likeMovie as jest.Mock;
@@ -329,5 +331,146 @@ describe('useMovieActions', () => {
         });
       }
     );
+  });
+
+  // ==========================================================================
+  // addToWatchlist optimistic update
+  // ==========================================================================
+
+  describe('addToWatchlist optimistic update', () => {
+    it.each([
+      { status: 'watchlist' as const },
+      { status: 'watching' as const },
+      { status: 'watched' as const },
+    ])(
+      'optimistically updates cache from null to a UserMovie with status "$status" before server responds',
+      async ({ status }) => {
+        const { queryClient, wrapper } = createTestHarness();
+
+        // Seed: no existing movie in cache
+        queryClient.setQueryData(USER_MOVIE_KEY, null);
+        // Server call will never resolve — proving the update is optimistic
+        mockAddMovieToLibrary.mockReturnValue(neverResolve());
+
+        const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+        // Wait for hook to settle (no saved movie)
+        await waitFor(() => {
+          expect(result.current.isSaved).toBe(false);
+        });
+
+        const movie = makeTMDBMovie();
+
+        // Trigger the mutation (don't await — it will never resolve)
+        act(() => {
+          result.current.addToWatchlist(movie as any, status);
+        });
+
+        // Cache should already have a truthy UserMovie with correct fields
+        await waitFor(() => {
+          const cached = queryClient.getQueryData<UserMovie | null>(USER_MOVIE_KEY);
+          expect(cached).toBeTruthy();
+          expect(cached?.tmdb_id).toBe(TMDB_ID);
+          expect(cached?.status).toBe(status);
+          expect(cached?.title).toBe('Fight Club');
+          expect(cached?.poster_path).toBe('/poster.jpg');
+        });
+      }
+    );
+
+    it('rolls back cache to null on server error', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+
+      // Seed: no existing movie in cache
+      queryClient.setQueryData(USER_MOVIE_KEY, null);
+      mockAddMovieToLibrary.mockRejectedValue(new Error('Server error'));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSaved).toBe(false);
+      });
+
+      const movie = makeTMDBMovie();
+
+      await act(async () => {
+        try {
+          await result.current.addToWatchlist(movie as any, 'watchlist');
+        } catch {
+          // expected
+        }
+      });
+
+      // Cache should have reverted to null
+      await waitFor(() => {
+        const cached = queryClient.getQueryData<UserMovie | null>(USER_MOVIE_KEY);
+        expect(cached).toBeNull();
+      });
+    });
+  });
+
+  // ==========================================================================
+  // removeFromWatchlist optimistic update
+  // ==========================================================================
+
+  describe('removeFromWatchlist optimistic update', () => {
+    it('optimistically sets cache to null before server responds', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+      const existingMovie = makeUserMovie();
+
+      // Query function must return the movie so hook's internal userMovie is populated
+      mockGetMovieByTmdbId.mockResolvedValue(existingMovie);
+      // Server call will never resolve — proving the update is optimistic
+      mockRemoveMovieFromLibrary.mockReturnValue(neverResolve());
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+      // Wait for the query to populate the hook's userMovie
+      await waitFor(() => {
+        expect(result.current.isSaved).toBe(true);
+      });
+
+      // Trigger the mutation (don't await — it will never resolve)
+      act(() => {
+        result.current.removeFromWatchlist();
+      });
+
+      // Cache should already be null
+      await waitFor(() => {
+        const cached = queryClient.getQueryData<UserMovie | null>(USER_MOVIE_KEY);
+        expect(cached).toBeNull();
+      });
+    });
+
+    it('rolls back to original UserMovie on server error', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+      const existingMovie = makeUserMovie({ id: 'movie-1', status: 'watchlist' });
+
+      // Query function must return the movie so hook's internal userMovie is populated
+      mockGetMovieByTmdbId.mockResolvedValue(existingMovie);
+      mockRemoveMovieFromLibrary.mockRejectedValue(new Error('Server error'));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSaved).toBe(true);
+      });
+
+      await act(async () => {
+        try {
+          await result.current.removeFromWatchlist();
+        } catch {
+          // expected
+        }
+      });
+
+      // Cache should have reverted to the original UserMovie
+      await waitFor(() => {
+        const cached = queryClient.getQueryData<UserMovie | null>(USER_MOVIE_KEY);
+        expect(cached).toBeTruthy();
+        expect(cached?.id).toBe('movie-1');
+        expect(cached?.status).toBe('watchlist');
+      });
+    });
   });
 });
