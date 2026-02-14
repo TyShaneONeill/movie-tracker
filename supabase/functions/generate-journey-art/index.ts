@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { enforceRateLimit } from '../_shared/rate-limit.ts';
+import { checkDailyAiSpend, logAiCost, buildSpendLimitResponse, AI_COST_ESTIMATES } from '../_shared/cost-tracking.ts';
 
 // Allowed domains for poster URLs (SSRF protection)
 const ALLOWED_POSTER_DOMAINS = [
@@ -275,6 +276,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Check daily AI spend limit before calling OpenAI
+    const spendCheck = await checkDailyAiSpend(supabaseAdmin);
+    if (!spendCheck.allowed) {
+      return buildSpendLimitResponse(req, spendCheck);
+    }
+
     console.log('Using style transfer with simple prompt');
 
     // Step 1: Generate cartoon version (returns base64)
@@ -287,6 +294,16 @@ Deno.serve(async (req: Request) => {
       imageBase64 = await applyHolographicEffect(imageBase64, OPENAI_API_KEY);
       console.log('Applied holographic effect');
     }
+
+    // Log OpenAI API cost (1 call for common, 2 for holographic)
+    const apiCalls = rarity === 'holographic' ? 2 : 1;
+    await logAiCost(
+      supabaseAdmin,
+      user.id,
+      'generate_journey_art',
+      'gpt-image-1.5',
+      AI_COST_ESTIMATES['gpt-image-1.5'] * apiCalls,
+    );
 
     // Step 3: Upload final image to Storage bucket
     const base64Data = imageBase64.replace('data:image/png;base64,', '');
