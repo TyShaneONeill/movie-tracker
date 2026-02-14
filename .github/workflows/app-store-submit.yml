@@ -1,0 +1,42 @@
+name: App Store Submission
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-submit:
+    name: Build & Submit to App Store
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint & type check
+        run: npm run lint && npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test -- --ci --forceExit
+
+      - name: Build production (iOS)
+        run: eas build --profile production --platform ios --non-interactive
+
+      - name: Submit to App Store
+        run: eas submit --profile production --platform ios --non-interactive --latest
