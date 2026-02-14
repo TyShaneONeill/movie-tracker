@@ -19,13 +19,18 @@ export async function createFirstTake(
   userId: string,
   data: CreateFirstTakeData
 ): Promise<FirstTake> {
+  const trimmedQuote = data.quoteText.trim();
+  if (!trimmedQuote) {
+    throw new Error('Quote text cannot be empty');
+  }
+
   const insertData: FirstTakeInsert = {
     user_id: userId,
     tmdb_id: data.tmdbId,
     movie_title: data.movieTitle,
     poster_path: data.posterPath,
     reaction_emoji: data.reactionEmoji,
-    quote_text: data.quoteText,
+    quote_text: trimmedQuote,
     is_spoiler: data.isSpoiler ?? false,
     rating: data.rating ?? null,
     ...(data.visibility !== undefined && { visibility: data.visibility }),

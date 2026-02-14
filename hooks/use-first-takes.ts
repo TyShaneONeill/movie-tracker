@@ -13,6 +13,7 @@ export function useFirstTakes() {
         .from('first_takes')
         .select('*')
         .eq('user_id', user!.id)
+        .neq('quote_text', '')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
