@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { sleep } from '../_shared/delay.ts';
 
 // ============================================================================
 // Types
@@ -336,8 +337,9 @@ async function searchTMDB(
     const data: TMDBSearchResponse = await response.json();
 
     if (data.results.length === 0) {
-      // Try without year constraint
+      // Try without year constraint (with delay to respect rate limits)
       if (year) {
+        await sleep(TMDB_CALL_DELAY_MS);
         return searchTMDB(title, null, apiKey);
       }
       return null;
@@ -415,6 +417,43 @@ function levenshteinDistance(a: string, b: string): number {
 
   return matrix[b.length][a.length];
 }
+
+// ============================================================================
+// Cache Lookup
+// ============================================================================
+
+/**
+ * Search the movies cache table by title before hitting TMDB.
+ * Returns a TMDBMatch if a cached movie matches, or null.
+ */
+async function searchCache(
+  title: string,
+  supabaseClient: ReturnType<typeof createClient>
+): Promise<TMDBMatch | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .from('movies')
+      .select('tmdb_id, title, poster_path, release_date')
+      .ilike('title', title)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    return {
+      id: data.tmdb_id,
+      title: data.title,
+      poster_path: data.poster_path,
+      release_date: data.release_date,
+      confidence: calculateTitleConfidence(title, data.title),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Delay between TMDB API calls to stay under rate limits (40 req / 10 sec)
+const TMDB_CALL_DELAY_MS = 300;
 
 // ============================================================================
 // Gemini API
@@ -630,8 +669,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Process each extracted ticket
+    // Process each extracted ticket with cache-first lookups and rate-limited TMDB calls
     const processedTickets: ProcessedTicket[] = [];
+    let tmdbCallCount = 0;
 
     for (const extractedTicket of extraction.tickets) {
       const cleaned = cleanTicket(extractedTicket);
@@ -639,8 +679,19 @@ Deno.serve(async (req: Request) => {
       // Get year from ticket date for TMDB search
       const year = cleaned.date ? cleaned.date.split('-')[0] : null;
 
-      // Search TMDB for matching movie
-      const tmdbMatch = await searchTMDB(cleaned.movieTitle, year, TMDB_API_KEY);
+      // Check cache first to avoid unnecessary TMDB calls
+      let tmdbMatch = await searchCache(cleaned.movieTitle, supabaseClient);
+
+      if (tmdbMatch) {
+        console.log(`[scan-ticket] Cache hit for "${cleaned.movieTitle}"`);
+      } else {
+        // Delay between TMDB calls to respect rate limits
+        if (tmdbCallCount > 0) {
+          await sleep(TMDB_CALL_DELAY_MS);
+        }
+        tmdbMatch = await searchTMDB(cleaned.movieTitle, year, TMDB_API_KEY);
+        tmdbCallCount++;
+      }
 
       // Determine if manual review is needed
       const needsReview =
