@@ -113,7 +113,8 @@ async function fetchProfileStats(userId: string): Promise<ProfileStats> {
     supabase
       .from('first_takes')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      .neq('quote_text', ''),
     supabase
       .from('user_lists')
       .select('*', { count: 'exact', head: true })
