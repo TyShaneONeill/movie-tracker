@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { sleep } from '../_shared/delay.ts';
+import { checkDailyAiSpend, logAiCost, buildSpendLimitResponse, AI_COST_ESTIMATES } from '../_shared/cost-tracking.ts';
 
 // ============================================================================
 // Types
@@ -653,6 +654,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Check daily AI spend limit before calling Gemini
+    const spendCheck = await checkDailyAiSpend(supabaseClient);
+    if (!spendCheck.allowed) {
+      return buildSpendLimitResponse(req, spendCheck);
+    }
+
     // Extract ticket data using Gemini
     let extraction: GeminiExtraction;
     try {
@@ -668,6 +675,15 @@ Deno.serve(async (req: Request) => {
         { status: 422, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
+
+    // Log Gemini API cost
+    await logAiCost(
+      supabaseClient,
+      user.id,
+      'scan_ticket',
+      'gemini-2.0-flash',
+      AI_COST_ESTIMATES['gemini-2.0-flash'],
+    );
 
     // Process each extracted ticket with cache-first lookups and rate-limited TMDB calls
     const processedTickets: ProcessedTicket[] = [];
