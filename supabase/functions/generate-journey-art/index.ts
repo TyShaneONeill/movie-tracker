@@ -307,20 +307,48 @@ Deno.serve(async (req: Request) => {
 
     console.log('Using style transfer with simple prompt');
 
-    // Step 1: Generate cartoon version
-    let imageUrl = await generateStyleTransfer(posterUrl, OPENAI_API_KEY);
+    // Step 1: Generate cartoon version (returns base64)
+    let imageBase64 = await generateStyleTransfer(posterUrl, OPENAI_API_KEY);
     console.log('Generated cartoon version');
 
-    // Step 2: If holographic, apply holographic effect
+    // Step 2: If holographic, apply holographic effect (takes and returns base64)
     if (rarity === 'holographic') {
       console.log('Applying holographic effect for rare pull');
-      imageUrl = await applyHolographicEffect(imageUrl, OPENAI_API_KEY);
+      imageBase64 = await applyHolographicEffect(imageBase64, OPENAI_API_KEY);
       console.log('Applied holographic effect');
     }
 
-    console.log(`Final image URL: ${imageUrl.substring(0, 50)}...`);
+    // Step 3: Upload final image to Storage bucket
+    const base64Data = imageBase64.replace('data:image/png;base64,', '');
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
 
-    // Update journey record with AI poster
+    const filePath = `${user.id}/${journeyId}.png`;
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('journey-art')
+      .upload(filePath, bytes.buffer, {
+        contentType: 'image/png',
+        cacheControl: '86400',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Storage upload failed:', uploadError);
+      throw new Error('Failed to upload generated art to storage');
+    }
+
+    // Get public URL from Storage
+    const { data: urlData } = supabaseAdmin.storage
+      .from('journey-art')
+      .getPublicUrl(filePath);
+
+    const imageUrl = urlData.publicUrl;
+    console.log(`Uploaded to Storage: ${imageUrl}`);
+
+    // Update journey record with Storage URL
     const { error: updateError } = await supabaseAdmin
       .from('user_movies')
       .update({
