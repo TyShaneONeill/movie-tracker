@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,13 +20,21 @@ import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
+import type { ReviewVisibility } from '@/lib/database.types';
 
 const MAX_QUOTE_LENGTH = 140;
+
+const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
+  { value: 'public', label: 'Public' },
+  { value: 'followers_only', label: 'Followers' },
+  { value: 'private', label: 'Private' },
+];
 
 interface FirstTakeModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { rating: number; quoteText: string; isSpoiler: boolean }) => Promise<void>;
+  onSubmit: (data: { rating: number; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility }) => Promise<void>;
   movieTitle: string;
   moviePosterUrl?: string;
   isSubmitting?: boolean;
@@ -43,9 +51,18 @@ export function FirstTakeModal({
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
+  const { preferences } = useUserPreferences();
   const [rating, setRating] = useState<number>(5);
   const [quoteText, setQuoteText] = useState('');
   const [isSpoiler, setIsSpoiler] = useState(false);
+  const [visibility, setVisibility] = useState<ReviewVisibility>(preferences?.reviewVisibility ?? 'public');
+
+  // Sync visibility default when preferences load
+  useEffect(() => {
+    if (preferences?.reviewVisibility) {
+      setVisibility(preferences.reviewVisibility);
+    }
+  }, [preferences?.reviewVisibility]);
 
   const canSubmit = rating > 0 && !isSubmitting;
   const charCount = quoteText.length;
@@ -59,6 +76,7 @@ export function FirstTakeModal({
       rating,
       quoteText: quoteText.trim(),
       isSpoiler,
+      visibility,
     });
 
     Toast.show({
@@ -71,6 +89,7 @@ export function FirstTakeModal({
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
+    setVisibility(preferences?.reviewVisibility ?? 'public');
   };
 
   const handleClose = () => {
@@ -79,6 +98,7 @@ export function FirstTakeModal({
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
+    setVisibility(preferences?.reviewVisibility ?? 'public');
     onClose();
   };
 
@@ -204,6 +224,35 @@ export function FirstTakeModal({
                   onValueChange={setIsSpoiler}
                   activeColor={colors.tint}
                 />
+              </View>
+
+              {/* Visibility Selector */}
+              <View style={styles.visibilitySection}>
+                <Text style={styles.sectionLabel}>Visibility</Text>
+                <View style={styles.visibilityRow}>
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.visibilityPill,
+                        visibility === option.value && styles.visibilityPillActive,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setVisibility(option.value);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.visibilityPillText,
+                          visibility === option.value && styles.visibilityPillTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
               {/* Submit Button */}
@@ -439,6 +488,39 @@ const createStyles = (colors: typeof Colors.dark) =>
       ...Typography.body.xs,
       color: colors.textTertiary,
     },
+
+    // Visibility Selector
+    visibilitySection: {
+      marginBottom: Spacing.lg,
+    },
+    visibilityRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    visibilityPill: {
+      flex: 1,
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    visibilityPillActive: {
+      backgroundColor: colors.tint,
+      borderColor: colors.tint,
+    },
+    visibilityPillText: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      fontFamily: Fonts.inter.medium,
+    },
+    visibilityPillTextActive: {
+      color: '#ffffff',
+    },
+
     // Submit Button
     submitButton: {
       width: '100%',

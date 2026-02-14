@@ -21,6 +21,7 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Slider from '@react-native-community/slider';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -29,7 +30,15 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { createFirstTake } from '@/lib/first-take-service';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { captureException } from '@/lib/sentry';
+import type { ReviewVisibility } from '@/lib/database.types';
+
+const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
+  { value: 'public', label: 'Public' },
+  { value: 'followers_only', label: 'Followers' },
+  { value: 'private', label: 'Private' },
+];
 
 const MAX_QUOTE_LENGTH = 140;
 
@@ -62,6 +71,7 @@ export function MultiFirstTakeModal({
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
+  const { preferences } = useUserPreferences();
 
   // Current movie index
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -70,6 +80,7 @@ export function MultiFirstTakeModal({
   const [rating, setRating] = useState<number>(5);
   const [quoteText, setQuoteText] = useState('');
   const [isSpoiler, setIsSpoiler] = useState(false);
+  const [visibility, setVisibility] = useState<ReviewVisibility>(preferences?.reviewVisibility ?? 'public');
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,7 +95,8 @@ export function MultiFirstTakeModal({
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
-  }, []);
+    setVisibility(preferences?.reviewVisibility ?? 'public');
+  }, [preferences?.reviewVisibility]);
 
   // Reset all state when modal opens/closes
   const resetAll = useCallback(() => {
@@ -140,6 +152,7 @@ export function MultiFirstTakeModal({
         quoteText: quoteText.trim(),
         isSpoiler,
         rating,
+        visibility,
       });
 
       if (isLastMovie) {
@@ -178,7 +191,7 @@ export function MultiFirstTakeModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [user, currentMovie, rating, quoteText, isSpoiler, isLastMovie, handleClose, resetForm]);
+  }, [user, currentMovie, rating, quoteText, isSpoiler, visibility, isLastMovie, handleClose, resetForm]);
 
   // Format rating display (show decimal only when needed)
   const formatRating = (value: number) => {
@@ -334,6 +347,35 @@ export function MultiFirstTakeModal({
                     onValueChange={setIsSpoiler}
                     activeColor={colors.tint}
                   />
+                </View>
+
+                {/* Visibility Selector */}
+                <View style={styles.visibilitySection}>
+                  <Text style={styles.sectionLabel}>Visibility</Text>
+                  <View style={styles.visibilityRow}>
+                    {VISIBILITY_OPTIONS.map((option) => (
+                      <Pressable
+                        key={option.value}
+                        style={[
+                          styles.visibilityPill,
+                          visibility === option.value && styles.visibilityPillActive,
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setVisibility(option.value);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.visibilityPillText,
+                            visibility === option.value && styles.visibilityPillTextActive,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
 
                 {/* Action Buttons */}
@@ -604,6 +646,38 @@ const createStyles = (colors: typeof Colors.dark) =>
     spoilerSubtitle: {
       ...Typography.body.xs,
       color: colors.textTertiary,
+    },
+
+    // Visibility Selector
+    visibilitySection: {
+      marginBottom: Spacing.lg,
+    },
+    visibilityRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    visibilityPill: {
+      flex: 1,
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    visibilityPillActive: {
+      backgroundColor: colors.tint,
+      borderColor: colors.tint,
+    },
+    visibilityPillText: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      fontFamily: Fonts.inter.medium,
+    },
+    visibilityPillTextActive: {
+      color: '#ffffff',
     },
 
     // Action Buttons

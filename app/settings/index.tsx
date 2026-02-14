@@ -12,6 +12,7 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { Sentry, captureException } from '@/lib/sentry';
 import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
+import type { ReviewVisibility } from '@/lib/database.types';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -48,6 +49,29 @@ export default function SettingsScreen() {
       await updatePreference('firstTakePromptEnabled', value);
     } catch (error) {
       captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-first-take-prompt-toggle' });
+    }
+  };
+
+  const visibilityLabels: Record<ReviewVisibility, string> = {
+    public: 'Public',
+    followers_only: 'Followers Only',
+    private: 'Private',
+  };
+
+  const visibilityCycle: Record<ReviewVisibility, ReviewVisibility> = {
+    public: 'followers_only',
+    followers_only: 'private',
+    private: 'public',
+  };
+
+  const handleReviewVisibilityToggle = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const current = preferences?.reviewVisibility ?? 'public';
+    const next = visibilityCycle[current];
+    try {
+      await updatePreference('reviewVisibility', next);
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-review-visibility-toggle' });
     }
   };
 
@@ -205,8 +229,7 @@ export default function SettingsScreen() {
           <View
             style={[
               styles.settingsItem,
-              styles.lastItem,
-              { backgroundColor: colors.card }
+              { backgroundColor: colors.card, borderBottomColor: colors.border }
             ]}
           >
             <View style={styles.settingsItemContent}>
@@ -219,6 +242,25 @@ export default function SettingsScreen() {
               disabled={isLoadingPreferences || isUpdating}
             />
           </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary },
+            ]}
+            onPress={handleReviewVisibilityToggle}
+            disabled={isLoadingPreferences || isUpdating}
+          >
+            <View style={styles.settingsItemContent}>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Review Visibility</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Default visibility for First Takes</Text>
+            </View>
+            <Text style={[Typography.body.sm, { color: colors.tint }]}>
+              {visibilityLabels[preferences?.reviewVisibility ?? 'public']}
+            </Text>
+          </Pressable>
         </View>
 
         {/* Integrations Section */}

@@ -2,16 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabase';
 import { captureException } from '@/lib/sentry';
-import type { Database } from '@/lib/database.types';
+import type { Database, ReviewVisibility } from '@/lib/database.types';
 
 export interface UserPreferences {
   firstTakePromptEnabled: boolean;
+  reviewVisibility: ReviewVisibility;
 }
 
 export interface UseUserPreferencesResult {
   preferences: UserPreferences | null;
   isLoading: boolean;
-  updatePreference: (key: keyof UserPreferences, value: boolean) => Promise<void>;
+  updatePreference: (key: keyof UserPreferences, value: UserPreferences[keyof UserPreferences]) => Promise<void>;
   isUpdating: boolean;
 }
 
@@ -20,6 +21,7 @@ export interface UseUserPreferencesResult {
  */
 const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
   firstTakePromptEnabled: 'first_take_prompt_enabled',
+  reviewVisibility: 'review_visibility',
 };
 
 /**
@@ -28,7 +30,7 @@ const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
 async function fetchUserPreferences(userId: string): Promise<UserPreferences | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('first_take_prompt_enabled')
+    .select('first_take_prompt_enabled, review_visibility')
     .eq('id', userId)
     .single();
 
@@ -41,11 +43,13 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     throw error;
   }
 
-  const profileData = data as { first_take_prompt_enabled: boolean | null } | null;
+  const profileData = data as { first_take_prompt_enabled: boolean | null; review_visibility: ReviewVisibility | null } | null;
 
   return {
     // Default to true for backwards compatibility (existing users without preference set)
     firstTakePromptEnabled: profileData?.first_take_prompt_enabled ?? true,
+    // Default to 'public' for backwards compatibility
+    reviewVisibility: profileData?.review_visibility ?? 'public',
   };
 }
 
@@ -55,7 +59,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
 async function updateUserPreference(
   userId: string,
   key: keyof UserPreferences,
-  value: boolean
+  value: UserPreferences[keyof UserPreferences]
 ): Promise<void> {
   // Build update data based on the preference key
   const updateData: Database['public']['Tables']['profiles']['Update'] = {
@@ -63,7 +67,9 @@ async function updateUserPreference(
   };
 
   if (key === 'firstTakePromptEnabled') {
-    updateData.first_take_prompt_enabled = value;
+    updateData.first_take_prompt_enabled = value as boolean;
+  } else if (key === 'reviewVisibility') {
+    updateData.review_visibility = value as ReviewVisibility;
   }
 
   // Use type assertion to work around Supabase client generic inference issue
@@ -100,7 +106,7 @@ export function useUserPreferences(): UseUserPreferencesResult {
 
   // Update preference mutation
   const updatePreferenceMutation = useMutation({
-    mutationFn: async ({ key, value }: { key: keyof UserPreferences; value: boolean }) => {
+    mutationFn: async ({ key, value }: { key: keyof UserPreferences; value: UserPreferences[keyof UserPreferences] }) => {
       if (!user) throw new Error('User not authenticated');
       await updateUserPreference(user.id, key, value);
       return { key, value };
@@ -114,7 +120,7 @@ export function useUserPreferences(): UseUserPreferencesResult {
 
       // Optimistically update to the new value
       queryClient.setQueryData<UserPreferences | null>(['userPreferences', user?.id], (old) => {
-        if (!old) return { [key]: value } as UserPreferences;
+        if (!old) return { [key]: value } as unknown as UserPreferences;
         return { ...old, [key]: value };
       });
 
@@ -133,7 +139,7 @@ export function useUserPreferences(): UseUserPreferencesResult {
     },
   });
 
-  const updatePreference = async (key: keyof UserPreferences, value: boolean): Promise<void> => {
+  const updatePreference = async (key: keyof UserPreferences, value: UserPreferences[keyof UserPreferences]): Promise<void> => {
     await updatePreferenceMutation.mutateAsync({ key, value });
   };
 
