@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { enforceRateLimit } from '../_shared/rate-limit.ts';
 
 // ============================================================================
 // Types
@@ -68,6 +69,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const userId = user.id;
+
+    // Rate limit: 3 requests per day
+    const rateLimited = await enforceRateLimit(userId, 'delete_account', 3, 86400, req);
+    if (rateLimited) return rateLimited;
 
     // Create service client for admin operations (bypasses RLS)
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -152,7 +157,18 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete theater visits: ${theaterVisitsError.message}`);
     }
 
-    // 7. Delete scan_usage
+    // 7. Delete rate_limits
+    const { error: rateLimitsError } = await supabaseAdmin
+      .from('rate_limits')
+      .delete()
+      .eq('user_id', userId);
+
+    if (rateLimitsError) {
+      console.error('[delete-account] Failed to delete rate limits:', rateLimitsError);
+      throw new Error(`Failed to delete rate limits: ${rateLimitsError.message}`);
+    }
+
+    // 8. Delete scan_usage
     const { error: scanUsageError } = await supabaseAdmin
       .from('scan_usage')
       .delete()
@@ -163,7 +179,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete scan usage: ${scanUsageError.message}`);
     }
 
-    // 8. Delete profiles
+    // 9. Delete profiles
     const { error: profilesError } = await supabaseAdmin
       .from('profiles')
       .delete()
@@ -174,7 +190,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete profile: ${profilesError.message}`);
     }
 
-    // 9. Finally, delete the auth user
+    // 10. Finally, delete the auth user
     const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (authDeleteError) {
