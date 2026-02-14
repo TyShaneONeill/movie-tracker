@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import type { ReviewVisibility } from '@/lib/database.types';
 
 /**
  * Activity feed item with user profile information
@@ -13,6 +14,7 @@ export interface ActivityFeedItem {
   rating: number | null;
   quoteText: string;
   isSpoiler: boolean | null;
+  visibility: ReviewVisibility;
   createdAt: string | null;
   // Profile information
   userDisplayName: string | null;
@@ -29,6 +31,7 @@ export interface FirstTakeWithProfile {
   rating: number | null;
   quote_text: string;
   is_spoiler: boolean | null;
+  visibility: ReviewVisibility;
   created_at: string | null;
   profiles: {
     full_name: string | null;
@@ -39,7 +42,7 @@ export interface FirstTakeWithProfile {
 
 /** The JOINed select string used by both hooks */
 export const ACTIVITY_FEED_SELECT =
-  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, created_at, profiles(full_name, username, avatar_url)';
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, profiles(full_name, username, avatar_url)';
 
 /** Map a JOINed row to an ActivityFeedItem */
 export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
@@ -52,6 +55,7 @@ export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
     rating: row.rating,
     quoteText: row.quote_text,
     isSpoiler: row.is_spoiler,
+    visibility: row.visibility ?? 'public',
     createdAt: row.created_at,
     userDisplayName:
       row.profiles?.full_name || row.profiles?.username || 'Anonymous',

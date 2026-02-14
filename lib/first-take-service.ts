@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { FirstTake, FirstTakeInsert, FirstTakeUpdate } from './database.types';
+import type { FirstTake, FirstTakeInsert, FirstTakeUpdate, ReviewVisibility } from './database.types';
 
 export interface CreateFirstTakeData {
   tmdbId: number;
@@ -9,6 +9,7 @@ export interface CreateFirstTakeData {
   quoteText: string;
   isSpoiler?: boolean;
   rating?: number | null;
+  visibility?: ReviewVisibility;
 }
 
 /**
@@ -27,6 +28,7 @@ export async function createFirstTake(
     quote_text: data.quoteText,
     is_spoiler: data.isSpoiler ?? false,
     rating: data.rating ?? null,
+    ...(data.visibility !== undefined && { visibility: data.visibility }),
   };
 
   const { data: result, error } = (await (supabase

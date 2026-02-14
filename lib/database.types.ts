@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_costs: {
+        Row: {
+          created_at: string
+          estimated_cost_usd: number
+          function_name: string
+          id: string
+          model: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_cost_usd: number
+          function_name: string
+          id?: string
+          model: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          estimated_cost_usd?: number
+          function_name?: string
+          id?: string
+          model?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       first_takes: {
         Row: {
           created_at: string | null
@@ -27,6 +54,7 @@ export type Database = {
           tmdb_id: number
           updated_at: string | null
           user_id: string
+          visibility: string
         }
         Insert: {
           created_at?: string | null
@@ -40,6 +68,7 @@ export type Database = {
           tmdb_id: number
           updated_at?: string | null
           user_id: string
+          visibility?: string
         }
         Update: {
           created_at?: string | null
@@ -53,6 +82,7 @@ export type Database = {
           tmdb_id?: number
           updated_at?: string | null
           user_id?: string
+          visibility?: string
         }
         Relationships: [
           {
@@ -324,6 +354,7 @@ export type Database = {
           full_name: string | null
           id: string
           onboarding_completed: boolean | null
+          review_visibility: string
           theme_preference: string | null
           tier_expires_at: string | null
           updated_at: string
@@ -340,6 +371,7 @@ export type Database = {
           full_name?: string | null
           id: string
           onboarding_completed?: boolean | null
+          review_visibility?: string
           theme_preference?: string | null
           tier_expires_at?: string | null
           updated_at?: string
@@ -356,6 +388,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           onboarding_completed?: boolean | null
+          review_visibility?: string
           theme_preference?: string | null
           tier_expires_at?: string | null
           updated_at?: string
@@ -642,6 +675,20 @@ export type Database = {
         Args: { p_daily_limit?: number; p_user_id: string }
         Returns: Json
       }
+      check_daily_ai_spend: {
+        Args: { p_daily_limit_usd?: number }
+        Returns: Json
+      }
+      check_rate_limit: {
+        Args: {
+          p_action: string
+          p_max_requests: number
+          p_user_id: string
+          p_window_seconds: number
+        }
+        Returns: Json
+      }
+      cleanup_stale_movie_cache: { Args: never; Returns: number }
       get_journey_for_movie: {
         Args: { p_tmdb_id: number }
         Returns: {
@@ -888,6 +935,7 @@ export const Constants = {
 
 export type MovieStatus = 'watchlist' | 'watching' | 'watched';
 export type ThemePreference = 'light' | 'dark' | 'system';
+export type ReviewVisibility = 'public' | 'followers_only' | 'private';
 
 // Helper types for user movies
 export type UserMovie = Database['public']['Tables']['user_movies']['Row'];
