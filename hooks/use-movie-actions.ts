@@ -9,7 +9,7 @@ import {
   likeMovie,
   unlikeMovie,
 } from '@/lib/movie-service';
-import type { UserMovie, MovieStatus } from '@/lib/database.types';
+import type { UserMovie, UserMovieLike, MovieStatus } from '@/lib/database.types';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 
 interface UseMovieActionsResult {
@@ -76,33 +76,78 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     },
   });
 
-  // Mutation to change watchlist status
+  // Mutation to change watchlist status (optimistic)
   const changeStatusMutation = useMutation({
     mutationFn: async (status: MovieStatus) => {
       if (!userMovie) throw new Error('Movie not in watchlist');
       return updateMovieStatus(userMovie.id, status);
     },
-    onSuccess: () => {
+    onMutate: async (newStatus) => {
+      await queryClient.cancelQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
+
+      const previousMovie = queryClient.getQueryData<UserMovie | null>(
+        ['userMovie', user?.id, tmdbId]
+      );
+
+      if (previousMovie) {
+        queryClient.setQueryData<UserMovie>(
+          ['userMovie', user?.id, tmdbId],
+          { ...previousMovie, status: newStatus }
+        );
+      }
+
+      return { previousMovie };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousMovie !== undefined) {
+        queryClient.setQueryData(
+          ['userMovie', user?.id, tmdbId],
+          context.previousMovie
+        );
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
     },
   });
 
-  // Mutation to toggle like (independent of watchlist)
+  // Mutation to toggle like (optimistic, independent of watchlist)
   const toggleLikeMutation = useMutation({
     mutationFn: async (movie: TMDBMovie) => {
       if (!user) throw new Error('Not authenticated');
 
       if (userLike) {
-        // Unlike
         await unlikeMovie(user.id, tmdbId);
         return null;
       } else {
-        // Like
         return likeMovie(user.id, movie);
       }
     },
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['userMovieLike', user?.id, tmdbId] });
+
+      const previousLike = queryClient.getQueryData<UserMovieLike | null>(
+        ['userMovieLike', user?.id, tmdbId]
+      );
+
+      // Toggle: if liked → null, if null → placeholder object
+      queryClient.setQueryData<UserMovieLike | null>(
+        ['userMovieLike', user?.id, tmdbId],
+        previousLike ? null : { id: 'optimistic', user_id: user!.id, tmdb_id: tmdbId, title: '', poster_path: null, created_at: new Date().toISOString() } as UserMovieLike
+      );
+
+      return { previousLike };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousLike !== undefined) {
+        queryClient.setQueryData(
+          ['userMovieLike', user?.id, tmdbId],
+          context.previousLike
+        );
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovieLike', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userMovieLikes'] });
     },
