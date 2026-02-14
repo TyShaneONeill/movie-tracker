@@ -1,8 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -10,6 +13,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { Sentry, captureException } from '@/lib/sentry';
+import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import type { ReviewVisibility } from '@/lib/database.types';
@@ -33,8 +37,9 @@ function ChevronRightIcon({ color }: { color: string }) {
 export default function SettingsScreen() {
   const { effectiveTheme, themePreference, setThemePreference } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleThemeToggle = async (isDarkMode: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -83,6 +88,32 @@ export default function SettingsScreen() {
       text2: 'Check your Sentry dashboard',
       visibilityTime: 3000,
     });
+  };
+
+  const handleExportCollection = async () => {
+    if (!user) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsExporting(true);
+    try {
+      const csv = await exportCollectionCSV(user.id);
+      const fileUri = `${FileSystem.cacheDirectory}cinetrak-export.csv`;
+      await FileSystem.writeAsStringAsync(fileUri, csv);
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Export Collection',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-export-collection' });
+      Toast.show({
+        type: 'error',
+        text1: 'Export failed',
+        text2: 'Could not export your collection. Please try again.',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -264,20 +295,17 @@ export default function SettingsScreen() {
         </View>
 
         {/* Integrations Section */}
-        <View style={[styles.section, { opacity: 0.5 }]}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionHeader, { color: colors.textSecondary, marginBottom: 0 }]}>INTEGRATIONS</Text>
-            <View style={styles.comingSoonBadge}>
-              <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
-            </View>
-          </View>
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>INTEGRATIONS</Text>
 
-          <View
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.settingsItem,
               styles.firstItem,
-              { backgroundColor: colors.card, borderBottomColor: colors.border }
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
+              pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
+            onPress={() => router.push('/settings/letterboxd-import')}
           >
             <View style={styles.integrationRow}>
               <Image
@@ -286,14 +314,34 @@ export default function SettingsScreen() {
               />
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Letterboxd Import</Text>
             </View>
-            <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>--</Text>
-          </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={handleExportCollection}
+            disabled={isExporting}
+          >
+            <View style={styles.integrationRow}>
+              <Ionicons name="share-outline" size={24} color={colors.text} />
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Export Collection</Text>
+            </View>
+            {isExporting ? (
+              <ActivityIndicator size="small" color={colors.tint} />
+            ) : (
+              <ChevronRightIcon color={colors.textSecondary} />
+            )}
+          </Pressable>
 
           <View
             style={[
               styles.settingsItem,
               styles.lastItem,
-              { backgroundColor: colors.card }
+              { backgroundColor: colors.card, opacity: 0.5 }
             ]}
           >
             <View style={styles.integrationRow}>
@@ -302,7 +350,9 @@ export default function SettingsScreen() {
               </View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Trakt Sync</Text>
             </View>
-            <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>--</Text>
+            <View style={styles.comingSoonBadge}>
+              <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
+            </View>
           </View>
         </View>
 
@@ -400,13 +450,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: Spacing.sm,
     paddingLeft: Spacing.sm,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
-    paddingRight: Spacing.sm,
   },
   comingSoonBadge: {
     paddingHorizontal: Spacing.sm,
