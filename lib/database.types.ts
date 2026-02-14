@@ -291,6 +291,27 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          user_id: string
+          action: string
+          window_count: number
+          window_start: string
+        }
+        Insert: {
+          user_id: string
+          action: string
+          window_count?: number
+          window_start?: string
+        }
+        Update: {
+          user_id?: string
+          action?: string
+          window_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_tier: string
