@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState } from 'react';
 
 interface AdsContextType {
   adsEnabled: boolean;
@@ -15,8 +15,13 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   // Future: also disable for premium users
   const [adsEnabled, setAdsEnabled] = useState(!__DEV__);
 
+  const value = useMemo(
+    () => ({ adsEnabled, setAdsEnabled }),
+    [adsEnabled, setAdsEnabled]
+  );
+
   return (
-    <AdsContext.Provider value={{ adsEnabled, setAdsEnabled }}>
+    <AdsContext.Provider value={value}>
       {children}
     </AdsContext.Provider>
   );
