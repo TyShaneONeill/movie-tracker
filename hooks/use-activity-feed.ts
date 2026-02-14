@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { FirstTake, Profile } from '@/lib/database.types';
 
 /**
  * Activity feed item with user profile information
@@ -20,83 +19,65 @@ export interface ActivityFeedItem {
   userAvatarUrl: string | null;
 }
 
-// Type for the first_takes query result
-type FirstTakeQueryResult = Pick<
-  FirstTake,
-  'id' | 'user_id' | 'tmdb_id' | 'movie_title' | 'poster_path' | 'rating' | 'quote_text' | 'is_spoiler' | 'created_at'
->;
+/** Shape returned by the JOINed Supabase query */
+export interface FirstTakeWithProfile {
+  id: string;
+  user_id: string;
+  tmdb_id: number;
+  movie_title: string;
+  poster_path: string | null;
+  rating: number | null;
+  quote_text: string;
+  is_spoiler: boolean | null;
+  created_at: string | null;
+  profiles: {
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+}
 
-// Type for the profiles query result
-type ProfileQueryResult = Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url'>;
+/** The JOINed select string used by both hooks */
+export const ACTIVITY_FEED_SELECT =
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, created_at, profiles(full_name, username, avatar_url)';
+
+/** Map a JOINed row to an ActivityFeedItem */
+export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    tmdbId: row.tmdb_id,
+    movieTitle: row.movie_title,
+    posterPath: row.poster_path,
+    rating: row.rating,
+    quoteText: row.quote_text,
+    isSpoiler: row.is_spoiler,
+    createdAt: row.created_at,
+    userDisplayName:
+      row.profiles?.full_name || row.profiles?.username || 'Anonymous',
+    userAvatarUrl: row.profiles?.avatar_url ?? null,
+  };
+}
 
 /**
- * Hook to fetch the global activity feed of recent First Takes from all users
- *
- * Since there's no foreign key relationship between first_takes and profiles,
- * we fetch the data in two separate queries and merge them client-side.
- *
- * @returns Query result with activity feed items, loading state, and error state
+ * Hook to fetch the global activity feed of recent First Takes from all users.
+ * Uses a single JOINed query (first_takes + profiles) instead of N+1 queries.
  */
 export function useActivityFeed(limit: number = 20) {
   return useQuery({
     queryKey: ['activity-feed', limit],
     queryFn: async () => {
-      // Step 1: Fetch recent First Takes from all users
-      const { data: firstTakesData, error: firstTakesError } = await supabase
+      const { data, error } = await supabase
         .from('first_takes')
-        .select('id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, created_at')
+        .select(ACTIVITY_FEED_SELECT)
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      if (firstTakesError) throw firstTakesError;
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
 
-      const firstTakes = firstTakesData as FirstTakeQueryResult[] | null;
-
-      if (!firstTakes || firstTakes.length === 0) {
-        return [];
-      }
-
-      // Step 2: Get unique user IDs from the first takes
-      const userIds = [...new Set(firstTakes.map((ft) => ft.user_id))];
-
-      // Step 3: Fetch profiles for those users
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, username, avatar_url')
-        .in('id', userIds);
-
-      if (profilesError) throw profilesError;
-
-      const profiles = profilesData as ProfileQueryResult[] | null;
-
-      // Step 4: Create a lookup map for profiles by user ID
-      const profileMap = new Map<string, ProfileQueryResult>();
-      (profiles ?? []).forEach((profile) => {
-        profileMap.set(profile.id, profile);
-      });
-
-      // Step 5: Merge first takes with profile data
-      const feedItems: ActivityFeedItem[] = firstTakes.map((item) => {
-        const profile = profileMap.get(item.user_id);
-        return {
-          id: item.id,
-          userId: item.user_id,
-          tmdbId: item.tmdb_id,
-          movieTitle: item.movie_title,
-          posterPath: item.poster_path,
-          rating: item.rating,
-          quoteText: item.quote_text,
-          isSpoiler: item.is_spoiler,
-          createdAt: item.created_at,
-          // Use full_name first, fallback to username
-          userDisplayName: profile?.full_name || profile?.username || 'Anonymous',
-          userAvatarUrl: profile?.avatar_url ?? null,
-        };
-      });
-
-      return feedItems;
+      return (data as unknown as FirstTakeWithProfile[]).map(mapToFeedItem);
     },
-    // Refetch every 5 minutes to keep feed fresh
     staleTime: 5 * 60 * 1000,
   });
 }
