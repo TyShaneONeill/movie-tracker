@@ -14,6 +14,7 @@ import { StyleSheet, View, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
+import { buildAvatarUrl } from '@/lib/avatar-service';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -134,7 +135,7 @@ export function NotificationItem({
         <View style={styles.avatarContainer}>
           {actorProfile?.avatar_url ? (
             <Image
-              source={{ uri: actorProfile.avatar_url }}
+              source={{ uri: buildAvatarUrl(actorProfile.avatar_url)! }}
               style={styles.avatar}
             />
           ) : (

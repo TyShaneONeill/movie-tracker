@@ -29,6 +29,7 @@ import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useProfile } from '@/hooks/use-profile';
 import { useNotifications } from '@/hooks/use-notifications';
 import { MOCK_USER } from '@/lib/mock-data/users';
+import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
@@ -473,7 +474,7 @@ export default function ProfileScreen() {
             {/* Collapsible Profile Header */}
             <Animated.View style={[styles.header, headerAnimatedStyle]}>
                 <Image
-                    source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
+                    source={{ uri: buildAvatarUrl(profile?.avatar_url, profile?.updated_at) || MOCK_USER.avatarUrl }}
                     style={[styles.avatar, { borderColor: colors.tint }]}
                 />
                 <ThemedText style={[styles.username, { color: colors.text }]}>
@@ -714,7 +715,7 @@ export default function ProfileScreen() {
                     {/* Collapsible Profile Header */}
                     <Animated.View style={[styles.header, headerAnimatedStyle]}>
                         <Image
-                            source={{ uri: profile?.avatar_url || MOCK_USER.avatarUrl }}
+                            source={{ uri: buildAvatarUrl(profile?.avatar_url, profile?.updated_at) || MOCK_USER.avatarUrl }}
                             style={[styles.avatar, { borderColor: colors.tint }]}
                         />
                         <ThemedText style={[styles.username, { color: colors.text }]}>
