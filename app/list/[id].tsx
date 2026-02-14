@@ -250,6 +250,9 @@ export default function ListDetailScreen() {
           contentContainerStyle={dynamicStyles.listContent}
           columnWrapperStyle={movies.length > 0 ? dynamicStyles.columnWrapper : undefined}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
         />
       </View>
     </>

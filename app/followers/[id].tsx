@@ -187,6 +187,11 @@ export default function FollowersScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
+        // 80px content + 16px margin
+        getItemLayout={(_, index) => ({ length: 96, offset: 96 * index, index })}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
       />
     </SafeAreaView>
   );

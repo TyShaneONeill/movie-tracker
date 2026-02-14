@@ -384,6 +384,9 @@ export default function SearchScreen() {
                     </View>
                   ) : null
                 }
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                windowSize={5}
               />
             )
           ) : (
@@ -432,6 +435,9 @@ export default function SearchScreen() {
                   )}
                   contentContainerStyle={styles.searchResultsContainer}
                   showsVerticalScrollIndicator={false}
+                  removeClippedSubviews={true}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
                 />
               )
             ) : movies.length === 0 ? (
@@ -452,6 +458,9 @@ export default function SearchScreen() {
                 )}
                 contentContainerStyle={styles.searchResultsContainer}
                 showsVerticalScrollIndicator={false}
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                windowSize={5}
               />
             )
           )}
