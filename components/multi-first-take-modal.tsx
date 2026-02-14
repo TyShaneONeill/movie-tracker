@@ -198,7 +198,7 @@ export function MultiFirstTakeModal({
     return value % 1 === 0 ? value.toString() : value.toFixed(1);
   };
 
-  const canSubmit = rating > 0 && !isSubmitting;
+  const canSubmit = rating > 0 && quoteText.trim().length > 0 && !isSubmitting;
   const charCount = quoteText.length;
   const isNearLimit = charCount > 120;
 

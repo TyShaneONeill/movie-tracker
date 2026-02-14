@@ -64,7 +64,7 @@ export function FirstTakeModal({
     }
   }, [preferences?.reviewVisibility]);
 
-  const canSubmit = rating > 0 && !isSubmitting;
+  const canSubmit = rating > 0 && quoteText.trim().length > 0 && !isSubmitting;
   const charCount = quoteText.length;
   const isNearLimit = charCount > 120;
 
