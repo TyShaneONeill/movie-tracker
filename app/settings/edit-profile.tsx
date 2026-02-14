@@ -17,8 +17,11 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 
+import { Ionicons } from '@expo/vector-icons';
+
 import { useTheme } from '@/lib/theme-context';
 import { useProfile } from '@/hooks/use-profile';
+import { useUsernameValidation } from '@/hooks/use-username-validation';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
@@ -40,7 +43,6 @@ interface FormData {
 
 interface FormErrors {
   fullName?: string;
-  username?: string;
   bio?: string;
 }
 
@@ -62,17 +64,6 @@ const VALIDATION = {
 
 function validateForm(data: FormData): FormErrors {
   const errors: FormErrors = {};
-
-  // Username validation
-  if (data.username) {
-    if (data.username.length < VALIDATION.username.minLength) {
-      errors.username = `Username must be at least ${VALIDATION.username.minLength} characters`;
-    } else if (data.username.length > VALIDATION.username.maxLength) {
-      errors.username = `Username must be less than ${VALIDATION.username.maxLength} characters`;
-    } else if (!VALIDATION.username.pattern.test(data.username)) {
-      errors.username = 'Username can only contain lowercase letters, numbers, and underscores';
-    }
-  }
 
   // Full name validation
   if (data.fullName && data.fullName.length > VALIDATION.fullName.maxLength) {
@@ -100,6 +91,7 @@ export default function EditProfileScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const usernameValidation = useUsernameValidation(formData.username, profile?.id);
 
   // Populate form with existing profile data
   useEffect(() => {
@@ -122,8 +114,9 @@ export default function EditProfileScreen() {
     setHasChanges(true);
 
     // Clear error for this field when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+    const errorField = field as keyof FormErrors;
+    if (errors[errorField]) {
+      setErrors(prev => ({ ...prev, [errorField]: undefined }));
     }
   };
 
@@ -201,8 +194,8 @@ export default function EditProfileScreen() {
           <Text style={[Typography.display.h4, { color: colors.text }]}>Edit Profile</Text>
           <Pressable
             onPress={handleSave}
-            disabled={isSaving || !hasChanges}
-            style={({ pressed }) => ({ opacity: (pressed || isSaving || !hasChanges) ? 0.5 : 1 })}
+            disabled={isSaving || !hasChanges || (!!formData.username && usernameValidation.status !== 'available' && usernameValidation.status !== 'idle')}
+            style={({ pressed }) => ({ opacity: (pressed || isSaving || !hasChanges || (!!formData.username && usernameValidation.status !== 'available' && usernameValidation.status !== 'idle')) ? 0.5 : 1 })}
           >
             {isSaving ? (
               <ActivityIndicator size="small" color={colors.tint} />
@@ -268,7 +261,7 @@ export default function EditProfileScreen() {
                     {
                       backgroundColor: colors.card,
                       color: colors.text,
-                      borderColor: errors.username ? colors.tint : 'transparent',
+                      borderColor: (usernameValidation.status === 'invalid' || usernameValidation.status === 'taken') ? '#ef4444' : 'transparent',
                     }
                   ]}
                   value={formData.username}
@@ -280,12 +273,42 @@ export default function EditProfileScreen() {
                   autoCorrect={false}
                 />
               </View>
-              {errors.username ? (
-                <Text style={[styles.errorText, { color: colors.tint }]}>{errors.username}</Text>
-              ) : (
+              {usernameValidation.status === 'idle' && (
                 <Text style={[styles.hintText, { color: colors.textTertiary }]}>
                   {formData.username.length}/{VALIDATION.username.maxLength} characters
                 </Text>
+              )}
+              {usernameValidation.status === 'invalid' && (
+                <View style={styles.usernameStatusRow}>
+                  <Ionicons name="close-circle" size={14} color="#ef4444" />
+                  <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                    {usernameValidation.error}
+                  </Text>
+                </View>
+              )}
+              {usernameValidation.status === 'checking' && (
+                <View style={styles.usernameStatusRow}>
+                  <ActivityIndicator size={12} color={colors.textTertiary} />
+                  <Text style={[styles.hintText, { color: colors.textTertiary }]}>
+                    Checking...
+                  </Text>
+                </View>
+              )}
+              {usernameValidation.status === 'available' && (
+                <View style={styles.usernameStatusRow}>
+                  <Ionicons name="checkmark-circle" size={14} color={colors.accentSecondary} />
+                  <Text style={[styles.hintText, { color: colors.accentSecondary }]}>
+                    Available
+                  </Text>
+                </View>
+              )}
+              {usernameValidation.status === 'taken' && (
+                <View style={styles.usernameStatusRow}>
+                  <Ionicons name="close-circle" size={14} color="#ef4444" />
+                  <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                    Username taken
+                  </Text>
+                </View>
               )}
             </View>
 
@@ -406,5 +429,11 @@ const styles = StyleSheet.create({
   hintText: {
     fontSize: 12,
     marginTop: Spacing.xs,
+  },
+  usernameStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
 });
