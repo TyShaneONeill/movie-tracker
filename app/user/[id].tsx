@@ -25,6 +25,7 @@ import { FollowButton } from '@/components/social/FollowButton';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { useUserProfile } from '@/hooks/use-user-profile';
+import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
@@ -368,7 +369,7 @@ export default function UserProfileScreen() {
           {/* Avatar */}
           {profile.avatar_url ? (
             <Image
-              source={{ uri: profile.avatar_url }}
+              source={{ uri: buildAvatarUrl(profile.avatar_url, profile.updated_at)! }}
               style={[styles.avatar, { borderColor: colors.tint }]}
               contentFit="cover"
             />

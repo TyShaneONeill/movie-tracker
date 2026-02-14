@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { buildAvatarUrl } from '@/lib/avatar-service';
 import { FollowButton } from '@/components/social/FollowButton';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
@@ -45,7 +46,7 @@ export function UserSearchResult({ user, onPress }: UserSearchResultProps) {
       <ThemedView style={styles.card}>
         {/* Avatar */}
         {user.avatar_url ? (
-          <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
+          <Image source={{ uri: buildAvatarUrl(user.avatar_url)! }} style={styles.avatar} />
         ) : (
           <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
             <Ionicons name="person" size={24} color={colors.textSecondary} />

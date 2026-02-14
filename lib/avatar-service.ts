@@ -58,8 +58,7 @@ export async function uploadAvatar(
       .from(AVATARS_BUCKET)
       .getPublicUrl(filePath);
 
-    // Add cache-busting query param to force refresh
-    const url = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+    const url = publicUrlData.publicUrl;
 
     return {
       success: true,
@@ -157,4 +156,24 @@ export async function updateProfileAvatarUrl(
       error: error instanceof Error ? error.message : 'Failed to update profile',
     };
   }
+}
+
+/**
+ * Build an avatar URL with a content-based cache key.
+ * Uses the profile's updated_at timestamp so CDNs can cache the image
+ * and only bust the cache when the avatar actually changes.
+ * Strips any legacy ?t= query params from old URLs stored in the DB.
+ */
+export function buildAvatarUrl(
+  avatarUrl: string | null | undefined,
+  updatedAt?: string | null
+): string | null {
+  if (!avatarUrl) return null;
+
+  // Strip any existing query params (legacy ?t= cache-busting)
+  const cleanUrl = avatarUrl.split('?')[0];
+
+  if (!updatedAt) return cleanUrl;
+
+  return `${cleanUrl}?v=${encodeURIComponent(updatedAt)}`;
 }

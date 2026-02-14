@@ -23,6 +23,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useFollowers } from '@/hooks/use-followers';
 import { FollowButton } from '@/components/social/FollowButton';
+import { buildAvatarUrl } from '@/lib/avatar-service';
 import type { Profile } from '@/lib/database.types';
 
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
@@ -69,7 +70,7 @@ export default function FollowersScreen() {
         <View style={[styles.userRow, { backgroundColor: colors.card }]}>
           {/* Avatar */}
           {user.avatar_url ? (
-            <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
+            <Image source={{ uri: buildAvatarUrl(user.avatar_url, user.updated_at)! }} style={styles.avatar} />
           ) : (
             <View
               style={[
