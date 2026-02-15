@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions, ListRenderItemInfo } from 'react-native';
+import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions, ListRenderItemInfo, ScrollView } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
@@ -14,8 +14,9 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '@/hooks/use-auth';
+import { useAchievements } from '@/hooks/use-achievements';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
-
+import { AchievementBadge } from '@/components/achievement-badge';
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
@@ -36,7 +37,7 @@ import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 // Constants for header animation
-const HEADER_MAX_HEIGHT = 230; // Full header height (avatar, name, bio, follower stats)
+const HEADER_MAX_HEIGHT = 330; // Full header height (avatar, name, bio, follower stats, achievements)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
 const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
 
@@ -67,6 +68,9 @@ export default function ProfileScreen() {
 
     // Fetch notification unread count
     const { unreadCount } = useNotifications();
+
+    // Fetch achievements
+    const { progress: achievementProgress, refetch: refetchAchievements } = useAchievements();
 
     // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id)
     const {
@@ -173,9 +177,10 @@ export default function ProfileScreen() {
             refetch(),
             refetchLists(),
             refetchTakes(),
+            refetchAchievements(),
         ]);
         setIsRefreshing(false);
-    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes]);
+    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes, refetchAchievements]);
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
         const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
@@ -468,6 +473,44 @@ export default function ProfileScreen() {
         </>
     );
 
+    // Shared achievements row renderer
+    const renderAchievementsRow = () => (
+        <View style={styles.achievementsSection}>
+            <View style={styles.achievementsHeader}>
+                <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
+                    ACHIEVEMENTS
+                </ThemedText>
+                <Pressable
+                    onPress={() => router.push('/achievements')}
+                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                >
+                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                </Pressable>
+            </View>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.achievementsScrollContent}
+            >
+                {achievementProgress.map((p) => {
+                    const currentLevelData = p.levels.find(l => l.level === p.currentLevel);
+                    return (
+                        <AchievementBadge
+                            key={p.achievement.id}
+                            icon={p.achievement.icon}
+                            name={p.achievement.name}
+                            unlocked={p.currentLevel > 0}
+                            currentLevel={p.currentLevel}
+                            maxLevel={p.maxLevel}
+                            imageUrl={currentLevelData?.image_url}
+                            onPress={() => router.push('/achievements')}
+                        />
+                    );
+                })}
+            </ScrollView>
+        </View>
+    );
+
     // ListHeaderComponent for FlatList (Collection tab)
     const renderCollectionListHeader = () => (
         <>
@@ -515,6 +558,8 @@ export default function ProfileScreen() {
                         </ThemedText>
                     </Pressable>
                 </View>
+                {/* Achievements Row */}
+                {renderAchievementsRow()}
             </Animated.View>
 
             {/* Combined Stat-Tab Bar */}
@@ -724,6 +769,8 @@ export default function ProfileScreen() {
                         <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
                             {profile?.bio || MOCK_USER.bio}
                         </ThemedText>
+                        {/* Achievements Row */}
+                        {renderAchievementsRow()}
                     </Animated.View>
 
                     {/* Combined Stat-Tab Bar */}
@@ -751,6 +798,7 @@ export default function ProfileScreen() {
                     {renderStatTabBar()}
                 </View>
             </Animated.View>
+
         </SafeAreaView>
     );
 }
@@ -843,6 +891,29 @@ const styles = StyleSheet.create({
     followStatDivider: {
         width: 1,
         height: 24,
+    },
+    // Achievements section
+    achievementsSection: {
+        marginTop: Spacing.sm,
+        width: '100%',
+        gap: Spacing.sm,
+    },
+    achievementsLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    achievementsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.lg,
+        width: '100%',
+    },
+    achievementsScrollContent: {
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.sm,
     },
     // Combined stat-tab bar styles
     statTabBar: {

@@ -10,6 +10,10 @@ jest.mock('@/hooks/use-auth', () => ({
   useAuth: jest.fn(),
 }));
 
+jest.mock('@/lib/achievement-context', () => ({
+  useAchievementCheck: () => ({ triggerAchievementCheck: jest.fn() }),
+}));
+
 jest.mock('@/lib/movie-service', () => ({
   getMovieByTmdbId: jest.fn(),
   addMovieToLibrary: jest.fn(),

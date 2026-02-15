@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
+import { useAchievementCheck } from '@/lib/achievement-context';
 import {
   createFirstTake,
   getFirstTakeByTmdbId,
@@ -29,6 +30,7 @@ interface UseFirstTakeActionsResult {
 export function useFirstTakeActions(tmdbId: number): UseFirstTakeActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { triggerAchievementCheck } = useAchievementCheck();
 
   // Query to check if a First Take exists for this movie
   const { data: existingTake, isLoading: isLoadingTake } = useQuery({
@@ -52,6 +54,8 @@ export function useFirstTakeActions(tmdbId: number): UseFirstTakeActionsResult {
       queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
       // Invalidate the global activity feed so new First Takes appear on home
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      // Check for newly earned achievements
+      triggerAchievementCheck();
     },
   });
 
