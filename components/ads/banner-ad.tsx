@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useAds } from '@/lib/ads-context';
+import { captureMessage } from '@/lib/sentry';
 import { Spacing } from '@/constants/theme';
 
 // Use require() in try-catch to gracefully handle Expo Go
@@ -35,9 +36,9 @@ interface BannerAdProps {
 }
 
 export function BannerAdComponent({ placement }: BannerAdProps) {
-  const { adsEnabled } = useAds();
+  const { adsReady } = useAds();
 
-  if (!adsEnabled || !AdComponents) return null;
+  if (!adsReady || !AdComponents) return null;
 
   const { BannerAd, BannerAdSize, TestIds } = AdComponents;
   const unitId = __DEV__ ? TestIds.ADAPTIVE_BANNER : BANNER_AD_UNIT_IDS[placement];
@@ -50,8 +51,15 @@ export function BannerAdComponent({ placement }: BannerAdProps) {
         requestOptions={{
           requestNonPersonalizedAdsOnly: true,
         }}
+        onAdLoaded={() => {
+          console.log(`[AdMob] Banner loaded (${placement})`);
+        }}
         onAdFailedToLoad={(error: Error) => {
-          console.log('Ad failed to load:', error);
+          console.warn(`[AdMob] Banner failed (${placement}):`, error.message);
+          captureMessage(`AdMob banner failed: ${placement}`, {
+            placement,
+            error: error.message,
+          });
         }}
       />
     </View>
