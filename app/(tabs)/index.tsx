@@ -7,6 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useCallback, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { router } from 'expo-router';
@@ -26,6 +27,7 @@ import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { NativeFeedAd } from '@/components/ads/native-feed-ad';
 import { useAds } from '@/lib/ads-context';
+import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -66,6 +68,7 @@ export default function HomeScreen() {
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
   const { adsEnabled } = useAds();
+  const queryClient = useQueryClient();
 
   // Fetch movie lists with validation and deduplication
   const {
@@ -108,9 +111,10 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
     await Promise.all([refetchMovies(), refetchActivity()]);
     setRefreshing(false);
-  }, [refetchMovies, refetchActivity]);
+  }, [refetchMovies, refetchActivity, queryClient]);
 
   // Handle infinite scroll
   const handleEndReached = useCallback(() => {
@@ -294,6 +298,9 @@ export default function HomeScreen() {
 
         {/* Ad Banner */}
         <BannerAdComponent placement="home" />
+
+        {/* Suggested Users */}
+        <SuggestedUsersSection />
 
         {/* Activity Section Header */}
         <View style={styles.activityHeader}>

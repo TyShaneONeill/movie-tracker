@@ -112,6 +112,9 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
       queryClient.invalidateQueries({
         queryKey: ['profile', targetUserId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ['suggestedUsers'],
+      });
     },
   });
 
