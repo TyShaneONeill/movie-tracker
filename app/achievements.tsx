@@ -111,102 +111,95 @@ export default function AchievementsScreen() {
         <Modal
           visible={!!selectedProgress}
           animationType="slide"
-          presentationStyle="fullScreen"
+          presentationStyle="pageSheet"
           onRequestClose={() => setSelectedProgress(null)}
         >
           <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-            <SafeAreaView style={styles.modalSafeArea}>
-              {/* Modal header — same pattern as grid page header */}
-              <View style={styles.header}>
-                <Pressable
-                  onPress={() => setSelectedProgress(null)}
-                  style={({ pressed }) => [
-                    styles.backButton,
-                    { opacity: pressed ? 0.7 : 1 },
-                  ]}
-                  hitSlop={12}
-                >
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </Pressable>
-                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
-                  {selectedProgress.achievement.name}
-                </ThemedText>
-                <View style={styles.headerSpacer} />
+            {/* Modal header */}
+            <View style={styles.modalHeader}>
+              <Pressable
+                onPress={() => setSelectedProgress(null)}
+                style={({ pressed }) => [
+                  styles.modalCloseButton,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+              <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
+                {selectedProgress.achievement.name}
+              </ThemedText>
+              <View style={styles.modalCloseButton} />
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Large centered icon/image */}
+              <View style={[styles.detailIconContainer, { borderColor: colors.tint }]}>
+                {detailImageUrl ? (
+                  <Image
+                    source={{ uri: detailImageUrl }}
+                    style={styles.detailImage}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ) : (
+                  <ThemedText style={styles.detailEmoji}>
+                    {selectedProgress.achievement.icon}
+                  </ThemedText>
+                )}
               </View>
 
-              <ScrollView
-                contentContainerStyle={styles.modalContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Large centered icon/image */}
-                <View style={[styles.detailIconContainer, { borderColor: colors.tint }]}>
-                  {detailImageUrl ? (
-                    <Image
-                      source={{ uri: detailImageUrl }}
-                      style={styles.detailImage}
-                      contentFit="cover"
-                      transition={200}
+              {/* Date badge - only if earned */}
+              {selectedProgress.currentLevel > 0 && selectedProgress.latestUnlockedAt && (
+                <View style={[styles.dateBadge, { backgroundColor: colors.card }]}>
+                  <ThemedText style={[styles.dateText, { color: colors.gold }]}>
+                    {formatDate(selectedProgress.latestUnlockedAt)}
+                  </ThemedText>
+                </View>
+              )}
+
+              {/* Level-specific description */}
+              <ThemedText style={[styles.detailDescription, { color: colors.textSecondary }]}>
+                {selectedProgress.currentLevel > 0 && currentLevelData
+                  ? currentLevelData.description
+                  : selectedProgress.achievement.description}
+              </ThemedText>
+
+              {/* Level progression row */}
+              <View style={styles.levelRow}>
+                {selectedProgress.levels.map((level) => {
+                  const isEarned = selectedProgress.earnedLevels.includes(level.level);
+                  return (
+                    <View
+                      key={level.id}
+                      style={[
+                        styles.levelDot,
+                        {
+                          backgroundColor: isEarned ? colors.tint : 'transparent',
+                          borderColor: isEarned ? colors.tint : colors.border,
+                        },
+                      ]}
                     />
-                  ) : (
-                    <ThemedText style={styles.detailEmoji}>
-                      {selectedProgress.achievement.icon}
-                    </ThemedText>
-                  )}
+                  );
+                })}
+              </View>
+
+              {/* Not yet earned hint */}
+              {selectedProgress.currentLevel === 0 && nextLevelData && (
+                <View style={styles.hintContainer}>
+                  <ThemedText style={[styles.notEarnedText, { color: colors.textTertiary }]}>
+                    Not yet earned
+                  </ThemedText>
+                  <ThemedText style={[styles.hintText, { color: colors.textTertiary }]}>
+                    {nextLevelData.description}
+                  </ThemedText>
                 </View>
-
-                {/* Date badge - only if earned */}
-                {selectedProgress.currentLevel > 0 && selectedProgress.latestUnlockedAt && (
-                  <View style={[styles.dateBadge, { backgroundColor: colors.card }]}>
-                    <ThemedText style={[styles.dateText, { color: colors.gold }]}>
-                      {formatDate(selectedProgress.latestUnlockedAt)}
-                    </ThemedText>
-                  </View>
-                )}
-
-                {/* Achievement name */}
-                <ThemedText style={[styles.detailName, { color: colors.text }]}>
-                  {selectedProgress.achievement.name}
-                </ThemedText>
-
-                {/* Level-specific description */}
-                <ThemedText style={[styles.detailDescription, { color: colors.textSecondary }]}>
-                  {selectedProgress.currentLevel > 0 && currentLevelData
-                    ? currentLevelData.description
-                    : selectedProgress.achievement.description}
-                </ThemedText>
-
-                {/* Level progression row */}
-                <View style={styles.levelRow}>
-                  {selectedProgress.levels.map((level) => {
-                    const isEarned = selectedProgress.earnedLevels.includes(level.level);
-                    return (
-                      <View
-                        key={level.id}
-                        style={[
-                          styles.levelDot,
-                          {
-                            backgroundColor: isEarned ? colors.tint : 'transparent',
-                            borderColor: isEarned ? colors.tint : colors.border,
-                          },
-                        ]}
-                      />
-                    );
-                  })}
-                </View>
-
-                {/* Not yet earned hint */}
-                {selectedProgress.currentLevel === 0 && nextLevelData && (
-                  <View style={styles.hintContainer}>
-                    <ThemedText style={[styles.notEarnedText, { color: colors.textTertiary }]}>
-                      Not yet earned
-                    </ThemedText>
-                    <ThemedText style={[styles.hintText, { color: colors.textTertiary }]}>
-                      {nextLevelData.description}
-                    </ThemedText>
-                  </View>
-                )}
-              </ScrollView>
-            </SafeAreaView>
+              )}
+            </ScrollView>
           </View>
         </Modal>
       )}
@@ -248,18 +241,30 @@ const createStyles = (colors: typeof Colors.dark) =>
       gap: GRID_GAP,
       marginBottom: GRID_GAP,
     },
-    // Detail modal
+    // Detail modal (pageSheet — iOS handles safe area natively)
     modalContainer: {
       flex: 1,
     },
-    modalSafeArea: {
-      flex: 1,
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.md,
+      paddingBottom: Spacing.sm,
+    },
+    modalCloseButton: {
+      width: 32,
+      height: 32,
+      borderRadius: BorderRadius.full,
+      borderWidth: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     modalContent: {
       alignItems: 'center',
       paddingTop: Spacing.xl,
       paddingHorizontal: Spacing.xl,
-      paddingBottom: Spacing.xl,
+      paddingBottom: Spacing.xxl,
     },
     detailIconContainer: {
       width: DETAIL_ICON_SIZE,
@@ -289,15 +294,10 @@ const createStyles = (colors: typeof Colors.dark) =>
       ...Typography.body.xsMedium,
       letterSpacing: 1,
     },
-    detailName: {
-      ...Typography.display.h2,
-      textAlign: 'center',
-      marginTop: Spacing.md,
-    },
     detailDescription: {
       ...Typography.body.base,
       textAlign: 'center',
-      marginTop: Spacing.sm,
+      marginTop: Spacing.md,
       paddingHorizontal: Spacing.md,
     },
     levelRow: {
