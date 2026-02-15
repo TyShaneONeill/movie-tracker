@@ -1,20 +1,29 @@
 import { supabase } from './supabase';
 import { captureException } from './sentry';
-import type { Achievement, UserAchievement } from './database.types';
+import type { Achievement, AchievementLevel, UserAchievement } from './database.types';
 
-export interface AwardedAchievement {
+export interface AwardedAchievementLevel {
   achievement: Achievement;
+  level: number;
+  level_description: string;
   unlocked_at: string;
 }
 
-export interface UserAchievementWithDetails {
+export interface UserAchievementWithLevel {
   achievement: Achievement;
+  level: number;
   unlocked_at: string;
 }
 
-/**
- * Fetch all achievement definitions ordered by sort_order.
- */
+export interface AchievementProgress {
+  achievement: Achievement;
+  levels: AchievementLevel[];
+  earnedLevels: number[];
+  currentLevel: number;
+  maxLevel: number;
+  latestUnlockedAt: string | null;
+}
+
 export async function fetchAchievements(): Promise<Achievement[]> {
   try {
     const { data, error } = await supabase
@@ -35,12 +44,30 @@ export async function fetchAchievements(): Promise<Achievement[]> {
   }
 }
 
-/**
- * Fetch a user's earned achievements with full achievement details.
- */
+export async function fetchAchievementLevels(): Promise<AchievementLevel[]> {
+  try {
+    const { data, error } = await supabase
+      .from('achievement_levels')
+      .select('*')
+      .order('achievement_id')
+      .order('level');
+
+    if (error) {
+      throw error;
+    }
+
+    return data ?? [];
+  } catch (error) {
+    captureException(error instanceof Error ? error : new Error(String(error)), {
+      context: 'fetch-achievement-levels',
+    });
+    throw error;
+  }
+}
+
 export async function fetchUserAchievements(
   userId: string
-): Promise<UserAchievementWithDetails[]> {
+): Promise<UserAchievementWithLevel[]> {
   try {
     const { data, error } = await supabase
       .from('user_achievements')
@@ -58,6 +85,7 @@ export async function fetchUserAchievements(
 
     return data.map((row: any) => ({
       achievement: row.achievement as Achievement,
+      level: row.level as number,
       unlocked_at: row.unlocked_at,
     }));
   } catch (error) {
@@ -68,14 +96,10 @@ export async function fetchUserAchievements(
   }
 }
 
-/**
- * Trigger achievement check via edge function.
- * Returns newly awarded achievements (if any).
- */
-export async function checkAchievements(): Promise<AwardedAchievement[]> {
+export async function checkAchievements(): Promise<AwardedAchievementLevel[]> {
   try {
     const { data, error } = await supabase.functions.invoke<{
-      newly_awarded: AwardedAchievement[];
+      newly_awarded: AwardedAchievementLevel[];
     }>('check-achievements');
 
     if (error) {
@@ -93,4 +117,34 @@ export async function checkAchievements(): Promise<AwardedAchievement[]> {
     });
     throw error;
   }
+}
+
+export function computeAchievementProgress(
+  achievements: Achievement[],
+  levels: AchievementLevel[],
+  userAchievements: UserAchievementWithLevel[]
+): AchievementProgress[] {
+  return achievements.map(achievement => {
+    const achievementLevels = levels
+      .filter(l => l.achievement_id === achievement.id)
+      .sort((a, b) => a.level - b.level);
+
+    const earned = userAchievements
+      .filter(ua => ua.achievement.id === achievement.id);
+
+    const earnedLevels = earned.map(e => e.level).sort((a, b) => a - b);
+    const currentLevel = earnedLevels.length > 0 ? Math.max(...earnedLevels) : 0;
+    const latestUnlockedAt = earned.length > 0
+      ? earned.sort((a, b) => b.unlocked_at.localeCompare(a.unlocked_at))[0].unlocked_at
+      : null;
+
+    return {
+      achievement,
+      levels: achievementLevels,
+      earnedLevels,
+      currentLevel,
+      maxLevel: achievementLevels.length,
+      latestUnlockedAt,
+    };
+  });
 }

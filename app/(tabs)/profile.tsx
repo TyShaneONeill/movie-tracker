@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions, ListRenderItemInfo } from 'react-native';
+import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions, ListRenderItemInfo, ScrollView } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
@@ -37,7 +37,7 @@ import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 // Constants for header animation
-const HEADER_MAX_HEIGHT = 310; // Full header height (avatar, name, bio, follower stats, achievements)
+const HEADER_MAX_HEIGHT = 330; // Full header height (avatar, name, bio, follower stats, achievements)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
 const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
 
@@ -70,7 +70,7 @@ export default function ProfileScreen() {
     const { unreadCount } = useNotifications();
 
     // Fetch achievements
-    const { achievements, userAchievements, refetch: refetchAchievements } = useAchievements();
+    const { progress: achievementProgress, refetch: refetchAchievements } = useAchievements();
 
     // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id)
     const {
@@ -473,6 +473,44 @@ export default function ProfileScreen() {
         </>
     );
 
+    // Shared achievements row renderer
+    const renderAchievementsRow = () => (
+        <View style={styles.achievementsSection}>
+            <View style={styles.achievementsHeader}>
+                <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
+                    ACHIEVEMENTS
+                </ThemedText>
+                <Pressable
+                    onPress={() => router.push('/achievements')}
+                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                >
+                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                </Pressable>
+            </View>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.achievementsScrollContent}
+            >
+                {achievementProgress.map((p) => {
+                    const currentLevelData = p.levels.find(l => l.level === p.currentLevel);
+                    return (
+                        <AchievementBadge
+                            key={p.achievement.id}
+                            icon={p.achievement.icon}
+                            name={p.achievement.name}
+                            unlocked={p.currentLevel > 0}
+                            currentLevel={p.currentLevel}
+                            maxLevel={p.maxLevel}
+                            imageUrl={currentLevelData?.image_url}
+                            onPress={() => router.push('/achievements')}
+                        />
+                    );
+                })}
+            </ScrollView>
+        </View>
+    );
+
     // ListHeaderComponent for FlatList (Collection tab)
     const renderCollectionListHeader = () => (
         <>
@@ -521,32 +559,7 @@ export default function ProfileScreen() {
                     </Pressable>
                 </View>
                 {/* Achievements Row */}
-                <View style={styles.achievementsSection}>
-                    <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
-                        ACHIEVEMENTS
-                    </ThemedText>
-                    <View style={styles.achievementsRow}>
-                        {achievements.map((a, index) => {
-                            const earned = userAchievements.some(
-                                (ua) => ua.achievement.id === a.id
-                            );
-                            const earnedAt = userAchievements.find(
-                                (ua) => ua.achievement.id === a.id
-                            )?.unlocked_at;
-                            return (
-                                <AchievementBadge
-                                    key={a.id}
-                                    icon={a.icon}
-                                    name={a.name}
-                                    description={a.description}
-                                    unlocked={earned}
-                                    unlockedAt={earnedAt}
-                                    onPress={() => router.push({ pathname: '/achievements', params: { index: String(index) } })}
-                                />
-                            );
-                        })}
-                    </View>
-                </View>
+                {renderAchievementsRow()}
             </Animated.View>
 
             {/* Combined Stat-Tab Bar */}
@@ -757,32 +770,7 @@ export default function ProfileScreen() {
                             {profile?.bio || MOCK_USER.bio}
                         </ThemedText>
                         {/* Achievements Row */}
-                        <View style={styles.achievementsSection}>
-                            <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
-                                ACHIEVEMENTS
-                            </ThemedText>
-                            <View style={styles.achievementsRow}>
-                                {achievements.map((a, index) => {
-                                    const earned = userAchievements.some(
-                                        (ua) => ua.achievement.id === a.id
-                                    );
-                                    const earnedAt = userAchievements.find(
-                                        (ua) => ua.achievement.id === a.id
-                                    )?.unlocked_at;
-                                    return (
-                                        <AchievementBadge
-                                            key={a.id}
-                                            icon={a.icon}
-                                            name={a.name}
-                                            description={a.description}
-                                            unlocked={earned}
-                                            unlockedAt={earnedAt}
-                                            onPress={() => router.push({ pathname: '/achievements', params: { index: String(index) } })}
-                                        />
-                                    );
-                                })}
-                            </View>
-                        </View>
+                        {renderAchievementsRow()}
                     </Animated.View>
 
                     {/* Combined Stat-Tab Bar */}
@@ -907,19 +895,24 @@ const styles = StyleSheet.create({
     // Achievements section
     achievementsSection: {
         marginTop: Spacing.sm,
-        alignItems: 'center',
         width: '100%',
+        gap: Spacing.sm,
     },
     achievementsLabel: {
         fontSize: 11,
         fontWeight: '600',
         textTransform: 'uppercase',
         letterSpacing: 1,
-        marginBottom: Spacing.sm,
     },
-    achievementsRow: {
+    achievementsHeader: {
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.lg,
+        width: '100%',
+    },
+    achievementsScrollContent: {
+        paddingHorizontal: Spacing.lg,
         gap: Spacing.sm,
     },
     // Combined stat-tab bar styles

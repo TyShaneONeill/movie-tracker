@@ -2,7 +2,13 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { checkAchievements } from './achievement-service';
 import { AchievementCelebration } from '@/components/achievement-celebration';
-import type { AwardedAchievement } from './achievement-service';
+
+interface CelebrationData {
+  icon: string;
+  name: string;
+  description: string;
+  level: number;
+}
 
 interface AchievementContextValue {
   triggerAchievementCheck: () => void;
@@ -17,30 +23,33 @@ export function useAchievementCheck() {
 }
 
 export function AchievementProvider({ children }: { children: React.ReactNode }) {
-  const [celebrationAchievement, setCelebrationAchievement] = useState<AwardedAchievement['achievement'] | null>(null);
+  const [celebrationData, setCelebrationData] = useState<CelebrationData | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const queryClient = useQueryClient();
 
   const triggerAchievementCheck = useCallback(() => {
-    // Fire-and-forget: don't block the caller
     checkAchievements()
       .then((newlyAwarded) => {
         if (newlyAwarded.length > 0) {
-          setCelebrationAchievement(newlyAwarded[0].achievement);
+          const first = newlyAwarded[0];
+          setCelebrationData({
+            icon: first.achievement.icon,
+            name: first.achievement.name,
+            description: first.level_description,
+            level: first.level,
+          });
           setShowCelebration(true);
           queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
         }
       })
-      .catch(() => {
-        // Silently fail - achievement checking shouldn't break the app
-      });
+      .catch(() => {});
   }, [queryClient]);
 
   return (
     <AchievementContext.Provider value={{ triggerAchievementCheck }}>
       {children}
       <AchievementCelebration
-        achievement={celebrationAchievement}
+        achievement={celebrationData}
         visible={showCelebration}
         onDismiss={() => setShowCelebration(false)}
       />

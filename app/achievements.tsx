@@ -1,28 +1,16 @@
-/**
- * Achievements Screen
- *
- * Full-screen horizontal carousel of achievements.
- * Navigate here with: router.push({ pathname: '/achievements', params: { index: String(index) } })
- *
- * Features:
- * - Horizontal FlatList with snap-to-card behavior
- * - Cards show ~85% screen width with peek of adjacent cards
- * - Unlocked achievements show accent color + checkmark + date
- * - Locked achievements are dimmed with "how to earn" hints
- * - Dot indicators at the bottom for current position
- */
-
-import React, { useMemo, useRef, useCallback, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   Pressable,
   Dimensions,
-  type ViewToken,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -30,53 +18,32 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAchievements } from '@/hooks/use-achievements';
 import { ThemedText } from '@/components/themed-text';
-import type { Achievement } from '@/lib/database.types';
+import { AchievementGridCard } from '@/components/achievement-grid-card';
+import type { AchievementProgress } from '@/lib/achievement-service';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH * 0.85;
-const CARD_MARGIN = (SCREEN_WIDTH - CARD_WIDTH) / 2;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const COLUMN_COUNT = 3;
+const GRID_GAP = Spacing.sm;
+const HORIZONTAL_PADDING = Spacing.lg;
+const AVAILABLE_WIDTH = SCREEN_WIDTH - (HORIZONTAL_PADDING * 2);
+const CARD_WIDTH = (AVAILABLE_WIDTH - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
-/**
- * Get a hint for how to earn a locked achievement based on its criteria.
- */
-function getEarnHint(criteriaType: string, criteriaValue: number): string {
-  switch (criteriaType) {
-    case 'first_take_count':
-      if (criteriaValue === 1) return 'Post your first movie review';
-      return `Post ${criteriaValue} movie reviews`;
-    case 'watched_count':
-      return `Watch ${criteriaValue} movies`;
-    case 'night_owl':
-      return 'Log a movie between midnight and 5 AM';
-    case 'genre_count':
-      return `Watch movies across ${criteriaValue} different genres`;
-    default:
-      return 'Keep using CineTrak to unlock';
-  }
-}
-
-/**
- * Format a date string for display.
- */
-function formatUnlockedDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month} ${day}, ${year}`;
 }
 
 export default function AchievementsScreen() {
-  const { index } = useLocalSearchParams<{ index: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { achievements, userAchievements } = useAchievements();
-
-  const initialIndex = Math.max(0, parseInt(index || '0', 10));
-  const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const flatListRef = useRef<FlatList>(null);
+  const { progress } = useAchievements();
+  const [selectedProgress, setSelectedProgress] = useState<AchievementProgress | null>(null);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -86,133 +53,26 @@ export default function AchievementsScreen() {
     }
   }, []);
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0].index != null) {
-        setActiveIndex(viewableItems[0].index);
-      }
-    }
-  ).current;
-
-  const viewabilityConfig = useRef({
-    viewAreaCoveragePercentThreshold: 50,
-  }).current;
-
-  const getItemLayout = useCallback(
-    (_data: unknown, itemIndex: number) => ({
-      length: CARD_WIDTH,
-      offset: CARD_WIDTH * itemIndex,
-      index: itemIndex,
-    }),
+  const renderCard = useCallback(
+    ({ item }: { item: AchievementProgress }) => (
+      <AchievementGridCard
+        progress={item}
+        cardWidth={CARD_WIDTH}
+        onPress={() => setSelectedProgress(item)}
+      />
+    ),
     []
   );
 
-  const renderCard = useCallback(
-    ({ item }: { item: Achievement }) => {
-      const earned = userAchievements.some(
-        (ua) => ua.achievement.id === item.id
-      );
-      const earnedAt = userAchievements.find(
-        (ua) => ua.achievement.id === item.id
-      )?.unlocked_at;
+  const currentLevelData = selectedProgress
+    ? selectedProgress.levels.find(l => l.level === selectedProgress.currentLevel)
+    : null;
 
-      return (
-        <View style={styles.cardWrapper}>
-          <View
-            style={[
-              styles.card,
-              !earned && styles.cardLocked,
-            ]}
-          >
-            {/* Icon circle */}
-            <View
-              style={[
-                styles.iconCircle,
-                earned
-                  ? { backgroundColor: colors.tint + '20' }
-                  : { backgroundColor: colors.textTertiary + '15' },
-              ]}
-            >
-              <ThemedText style={styles.iconEmoji}>{item.icon}</ThemedText>
-            </View>
+  const nextLevelData = selectedProgress
+    ? selectedProgress.levels.find(l => l.level === 1)
+    : null;
 
-            {/* Achievement name */}
-            <ThemedText
-              style={[
-                styles.achievementName,
-                { color: earned ? colors.text : colors.textSecondary },
-              ]}
-            >
-              {item.name}
-            </ThemedText>
-
-            {/* Achievement description */}
-            <ThemedText
-              style={[
-                styles.achievementDescription,
-                { color: earned ? colors.textSecondary : colors.textTertiary },
-              ]}
-            >
-              {item.description}
-            </ThemedText>
-
-            {/* Status indicator */}
-            <View style={styles.statusContainer}>
-              {earned ? (
-                <>
-                  <View
-                    style={[
-                      styles.checkBadge,
-                      { backgroundColor: colors.tint },
-                    ]}
-                  >
-                    <Ionicons name="checkmark" size={16} color="#fff" />
-                  </View>
-                  <ThemedText
-                    style={[styles.statusText, { color: colors.tint }]}
-                  >
-                    Unlocked
-                  </ThemedText>
-                  {earnedAt && (
-                    <ThemedText
-                      style={[
-                        styles.dateText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {formatUnlockedDate(earnedAt)}
-                    </ThemedText>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Ionicons
-                    name="lock-closed"
-                    size={20}
-                    color={colors.textTertiary}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.statusText,
-                      { color: colors.textTertiary },
-                    ]}
-                  >
-                    Not yet earned
-                  </ThemedText>
-                  <ThemedText
-                    style={[styles.hintText, { color: colors.textTertiary }]}
-                  >
-                    {getEarnHint(item.criteria_type, item.criteria_value)}
-                  </ThemedText>
-                </>
-              )}
-            </View>
-          </View>
-        </View>
-      );
-    },
-    [userAchievements, colors, styles]
-  );
+  const detailImageUrl = currentLevelData?.image_url ?? null;
 
   return (
     <SafeAreaView
@@ -235,47 +95,119 @@ export default function AchievementsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Carousel */}
+      {/* Grid */}
       <FlatList
-        ref={flatListRef}
-        data={achievements}
-        keyExtractor={(item) => item.id}
+        data={progress}
+        keyExtractor={(item) => item.achievement.id}
         renderItem={renderCard}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={CARD_WIDTH}
-        decelerationRate="fast"
-        contentContainerStyle={styles.carouselContent}
-        getItemLayout={getItemLayout}
-        initialScrollIndex={
-          achievements.length > 0
-            ? Math.min(initialIndex, achievements.length - 1)
-            : undefined
-        }
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
+        numColumns={COLUMN_COUNT}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={styles.gridContent}
+        showsVerticalScrollIndicator={false}
       />
 
-      {/* Page indicator dots */}
-      {achievements.length > 0 && (
-        <View style={styles.dotsContainer}>
-          {achievements.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                {
-                  backgroundColor:
-                    i === activeIndex ? colors.tint : colors.border,
-                },
-              ]}
-            />
-          ))}
-        </View>
+      {/* Detail Modal */}
+      {selectedProgress && (
+        <Modal
+          visible={!!selectedProgress}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setSelectedProgress(null)}
+        >
+          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <SafeAreaView style={styles.modalSafeArea}>
+              {/* Close button */}
+              <Pressable
+                onPress={() => setSelectedProgress(null)}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Ionicons name="close" size={28} color={colors.text} />
+              </Pressable>
+
+              <ScrollView
+                contentContainerStyle={styles.modalContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Large centered icon/image */}
+                <View style={[styles.detailIconContainer, { borderColor: colors.tint }]}>
+                  {detailImageUrl ? (
+                    <Image
+                      source={{ uri: detailImageUrl }}
+                      style={styles.detailImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <ThemedText style={styles.detailEmoji}>
+                      {selectedProgress.achievement.icon}
+                    </ThemedText>
+                  )}
+                </View>
+
+                {/* Date badge - only if earned */}
+                {selectedProgress.currentLevel > 0 && selectedProgress.latestUnlockedAt && (
+                  <View style={[styles.dateBadge, { backgroundColor: colors.card }]}>
+                    <ThemedText style={[styles.dateText, { color: colors.gold }]}>
+                      {formatDate(selectedProgress.latestUnlockedAt)}
+                    </ThemedText>
+                  </View>
+                )}
+
+                {/* Achievement name */}
+                <ThemedText style={[styles.detailName, { color: colors.text }]}>
+                  {selectedProgress.achievement.name}
+                </ThemedText>
+
+                {/* Level-specific description */}
+                <ThemedText style={[styles.detailDescription, { color: colors.textSecondary }]}>
+                  {selectedProgress.currentLevel > 0 && currentLevelData
+                    ? currentLevelData.description
+                    : selectedProgress.achievement.description}
+                </ThemedText>
+
+                {/* Level progression row */}
+                <View style={styles.levelRow}>
+                  {selectedProgress.levels.map((level) => {
+                    const isEarned = selectedProgress.earnedLevels.includes(level.level);
+                    return (
+                      <View
+                        key={level.id}
+                        style={[
+                          styles.levelDot,
+                          {
+                            backgroundColor: isEarned ? colors.tint : 'transparent',
+                            borderColor: isEarned ? colors.tint : colors.border,
+                          },
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+
+                {/* Not yet earned hint */}
+                {selectedProgress.currentLevel === 0 && nextLevelData && (
+                  <View style={styles.hintContainer}>
+                    <ThemedText style={[styles.notEarnedText, { color: colors.textTertiary }]}>
+                      Not yet earned
+                    </ThemedText>
+                    <ThemedText style={[styles.hintText, { color: colors.textTertiary }]}>
+                      {nextLevelData.description}
+                    </ThemedText>
+                  </View>
+                )}
+              </ScrollView>
+            </SafeAreaView>
+          </View>
+        </Modal>
       )}
     </SafeAreaView>
   );
 }
+
+const DETAIL_ICON_SIZE = 120;
 
 const createStyles = (colors: typeof Colors.dark) =>
   StyleSheet.create({
@@ -300,83 +232,100 @@ const createStyles = (colors: typeof Colors.dark) =>
     headerSpacer: {
       width: 40,
     },
-    carouselContent: {
-      paddingHorizontal: CARD_MARGIN,
-      alignItems: 'center',
+    gridContent: {
+      paddingHorizontal: HORIZONTAL_PADDING,
+      paddingTop: Spacing.md,
+      paddingBottom: 100,
     },
-    cardWrapper: {
-      width: CARD_WIDTH,
+    columnWrapper: {
+      gap: GRID_GAP,
+      marginBottom: GRID_GAP,
+    },
+    // Detail modal
+    modalContainer: {
+      flex: 1,
+    },
+    modalSafeArea: {
+      flex: 1,
+    },
+    closeButton: {
+      position: 'absolute',
+      top: Spacing.md,
+      left: Spacing.md,
+      zIndex: 10,
+      width: 40,
+      height: 40,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingVertical: Spacing.xl,
     },
-    card: {
-      width: CARD_WIDTH - Spacing.lg,
+    modalContent: {
+      alignItems: 'center',
+      paddingTop: 80,
+      paddingHorizontal: Spacing.xl,
+      paddingBottom: Spacing.xl,
+    },
+    detailIconContainer: {
+      width: DETAIL_ICON_SIZE,
+      height: DETAIL_ICON_SIZE,
+      borderRadius: DETAIL_ICON_SIZE / 2,
       backgroundColor: colors.card,
-      borderRadius: BorderRadius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: Spacing.xl,
-      alignItems: 'center',
+      borderWidth: 3,
       justifyContent: 'center',
-      gap: Spacing.md,
-    },
-    cardLocked: {
-      opacity: 0.55,
-      backgroundColor: colors.backgroundSecondary,
-    },
-    iconCircle: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
       alignItems: 'center',
-      justifyContent: 'center',
+      overflow: 'hidden',
     },
-    iconEmoji: {
-      fontSize: 36,
-      lineHeight: 44,
+    detailImage: {
+      width: DETAIL_ICON_SIZE,
+      height: DETAIL_ICON_SIZE,
     },
-    achievementName: {
-      ...Typography.display.h3,
-      textAlign: 'center',
+    detailEmoji: {
+      fontSize: 56,
+      lineHeight: 64,
     },
-    achievementDescription: {
-      ...Typography.body.base,
-      textAlign: 'center',
-    },
-    statusContainer: {
-      alignItems: 'center',
-      gap: Spacing.xs,
-      marginTop: Spacing.sm,
-    },
-    checkBadge: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    statusText: {
-      ...Typography.body.smMedium,
+    dateBadge: {
+      marginTop: Spacing.lg,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.full,
     },
     dateText: {
-      ...Typography.body.xs,
+      ...Typography.body.xsMedium,
+      letterSpacing: 1,
+    },
+    detailName: {
+      ...Typography.display.h2,
+      textAlign: 'center',
+      marginTop: Spacing.md,
+    },
+    detailDescription: {
+      ...Typography.body.base,
+      textAlign: 'center',
+      marginTop: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+    },
+    levelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      marginTop: Spacing.lg,
+    },
+    levelDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      borderWidth: 2,
+    },
+    hintContainer: {
+      marginTop: Spacing.lg,
+      alignItems: 'center',
+      gap: Spacing.xs,
+    },
+    notEarnedText: {
+      ...Typography.body.smMedium,
     },
     hintText: {
       ...Typography.body.sm,
       textAlign: 'center',
       fontStyle: 'italic',
-    },
-    dotsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingBottom: Spacing.lg,
-      gap: Spacing.sm,
-    },
-    dot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
     },
   });

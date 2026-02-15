@@ -14,36 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
-      achievements: {
+      achievement_levels: {
         Row: {
-          id: string
-          name: string
-          description: string
-          icon: string
-          criteria_type: string
-          criteria_value: number
-          sort_order: number
+          achievement_id: string
           created_at: string
+          criteria_value: number
+          description: string
+          id: string
+          image_url: string | null
+          level: number
         }
         Insert: {
-          id?: string
-          name: string
-          description: string
-          icon?: string
-          criteria_type: string
-          criteria_value?: number
-          sort_order?: number
+          achievement_id: string
           created_at?: string
+          criteria_value: number
+          description: string
+          id?: string
+          image_url?: string | null
+          level: number
         }
         Update: {
-          id?: string
-          name?: string
+          achievement_id?: string
+          created_at?: string
+          criteria_value?: number
           description?: string
+          id?: string
+          image_url?: string | null
+          level?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievement_levels_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      achievements: {
+        Row: {
+          created_at: string
+          criteria_type: string
+          criteria_value: number
+          description: string
+          icon: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          criteria_type: string
+          criteria_value?: number
+          description: string
           icon?: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
           criteria_type?: string
           criteria_value?: number
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
           sort_order?: number
-          created_at?: string
         }
         Relationships: []
       }
@@ -354,27 +392,6 @@ export type Database = {
           },
         ]
       }
-      rate_limits: {
-        Row: {
-          user_id: string
-          action: string
-          window_count: number
-          window_start: string
-        }
-        Insert: {
-          user_id: string
-          action: string
-          window_count?: number
-          window_start?: string
-        }
-        Update: {
-          user_id?: string
-          action?: string
-          window_count?: number
-          window_start?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           account_tier: string
@@ -426,6 +443,27 @@ export type Database = {
           tier_expires_at?: string | null
           updated_at?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      rate_limits: {
+        Row: {
+          action: string
+          user_id: string
+          window_count: number
+          window_start: string
+        }
+        Insert: {
+          action: string
+          user_id: string
+          window_count?: number
+          window_start?: string
+        }
+        Update: {
+          action?: string
+          user_id?: string
+          window_count?: number
+          window_start?: string
         }
         Relationships: []
       }
@@ -533,19 +571,22 @@ export type Database = {
       }
       user_achievements: {
         Row: {
-          user_id: string
           achievement_id: string
+          level: number
           unlocked_at: string
+          user_id: string
         }
         Insert: {
-          user_id: string
           achievement_id: string
+          level?: number
           unlocked_at?: string
+          user_id: string
         }
         Update: {
-          user_id?: string
           achievement_id?: string
+          level?: number
           unlocked_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -1050,6 +1091,7 @@ export type NotificationUpdate = Database['public']['Tables']['notifications']['
 
 // Helper types for achievements
 export type Achievement = Database['public']['Tables']['achievements']['Row'];
+export type AchievementLevel = Database['public']['Tables']['achievement_levels']['Row'];
 export type UserAchievement = Database['public']['Tables']['user_achievements']['Row'];
 
 // Helper types for genres

@@ -1,40 +1,55 @@
+import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import {
   fetchAchievements,
+  fetchAchievementLevels,
   fetchUserAchievements,
   checkAchievements,
+  computeAchievementProgress,
 } from '@/lib/achievement-service';
 import type {
-  AwardedAchievement,
-  UserAchievementWithDetails,
+  AwardedAchievementLevel,
+  UserAchievementWithLevel,
+  AchievementProgress,
 } from '@/lib/achievement-service';
-import type { Achievement } from '@/lib/database.types';
+import type { Achievement, AchievementLevel } from '@/lib/database.types';
 
 export function useAchievements() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // All achievement definitions
   const achievementsQuery = useQuery({
     queryKey: ['achievements'],
     queryFn: fetchAchievements,
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours (static data)
+    staleTime: 24 * 60 * 60 * 1000,
   });
 
-  // User's earned achievements
+  const levelsQuery = useQuery({
+    queryKey: ['achievementLevels'],
+    queryFn: fetchAchievementLevels,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
   const userAchievementsQuery = useQuery({
     queryKey: ['userAchievements', user?.id],
     queryFn: () => fetchUserAchievements(user!.id),
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Trigger achievement check and return newly awarded
-  const triggerCheck = async (): Promise<AwardedAchievement[]> => {
+  const progress = useMemo(() => {
+    if (!achievementsQuery.data || !levelsQuery.data) return [];
+    return computeAchievementProgress(
+      achievementsQuery.data,
+      levelsQuery.data,
+      userAchievementsQuery.data ?? []
+    );
+  }, [achievementsQuery.data, levelsQuery.data, userAchievementsQuery.data]);
+
+  const triggerCheck = async (): Promise<AwardedAchievementLevel[]> => {
     const newlyAwarded = await checkAchievements();
     if (newlyAwarded.length > 0) {
-      // Invalidate to refresh the list
       queryClient.invalidateQueries({ queryKey: ['userAchievements', user?.id] });
     }
     return newlyAwarded;
@@ -42,11 +57,14 @@ export function useAchievements() {
 
   return {
     achievements: achievementsQuery.data ?? ([] as Achievement[]),
-    userAchievements: userAchievementsQuery.data ?? ([] as UserAchievementWithDetails[]),
-    isLoading: achievementsQuery.isLoading || userAchievementsQuery.isLoading,
+    levels: levelsQuery.data ?? ([] as AchievementLevel[]),
+    userAchievements: userAchievementsQuery.data ?? ([] as UserAchievementWithLevel[]),
+    progress,
+    isLoading: achievementsQuery.isLoading || levelsQuery.isLoading || userAchievementsQuery.isLoading,
     triggerCheck,
     refetch: () => {
       achievementsQuery.refetch();
+      levelsQuery.refetch();
       userAchievementsQuery.refetch();
     },
   };

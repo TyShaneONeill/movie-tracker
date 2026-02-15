@@ -18,6 +18,7 @@ interface AchievementCelebrationProps {
     icon: string;
     name: string;
     description: string;
+    level?: number;
   } | null;
   visible: boolean;
   onDismiss: () => void;
@@ -43,11 +44,9 @@ export function AchievementCelebration({
 
   useEffect(() => {
     if (visible && achievement) {
-      // Reset values
       scale.value = 0.5;
       opacity.value = 0;
 
-      // Animate in
       scale.value = withSpring(1, {
         damping: 12,
         stiffness: 180,
@@ -55,10 +54,8 @@ export function AchievementCelebration({
       });
       opacity.value = withTiming(1, { duration: 250 });
 
-      // Haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Auto-dismiss after 3 seconds
       const timer = setTimeout(() => {
         runOnJS(handleDismiss)();
       }, AUTO_DISMISS_MS);
@@ -74,6 +71,8 @@ export function AchievementCelebration({
 
   if (!achievement) return null;
 
+  const isLevelUp = achievement.level != null && achievement.level > 1;
+
   return (
     <Modal
       visible={visible}
@@ -86,7 +85,7 @@ export function AchievementCelebration({
         <Animated.View style={[styles.card, cardAnimatedStyle]}>
           <Pressable>
             <ThemedText style={[styles.title, { color: colors.gold }]}>
-              Achievement Unlocked!
+              {isLevelUp ? 'Level Up!' : 'Achievement Unlocked!'}
             </ThemedText>
             <View style={[styles.iconContainer, { borderColor: colors.tint }]}>
               <ThemedText style={styles.icon}>{achievement.icon}</ThemedText>
@@ -94,6 +93,11 @@ export function AchievementCelebration({
             <ThemedText style={[styles.name, { color: colors.text }]}>
               {achievement.name}
             </ThemedText>
+            {achievement.level != null && achievement.level > 0 && (
+              <ThemedText style={[styles.levelText, { color: colors.gold }]}>
+                Level {achievement.level}
+              </ThemedText>
+            )}
             <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
               {achievement.description}
             </ThemedText>
@@ -148,6 +152,11 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     name: {
       ...Typography.display.h3,
+      textAlign: 'center',
+      marginBottom: Spacing.xs,
+    },
+    levelText: {
+      ...Typography.body.smMedium,
       textAlign: 'center',
       marginBottom: Spacing.sm,
     },
