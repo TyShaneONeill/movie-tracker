@@ -22,7 +22,7 @@ seat number. No barcode or QR code visible on this variant.
 > *These warnings help Gemini avoid common misparses for this chain.*
 
 - **Abbreviated ticket types**: "SRMat" likely means "Senior Matinee". Other codes may appear — extract the raw abbreviation AND interpret the likely meaning.
-- **Partial year**: Date may show "03/04/202?" with the last digit cut off or illegible. Use the movie's theatrical release date to infer the year.
+- **No year**: Date may not show the year. Use the movie's theatrical release date to infer the year.
 - **No barcode/QR**: This variant has no scannable codes — confirmation comes from the transaction number only.
 - **Seat format**: Row and seat are separate fields (Row: O, Seat: 11), not combined.
 - **No time of sale**: Unlike some chains, this variant only shows the showtime, not when the ticket was purchased.
