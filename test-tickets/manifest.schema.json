@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ticket Test Manifest",
+  "description": "Schema for ticket scanning accuracy test data",
+  "type": "object",
+  "required": ["version", "tickets"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version for backwards compatibility"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tickets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TicketEntry"
+      }
+    }
+  },
+  "definitions": {
+    "TicketEntry": {
+      "type": "object",
+      "required": ["id", "image_path", "expected"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier, e.g. 'amc-001', 'regal-015'",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "image_path": {
+          "type": "string",
+          "description": "Relative path from test-tickets/ to the image file"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["manual", "user-submitted", "synthetic"],
+          "description": "How the test ticket was obtained"
+        },
+        "added_date": {
+          "type": "string",
+          "format": "date",
+          "description": "When this entry was added (YYYY-MM-DD)"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any notes about this ticket (edge cases, known issues, etc.)"
+        },
+        "expected": {
+          "$ref": "#/definitions/ExpectedOutput"
+        }
+      }
+    },
+    "ExpectedOutput": {
+      "type": "object",
+      "required": ["movie_title"],
+      "description": "Golden truth fields. Only movie_title is required — omit fields that are not present on the ticket.",
+      "properties": {
+        "movie_title": {
+          "type": "string",
+          "description": "Exact movie title as it should be extracted (before TMDB matching)"
+        },
+        "theater_chain": {
+          "type": ["string", "null"],
+          "description": "Theater chain name: AMC, Regal, Cinemark, Alamo Drafthouse, or null if unknown"
+        },
+        "theater_name": {
+          "type": ["string", "null"],
+          "description": "Full theater name including location, e.g. 'AMC Metreon 16'"
+        },
+        "theater_location": {
+          "type": ["string", "null"],
+          "description": "City/state or address, e.g. 'San Francisco, CA'"
+        },
+        "showtime": {
+          "type": ["string", "null"],
+          "description": "ISO 8601 datetime combining date + time, e.g. '2024-03-15T19:30:00'"
+        },
+        "seat_info": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "row": { "type": ["string", "null"] },
+                "seat": { "type": ["string", "null"] }
+              }
+            },
+            { "type": "null" }
+          ],
+          "description": "Row and seat number if present on the ticket"
+        },
+        "format": {
+          "type": ["string", "null"],
+          "enum": ["Standard", "IMAX", "3D", "Dolby", "Dolby Atmos", "4DX", "DBOX", "ScreenX", "RPX", "XD", "PLF", null],
+          "description": "Screening format"
+        },
+        "auditorium": {
+          "type": ["string", "null"],
+          "description": "Auditorium/screen number"
+        },
+        "ticket_price": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "amount": { "type": "number", "minimum": 0 },
+                "currency": { "type": "string", "default": "USD" }
+              },
+              "required": ["amount"]
+            },
+            { "type": "null" }
+          ],
+          "description": "Ticket price and currency"
+        },
+        "confidence_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Expected minimum confidence score for this ticket (0-1)"
+        }
+      }
+    }
+  }
+}
