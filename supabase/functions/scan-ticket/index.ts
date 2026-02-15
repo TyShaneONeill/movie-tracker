@@ -98,34 +98,157 @@ interface TMDBSearchResponse {
 }
 
 // ============================================================================
-// Extraction Prompt
+// System Instruction (role + known formats + edge cases)
 // ============================================================================
 
-const EXTRACTION_PROMPT = `You are a movie ticket data extraction assistant. Analyze this image of movie ticket(s) and extract ALL ticket information you can find.
+const SYSTEM_INSTRUCTION = `You are a specialized cinema ticket data extraction assistant. You extract structured information from photos of movie tickets and receipts.
 
-For EACH ticket visible in the image, extract into JSON:
-{
-  "tickets": [
-    {
-      "movie_title": "exact title from ticket",
-      "theater_name": "full theater name",
-      "theater_chain": "chain name or null",
-      "date": "YYYY-MM-DD",
-      "showtime": "HH:MM (24hr)",
-      "seat": { "row": "letter/number or null", "number": "number or null" },
-      "auditorium": "number or null",
-      "format": "IMAX/Dolby/3D/Standard or null",
-      "price": { "amount": number or null, "currency": "USD" },
-      "ticket_type": "Adult/Child/Senior or null",
-      "confirmation_number": "string or null",
-      "barcode_visible": boolean
-    }
-  ],
-  "image_quality": "good/fair/poor",
-  "confidence_score": 0.0-1.0,
-  "notes": "observations"
-}
-Return ONLY valid JSON.`;
+RULES:
+- Extract ONLY what is visible on the ticket. Never hallucinate or guess values.
+- If a field is not visible or illegible, use null.
+- Distinguish carefully between "time of sale" (purchase timestamp) and "showtime" (movie screening time). Only extract the SHOWTIME.
+- Extract the PER-TICKET price, not the total for multiple tickets. If the ticket shows a total for N tickets, divide by N.
+- Strip format indicators (IMAX, DOLBY, 3D, etc.) from movie_title and put them in the format field instead.
+- For confidence_score, base it on image clarity and text legibility: 0.95 = crisp/clear, 0.75 = slightly faded but readable, 0.5 = partially illegible, 0.25 = mostly unreadable.
+
+KNOWN TICKET FORMATS:
+
+West Wind Drive-In (thermal receipt):
+- "Screen: N - FM XXX.X" — the screen number is N, the FM frequency is the drive-in audio channel. Ignore the FM portion.
+- Price shown may be TOTAL for multiple tickets. Look for a quantity indicator and divide to get per-ticket price.
+- Service fees are also totals — divide by ticket quantity.
+- Transaction timestamp (e.g. "18;38 20OCT25" with semicolons) is the sale time, NOT the showtime. The showtime appears separately near the movie title.
+- Barcode wrapped in asterisks: *XXXXXXXXX*. The number inside matches the transaction number (T/N).
+- No assigned seats (drive-in theater).
+
+CW Theatres (multiple variants):
+- Older cardboard design: Black/white/gold color scheme with "M" crown watermark. Thicker stock. No barcode or QR code.
+- Newer thin paper design: Current 2025-26 era receipt paper.
+- Ticket type abbreviations: "SRMat" = Senior Matinee, "AdltMat" = Adult Matinee, "AdltEve" = Adult Evening. Extract the raw abbreviation.
+- Date may have a partially illegible year (e.g. "03/04/202?"). If the last digit is unreadable, use null for the year portion.
+- Row and seat are separate fields, not combined.
+- MPAA rating (PG, PG13, R, etc.) may appear on the ticket.
+
+AMC Theatres (thermal receipt + digital):
+- Format often appended to movie title (e.g. "Dune: Part Two - DOLBY"). Strip the format suffix.
+- AMC Stubs loyalty numbers should NOT be confused with confirmation/transaction numbers.
+- Kiosk receipts vs box office receipts may have different layouts.
+
+Regal Cinemas (thermal receipt + digital):
+- Regal Crown Club numbers are NOT confirmation codes.
+- RPX screenings should have format = "RPX".
+
+Cinemark Theatres (thermal receipt + digital):
+- XD screenings should have format = "XD".
+- Movie Rewards numbers are NOT confirmation codes.
+
+Alamo Drafthouse (receipt):
+- Receipts may include food/drink orders. Only extract the MOVIE TICKET price, not food items.
+- Pre-show event titles are NOT the movie title.
+
+GENERAL EDGE CASES:
+- Thermal receipts fade over time. Adjust confidence_score based on legibility.
+- If multiple tickets for the SAME movie appear, extract only one (they are duplicates from a multi-ticket purchase).
+- Some tickets show date as "MM/DD/YYYY", others as "DD MMM YY". Always convert to YYYY-MM-DD.
+- Showtime may be in 12hr (7:30 PM) or 24hr (19:30) format. Always convert to HH:MM in 24hr format.`;
+
+// ============================================================================
+// Extraction Prompt (few-shot examples + task)
+// ============================================================================
+
+const EXTRACTION_PROMPT = `Extract movie ticket information from this image.
+
+Here are examples of correct extractions from different ticket types:
+
+EXAMPLE 1 — Drive-in thermal receipt:
+Ticket shows: "Screen: 6 - FM 101.3", Movie: "Good Fortune", Date: 10/20/2025, Time: 7:20 PM, 2 tickets at $18.00 total + $2.50 service fee, Ticket Type: GENERAL, T/N: 001768544
+Correct extraction:
+{"movie_title": "Good Fortune", "theater_name": "West Wind Capitol 6 Drive-In", "theater_chain": "West Wind Drive-In", "date": "2025-10-20", "showtime": "19:20", "seat": null, "auditorium": "6", "format": "Standard", "price": {"amount": 9.00, "currency": "USD"}, "ticket_type": "General", "confirmation_number": "001768544", "barcode_visible": true}
+Note: Screen 6 extracted (FM frequency ignored), price divided by 2 tickets, sale time ignored.
+
+EXAMPLE 2 — Cardboard cinema ticket:
+Ticket shows: CW Theatres, Screen: 8, Movie: "Creed III", Rating: PG13, Date: 03/04/202?, Day: Saturday, Time: 1:40 PM, Ticket Type: SRMat, Price: $9.00, Row: O, Seat: 11
+Correct extraction:
+{"movie_title": "Creed III", "theater_name": "CW Theatres Lincoln Mall 16", "theater_chain": "CW Theatres", "date": "2023-03-04", "showtime": "13:40", "seat": {"row": "O", "number": "11"}, "auditorium": "8", "format": "Standard", "price": {"amount": 9.00, "currency": "USD"}, "ticket_type": "SRMat", "confirmation_number": "0006-99030423133828", "barcode_visible": false}
+Note: Year inferred from Creed III release (March 2023). SRMat extracted as-is.
+
+EXAMPLE 3 — AMC thermal receipt with format in title:
+Ticket shows: "Oppenheimer - IMAX", AMC Metreon 16, Date: 07/21/2023, 7:00 PM, Aud 7, Row H, Seat 10, Price: $24.99
+Correct extraction:
+{"movie_title": "Oppenheimer", "theater_name": "AMC Metreon 16", "theater_chain": "AMC", "date": "2023-07-21", "showtime": "19:00", "seat": {"row": "H", "number": "10"}, "auditorium": "7", "format": "IMAX", "price": {"amount": 24.99, "currency": "USD"}, "ticket_type": "Adult", "confirmation_number": null, "barcode_visible": true}
+Note: "IMAX" stripped from title and placed in format field.
+
+EXAMPLE 4 — Faded thermal receipt:
+Ticket shows: Partially faded text, movie appears to be "The B[...]man", date partially visible "0?/??/2022", price $12.50
+Correct extraction:
+{"movie_title": "The Batman", "theater_name": null, "theater_chain": null, "date": null, "showtime": null, "seat": null, "auditorium": null, "format": null, "price": {"amount": 12.50, "currency": "USD"}, "ticket_type": null, "confirmation_number": null, "barcode_visible": false}
+Note: Low confidence (0.4) due to faded text. Date set to null since it was unreadable. Movie title inferred from partial text.
+
+EXAMPLE 5 — Digital/mobile ticket screenshot:
+Ticket shows: Regal Crown Club, "Dune: Part Two 3D", Regal Union Square, 03/01/2024, 6:45 PM, Screen 12, Seat J14, $19.99
+Correct extraction:
+{"movie_title": "Dune: Part Two", "theater_name": "Regal Union Square", "theater_chain": "Regal", "date": "2024-03-01", "showtime": "18:45", "seat": {"row": "J", "number": "14"}, "auditorium": "12", "format": "3D", "price": {"amount": 19.99, "currency": "USD"}, "ticket_type": "Adult", "confirmation_number": null, "barcode_visible": true}
+Note: "3D" stripped from title and placed in format. Crown Club number ignored.
+
+Now extract from the provided ticket image. Return one entry per unique ticket visible.`;
+
+// ============================================================================
+// Response Schema (Gemini structured output)
+// ============================================================================
+
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    tickets: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          movie_title: { type: "STRING", description: "Movie title without format indicators" },
+          theater_name: { type: "STRING", nullable: true, description: "Full theater name" },
+          theater_chain: { type: "STRING", nullable: true, description: "Chain name (AMC, Regal, Cinemark, etc.)" },
+          date: { type: "STRING", nullable: true, description: "YYYY-MM-DD format" },
+          showtime: { type: "STRING", nullable: true, description: "HH:MM in 24hr format" },
+          seat: {
+            type: "OBJECT",
+            nullable: true,
+            properties: {
+              row: { type: "STRING", nullable: true },
+              number: { type: "STRING", nullable: true },
+            },
+          },
+          auditorium: { type: "STRING", nullable: true, description: "Screen/auditorium number" },
+          format: { type: "STRING", nullable: true, description: "IMAX, Dolby, 3D, Standard, RPX, XD, 4DX, or null" },
+          price: {
+            type: "OBJECT",
+            nullable: true,
+            properties: {
+              amount: { type: "NUMBER", nullable: true, description: "Per-ticket price" },
+              currency: { type: "STRING", description: "ISO currency code" },
+            },
+          },
+          ticket_type: { type: "STRING", nullable: true, description: "Adult, Child, Senior, or raw abbreviation" },
+          confirmation_number: { type: "STRING", nullable: true },
+          barcode_visible: { type: "BOOLEAN" },
+        },
+        required: ["movie_title", "barcode_visible"],
+      },
+    },
+    image_quality: {
+      type: "STRING",
+      enum: ["good", "fair", "poor"],
+    },
+    confidence_score: {
+      type: "NUMBER",
+      description: "0.0-1.0 based on text clarity and extraction certainty",
+    },
+    notes: {
+      type: "STRING",
+      description: "Observations about the ticket, edge cases encountered, or fields that were uncertain",
+    },
+  },
+  required: ["tickets", "image_quality", "confidence_score", "notes"],
+};
 
 // ============================================================================
 // Post-Processing Functions
@@ -474,6 +597,9 @@ async function extractWithGemini(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: SYSTEM_INSTRUCTION }],
+        },
         contents: [{
           parts: [
             { text: EXTRACTION_PROMPT },
@@ -483,6 +609,8 @@ async function extractWithGemini(
         generationConfig: {
           temperature: 0.1,
           maxOutputTokens: 4096,
+          response_mime_type: "application/json",
+          response_schema: RESPONSE_SCHEMA,
         }
       })
     }
@@ -496,30 +624,15 @@ async function extractWithGemini(
 
   const geminiResponse = await response.json();
 
-  // Extract the text content from Gemini response
+  // With structured output (response_schema), Gemini returns clean JSON directly
   const textContent = geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!textContent) {
     throw new Error('No content in Gemini response');
   }
 
-  // Parse the JSON from the response
-  // Gemini might wrap it in markdown code blocks
-  let jsonStr = textContent.trim();
-
-  // Remove markdown code blocks if present
-  if (jsonStr.startsWith('```json')) {
-    jsonStr = jsonStr.slice(7);
-  } else if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.slice(3);
-  }
-  if (jsonStr.endsWith('```')) {
-    jsonStr = jsonStr.slice(0, -3);
-  }
-  jsonStr = jsonStr.trim();
-
   try {
-    const parsed = JSON.parse(jsonStr);
+    const parsed = JSON.parse(textContent);
 
     // Validate the structure
     if (!parsed.tickets || !Array.isArray(parsed.tickets)) {
@@ -534,6 +647,7 @@ async function extractWithGemini(
     };
   } catch (parseError) {
     console.error('[scan-ticket] Failed to parse Gemini extraction response:', parseError);
+    console.error('[scan-ticket] Raw response text:', textContent);
     throw new Error('Failed to parse ticket extraction response');
   }
 }
