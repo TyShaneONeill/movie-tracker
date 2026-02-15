@@ -116,18 +116,22 @@ export default function AchievementsScreen() {
         >
           <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
             <SafeAreaView style={styles.modalSafeArea}>
-              {/* Modal header */}
-              <View style={styles.modalHeader}>
+              {/* Modal header — same pattern as grid page header */}
+              <View style={styles.header}>
                 <Pressable
                   onPress={() => setSelectedProgress(null)}
                   style={({ pressed }) => [
-                    styles.closeButton,
+                    styles.backButton,
                     { opacity: pressed ? 0.7 : 1 },
                   ]}
                   hitSlop={12}
                 >
-                  <Ionicons name="close" size={28} color={colors.text} />
+                  <Ionicons name="close" size={24} color={colors.text} />
                 </Pressable>
+                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
+                  {selectedProgress.achievement.name}
+                </ThemedText>
+                <View style={styles.headerSpacer} />
               </View>
 
               <ScrollView
@@ -250,18 +254,6 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     modalSafeArea: {
       flex: 1,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm,
-    },
-    closeButton: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     modalContent: {
       alignItems: 'center',
