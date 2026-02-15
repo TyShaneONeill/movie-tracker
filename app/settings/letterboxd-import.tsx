@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { captureException } from '@/lib/sentry';
+import { useAchievementCheck } from '@/lib/achievement-context';
 import {
   parseLetterboxdCSV,
   matchMoviesToTMDB,
@@ -44,6 +45,7 @@ export default function LetterboxdImportScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
+  const { triggerAchievementCheck } = useAchievementCheck();
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
   const [state, setState] = useState<ImportState>('idle');
@@ -128,6 +130,7 @@ export default function LetterboxdImportScreen() {
 
       setImportProgress(finalProgress);
       setState('done');
+      triggerAchievementCheck();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), {
@@ -136,7 +139,7 @@ export default function LetterboxdImportScreen() {
       setError('An error occurred during import. Some movies may have been imported.');
       setState('review');
     }
-  }, [user, matches]);
+  }, [user, matches, triggerAchievementCheck]);
 
   const handleDone = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

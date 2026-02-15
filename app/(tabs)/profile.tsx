@@ -17,8 +17,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAchievements } from '@/hooks/use-achievements';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 import { AchievementBadge } from '@/components/achievement-badge';
-import { AchievementCelebration } from '@/components/achievement-celebration';
-
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
@@ -72,31 +70,7 @@ export default function ProfileScreen() {
     const { unreadCount } = useNotifications();
 
     // Fetch achievements
-    const { achievements, userAchievements, triggerCheck, refetch: refetchAchievements } = useAchievements();
-    const [celebrationAchievement, setCelebrationAchievement] = useState<{
-        icon: string;
-        name: string;
-        description: string;
-    } | null>(null);
-    const [showCelebration, setShowCelebration] = useState(false);
-
-    // Check for newly earned achievements after data refresh
-    const checkForNewAchievements = useCallback(async () => {
-        try {
-            const newlyAwarded = await triggerCheck();
-            if (newlyAwarded.length > 0) {
-                const first = newlyAwarded[0];
-                setCelebrationAchievement({
-                    icon: first.achievement.icon,
-                    name: first.achievement.name,
-                    description: first.achievement.description,
-                });
-                setShowCelebration(true);
-            }
-        } catch {
-            // Silently ignore achievement check failures
-        }
-    }, [triggerCheck]);
+    const { achievements, userAchievements, refetch: refetchAchievements } = useAchievements();
 
     // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id)
     const {
@@ -206,9 +180,7 @@ export default function ProfileScreen() {
             refetchAchievements(),
         ]);
         setIsRefreshing(false);
-        // Check for newly earned achievements after refresh
-        checkForNewAchievements();
-    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes, refetchAchievements, checkForNewAchievements]);
+    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes, refetchAchievements]);
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
         const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
@@ -839,12 +811,6 @@ export default function ProfileScreen() {
                 </View>
             </Animated.View>
 
-            {/* Achievement Celebration Modal */}
-            <AchievementCelebration
-                achievement={celebrationAchievement}
-                visible={showCelebration}
-                onDismiss={() => setShowCelebration(false)}
-            />
         </SafeAreaView>
     );
 }

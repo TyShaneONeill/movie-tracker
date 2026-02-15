@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
+import { useAchievementCheck } from '@/lib/achievement-context';
 import {
   getMovieByTmdbId,
   addMovieToLibrary,
@@ -37,6 +38,7 @@ interface UseMovieActionsResult {
 export function useMovieActions(tmdbId: number): UseMovieActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { triggerAchievementCheck } = useAchievementCheck();
 
   // Query to check if movie is in user's watchlist
   const { data: userMovie, isLoading: isLoadingWatchlist } = useQuery({
@@ -116,9 +118,12 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
         );
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      if (variables?.status === 'watched') {
+        triggerAchievementCheck();
+      }
     },
   });
 
@@ -186,9 +191,12 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
         );
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, newStatus) => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      if (newStatus === 'watched') {
+        triggerAchievementCheck();
+      }
     },
   });
 

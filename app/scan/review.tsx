@@ -35,6 +35,7 @@ import { supabase } from '@/lib/supabase';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { JourneyUpdate } from '@/lib/database.types';
 import { captureException } from '@/lib/sentry';
+import { useAchievementCheck } from '@/lib/achievement-context';
 
 // ============================================================================
 // Helpers
@@ -136,6 +137,9 @@ export default function TicketReviewScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { user } = useAuth();
+
+  // Achievement check (fire-and-forget after bulk operations)
+  const { triggerAchievementCheck } = useAchievementCheck();
 
   // User preferences hook (for First Take prompt setting)
   const { preferences } = useUserPreferences();
@@ -247,6 +251,7 @@ export default function TicketReviewScreen() {
       });
       setShowFirstTakeModal(false);
       setFirstTakeMovieInfo(null);
+      triggerAchievementCheck();
       // Navigate to journey card if we have a journey ID, otherwise profile
       if (singleJourneyId) {
         router.replace(`/journey/${singleJourneyId}`);
@@ -259,7 +264,7 @@ export default function TicketReviewScreen() {
     } finally {
       setIsSubmittingFirstTake(false);
     }
-  }, [user, firstTakeMovieInfo, router, singleJourneyId]);
+  }, [user, firstTakeMovieInfo, router, singleJourneyId, triggerAchievementCheck]);
 
   // Handle First Take modal close (skip without submitting)
   const handleFirstTakeClose = useCallback(() => {
@@ -389,6 +394,9 @@ export default function TicketReviewScreen() {
         throw new Error('All movies failed to save');
       }
 
+      // Trigger achievement check once for the entire bulk operation
+      triggerAchievementCheck();
+
       // Only show First Take modals if the preference is enabled
       if (firstTakePromptEnabled) {
         // If exactly 1 movie was added successfully, show First Take modal
@@ -463,7 +471,7 @@ export default function TicketReviewScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [tickets, router, user, firstTakePromptEnabled]);
+  }, [tickets, router, user, firstTakePromptEnabled, triggerAchievementCheck]);
 
   return (
     <View style={styles.container}>
