@@ -189,6 +189,7 @@ function RootLayoutNav() {
         <Stack.Screen name="journey" options={{ headerShown: false }} />
         <Stack.Screen name="followers/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="following/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="achievements" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

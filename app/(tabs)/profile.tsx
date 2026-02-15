@@ -554,7 +554,7 @@ export default function ProfileScreen() {
                         ACHIEVEMENTS
                     </ThemedText>
                     <View style={styles.achievementsRow}>
-                        {achievements.map((a) => {
+                        {achievements.map((a, index) => {
                             const earned = userAchievements.some(
                                 (ua) => ua.achievement.id === a.id
                             );
@@ -569,6 +569,7 @@ export default function ProfileScreen() {
                                     description={a.description}
                                     unlocked={earned}
                                     unlockedAt={earnedAt}
+                                    onPress={() => router.push({ pathname: '/achievements', params: { index: String(index) } })}
                                 />
                             );
                         })}
@@ -789,7 +790,7 @@ export default function ProfileScreen() {
                                 ACHIEVEMENTS
                             </ThemedText>
                             <View style={styles.achievementsRow}>
-                                {achievements.map((a) => {
+                                {achievements.map((a, index) => {
                                     const earned = userAchievements.some(
                                         (ua) => ua.achievement.id === a.id
                                     );
@@ -804,6 +805,7 @@ export default function ProfileScreen() {
                                             description={a.description}
                                             unlocked={earned}
                                             unlockedAt={earnedAt}
+                                            onPress={() => router.push({ pathname: '/achievements', params: { index: String(index) } })}
                                         />
                                     );
                                 })}

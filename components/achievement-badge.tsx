@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -11,19 +11,24 @@ interface AchievementBadgeProps {
   description: string;
   unlocked: boolean;
   unlockedAt?: string; // ISO date
+  onPress?: () => void;
 }
 
 export function AchievementBadge({
   icon,
   name,
   unlocked,
+  onPress,
 }: AchievementBadgeProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={[styles.container, { opacity: unlocked ? 1 : 0.4 }]}>
+    <Pressable
+      style={({ pressed }) => [styles.container, { opacity: (unlocked ? 1 : 0.4) * (pressed ? 0.7 : 1) }]}
+      onPress={onPress}
+    >
       <View
         style={[
           styles.badge,
@@ -34,11 +39,11 @@ export function AchievementBadge({
       </View>
       <ThemedText
         style={[styles.name, { color: unlocked ? colors.text : colors.textSecondary }]}
-        numberOfLines={1}
+        numberOfLines={2}
       >
         {name}
       </ThemedText>
-    </View>
+    </Pressable>
   );
 }
 
