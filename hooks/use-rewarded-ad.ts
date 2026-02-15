@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAds } from '@/lib/ads-context';
+import { captureMessage } from '@/lib/sentry';
 
 // Guarded require for Expo Go compatibility
 let AdModule: {
@@ -20,13 +21,13 @@ try {
 }
 
 export function useRewardedAd() {
-  const { adsEnabled } = useAds();
+  const { adsReady } = useAds();
   const [loaded, setLoaded] = useState(false);
   const adRef = useRef<any>(null);
   const unsubscribersRef = useRef<Array<() => void>>([]);
 
   const loadAd = useCallback(() => {
-    if (!AdModule || !adsEnabled) return;
+    if (!AdModule || !adsReady) return;
 
     // Clean up previous listeners
     unsubscribersRef.current.forEach((unsub) => unsub());
@@ -40,13 +41,21 @@ export function useRewardedAd() {
     });
 
     const unsubLoaded = ad.addAdEventListener(AdModule.RewardedAdEventType.LOADED, () => {
+      console.log('[AdMob] Rewarded ad loaded');
       setLoaded(true);
     });
 
-    unsubscribersRef.current.push(unsubLoaded);
+    const unsubError = ad.addAdEventListener('error', (error: Error) => {
+      console.warn('[AdMob] Rewarded ad failed to load:', error.message);
+      captureMessage('AdMob rewarded ad failed', {
+        error: error.message,
+      });
+    });
+
+    unsubscribersRef.current.push(unsubLoaded, unsubError);
     ad.load();
     adRef.current = ad;
-  }, [adsEnabled]);
+  }, [adsReady]);
 
   useEffect(() => {
     loadAd();
@@ -80,5 +89,5 @@ export function useRewardedAd() {
     loadAd();
   }, [loadAd]);
 
-  return { loaded: loaded && adsEnabled && !!AdModule, showAd, reloadAd };
+  return { loaded: loaded && adsReady && !!AdModule, showAd, reloadAd };
 }

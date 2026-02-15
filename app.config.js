@@ -72,6 +72,7 @@ export default {
       [
         "react-native-google-mobile-ads",
         {
+          // TODO: Replace with production Android AdMob app ID from console.admob.com
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
           iosAppId: "ca-app-pub-5311715630678079~6367572841",
         },

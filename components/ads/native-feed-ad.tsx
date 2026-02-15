@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, Text, Animated, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAds } from '@/lib/ads-context';
+import { captureMessage } from '@/lib/sentry';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius, FontSizes } from '@/constants/theme';
 
@@ -23,7 +24,7 @@ try {
 }
 
 export function NativeFeedAd() {
-  const { adsEnabled } = useAds();
+  const { adsReady } = useAds();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const [loaded, setLoaded] = useState(false);
@@ -42,7 +43,7 @@ export function NativeFeedAd() {
     }
   }, [loaded, fadeAnim]);
 
-  if (!adsEnabled || !AdComponents || failed) return null;
+  if (!adsReady || !AdComponents || failed) return null;
 
   const { BannerAd, BannerAdSize, TestIds } = AdComponents;
   const unitId = __DEV__
@@ -66,9 +67,15 @@ export function NativeFeedAd() {
           requestOptions={{
             requestNonPersonalizedAdsOnly: true,
           }}
-          onAdLoaded={() => setLoaded(true)}
+          onAdLoaded={() => {
+            console.log('[AdMob] Feed ad loaded');
+            setLoaded(true);
+          }}
           onAdFailedToLoad={(error: Error) => {
-            console.log('Feed ad failed to load:', error);
+            console.warn('[AdMob] Feed ad failed:', error.message);
+            captureMessage('AdMob feed ad failed', {
+              error: error.message,
+            });
             setFailed(true);
           }}
         />

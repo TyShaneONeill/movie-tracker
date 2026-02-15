@@ -224,7 +224,8 @@ export default function RootLayout() {
   // Request App Tracking Transparency permission before ads load (iOS 14.5+)
   useEffect(() => {
     (async () => {
-      await requestTrackingPermissionsAsync();
+      const { status } = await requestTrackingPermissionsAsync();
+      console.log(`[ATT] Tracking permission status: ${status}`);
     })();
   }, []);
 
