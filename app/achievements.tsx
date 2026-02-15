@@ -116,16 +116,19 @@ export default function AchievementsScreen() {
         >
           <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
             <SafeAreaView style={styles.modalSafeArea}>
-              {/* Close button */}
-              <Pressable
-                onPress={() => setSelectedProgress(null)}
-                style={({ pressed }) => [
-                  styles.closeButton,
-                  { opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <Ionicons name="close" size={28} color={colors.text} />
-              </Pressable>
+              {/* Modal header */}
+              <View style={styles.modalHeader}>
+                <Pressable
+                  onPress={() => setSelectedProgress(null)}
+                  style={({ pressed }) => [
+                    styles.closeButton,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  hitSlop={12}
+                >
+                  <Ionicons name="close" size={28} color={colors.text} />
+                </Pressable>
+              </View>
 
               <ScrollView
                 contentContainerStyle={styles.modalContent}
@@ -248,11 +251,13 @@ const createStyles = (colors: typeof Colors.dark) =>
     modalSafeArea: {
       flex: 1,
     },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+    },
     closeButton: {
-      position: 'absolute',
-      top: Spacing.md,
-      left: Spacing.md,
-      zIndex: 10,
       width: 40,
       height: 40,
       justifyContent: 'center',
@@ -260,7 +265,7 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     modalContent: {
       alignItems: 'center',
-      paddingTop: 80,
+      paddingTop: Spacing.xl,
       paddingHorizontal: Spacing.xl,
       paddingBottom: Spacing.xl,
     },
