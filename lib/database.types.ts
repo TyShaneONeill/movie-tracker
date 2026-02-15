@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          id: string
+          name: string
+          description: string
+          icon: string
+          criteria_type: string
+          criteria_value: number
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description: string
+          icon?: string
+          criteria_type: string
+          criteria_value?: number
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string
+          icon?: string
+          criteria_type?: string
+          criteria_value?: number
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
       ai_usage_costs: {
         Row: {
           created_at: string
@@ -498,6 +531,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_achievements: {
+        Row: {
+          user_id: string
+          achievement_id: string
+          unlocked_at: string
+        }
+        Insert: {
+          user_id: string
+          achievement_id: string
+          unlocked_at?: string
+        }
+        Update: {
+          user_id?: string
+          achievement_id?: string
+          unlocked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_lists: {
         Row: {
           created_at: string | null
@@ -981,6 +1047,10 @@ export type FollowUpdate = Database['public']['Tables']['follows']['Update'];
 export type Notification = Database['public']['Tables']['notifications']['Row'];
 export type NotificationInsert = Database['public']['Tables']['notifications']['Insert'];
 export type NotificationUpdate = Database['public']['Tables']['notifications']['Update'];
+
+// Helper types for achievements
+export type Achievement = Database['public']['Tables']['achievements']['Row'];
+export type UserAchievement = Database['public']['Tables']['user_achievements']['Row'];
 
 // Helper types for genres
 export type Genre = Database['public']['Tables']['genres']['Row'];

@@ -14,7 +14,10 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '@/hooks/use-auth';
+import { useAchievements } from '@/hooks/use-achievements';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
+import { AchievementBadge } from '@/components/achievement-badge';
+import { AchievementCelebration } from '@/components/achievement-celebration';
 
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
@@ -36,7 +39,7 @@ import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 // Constants for header animation
-const HEADER_MAX_HEIGHT = 230; // Full header height (avatar, name, bio, follower stats)
+const HEADER_MAX_HEIGHT = 310; // Full header height (avatar, name, bio, follower stats, achievements)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
 const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
 
@@ -67,6 +70,33 @@ export default function ProfileScreen() {
 
     // Fetch notification unread count
     const { unreadCount } = useNotifications();
+
+    // Fetch achievements
+    const { achievements, userAchievements, triggerCheck, refetch: refetchAchievements } = useAchievements();
+    const [celebrationAchievement, setCelebrationAchievement] = useState<{
+        icon: string;
+        name: string;
+        description: string;
+    } | null>(null);
+    const [showCelebration, setShowCelebration] = useState(false);
+
+    // Check for newly earned achievements after data refresh
+    const checkForNewAchievements = useCallback(async () => {
+        try {
+            const newlyAwarded = await triggerCheck();
+            if (newlyAwarded.length > 0) {
+                const first = newlyAwarded[0];
+                setCelebrationAchievement({
+                    icon: first.achievement.icon,
+                    name: first.achievement.name,
+                    description: first.achievement.description,
+                });
+                setShowCelebration(true);
+            }
+        } catch {
+            // Silently ignore achievement check failures
+        }
+    }, [triggerCheck]);
 
     // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id)
     const {
@@ -173,9 +203,12 @@ export default function ProfileScreen() {
             refetch(),
             refetchLists(),
             refetchTakes(),
+            refetchAchievements(),
         ]);
         setIsRefreshing(false);
-    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes]);
+        // Check for newly earned achievements after refresh
+        checkForNewAchievements();
+    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes, refetchAchievements, checkForNewAchievements]);
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
         const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
@@ -515,6 +548,32 @@ export default function ProfileScreen() {
                         </ThemedText>
                     </Pressable>
                 </View>
+                {/* Achievements Row */}
+                <View style={styles.achievementsSection}>
+                    <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
+                        ACHIEVEMENTS
+                    </ThemedText>
+                    <View style={styles.achievementsRow}>
+                        {achievements.map((a) => {
+                            const earned = userAchievements.some(
+                                (ua) => ua.achievement.id === a.id
+                            );
+                            const earnedAt = userAchievements.find(
+                                (ua) => ua.achievement.id === a.id
+                            )?.unlocked_at;
+                            return (
+                                <AchievementBadge
+                                    key={a.id}
+                                    icon={a.icon}
+                                    name={a.name}
+                                    description={a.description}
+                                    unlocked={earned}
+                                    unlockedAt={earnedAt}
+                                />
+                            );
+                        })}
+                    </View>
+                </View>
             </Animated.View>
 
             {/* Combined Stat-Tab Bar */}
@@ -724,6 +783,32 @@ export default function ProfileScreen() {
                         <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
                             {profile?.bio || MOCK_USER.bio}
                         </ThemedText>
+                        {/* Achievements Row */}
+                        <View style={styles.achievementsSection}>
+                            <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
+                                ACHIEVEMENTS
+                            </ThemedText>
+                            <View style={styles.achievementsRow}>
+                                {achievements.map((a) => {
+                                    const earned = userAchievements.some(
+                                        (ua) => ua.achievement.id === a.id
+                                    );
+                                    const earnedAt = userAchievements.find(
+                                        (ua) => ua.achievement.id === a.id
+                                    )?.unlocked_at;
+                                    return (
+                                        <AchievementBadge
+                                            key={a.id}
+                                            icon={a.icon}
+                                            name={a.name}
+                                            description={a.description}
+                                            unlocked={earned}
+                                            unlockedAt={earnedAt}
+                                        />
+                                    );
+                                })}
+                            </View>
+                        </View>
                     </Animated.View>
 
                     {/* Combined Stat-Tab Bar */}
@@ -751,6 +836,13 @@ export default function ProfileScreen() {
                     {renderStatTabBar()}
                 </View>
             </Animated.View>
+
+            {/* Achievement Celebration Modal */}
+            <AchievementCelebration
+                achievement={celebrationAchievement}
+                visible={showCelebration}
+                onDismiss={() => setShowCelebration(false)}
+            />
         </SafeAreaView>
     );
 }
@@ -843,6 +935,24 @@ const styles = StyleSheet.create({
     followStatDivider: {
         width: 1,
         height: 24,
+    },
+    // Achievements section
+    achievementsSection: {
+        marginTop: Spacing.sm,
+        alignItems: 'center',
+        width: '100%',
+    },
+    achievementsLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: Spacing.sm,
+    },
+    achievementsRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: Spacing.sm,
     },
     // Combined stat-tab bar styles
     statTabBar: {
