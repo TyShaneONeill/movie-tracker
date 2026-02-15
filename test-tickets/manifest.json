@@ -1,0 +1,32 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": "1.0.0",
+  "description": "Golden truth data for ticket scanning accuracy testing",
+  "tickets": [
+    {
+      "id": "amc-sample-001",
+      "image_path": "amc/sample-001.jpg",
+      "source": "manual",
+      "added_date": "2025-01-15",
+      "notes": "Sample entry — replace with a real ticket image and correct values",
+      "expected": {
+        "movie_title": "The Dark Knight",
+        "theater_chain": "AMC",
+        "theater_name": "AMC Metreon 16",
+        "theater_location": "San Francisco, CA",
+        "showtime": "2024-03-15T19:30:00",
+        "seat_info": {
+          "row": "H",
+          "seat": "10"
+        },
+        "format": "IMAX",
+        "auditorium": "7",
+        "ticket_price": {
+          "amount": 16.99,
+          "currency": "USD"
+        },
+        "confidence_score": 0.95
+      }
+    }
+  ]
+}
