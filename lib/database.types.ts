@@ -776,6 +776,78 @@ export type Database = {
         }
         Relationships: []
       }
+      watchlist_comments: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_comments_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watchlist_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      watchlist_likes: {
+        Row: {
+          created_at: string
+          owner_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          owner_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          owner_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_likes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watchlist_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1157,4 +1229,19 @@ export type DisplayPoster = 'original' | 'ai_generated';
 // Grouped user movie for collection grid (deduped by tmdb_id)
 export interface GroupedUserMovie extends UserMovie {
   journeyCount: number;
+}
+
+// Helper types for watchlist social features
+export type WatchlistLike = Database['public']['Tables']['watchlist_likes']['Row'];
+export type WatchlistLikeInsert = Database['public']['Tables']['watchlist_likes']['Insert'];
+export type WatchlistComment = Database['public']['Tables']['watchlist_comments']['Row'];
+export type WatchlistCommentInsert = Database['public']['Tables']['watchlist_comments']['Insert'];
+
+/** Watchlist comment joined with the commenter's profile */
+export interface WatchlistCommentWithProfile extends WatchlistComment {
+  profiles: {
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
 }
