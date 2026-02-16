@@ -12,7 +12,6 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
-import { StarRating } from '@/components/ui/star-rating';
 
 interface FirstTakeCardProps {
   /**
@@ -36,7 +35,7 @@ interface FirstTakeCardProps {
   quote: string;
 
   /**
-   * Rating (0-10 scale, converted to 5 stars for display)
+   * Rating (0-10 scale), displayed as a number in the top-right corner
    */
   rating?: number | null;
 
@@ -115,13 +114,14 @@ export function FirstTakeCard({
             </Text>
           </View>
         </View>
-        <Text style={[styles.emoji, { color: colors.tint }]}>{emoji}</Text>
+        {rating != null && rating > 0 ? (
+          <Text style={[styles.ratingText, { color: colors.tint }]}>
+            {Number.isInteger(rating) ? rating.toString() : rating.toFixed(1)}
+          </Text>
+        ) : (
+          <Text style={styles.emoji}>{emoji}</Text>
+        )}
       </View>
-
-      {/* Rating */}
-      {rating != null && rating > 0 && (
-        <StarRating rating={Math.round(rating / 2)} size={14} style={styles.rating} />
-      )}
 
       {/* Quote */}
       <Text style={[styles.quote, { color: colors.text }]}>
@@ -170,9 +170,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginLeft: Spacing.sm,
   },
-  rating: {
-    justifyContent: 'flex-start',
-    marginBottom: Spacing.sm,
+  ratingText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: Spacing.sm,
   },
   quote: {
     ...Typography.body.base,
