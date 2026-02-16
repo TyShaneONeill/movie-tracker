@@ -81,17 +81,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      // Set Sentry user context on initial load
-      setSentryUser(session?.user?.id ?? null);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        // Stale or corrupted session — clear state and let user sign in fresh
+        console.warn('[auth] getSession failed:', error.message);
+        supabase.auth.signOut().catch(() => {});
+        setSession(null);
+        setUser(null);
+        setSentryUser(null);
+      } else {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setSentryUser(session?.user?.id ?? null);
+      }
+      setIsLoading(false);
+    }).catch(() => {
+      // Catch any unexpected throw (e.g. storage read failure)
       setIsLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Handle invalid refresh token — sign out gracefully instead of
+      // surfacing a raw AuthApiError to the user.
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.warn('[auth] Token refresh failed — signing out');
+        supabase.auth.signOut().catch(() => {});
+        setSession(null);
+        setUser(null);
+        setSentryUser(null);
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       // Update Sentry user context when auth state changes
