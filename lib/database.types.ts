@@ -398,6 +398,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          feed_last_seen_at: string | null
           first_take_prompt_enabled: boolean | null
           followers_count: number | null
           following_count: number | null
@@ -415,6 +416,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null
           followers_count?: number | null
           following_count?: number | null
@@ -432,6 +434,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null
           followers_count?: number | null
           following_count?: number | null
