@@ -4,7 +4,7 @@
  * Reference: ui-mocks/lists.html
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,17 @@ import {
   Pressable,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ListCard } from '@/components/cards/list-card';
-import { USER_LISTS, LIKED_LISTS } from '@/lib/mock-data/lists';
+import { CreateListModal } from '@/components/modals/create-list-modal';
+import { useUserLists } from '@/hooks/use-user-lists';
+import { useListMutations } from '@/hooks/use-list-mutations';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import Svg, { Path, Line } from 'react-native-svg';
 
 // Chevron Left Icon
@@ -43,6 +47,9 @@ function PlusIcon({ color }: { color: string }) {
 export default function ListsScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { data: lists, isLoading } = useUserLists();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const { createList } = useListMutations();
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -52,12 +59,14 @@ export default function ListsScreen() {
     }
   };
 
-  const handleCreateList = () => {
-    // TODO: Open create list modal
+  const handleCreateList = () => setShowCreateModal(true);
+
+  const handleCreate = async (data: { name: string; description: string; isPublic: boolean }) => {
+    await createList({ name: data.name, description: data.description || undefined, isPublic: data.isPublic });
   };
 
   const handleListPress = (listId: string) => {
-    // TODO: Navigate to list detail
+    router.push(`/list/${listId}`);
   };
 
   return (
@@ -120,35 +129,30 @@ export default function ListsScreen() {
           </Pressable>
 
           {/* User Lists */}
-          {USER_LISTS.map((list) => (
-            <ListCard
-              key={list.id}
-              title={list.title}
-              movieCount={list.movieCount}
-              posterUrls={list.posterUrls}
-              onPress={() => handleListPress(list.id)}
-            />
-          ))}
-        </View>
-
-        {/* Liked Lists Section */}
-        <View style={[styles.sectionHeader, { borderTopColor: colors.border }]}>
-          <Text style={[Typography.body.lg, { color: colors.text }]}>Liked Lists</Text>
-        </View>
-
-        <View style={styles.listGrid}>
-          {LIKED_LISTS.map((list) => (
-            <ListCard
-              key={list.id}
-              title={list.title}
-              movieCount={list.movieCount}
-              posterUrls={list.posterUrls}
-              user={list.user}
-              onPress={() => handleListPress(list.id)}
-            />
-          ))}
+          {isLoading ? (
+            <ActivityIndicator size="small" color={colors.tint} style={{ marginTop: Spacing.lg }} />
+          ) : lists && lists.length > 0 ? (
+            lists.map((list) => (
+              <ListCard
+                key={list.id}
+                title={list.name}
+                description={list.description}
+                movieCount={list.movie_count}
+                posterUrls={list.movies
+                  .slice(0, 4)
+                  .map((m) => getTMDBImageUrl(m.poster_path, 'w342'))
+                  .filter((url): url is string => url !== null)}
+                onPress={() => handleListPress(list.id)}
+              />
+            ))
+          ) : null}
         </View>
       </ScrollView>
+      <CreateListModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreate}
+      />
     </SafeAreaView>
   );
 }
@@ -211,11 +215,5 @@ const styles = StyleSheet.create({
   },
   createText: {
     fontWeight: '600',
-  },
-  sectionHeader: {
-    borderTopWidth: 1,
-    paddingTop: Spacing.md,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.md,
   },
 });
