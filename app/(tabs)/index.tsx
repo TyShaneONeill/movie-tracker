@@ -6,7 +6,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line } from 'react-native-svg';
@@ -21,12 +21,11 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useHomeMovieLists } from '@/hooks/use-home-movie-lists';
 import { useAuth } from '@/hooks/use-auth';
-import { useInfiniteActivityFeed } from '@/hooks/use-infinite-activity-feed';
-import { formatRelativeTime, type ActivityFeedItem } from '@/hooks/use-activity-feed';
+import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
+import { formatRelativeTime, type FeedListItem } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { NativeFeedAd } from '@/components/ads/native-feed-ad';
-import { useAds } from '@/lib/ads-context';
 import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
 
 function SunIcon({ color }: { color: string }) {
@@ -57,17 +56,10 @@ function SearchIcon({ color }: { color: string }) {
 // Default avatar for users without one
 const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
 
-const AD_INTERVAL = 25;
-
-type FeedListItem =
-  | { type: 'activity'; data: ActivityFeedItem }
-  | { type: 'ad'; id: string };
-
 export default function HomeScreen() {
   const { effectiveTheme, setThemePreference } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
-  const { adsEnabled } = useAds();
   const queryClient = useQueryClient();
 
   // Fetch movie lists with validation and deduplication
@@ -79,33 +71,15 @@ export default function HomeScreen() {
     refetch: refetchMovies,
   } = useHomeMovieLists();
 
-  // Fetch activity feed with infinite scroll pagination
+  // Fetch prioritized activity feed (following first, then community)
   const {
-    data: activityData,
+    feedItems,
+    isLoading: activityLoading,
+    refetch: refetchActivity,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isLoading: activityLoading,
-    refetch: refetchActivity,
-  } = useInfiniteActivityFeed();
-
-  // Flatten pages into single array
-  const activityFeed = useMemo(
-    () => activityData?.pages.flatMap((page) => page.items) ?? [],
-    [activityData]
-  );
-
-  // Interleave ad items every AD_INTERVAL items
-  const feedWithAds = useMemo((): FeedListItem[] => {
-    const items: FeedListItem[] = [];
-    for (let i = 0; i < activityFeed.length; i++) {
-      if (adsEnabled && i > 0 && i % AD_INTERVAL === 0) {
-        items.push({ type: 'ad', id: `ad-${i}` });
-      }
-      items.push({ type: 'activity', data: activityFeed[i] });
-    }
-    return items;
-  }, [activityFeed, adsEnabled]);
+  } = usePrioritizedFeed(user?.id);
 
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -139,10 +113,26 @@ export default function HomeScreen() {
     router.push(`/movie/${movieId}`);
   };
 
-  // Render activity feed item or ad
+  // Render activity feed item, ad, or separator
   const renderFeedItem = useCallback(
     ({ item }: { item: FeedListItem }) => {
       if (item.type === 'ad') return <NativeFeedAd />;
+
+      if (item.type === 'caught-up') {
+        return (
+          <View style={styles.caughtUpContainer}>
+            <View style={[styles.caughtUpLine, { backgroundColor: colors.textSecondary }]} />
+            <Text style={[styles.caughtUpText, { color: colors.textSecondary }]}>
+              You&apos;re all caught up
+            </Text>
+            <View style={[styles.caughtUpLine, { backgroundColor: colors.textSecondary }]} />
+          </View>
+        );
+      }
+
+      if (item.type === 'community-header') {
+        return <SectionHeader title="From the community" style={{ marginTop: Spacing.sm }} />;
+      }
 
       const feed = item.data;
       return (
@@ -160,7 +150,7 @@ export default function HomeScreen() {
         />
       );
     },
-    [user?.id]
+    [user?.id, colors.textSecondary]
   );
 
   // Header component with all movie sections
@@ -357,8 +347,12 @@ export default function HomeScreen() {
       edges={['top']}
     >
       <FlatList
-        data={feedWithAds}
-        keyExtractor={(item) => item.type === 'ad' ? item.id : item.data.id}
+        data={feedItems}
+        keyExtractor={(item, index) =>
+          item.type === 'ad' ? item.id :
+          item.type === 'activity' ? item.data.id :
+          item.type + '-' + index
+        }
         renderItem={renderFeedItem}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
@@ -434,5 +428,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  caughtUpContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  caughtUpLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    opacity: 0.3,
+  },
+  caughtUpText: {
+    ...Typography.body.sm,
   },
 });

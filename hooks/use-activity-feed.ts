@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabase';
 import type { ReviewVisibility } from '@/lib/database.types';
 
 /**
+ * Discriminated union for all feed list item types.
+ * Used by both the legacy and prioritized feed renderers.
+ */
+export type FeedListItem =
+  | { type: 'activity'; data: ActivityFeedItem }
+  | { type: 'ad'; id: string }
+  | { type: 'caught-up' }
+  | { type: 'community-header' };
+
+/**
  * Activity feed item with user profile information
  */
 export interface ActivityFeedItem {
