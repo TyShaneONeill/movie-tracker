@@ -13,6 +13,8 @@ interface MovieStatusActionsProps {
   currentStatus: MovieStatus | null;
   /** Whether a mutation is in progress */
   isLoading?: boolean;
+  /** Whether the buttons should be disabled (e.g. during pending mutations) */
+  disabled?: boolean;
   /** Called when user taps a status button */
   onStatusChange: (status: MovieStatus | null) => void;
 }
@@ -49,6 +51,7 @@ interface StatusButtonProps {
   activeIcon: React.ReactNode;
   isActive: boolean;
   isLoading: boolean;
+  disabled: boolean;
   onPress: () => void;
   activeColor: string;
   inactiveColor: string;
@@ -61,6 +64,7 @@ function StatusButton({
   activeIcon,
   isActive,
   isLoading,
+  disabled,
   onPress,
   activeColor,
   inactiveColor,
@@ -69,10 +73,11 @@ function StatusButton({
   return (
     <Pressable
       onPress={onPress}
-      disabled={isLoading}
+      disabled={isLoading || disabled}
       style={({ pressed }) => [
         styles.statusButtonContainer,
         pressed && styles.statusButtonPressed,
+        disabled && { opacity: 0.5 },
       ]}
     >
       <View
@@ -104,6 +109,7 @@ function StatusButton({
 export function MovieStatusActions({
   currentStatus,
   isLoading = false,
+  disabled = false,
   onStatusChange,
 }: MovieStatusActionsProps) {
   const { effectiveTheme } = useTheme();
@@ -171,6 +177,7 @@ export function MovieStatusActions({
         activeIcon={<BookmarkIcon color={watchlistColor} />}
         isActive={isWatchlist}
         isLoading={isLoading && isWatchlist}
+        disabled={disabled}
         onPress={handleWatchlist}
         activeColor={watchlistColor}
         inactiveColor={inactiveColor}
@@ -182,6 +189,7 @@ export function MovieStatusActions({
         activeIcon={<EyeIcon color={watchingColor} />}
         isActive={isWatching}
         isLoading={isLoading && isWatching}
+        disabled={disabled}
         onPress={handleWatching}
         activeColor={watchingColor}
         inactiveColor={inactiveColor}
@@ -193,6 +201,7 @@ export function MovieStatusActions({
         activeIcon={<CheckIcon color={watchedColor} />}
         isActive={isWatched}
         isLoading={isLoading && isWatched}
+        disabled={disabled}
         onPress={handleWatched}
         activeColor={watchedColor}
         inactiveColor={inactiveColor}

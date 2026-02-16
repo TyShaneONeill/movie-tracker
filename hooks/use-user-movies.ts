@@ -79,19 +79,19 @@ export function useUserMovies(status?: MovieStatus) {
 
   const updateMutation = useMutation({
     mutationFn: ({
-      movieId,
+      tmdbId,
       status,
     }: {
-      movieId: string;
+      tmdbId: number;
       status: MovieStatus;
-    }) => updateMovieStatus(movieId, status),
+    }) => updateMovieStatus(user!.id, tmdbId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
     },
   });
 
   const removeMutation = useMutation({
-    mutationFn: (movieId: string) => removeMovieFromLibrary(movieId),
+    mutationFn: (tmdbId: number) => removeMovieFromLibrary(user!.id, tmdbId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
     },

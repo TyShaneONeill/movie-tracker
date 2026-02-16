@@ -152,15 +152,11 @@ export async function addMovieToLibrary(
 
   const { data, error } = (await (supabase
     .from('user_movies') as any)
-    .insert(insertData)
+    .upsert(insertData, { onConflict: 'user_id,tmdb_id' })
     .select()
     .single()) as { data: UserMovie; error: any };
 
   if (error) {
-    // Check for unique constraint violation
-    if (error.code === '23505') {
-      throw new Error('DUPLICATE');
-    }
     throw new Error(error.message || 'Failed to add movie');
   }
 
@@ -169,7 +165,8 @@ export async function addMovieToLibrary(
 
 // Update movie status
 export async function updateMovieStatus(
-  movieId: string,
+  userId: string,
+  tmdbId: number,
   status: MovieStatus
 ): Promise<UserMovie> {
   const updateData: UserMovieUpdate = { status };
@@ -177,7 +174,8 @@ export async function updateMovieStatus(
   const { data, error } = (await (supabase
     .from('user_movies') as any)
     .update(updateData)
-    .eq('id', movieId)
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
     .select()
     .single()) as { data: UserMovie; error: any };
 
@@ -189,11 +187,12 @@ export async function updateMovieStatus(
 }
 
 // Remove movie from library
-export async function removeMovieFromLibrary(movieId: string): Promise<void> {
+export async function removeMovieFromLibrary(userId: string, tmdbId: number): Promise<void> {
   const { error } = await supabase
     .from('user_movies')
     .delete()
-    .eq('id', movieId);
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId);
 
   if (error) {
     throw new Error(error.message || 'Failed to remove movie');
