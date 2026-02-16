@@ -30,6 +30,8 @@ interface ExtractedTicket {
 }
 
 interface GeminiExtraction {
+  chain_identified: string;
+  chain_confidence: number;
   tickets: ExtractedTicket[];
   image_quality: 'good' | 'fair' | 'poor';
   confidence_score: number;
@@ -73,6 +75,8 @@ interface ScanTicketResponse {
   accountTier: string;
   tickets: ProcessedTicket[];
   extractionConfidence: number;
+  chainIdentified: string;
+  chainConfidence: number;
   notes: string;
 }
 
@@ -101,31 +105,76 @@ interface TMDBSearchResponse {
 // Extraction Prompt
 // ============================================================================
 
-const EXTRACTION_PROMPT = `You are a movie ticket data extraction assistant. Analyze this image of movie ticket(s) and extract ALL ticket information you can find.
+const EXTRACTION_PROMPT = `You are a movie ticket data extraction expert. Follow these steps carefully.
 
-For EACH ticket visible in the image, extract into JSON:
-{
-  "tickets": [
-    {
-      "movie_title": "exact title from ticket",
-      "theater_name": "full theater name",
-      "theater_chain": "chain name or null",
-      "date": "YYYY-MM-DD",
-      "showtime": "HH:MM (24hr)",
-      "seat": { "row": "letter/number or null", "number": "number or null" },
-      "auditorium": "number or null",
-      "format": "IMAX/Dolby/3D/Standard or null",
-      "price": { "amount": number or null, "currency": "USD" },
-      "ticket_type": "Adult/Child/Senior or null",
-      "confirmation_number": "string or null",
-      "barcode_visible": boolean
-    }
-  ],
-  "image_quality": "good/fair/poor",
-  "confidence_score": 0.0-1.0,
-  "notes": "observations"
-}
-Return ONLY valid JSON.`;
+## Step 1: Identify the Theater Chain
+Examine the ticket image for these visual identifiers:
+- AMC: "amc amazing" watermark with small icons (popcorn, rockets, planets, skulls)
+- Cinemark: Stylized italic "CINEMARK" logo. Location may say "Century" (subsidiary)
+- Showcase: "SHOWCASE CINEMA DE LUX" or "SHOWCASE" diagonal watermark
+- Regal: Regal crown/shield repeating watermark
+- CW/Cinemaworld: Coca-Cola branded cardstock (blue/pink) or plain white two-part ticket with "Cinemaworld Lincoln"
+- Alamo Drafthouse: "ALAMO DRAFTHOUSE" text
+- Drive-In: "Rustic Tri-Vue" or "West Wind" text, or FM frequency in screen field
+If no chain matches: "Unknown"
+
+## Step 2: Apply Chain-Specific Extraction Rules
+
+### AMC
+- Strip "AD CC" suffix from ALL titles (Audio Description + Closed Captioning)
+- Format may be embedded in title BEFORE "AD CC" (e.g., "LILO & DOLBY AD CC" → title: "Lilo & Stitch", format: "Dolby")
+- Titles may be truncated mid-word (2022) or at word boundary (2024+) — infer the full title
+- Seat is in a dark box as combined row+number ("G2" = Row G, Seat 2)
+- Location has store ID suffix ("Assembly Row #0504") — don't include "#0504" in theater name
+- "ADULT*" asterisk = AMC Stubs pricing
+- Chain name is ONLY in the watermark, never printed as text
+
+### Cinemark
+- "House: NN" = auditorium number (Cinemark's unique term for screen)
+- "Seat# XNN" = combined row letter + seat number (G12 = Row G, Seat 12)
+- "General Admission" and "Matinee" are PRICING TIERS — seats ARE assigned
+- "Century" in location = Cinemark subsidiary, chain is still "Cinemark"
+- Titles are clean — no suffix to strip
+- "Rated: PG-13" includes "Rated:" prefix — extract just the rating code
+
+### Showcase Cinema de Lux
+- 2017 stubs may print venue name ("Providence Place Cinema") not chain name — chain is still "Showcase Cinema de Lux"
+- 2017 non-IMAX: "-CCDV" suffix on titles — strip it (e.g., "GUARD 2-CCDV" → "Guardians of the Galaxy Vol. 2")
+- 2017 IMAX: format appended to title ("FAST 8 IMAX" → title: "The Fate of the Furious", format: "IMAX")
+- "SEAT L25" = combined row+seat (L = Row, 25 = Seat)
+- "GAR" = General Admission Reserved, "GA" = General Admission (no seats), "SPASS" = free pass
+- "THEATRE" or "Theatre" = auditorium number
+
+### Regal
+- Chain name never printed as text — only in crown watermark
+- "REGW" after price = Regal Web purchase channel (not part of price)
+- Title may drop words to fit (e.g., "Jay Silent Bob" → "Jay and Silent Bob Reboot")
+- 2-digit year in dates (MM/DD/YY)
+
+### CW Theatres / Cinemaworld
+- Seat format varies: "Row-N, Seat-6" (dashes), "Row=N, Seat=Y" (equals), or "ROW,SEAT" (comma-separated)
+- Ticket types: "AdEve"=Adult Evening, "STEve"=Student Evening, "ADMat"=Adult Matinee, "SRMat"=Senior Matinee, "MIMat"=Military Matinee
+- No year on dates for Coca-Cola cardstock variants — infer from movie release dates
+- May have "2D" prefix on older titles — strip it
+
+### Drive-In Theaters
+- Two movies on one ticket separated by "/" — extract BOTH (first = primary feature)
+- "Theatre #N" = outdoor screen number, not indoor auditorium
+- No seat info (parking spots, not seats)
+- Late showtime (8-9 PM) in summer is normal for drive-ins
+- Price may be per-car, not per-person
+
+### Unknown Chain
+- Extract all visible fields using standard layout assumptions
+- Set chain_identified to "Unknown" with low confidence
+
+## Step 3: Extract Ticket Data
+For EACH ticket visible, extract the fields into the required JSON schema.
+Important:
+- Use the FULL movie title (reconstruct truncated titles when possible)
+- Date must be YYYY-MM-DD format
+- Showtime must be HH:MM in 24-hour format
+- If year is missing, infer from movie release dates`;
 
 // ============================================================================
 // Post-Processing Functions
@@ -138,7 +187,12 @@ function cleanMovieTitle(title: string): string {
   if (!title) return '';
 
   // Patterns to remove from movie titles
+  // Chain-specific patterns first, then generic format patterns
   const formatPatterns = [
+    /\s+AD\s+CC\s*$/i,                    // AMC: "STRANGE WORL AD CC" → "STRANGE WORL"
+    /\s+\w+\s+AD\s+CC\s*$/i,             // AMC format+AD CC: "LILO & DOLBY AD CC" → "LILO &" (format strip below catches DOLBY separately)
+    /\s*-\s*CCDV\s*$/i,                   // Showcase 2017: "GUARD 2-CCDV" → "GUARD 2"
+    /\s*-\s*CC\s*$/i,                     // Showcase generic CC suffix
     /\s*[-–—:]\s*(DOLBY|IMAX|3D|2D|4DX|SCREENX|RPX|XD|DBOX|D-BOX|ATMOS|CINEMA)\s*$/i,
     /\s*\((DOLBY|IMAX|3D|2D|4DX|SCREENX|RPX|XD|DBOX|D-BOX|ATMOS|CINEMA)\)\s*$/i,
     /\s*\[(DOLBY|IMAX|3D|2D|4DX|SCREENX|RPX|XD|DBOX|D-BOX|ATMOS|CINEMA)\]\s*$/i,
@@ -483,6 +537,65 @@ async function extractWithGemini(
         generationConfig: {
           temperature: 0.1,
           maxOutputTokens: 4096,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              chain_identified: {
+                type: "string",
+                description: "Theater chain identified from visual cues",
+                enum: ["AMC", "Cinemark", "Showcase Cinema de Lux", "Regal", "CW Theatres", "Alamo Drafthouse", "Drive-In", "Unknown"]
+              },
+              chain_confidence: {
+                type: "number",
+                description: "Confidence in chain identification (0.0-1.0)"
+              },
+              tickets: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    movie_title: { type: "string" },
+                    theater_name: { type: "string" },
+                    theater_chain: { type: "string" },
+                    date: { type: "string" },
+                    showtime: { type: "string" },
+                    seat: {
+                      type: "object",
+                      properties: {
+                        row: { type: "string" },
+                        number: { type: "string" }
+                      },
+                      propertyOrdering: ["row", "number"]
+                    },
+                    auditorium: { type: "string" },
+                    format: { type: "string" },
+                    price: {
+                      type: "object",
+                      properties: {
+                        amount: { type: "number" },
+                        currency: { type: "string" }
+                      },
+                      propertyOrdering: ["amount", "currency"]
+                    },
+                    ticket_type: { type: "string" },
+                    confirmation_number: { type: "string" },
+                    barcode_visible: { type: "boolean" }
+                  },
+                  required: ["movie_title"],
+                  propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "confirmation_number", "barcode_visible"]
+                }
+              },
+              image_quality: {
+                type: "string",
+                enum: ["good", "fair", "poor"]
+              },
+              confidence_score: { type: "number" },
+              notes: { type: "string" }
+            },
+            required: ["chain_identified", "chain_confidence", "tickets", "confidence_score"],
+            propertyOrdering: ["chain_identified", "chain_confidence", "tickets", "image_quality", "confidence_score", "notes"]
+          }
         }
       })
     }
@@ -503,30 +616,20 @@ async function extractWithGemini(
     throw new Error('No content in Gemini response');
   }
 
-  // Parse the JSON from the response
-  // Gemini might wrap it in markdown code blocks
-  let jsonStr = textContent.trim();
-
-  // Remove markdown code blocks if present
-  if (jsonStr.startsWith('```json')) {
-    jsonStr = jsonStr.slice(7);
-  } else if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.slice(3);
-  }
-  if (jsonStr.endsWith('```')) {
-    jsonStr = jsonStr.slice(0, -3);
-  }
-  jsonStr = jsonStr.trim();
-
+  // With structured output (responseMimeType: "application/json"), Gemini returns raw JSON
   try {
-    const parsed = JSON.parse(jsonStr);
+    const parsed = JSON.parse(textContent);
 
     // Validate the structure
     if (!parsed.tickets || !Array.isArray(parsed.tickets)) {
       throw new Error('Invalid extraction format: missing tickets array');
     }
 
+    console.log(`[scan-ticket] Chain identified: ${parsed.chain_identified} (confidence: ${parsed.chain_confidence})`);
+
     return {
+      chain_identified: parsed.chain_identified || 'Unknown',
+      chain_confidence: parsed.chain_confidence ?? 0,
       tickets: parsed.tickets,
       image_quality: parsed.image_quality || 'fair',
       confidence_score: parsed.confidence_score ?? 0.5,
@@ -734,6 +837,8 @@ Deno.serve(async (req: Request) => {
       accountTier: rateLimitResult.account_tier,
       tickets: deduplicatedTickets,
       extractionConfidence: extraction.confidence_score,
+      chainIdentified: extraction.chain_identified,
+      chainConfidence: extraction.chain_confidence,
       notes: extraction.notes,
     };
 
