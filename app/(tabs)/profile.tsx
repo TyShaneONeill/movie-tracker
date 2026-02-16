@@ -480,12 +480,6 @@ export default function ProfileScreen() {
                 <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
                     ACHIEVEMENTS
                 </ThemedText>
-                <Pressable
-                    onPress={() => router.push('/achievements')}
-                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-                >
-                    <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-                </Pressable>
             </View>
             <ScrollView
                 horizontal
@@ -905,10 +899,7 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     achievementsHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
         width: '100%',
     },
     achievementsScrollContent: {
