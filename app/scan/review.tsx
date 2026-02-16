@@ -161,6 +161,7 @@ export default function TicketReviewScreen() {
   const [tickets, setTickets] = useState<ProcessedTicket[]>(initialTickets);
   const [showDuplicateNotice, setShowDuplicateNotice] = useState(duplicatesRemoved > 0);
   const [editingTicket, setEditingTicket] = useState<ProcessedTicket | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -198,8 +199,9 @@ export default function TicketReviewScreen() {
   }, []);
 
   // Handle edit ticket
-  const handleEditTicket = useCallback((ticket: ProcessedTicket) => {
+  const handleEditTicket = useCallback((ticket: ProcessedTicket, index: number) => {
     setEditingTicket(ticket);
+    setEditingIndex(index);
     setIsEditModalVisible(true);
   }, []);
 
@@ -207,27 +209,21 @@ export default function TicketReviewScreen() {
   const handleCloseEditModal = useCallback(() => {
     setIsEditModalVisible(false);
     setEditingTicket(null);
+    setEditingIndex(-1);
   }, []);
 
-  // Handle save edited ticket
+  // Handle save edited ticket — update by index to avoid null===null matching bugs
   const handleSaveTicket = useCallback((updatedTicket: ProcessedTicket) => {
     setTickets((prevTickets) =>
-      prevTickets.map((t) =>
-        t.confirmationNumber === updatedTicket.confirmationNumber ||
-        (t.movieTitle === editingTicket?.movieTitle &&
-          t.date === editingTicket?.date &&
-          t.showtime === editingTicket?.showtime)
-          ? updatedTicket
-          : t
-      )
+      prevTickets.map((t, i) => i === editingIndex ? updatedTicket : t)
     );
     handleCloseEditModal();
-  }, [editingTicket, handleCloseEditModal]);
+  }, [editingIndex, handleCloseEditModal]);
 
   // Handle manual TMDB search for unmatched tickets
-  const handleSearchTMDB = useCallback((ticket: ProcessedTicket) => {
+  const handleSearchTMDB = useCallback((ticket: ProcessedTicket, index: number) => {
     // For now, just open edit modal. Could be enhanced to open search modal.
-    handleEditTicket(ticket);
+    handleEditTicket(ticket, index);
   }, [handleEditTicket]);
 
   // Handle First Take modal submission
@@ -577,8 +573,8 @@ export default function TicketReviewScreen() {
               <TicketReviewCard
                 key={ticket.confirmationNumber || `ticket-${index}`}
                 ticket={ticket}
-                onEdit={() => handleEditTicket(ticket)}
-                onSearchTMDB={() => handleSearchTMDB(ticket)}
+                onEdit={() => handleEditTicket(ticket, index)}
+                onSearchTMDB={() => handleSearchTMDB(ticket, index)}
               />
             ))}
           </View>
