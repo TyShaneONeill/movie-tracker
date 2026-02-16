@@ -21,11 +21,13 @@ import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
+import { CreateListModal } from '@/components/modals/create-list-modal';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useUserMovies } from '@/hooks/use-user-movies';
 import { useUserLists } from '@/hooks/use-user-lists';
+import { useListMutations } from '@/hooks/use-list-mutations';
 import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useProfile } from '@/hooks/use-profile';
 import { useNotifications } from '@/hooks/use-notifications';
@@ -55,6 +57,7 @@ export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const scrollViewRef = useRef<Animated.ScrollView>(null);
     const flatListRef = useRef<Animated.FlatList<GroupedUserMovie>>(null);
 
@@ -91,6 +94,8 @@ export default function ProfileScreen() {
         isError: listsError,
         refetch: refetchLists,
     } = useUserLists();
+
+    const { createList } = useListMutations();
 
     // Fetch user's first takes
     const {
@@ -660,6 +665,36 @@ export default function ProfileScreen() {
                             ))}
                         </>
                     )}
+
+                    {/* Create List card */}
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.createListCard,
+                            { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                        ]}
+                        onPress={() => setShowCreateModal(true)}
+                    >
+                        <Ionicons name="add-circle-outline" size={28} color={colors.tint} />
+                        <ThemedText style={[styles.createListText, { color: colors.tint }]}>
+                            Create a List
+                        </ThemedText>
+                    </Pressable>
+
+                    {/* See All Lists link */}
+                    {userLists && userLists.length > 0 && (
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.seeAllListsRow,
+                                { opacity: pressed ? 0.7 : 1 },
+                            ]}
+                            onPress={() => router.push('/lists')}
+                        >
+                            <ThemedText style={[styles.seeAllListsText, { color: colors.tint }]}>
+                                See All Lists
+                            </ThemedText>
+                            <Ionicons name="chevron-forward" size={18} color={colors.tint} />
+                        </Pressable>
+                    )}
                 </View>
             );
         }
@@ -793,6 +828,13 @@ export default function ProfileScreen() {
                 </View>
             </Animated.View>
 
+            <CreateListModal
+                visible={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onCreate={async (data) => {
+                    await createList({ name: data.name, description: data.description, isPublic: data.isPublic });
+                }}
+            />
         </SafeAreaView>
     );
 }
@@ -990,6 +1032,7 @@ const styles = StyleSheet.create({
     // Lists tab styles
     listsContent: {
         gap: Spacing.md,
+        paddingTop: Spacing.md,
     },
     listCard: {
         marginBottom: 0,
@@ -1105,5 +1148,29 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: Spacing.md,
+    },
+    createListCard: {
+        borderWidth: 1.5,
+        borderStyle: 'dashed',
+        borderRadius: BorderRadius.md,
+        paddingVertical: Spacing.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+    },
+    createListText: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    seeAllListsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
+        paddingVertical: Spacing.sm,
+    },
+    seeAllListsText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

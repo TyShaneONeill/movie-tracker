@@ -28,9 +28,10 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useUserMovies } from '@/hooks/use-user-movies';
+import { useListDetail } from '@/hooks/use-list-mutations';
 import { useProfile } from '@/hooks/use-profile';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { MovieStatus, UserMovie } from '@/lib/database.types';
+import type { MovieStatus, UserMovie, ListMovie } from '@/lib/database.types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 320;
@@ -57,20 +58,55 @@ export default function ListDetailScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
-  // Convert id to MovieStatus for the hook
-  const status = id as MovieStatus;
+  const isSystemList = id === 'watchlist' || id === 'watching';
 
-  // Fetch movies for this list
-  const { movies, isLoading, isError } = useUserMovies(status);
+  // Fetch system list movies (only when system list)
+  const { movies: systemMovies, isLoading: systemLoading, isError: systemError } = useUserMovies(
+    isSystemList ? (id as MovieStatus) : 'watchlist' // fallback value; disabled below
+  );
+
+  // Fetch custom list detail (only when custom list)
+  const { data: customList, isLoading: customLoading, isError: customError } = useListDetail(
+    isSystemList ? undefined : id
+  );
+
+  // Unified loading/error states
+  const isLoading = isSystemList ? systemLoading : customLoading;
+  const isError = isSystemList ? systemError : customError;
 
   // Fetch user profile for creator info
   const { profile } = useProfile();
 
+  // Unified movie data as a common shape
+  const movies: { id: string; tmdb_id: number; poster_path: string | null }[] = useMemo(() => {
+    if (isSystemList) {
+      return systemMovies.map((m: UserMovie) => ({
+        id: m.id,
+        tmdb_id: m.tmdb_id,
+        poster_path: m.poster_path,
+      }));
+    }
+    return (customList?.movies ?? []).map((m: ListMovie) => ({
+      id: m.id,
+      tmdb_id: m.tmdb_id,
+      poster_path: m.poster_path,
+    }));
+  }, [isSystemList, systemMovies, customList?.movies]);
+
   // Get list metadata
-  const listMeta = LIST_META[id ?? ''] ?? {
-    title: id ?? 'List',
-    description: '',
-  };
+  const listMeta = useMemo(() => {
+    if (isSystemList) {
+      return LIST_META[id ?? ''] ?? { title: id ?? 'List', description: '' };
+    }
+    const movieCount = customList?.movies.length ?? 0;
+    const countText = `${movieCount} ${movieCount === 1 ? 'movie' : 'movies'}`;
+    return {
+      title: customList?.name ?? 'List',
+      description: customList?.description
+        ? `${customList.description} \u00B7 ${countText}`
+        : countText,
+    };
+  }, [isSystemList, id, customList]);
 
   // Get first movie's poster for hero background
   const heroImageUrl = movies.length > 0
@@ -93,7 +129,7 @@ export default function ListDetailScreen() {
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
   // Render movie grid item
-  const renderMovieItem = ({ item, index }: { item: UserMovie; index: number }) => {
+  const renderMovieItem = ({ item, index }: { item: { id: string; tmdb_id: number; poster_path: string | null }; index: number }) => {
     const posterUrl = getTMDBImageUrl(item.poster_path, 'w342');
     const rank = index + 1;
 
@@ -122,13 +158,15 @@ export default function ListDetailScreen() {
   const EmptyState = () => (
     <View style={dynamicStyles.emptyState}>
       <Text style={dynamicStyles.emptyIcon}>
-        {id === 'watchlist' ? '🎬' : '📺'}
+        {isSystemList ? (id === 'watchlist' ? '🎬' : '📺') : '📋'}
       </Text>
       <Text style={dynamicStyles.emptyTitle}>No movies yet</Text>
       <Text style={dynamicStyles.emptySubtitle}>
-        {id === 'watchlist'
-          ? 'Add movies you want to watch from the search or browse screens.'
-          : 'Start watching a movie to see it here.'}
+        {isSystemList
+          ? (id === 'watchlist'
+            ? 'Add movies you want to watch from the search or browse screens.'
+            : 'Start watching a movie to see it here.')
+          : 'No movies in this list yet. Add movies from the movie detail page.'}
       </Text>
     </View>
   );

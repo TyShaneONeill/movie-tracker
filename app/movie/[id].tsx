@@ -35,19 +35,25 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
+import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { TrailerModal } from '@/components/modals/trailer-modal';
+import { AddToListModal } from '@/components/modals/add-to-list-modal';
+import { CreateListModal } from '@/components/modals/create-list-modal';
 import { useMovieDetail } from '@/hooks/use-movie-detail';
 import { useMovieActions } from '@/hooks/use-movie-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useUserLists } from '@/hooks/use-user-lists';
+import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import { addMovieToList, createList } from '@/lib/list-service';
 import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
 import type { MovieStatus } from '@/lib/database.types';
 
@@ -65,10 +71,15 @@ export default function MovieDetailScreen() {
   const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: userLists } = useUserLists();
 
   // Modal state for First Take
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [showAddToListModal, setShowAddToListModal] = useState(false);
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
 
   // Fetch movie details using the hook
   const { movie, cast, crew, trailer, watchProviders, isLoading, isError, error } = useMovieDetail({
@@ -267,6 +278,32 @@ export default function MovieDetailScreen() {
     }
   };
 
+  const handleAddToList = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    requireAuth(() => {
+      setShowAddToListModal(true);
+    }, 'Sign in to save movies to lists');
+  };
+
+  const handleSaveToLists = async (selectedListIds: string[]) => {
+    if (!movie) return;
+    try {
+      await Promise.all(
+        selectedListIds.map((listId) =>
+          addMovieToList(listId, movie.id, movie.title, movie.poster_path)
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ['user-lists', user?.id] });
+      Toast.show({
+        type: 'success',
+        text1: 'Saved to Lists',
+        visibilityTime: 2000,
+      });
+    } catch {
+      Alert.alert('Error', 'Failed to save movie to lists. Please try again.');
+    }
+  };
+
   // handleReview and handleShare removed - Coming Soon features
   // showMoreOptionsSheet and hideMoreOptionsSheet removed - More options button hidden
 
@@ -432,7 +469,7 @@ export default function MovieDetailScreen() {
             />
           </View>
 
-          {/* Action Grid - 3 items: Like, Review, Share */}
+          {/* Action Grid - 4 items: Like, Lists, Review, Share */}
           <View style={dynamicStyles.actionGrid}>
             <Pressable
               onPress={handleLike}
@@ -452,6 +489,18 @@ export default function MovieDetailScreen() {
               <Text style={[dynamicStyles.actionLabel, isLiked && dynamicStyles.actionLabelActive]}>
                 {isLiked ? 'Liked' : 'Like'}
               </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleAddToList}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </Svg>
+              <Text style={dynamicStyles.actionLabel}>Lists</Text>
             </Pressable>
             <View style={dynamicStyles.actionItemDisabled}>
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -597,6 +646,48 @@ export default function MovieDetailScreen() {
           trailerName={trailer.name}
         />
       )}
+
+      {/* Add to List Modal */}
+      <AddToListModal
+        visible={showAddToListModal}
+        onClose={() => setShowAddToListModal(false)}
+        onSave={handleSaveToLists}
+        onCreateNewList={() => setShowCreateListModal(true)}
+        movie={{
+          id: String(movie.id),
+          title: movie.title,
+          year: movieYear,
+          posterUrl: getTMDBImageUrl(movie.poster_path, 'w185') ?? '',
+        }}
+        lists={userLists?.map((l) => ({
+          id: l.id,
+          name: l.name,
+          icon: 'list-outline' as const,
+          count: l.movie_count,
+        })) ?? []}
+      />
+
+      {/* Create List Modal (from Add to List flow) */}
+      <CreateListModal
+        visible={showCreateListModal}
+        onClose={() => setShowCreateListModal(false)}
+        onCreate={async (listData) => {
+          if (!user) return;
+          try {
+            await createList(user.id, listData.name, listData.description, listData.isPublic);
+            queryClient.invalidateQueries({ queryKey: ['user-lists', user.id] });
+            Toast.show({
+              type: 'success',
+              text1: 'List Created',
+              visibilityTime: 2000,
+            });
+            // Re-open the add-to-list modal so user can select the new list
+            setShowAddToListModal(true);
+          } catch {
+            Alert.alert('Error', 'Failed to create list. Please try again.');
+          }
+        }}
+      />
     </View>
   );
 }
