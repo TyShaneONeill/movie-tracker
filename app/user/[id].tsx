@@ -12,6 +12,7 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -27,6 +28,9 @@ import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import { useWatchlistSocial } from '@/hooks/use-watchlist-social';
+import { useAuth } from '@/hooks/use-auth';
+import { formatRelativeTime } from '@/hooks/use-activity-feed';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'watchlist';
@@ -98,6 +102,27 @@ export default function UserProfileScreen() {
   // Fetch user profile data using the hook
   const { profile, watchedMovies, firstTakes, watchlist, isLoading, isError, stats } =
     useUserProfile(id!);
+
+  const { user } = useAuth();
+  const {
+    isLiked,
+    likeCount,
+    isTogglingLike,
+    toggleLike,
+    comments,
+    isLoadingComments,
+    isAddingComment,
+    addComment,
+    deleteComment,
+  } = useWatchlistSocial(id!);
+
+  const [commentText, setCommentText] = useState('');
+
+  const handleAddComment = useCallback(async () => {
+    if (!commentText.trim()) return;
+    await addComment(commentText.trim());
+    setCommentText('');
+  }, [commentText, addComment]);
 
   // Group watched movies for collection grid
   const groupedMovies = useMemo(() => {
@@ -245,43 +270,173 @@ export default function UserProfileScreen() {
 
   // Render watchlist grid
   const renderWatchlistGrid = () => {
-    if (watchlist.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={48} color={colors.textSecondary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Watchlist is empty
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            This user has not added any movies to their watchlist
-          </Text>
-        </View>
-      );
-    }
+    const isOwnProfile = user?.id === id;
 
     return (
-      <View style={styles.gridContainer}>
-        {watchlist.map((movie) => (
-          <Pressable
-            key={movie.id}
-            onPress={() => router.push(`/movie/${movie.tmdb_id}`)}
-            style={({ pressed }) => [
-              styles.watchlistCard,
-              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Image
-              source={{
-                uri: movie.poster_path
-                  ? getTMDBImageUrl(movie.poster_path, 'w342') ?? undefined
-                  : undefined,
-              }}
-              style={styles.watchlistImage}
-              contentFit="cover"
-              transition={200}
-            />
-          </Pressable>
-        ))}
+      <View>
+        {/* Like bar - show for other users' watchlists */}
+        {!isOwnProfile && (
+          <View style={styles.likeBar}>
+            <Pressable
+              onPress={toggleLike}
+              disabled={isTogglingLike || !user}
+              style={({ pressed }) => [
+                styles.likeButton,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={24}
+                color={isLiked ? '#e11d48' : colors.textSecondary}
+              />
+              <Text style={[styles.likeCount, { color: colors.text }]}>
+                {likeCount}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Show like count for own profile */}
+        {isOwnProfile && likeCount > 0 && (
+          <View style={styles.likeBar}>
+            <Ionicons name="heart" size={20} color="#e11d48" />
+            <Text style={[styles.likeCountLabel, { color: colors.textSecondary }]}>
+              {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+            </Text>
+          </View>
+        )}
+
+        {/* Watchlist grid */}
+        {watchlist.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="bookmark-outline" size={48} color={colors.textSecondary} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              Watchlist is empty
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              {isOwnProfile
+                ? 'Add movies to your watchlist to get started'
+                : 'This user has not added any movies to their watchlist'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.gridContainer}>
+            {watchlist.map((movie) => (
+              <Pressable
+                key={movie.id}
+                onPress={() => router.push(`/movie/${movie.tmdb_id}`)}
+                style={({ pressed }) => [
+                  styles.watchlistCard,
+                  { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Image
+                  source={{
+                    uri: movie.poster_path
+                      ? getTMDBImageUrl(movie.poster_path, 'w342') ?? undefined
+                      : undefined,
+                  }}
+                  style={styles.watchlistImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* Comments section */}
+        <View style={[styles.commentsSection, { borderTopColor: colors.border }]}>
+          <Text style={[styles.commentsSectionTitle, { color: colors.text }]}>
+            Comments
+          </Text>
+
+          {/* Add comment input - only for authenticated users viewing others' watchlists */}
+          {user && !isOwnProfile && (
+            <View style={[styles.commentInputRow, { borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
+                placeholder="Add a comment..."
+                placeholderTextColor={colors.textSecondary}
+                value={commentText}
+                onChangeText={setCommentText}
+                maxLength={500}
+                multiline
+              />
+              <Pressable
+                onPress={handleAddComment}
+                disabled={isAddingComment || !commentText.trim()}
+                style={({ pressed }) => [
+                  styles.commentSendButton,
+                  {
+                    backgroundColor: commentText.trim() ? colors.tint : colors.border,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                {isAddingComment ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Ionicons name="send" size={16} color="white" />
+                )}
+              </Pressable>
+            </View>
+          )}
+
+          {/* Comments list */}
+          {isLoadingComments ? (
+            <ActivityIndicator size="small" color={colors.tint} style={{ marginTop: Spacing.md }} />
+          ) : comments.length === 0 ? (
+            <Text style={[styles.noCommentsText, { color: colors.textSecondary }]}>
+              No comments yet
+            </Text>
+          ) : (
+            <View style={styles.commentsList}>
+              {comments.map((comment) => (
+                <View key={comment.id} style={styles.commentItem}>
+                  <View style={styles.commentHeader}>
+                    {comment.profiles?.avatar_url ? (
+                      <Image
+                        source={{ uri: buildAvatarUrl(comment.profiles.avatar_url, '')! }}
+                        style={styles.commentAvatar}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View style={[styles.commentAvatar, styles.commentAvatarPlaceholder, { backgroundColor: colors.card }]}>
+                        <Text style={[styles.commentAvatarInitial, { color: colors.textSecondary }]}>
+                          {(comment.profiles?.full_name || comment.profiles?.username || '?')[0].toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.commentMeta}>
+                      <Text style={[styles.commentAuthor, { color: colors.text }]}>
+                        {comment.profiles?.full_name || comment.profiles?.username || 'Anonymous'}
+                      </Text>
+                      <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
+                        {formatRelativeTime(comment.created_at)}
+                      </Text>
+                    </View>
+                    {user?.id === comment.user_id && (
+                      <Pressable
+                        onPress={() => deleteComment(comment.id)}
+                        style={({ pressed }) => [
+                          styles.commentDeleteButton,
+                          { opacity: pressed ? 0.5 : 0.7 },
+                        ]}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={colors.textSecondary} />
+                      </Pressable>
+                    )}
+                  </View>
+                  <Text style={[styles.commentText, { color: colors.text }]}>
+                    {comment.text}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
     );
   };
@@ -619,5 +774,99 @@ const styles = StyleSheet.create({
     ...Typography.body.sm,
     textAlign: 'center',
     paddingHorizontal: Spacing.xl,
+  },
+  // Watchlist Social Styles
+  likeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  likeCount: {
+    ...Typography.body.baseMedium,
+  },
+  likeCountLabel: {
+    ...Typography.body.sm,
+  },
+  commentsSection: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  commentsSectionTitle: {
+    ...Typography.body.lg,
+    marginBottom: Spacing.md,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  commentInput: {
+    flex: 1,
+    ...Typography.body.sm,
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    maxHeight: 80,
+  },
+  commentSendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentsList: {
+    gap: Spacing.md,
+  },
+  commentItem: {
+    gap: Spacing.xs,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  commentAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  commentAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarInitial: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  commentMeta: {
+    flex: 1,
+  },
+  commentAuthor: {
+    ...Typography.body.smMedium,
+  },
+  commentTime: {
+    ...Typography.body.xs,
+  },
+  commentDeleteButton: {
+    padding: Spacing.xs,
+  },
+  commentText: {
+    ...Typography.body.sm,
+    marginLeft: 28 + Spacing.sm,
+  },
+  noCommentsText: {
+    ...Typography.body.sm,
+    textAlign: 'center',
+    paddingVertical: Spacing.lg,
   },
 });
