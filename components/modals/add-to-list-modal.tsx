@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   listContainer: {
-    flex: 1,
+    flexShrink: 1,
   },
   listOption: {
     flexDirection: 'row',

@@ -12,6 +12,9 @@ import {
   StyleSheet,
   Pressable,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -105,133 +108,147 @@ export function CreateListModal({
       animationType="fade"
       onRequestClose={handleClose}
     >
-      {/* Backdrop */}
-      <Pressable
-        style={styles.overlay}
-        onPress={handleClose}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Modal Card - prevent backdrop press from closing when tapping inside */}
+        {/* Backdrop */}
         <Pressable
-          style={[styles.modalCard, { backgroundColor: colors.card }]}
-          onPress={(e) => e.stopPropagation()}
+          style={styles.overlay}
+          onPress={handleClose}
         >
-          {/* Header with close button */}
-          <View style={styles.header}>
-            <Text style={[Typography.display.h4, { color: colors.text }]}>
-              Create New List
-            </Text>
-            <Pressable
-              onPress={handleClose}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-            >
-              <Ionicons
-                name="close"
-                size={24}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-          </View>
-
-          {/* Name Input */}
-          <View style={styles.inputGroup}>
-            <Text style={[Typography.body.sm, styles.inputLabel, { color: colors.textSecondary }]}>
-              Name
-            </Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                {
-                  backgroundColor: colors.backgroundSecondary,
-                  color: colors.text,
-                  borderColor: 'transparent',
-                },
-                Typography.body.base,
-              ]}
-              placeholder="e.g. Scariest Movies Ever"
-              placeholderTextColor={colors.textSecondary}
-              value={name}
-              onChangeText={setName}
-              autoFocus
-            />
-          </View>
-
-          {/* Description Input */}
-          <View style={styles.inputGroup}>
-            <Text style={[Typography.body.sm, styles.inputLabel, { color: colors.textSecondary }]}>
-              Description (Optional)
-            </Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                styles.textArea,
-                {
-                  backgroundColor: colors.backgroundSecondary,
-                  color: colors.text,
-                  borderColor: 'transparent',
-                },
-                Typography.body.base,
-              ]}
-              placeholder="What's this list about?"
-              placeholderTextColor={colors.textSecondary}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Privacy Selector */}
-          <View style={styles.inputGroup}>
-            <Text style={[Typography.body.sm, styles.inputLabel, { color: colors.textSecondary }]}>
-              Privacy
-            </Text>
-            <Pressable
-              style={[
-                styles.privacyRow,
-                { backgroundColor: colors.backgroundSecondary },
-              ]}
-              onPress={togglePrivacy}
-            >
-              <Ionicons
-                name={isPublic ? 'lock-open-outline' : 'lock-closed-outline'}
-                size={20}
-                color={colors.text}
-              />
-              <Text style={[Typography.body.base, styles.privacyText, { color: colors.text }]}>
-                {isPublic ? 'Public' : 'Private'}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-          </View>
-
-          {/* Create Button */}
+          {/* Modal Card - prevent backdrop press from closing when tapping inside */}
           <Pressable
-            style={[
-              styles.createButton,
-              {
-                backgroundColor: colors.tint,
-                opacity: name.trim() ? 1 : 0.5,
-              },
-            ]}
-            onPress={handleCreate}
-            disabled={!name.trim()}
+            style={[styles.modalCard, { backgroundColor: colors.card }]}
+            onPress={(e) => e.stopPropagation()}
           >
-            <Text style={[Typography.body.base, { color: '#fff', fontWeight: '600' }]}>
-              Create List
-            </Text>
+            {/* Header with close button */}
+            <View style={styles.header}>
+              <Text style={[Typography.display.h4, { color: colors.text }]}>
+                Create New List
+              </Text>
+              <Pressable
+                onPress={handleClose}
+                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              >
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Name Input */}
+              <View style={styles.inputGroup}>
+                <Text style={[Typography.body.sm, styles.inputLabel, { color: colors.textSecondary }]}>
+                  Name
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.backgroundSecondary,
+                      color: colors.text,
+                      borderColor: 'transparent',
+                    },
+                    Typography.body.base,
+                  ]}
+                  placeholder="e.g. Scariest Movies Ever"
+                  placeholderTextColor={colors.textSecondary}
+                  value={name}
+                  onChangeText={setName}
+                  autoFocus
+                />
+              </View>
+
+              {/* Description Input */}
+              <View style={styles.inputGroup}>
+                <Text style={[Typography.body.sm, styles.inputLabel, { color: colors.textSecondary }]}>
+                  Description (Optional)
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    styles.textArea,
+                    {
+                      backgroundColor: colors.backgroundSecondary,
+                      color: colors.text,
+                      borderColor: 'transparent',
+                    },
+                    Typography.body.base,
+                  ]}
+                  placeholder="What's this list about?"
+                  placeholderTextColor={colors.textSecondary}
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Privacy Selector */}
+              <View style={styles.inputGroup}>
+                <Text style={[Typography.body.sm, styles.inputLabel, { color: colors.textSecondary }]}>
+                  Privacy
+                </Text>
+                <Pressable
+                  style={[
+                    styles.privacyRow,
+                    { backgroundColor: colors.backgroundSecondary },
+                  ]}
+                  onPress={togglePrivacy}
+                >
+                  <Ionicons
+                    name={isPublic ? 'lock-open-outline' : 'lock-closed-outline'}
+                    size={20}
+                    color={colors.text}
+                  />
+                  <Text style={[Typography.body.base, styles.privacyText, { color: colors.text }]}>
+                    {isPublic ? 'Public' : 'Private'}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </Pressable>
+              </View>
+
+              {/* Create Button */}
+              <Pressable
+                style={[
+                  styles.createButton,
+                  {
+                    backgroundColor: colors.tint,
+                    opacity: name.trim() ? 1 : 0.5,
+                  },
+                ]}
+                onPress={handleCreate}
+                disabled={!name.trim()}
+              >
+                <Text style={[Typography.body.base, { color: '#fff', fontWeight: '600' }]}>
+                  Create List
+                </Text>
+              </Pressable>
+            </ScrollView>
           </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
