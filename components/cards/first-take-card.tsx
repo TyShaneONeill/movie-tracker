@@ -12,6 +12,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
+import { StarRating } from '@/components/ui/star-rating';
 
 interface FirstTakeCardProps {
   /**
@@ -33,6 +34,11 @@ interface FirstTakeCardProps {
    * Quote/reaction text
    */
   quote: string;
+
+  /**
+   * Rating (0-10 scale, converted to 5 stars for display)
+   */
+  rating?: number | null;
 
   /**
    * ISO date string when the take was created
@@ -61,6 +67,7 @@ export function FirstTakeCard({
   posterPath,
   emoji,
   quote,
+  rating,
   createdAt,
   isLatest = false,
   onPress,
@@ -111,6 +118,11 @@ export function FirstTakeCard({
         <Text style={[styles.emoji, { color: colors.tint }]}>{emoji}</Text>
       </View>
 
+      {/* Rating */}
+      {rating != null && rating > 0 && (
+        <StarRating rating={Math.round(rating / 2)} size={14} style={styles.rating} />
+      )}
+
       {/* Quote */}
       <Text style={[styles.quote, { color: colors.text }]}>
         &ldquo;{quote}&rdquo;
@@ -157,6 +169,10 @@ const styles = StyleSheet.create({
   emoji: {
     fontSize: 24,
     marginLeft: Spacing.sm,
+  },
+  rating: {
+    justifyContent: 'flex-start',
+    marginBottom: Spacing.sm,
   },
   quote: {
     ...Typography.body.base,
