@@ -53,7 +53,7 @@ export function AddMovieModal({ movie, visible, onClose }: AddMovieModalProps) {
     try {
       if (existingMovie) {
         // Movie already in library, update status
-        await updateStatus({ movieId: existingMovie.id, status });
+        await updateStatus({ tmdbId: existingMovie.tmdb_id, status });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert('Updated', `"${movie.title}" status changed to ${status}`);
       } else {
@@ -65,11 +65,7 @@ export function AddMovieModal({ movie, visible, onClose }: AddMovieModalProps) {
       onClose();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      if (errorMessage === 'DUPLICATE') {
-        Alert.alert('Already Added', 'This movie is already in your library.');
-      } else {
-        Alert.alert('Error', errorMessage || 'Failed to add movie');
-      }
+      Alert.alert('Error', errorMessage || 'Failed to add movie');
     }
   };
 

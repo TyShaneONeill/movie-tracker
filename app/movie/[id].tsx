@@ -190,6 +190,7 @@ export default function MovieDetailScreen() {
   };
 
   const handleStatusChange = async (status: MovieStatus | null) => {
+    if (isSaving) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     requireAuth(async () => {
       const movieData = getMovieForSave();
@@ -250,7 +251,8 @@ export default function MovieDetailScreen() {
 
         // Success haptic after action completes
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {
+      } catch (err) {
+        console.error('Movie status error:', err);
         Alert.alert('Error', 'Failed to update movie status. Please try again.');
       }
     }, 'Sign in to track movies');
@@ -465,6 +467,7 @@ export default function MovieDetailScreen() {
             <MovieStatusActions
               currentStatus={currentStatus}
               isLoading={isSaving}
+              disabled={isSaving}
               onStatusChange={handleStatusChange}
             />
           </View>

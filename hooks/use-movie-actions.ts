@@ -130,8 +130,8 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
   // Mutation to remove movie from watchlist (optimistic)
   const removeMutation = useMutation({
     mutationFn: async () => {
-      if (!userMovie) throw new Error('Movie not in watchlist');
-      return removeMovieFromLibrary(userMovie.id);
+      if (!user) throw new Error('Not authenticated');
+      return removeMovieFromLibrary(user.id, tmdbId);
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
@@ -164,8 +164,8 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
   // Mutation to change watchlist status (optimistic)
   const changeStatusMutation = useMutation({
     mutationFn: async (status: MovieStatus) => {
-      if (!userMovie) throw new Error('Movie not in watchlist');
-      return updateMovieStatus(userMovie.id, status);
+      if (!user) throw new Error('Not authenticated');
+      return updateMovieStatus(user.id, tmdbId, status);
     },
     onMutate: async (newStatus) => {
       await queryClient.cancelQueries({ queryKey: ['userMovie', user?.id, tmdbId] });

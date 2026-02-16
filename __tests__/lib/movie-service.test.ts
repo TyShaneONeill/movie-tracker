@@ -45,17 +45,18 @@ const mockInvoke = supabase.functions.invoke as jest.Mock;
 const mockFrom = supabase.from as jest.Mock;
 
 // ============================================================================
-// Helpers
+// Shared Constants & Helpers
 // ============================================================================
 
 const USER_ID = 'user-abc-123';
 const MOVIE_ID = 'movie-uuid-1';
+const TMDB_ID = 550;
 
 function makeUserMovie(overrides: Partial<UserMovie> = {}): UserMovie {
   return {
     id: MOVIE_ID,
     user_id: USER_ID,
-    tmdb_id: 550,
+    tmdb_id: TMDB_ID,
     title: 'Fight Club',
     overview: 'A ticking-Loss-of-identity tale.',
     poster_path: '/pB8BM7pdSp6B6Ih7QI4DrWVkJUN.jpg',
@@ -89,6 +90,13 @@ function makeUserMovie(overrides: Partial<UserMovie> = {}): UserMovie {
     cover_photo_index: null,
     ...overrides,
   };
+}
+
+/** Set up mockFrom to return a Supabase query chain with the given result. */
+function setupQueryChain(result: { data: unknown; error: unknown }) {
+  const chain = mockSupabaseQuery(result);
+  mockFrom.mockReturnValue(chain);
+  return chain;
 }
 
 // ============================================================================
@@ -236,7 +244,7 @@ describe('getMovieList', () => {
 describe('getMovieDetails', () => {
   const movieDetail: MovieDetailResponse = {
     movie: {
-      id: 550,
+      id: TMDB_ID,
       title: 'Fight Club',
       overview: 'A tale',
       poster_path: '/poster.jpg',
@@ -258,9 +266,9 @@ describe('getMovieDetails', () => {
   it('delegates to getMovieDetailsWithCache and returns data', async () => {
     (getMovieDetailsWithCache as jest.Mock).mockResolvedValue({ data: movieDetail });
 
-    const result = await getMovieDetails(550);
+    const result = await getMovieDetails(TMDB_ID);
 
-    expect(getMovieDetailsWithCache).toHaveBeenCalledWith(550, expect.any(Function));
+    expect(getMovieDetailsWithCache).toHaveBeenCalledWith(TMDB_ID, expect.any(Function));
     expect(result).toEqual(movieDetail);
   });
 });
@@ -309,8 +317,7 @@ describe('getPersonDetails', () => {
 describe('fetchUserMovies', () => {
   it('returns user movies ordered by added_at desc', async () => {
     const movies = [makeUserMovie()];
-    const chain = mockSupabaseQuery({ data: movies, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: movies, error: null });
 
     const result = await fetchUserMovies(USER_ID);
 
@@ -322,19 +329,16 @@ describe('fetchUserMovies', () => {
   });
 
   it('filters by status when provided', async () => {
-    const chain = mockSupabaseQuery({ data: [], error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: [], error: null });
 
     await fetchUserMovies(USER_ID, 'watched');
 
-    // eq is called twice: once for user_id, once for status
     expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
     expect(chain.eq).toHaveBeenCalledWith('status', 'watched');
   });
 
   it('returns empty array when data is null', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: null });
 
     const result = await fetchUserMovies(USER_ID);
 
@@ -342,15 +346,13 @@ describe('fetchUserMovies', () => {
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'DB error' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'DB error' } });
 
     await expect(fetchUserMovies(USER_ID)).rejects.toThrow('DB error');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
     await expect(fetchUserMovies(USER_ID)).rejects.toThrow('Failed to fetch movies');
   });
@@ -358,66 +360,68 @@ describe('fetchUserMovies', () => {
 
 describe('addMovieToLibrary', () => {
   const movie = makeTMDBMovie();
-  const inserted = makeUserMovie({ status: 'watchlist' });
+  const upserted = makeUserMovie({ status: 'watchlist' });
 
-  it('inserts and returns the new user movie', async () => {
-    const chain = mockSupabaseQuery({ data: inserted, error: null });
-    mockFrom.mockReturnValue(chain);
+  it('upserts and returns the user movie', async () => {
+    const chain = setupQueryChain({ data: upserted, error: null });
 
     const result = await addMovieToLibrary(USER_ID, movie as any);
 
     expect(mockFrom).toHaveBeenCalledWith('user_movies');
-    expect(chain.insert).toHaveBeenCalledWith(
+    expect(chain.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: USER_ID,
         tmdb_id: movie.id,
         status: 'watchlist',
         title: movie.title,
-      })
+      }),
+      { onConflict: 'user_id,tmdb_id' }
     );
     expect(chain.select).toHaveBeenCalled();
-    expect(result).toEqual(inserted);
+    expect(result).toEqual(upserted);
   });
 
-  it('defaults status to watchlist', async () => {
-    const chain = mockSupabaseQuery({ data: inserted, error: null });
-    mockFrom.mockReturnValue(chain);
+  it('calls upsert with onConflict for duplicate prevention', async () => {
+    const chain = setupQueryChain({ data: upserted, error: null });
 
     await addMovieToLibrary(USER_ID, movie as any);
 
-    expect(chain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'watchlist' })
+    expect(chain.upsert).toHaveBeenCalledWith(
+      expect.any(Object),
+      { onConflict: 'user_id,tmdb_id' }
+    );
+  });
+
+  it('defaults status to watchlist', async () => {
+    const chain = setupQueryChain({ data: upserted, error: null });
+
+    await addMovieToLibrary(USER_ID, movie as any);
+
+    expect(chain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'watchlist' }),
+      expect.any(Object)
     );
   });
 
   it('passes custom status', async () => {
-    const chain = mockSupabaseQuery({ data: inserted, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: upserted, error: null });
 
     await addMovieToLibrary(USER_ID, movie as any, 'watched');
 
-    expect(chain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'watched' })
+    expect(chain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'watched' }),
+      expect.any(Object)
     );
   });
 
-  it('throws DUPLICATE on unique constraint violation (23505)', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { code: '23505', message: 'duplicate key' } });
-    mockFrom.mockReturnValue(chain);
-
-    await expect(addMovieToLibrary(USER_ID, movie as any)).rejects.toThrow('DUPLICATE');
-  });
-
-  it('throws error message for other errors', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Insert failed' } });
-    mockFrom.mockReturnValue(chain);
+  it('throws error message on failure', async () => {
+    setupQueryChain({ data: null, error: { message: 'Insert failed' } });
 
     await expect(addMovieToLibrary(USER_ID, movie as any)).rejects.toThrow('Insert failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { code: 'OTHER' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { code: 'OTHER' } });
 
     await expect(addMovieToLibrary(USER_ID, movie as any)).rejects.toThrow('Failed to add movie');
   });
@@ -426,80 +430,109 @@ describe('addMovieToLibrary', () => {
 describe('updateMovieStatus', () => {
   const updated = makeUserMovie({ status: 'watched' });
 
-  it('updates status and returns updated movie', async () => {
-    const chain = mockSupabaseQuery({ data: updated, error: null });
-    mockFrom.mockReturnValue(chain);
+  it('updates status by user_id and tmdb_id and returns updated movie', async () => {
+    const chain = setupQueryChain({ data: updated, error: null });
 
-    const result = await updateMovieStatus(MOVIE_ID, 'watched');
+    const result = await updateMovieStatus(USER_ID, TMDB_ID, 'watched');
 
     expect(mockFrom).toHaveBeenCalledWith('user_movies');
     expect(chain.update).toHaveBeenCalledWith({ status: 'watched' });
-    expect(chain.eq).toHaveBeenCalledWith('id', MOVIE_ID);
+    expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
+    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
     expect(chain.select).toHaveBeenCalled();
     expect(result).toEqual(updated);
   });
 
-  it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Update failed' } });
-    mockFrom.mockReturnValue(chain);
+  it('uses user_id and tmdb_id for lookup (not row id)', async () => {
+    const chain = setupQueryChain({ data: updated, error: null });
 
-    await expect(updateMovieStatus(MOVIE_ID, 'watched')).rejects.toThrow('Update failed');
+    await updateMovieStatus(USER_ID, TMDB_ID, 'watching');
+
+    // Verify .eq is called with user_id and tmdb_id
+    const eqCalls = chain.eq.mock.calls;
+    expect(eqCalls).toEqual(
+      expect.arrayContaining([
+        ['user_id', USER_ID],
+        ['tmdb_id', TMDB_ID],
+      ])
+    );
+  });
+
+  it('throws on error', async () => {
+    setupQueryChain({ data: null, error: { message: 'Update failed' } });
+
+    await expect(updateMovieStatus(USER_ID, TMDB_ID, 'watched')).rejects.toThrow('Update failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
-    await expect(updateMovieStatus(MOVIE_ID, 'watched')).rejects.toThrow('Failed to update movie');
+    await expect(updateMovieStatus(USER_ID, TMDB_ID, 'watched')).rejects.toThrow('Failed to update movie');
   });
 });
 
 describe('removeMovieFromLibrary', () => {
-  it('deletes the movie by id', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+  it('deletes the movie by user_id and tmdb_id', async () => {
+    const chain = setupQueryChain({ data: null, error: null });
 
-    await removeMovieFromLibrary(MOVIE_ID);
+    await removeMovieFromLibrary(USER_ID, TMDB_ID);
 
     expect(mockFrom).toHaveBeenCalledWith('user_movies');
     expect(chain.delete).toHaveBeenCalled();
-    expect(chain.eq).toHaveBeenCalledWith('id', MOVIE_ID);
+    expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
+    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
+  });
+
+  it('uses user_id and tmdb_id for lookup (not row id)', async () => {
+    const chain = setupQueryChain({ data: null, error: null });
+
+    await removeMovieFromLibrary(USER_ID, TMDB_ID);
+
+    const eqCalls = chain.eq.mock.calls;
+    expect(eqCalls).toEqual(
+      expect.arrayContaining([
+        ['user_id', USER_ID],
+        ['tmdb_id', TMDB_ID],
+      ])
+    );
+  });
+
+  it('does not throw when no row exists', async () => {
+    setupQueryChain({ data: null, error: null });
+
+    await expect(removeMovieFromLibrary(USER_ID, TMDB_ID)).resolves.toBeUndefined();
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Delete failed' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Delete failed' } });
 
-    await expect(removeMovieFromLibrary(MOVIE_ID)).rejects.toThrow('Delete failed');
+    await expect(removeMovieFromLibrary(USER_ID, TMDB_ID)).rejects.toThrow('Delete failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
-    await expect(removeMovieFromLibrary(MOVIE_ID)).rejects.toThrow('Failed to remove movie');
+    await expect(removeMovieFromLibrary(USER_ID, TMDB_ID)).rejects.toThrow('Failed to remove movie');
   });
 });
 
 describe('getMovieByTmdbId', () => {
   it('returns user movie when found', async () => {
     const movie = makeUserMovie();
-    const chain = mockSupabaseQuery({ data: movie, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: movie, error: null });
 
-    const result = await getMovieByTmdbId(USER_ID, 550);
+    const result = await getMovieByTmdbId(USER_ID, TMDB_ID);
 
     expect(mockFrom).toHaveBeenCalledWith('user_movies');
     expect(chain.select).toHaveBeenCalledWith('*');
     expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
-    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', 550);
+    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
     expect(chain.maybeSingle).toHaveBeenCalled();
     expect(result).toEqual(movie);
   });
 
   it('returns null when movie not found', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: null });
 
     const result = await getMovieByTmdbId(USER_ID, 999);
 
@@ -507,38 +540,34 @@ describe('getMovieByTmdbId', () => {
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Query failed' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Query failed' } });
 
-    await expect(getMovieByTmdbId(USER_ID, 550)).rejects.toThrow('Query failed');
+    await expect(getMovieByTmdbId(USER_ID, TMDB_ID)).rejects.toThrow('Query failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
-    await expect(getMovieByTmdbId(USER_ID, 550)).rejects.toThrow('Failed to check movie');
+    await expect(getMovieByTmdbId(USER_ID, TMDB_ID)).rejects.toThrow('Failed to check movie');
   });
 });
 
 describe('getMovieLike', () => {
   it('returns like record when found', async () => {
-    const like = { id: 'like-1', user_id: USER_ID, tmdb_id: 550, title: 'Fight Club', poster_path: '/poster.jpg', created_at: '2024-01-01' };
-    const chain = mockSupabaseQuery({ data: like, error: null });
-    mockFrom.mockReturnValue(chain);
+    const like = { id: 'like-1', user_id: USER_ID, tmdb_id: TMDB_ID, title: 'Fight Club', poster_path: '/poster.jpg', created_at: '2024-01-01' };
+    const chain = setupQueryChain({ data: like, error: null });
 
-    const result = await getMovieLike(USER_ID, 550);
+    const result = await getMovieLike(USER_ID, TMDB_ID);
 
     expect(mockFrom).toHaveBeenCalledWith('user_movie_likes');
     expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
-    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', 550);
+    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
     expect(chain.maybeSingle).toHaveBeenCalled();
     expect(result).toEqual(like);
   });
 
   it('returns null when not liked', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: null });
 
     const result = await getMovieLike(USER_ID, 999);
 
@@ -546,27 +575,24 @@ describe('getMovieLike', () => {
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Failed' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Failed' } });
 
-    await expect(getMovieLike(USER_ID, 550)).rejects.toThrow('Failed');
+    await expect(getMovieLike(USER_ID, TMDB_ID)).rejects.toThrow('Failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
-    await expect(getMovieLike(USER_ID, 550)).rejects.toThrow('Failed to check like status');
+    await expect(getMovieLike(USER_ID, TMDB_ID)).rejects.toThrow('Failed to check like status');
   });
 });
 
 describe('likeMovie', () => {
   const movie = makeTMDBMovie();
-  const likeRecord = { id: 'like-1', user_id: USER_ID, tmdb_id: 550, title: 'Fight Club', poster_path: '/pB8BM7pdSp6B6Ih7QI4DrWVkJUN.jpg', created_at: '2024-01-01' };
+  const likeRecord = { id: 'like-1', user_id: USER_ID, tmdb_id: TMDB_ID, title: 'Fight Club', poster_path: '/pB8BM7pdSp6B6Ih7QI4DrWVkJUN.jpg', created_at: '2024-01-01' };
 
   it('inserts a like and returns the record', async () => {
-    const chain = mockSupabaseQuery({ data: likeRecord, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: likeRecord, error: null });
 
     const result = await likeMovie(USER_ID, movie as any);
 
@@ -583,22 +609,19 @@ describe('likeMovie', () => {
   });
 
   it('throws ALREADY_LIKED on duplicate (23505)', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { code: '23505', message: 'duplicate' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { code: '23505', message: 'duplicate' } });
 
     await expect(likeMovie(USER_ID, movie as any)).rejects.toThrow('ALREADY_LIKED');
   });
 
   it('throws error message for other errors', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Insert error' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Insert error' } });
 
     await expect(likeMovie(USER_ID, movie as any)).rejects.toThrow('Insert error');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { code: 'OTHER' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { code: 'OTHER' } });
 
     await expect(likeMovie(USER_ID, movie as any)).rejects.toThrow('Failed to like movie');
   });
@@ -606,29 +629,26 @@ describe('likeMovie', () => {
 
 describe('unlikeMovie', () => {
   it('deletes the like by user_id and tmdb_id', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: null, error: null });
 
-    await unlikeMovie(USER_ID, 550);
+    await unlikeMovie(USER_ID, TMDB_ID);
 
     expect(mockFrom).toHaveBeenCalledWith('user_movie_likes');
     expect(chain.delete).toHaveBeenCalled();
     expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
-    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', 550);
+    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Unlike failed' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Unlike failed' } });
 
-    await expect(unlikeMovie(USER_ID, 550)).rejects.toThrow('Unlike failed');
+    await expect(unlikeMovie(USER_ID, TMDB_ID)).rejects.toThrow('Unlike failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
-    await expect(unlikeMovie(USER_ID, 550)).rejects.toThrow('Failed to unlike movie');
+    await expect(unlikeMovie(USER_ID, TMDB_ID)).rejects.toThrow('Failed to unlike movie');
   });
 });
 
@@ -639,8 +659,7 @@ describe('unlikeMovie', () => {
 describe('fetchJourneyById', () => {
   it('returns the journey when found', async () => {
     const journey = makeUserMovie({ status: 'watched' });
-    const chain = mockSupabaseQuery({ data: journey, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: journey, error: null });
 
     const result = await fetchJourneyById(MOVIE_ID);
 
@@ -652,8 +671,7 @@ describe('fetchJourneyById', () => {
   });
 
   it('returns null when journey not found', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: null });
 
     const result = await fetchJourneyById('nonexistent');
 
@@ -661,15 +679,13 @@ describe('fetchJourneyById', () => {
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Fetch failed' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Fetch failed' } });
 
     await expect(fetchJourneyById(MOVIE_ID)).rejects.toThrow('Fetch failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
     await expect(fetchJourneyById(MOVIE_ID)).rejects.toThrow('Failed to fetch journey');
   });
@@ -680,8 +696,7 @@ describe('updateJourney', () => {
 
   it('updates journey with journey_updated_at and returns updated record', async () => {
     const updated = makeUserMovie({ journey_notes: 'Great movie!', watched_at: '2024-06-15' });
-    const chain = mockSupabaseQuery({ data: updated, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: updated, error: null });
 
     const result = await updateJourney(MOVIE_ID, journeyData);
 
@@ -699,15 +714,13 @@ describe('updateJourney', () => {
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Update error' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Update error' } });
 
     await expect(updateJourney(MOVIE_ID, journeyData)).rejects.toThrow('Update error');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
     await expect(updateJourney(MOVIE_ID, journeyData)).rejects.toThrow('Failed to update journey');
   });
@@ -715,8 +728,7 @@ describe('updateJourney', () => {
 
 describe('deleteJourney', () => {
   it('deletes the journey by id', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: null, error: null });
 
     await deleteJourney(MOVIE_ID);
 
@@ -726,15 +738,13 @@ describe('deleteJourney', () => {
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Delete error' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Delete error' } });
 
     await expect(deleteJourney(MOVIE_ID)).rejects.toThrow('Delete error');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
     await expect(deleteJourney(MOVIE_ID)).rejects.toThrow('Failed to delete journey');
   });
@@ -746,23 +756,21 @@ describe('fetchJourneysByTmdbId', () => {
       makeUserMovie({ status: 'watched', journey_number: 1 }),
       makeUserMovie({ id: 'movie-uuid-2', status: 'watched', journey_number: 2 }),
     ];
-    const chain = mockSupabaseQuery({ data: journeys, error: null });
-    mockFrom.mockReturnValue(chain);
+    const chain = setupQueryChain({ data: journeys, error: null });
 
-    const result = await fetchJourneysByTmdbId(USER_ID, 550);
+    const result = await fetchJourneysByTmdbId(USER_ID, TMDB_ID);
 
     expect(mockFrom).toHaveBeenCalledWith('user_movies');
     expect(chain.select).toHaveBeenCalledWith('*');
     expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
-    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', 550);
+    expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
     expect(chain.eq).toHaveBeenCalledWith('status', 'watched');
     expect(chain.order).toHaveBeenCalledWith('journey_number', { ascending: true });
     expect(result).toEqual(journeys);
   });
 
   it('returns empty array when data is null', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: null });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: null });
 
     const result = await fetchJourneysByTmdbId(USER_ID, 999);
 
@@ -770,17 +778,15 @@ describe('fetchJourneysByTmdbId', () => {
   });
 
   it('throws on error', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: { message: 'Fetch failed' } });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: { message: 'Fetch failed' } });
 
-    await expect(fetchJourneysByTmdbId(USER_ID, 550)).rejects.toThrow('Fetch failed');
+    await expect(fetchJourneysByTmdbId(USER_ID, TMDB_ID)).rejects.toThrow('Fetch failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    const chain = mockSupabaseQuery({ data: null, error: {} });
-    mockFrom.mockReturnValue(chain);
+    setupQueryChain({ data: null, error: {} });
 
-    await expect(fetchJourneysByTmdbId(USER_ID, 550)).rejects.toThrow('Failed to fetch journeys');
+    await expect(fetchJourneysByTmdbId(USER_ID, TMDB_ID)).rejects.toThrow('Failed to fetch journeys');
   });
 });
 
@@ -791,24 +797,21 @@ describe('createNewJourney', () => {
   });
 
   it('creates a new journey with incremented journey_number', async () => {
-    // First call: fetchJourneysByTmdbId (the internal call)
     const existingJourneys = [
       makeUserMovie({ journey_number: 1 }),
       makeUserMovie({ id: 'movie-uuid-2', journey_number: 2 }),
     ];
     const fetchChain = mockSupabaseQuery({ data: existingJourneys, error: null });
 
-    // Second call: insert
     const newJourney = makeUserMovie({ id: 'movie-uuid-3', journey_number: 3, status: 'watched' });
     const insertChain = mockSupabaseQuery({ data: newJourney, error: null });
 
     mockFrom
-      .mockReturnValueOnce(fetchChain)   // fetchJourneysByTmdbId
-      .mockReturnValueOnce(insertChain); // insert
+      .mockReturnValueOnce(fetchChain)
+      .mockReturnValueOnce(insertChain);
 
     const result = await createNewJourney(USER_ID, existingJourney);
 
-    // Verify the insert had journey_number = 3 (max of existing 1,2 + 1)
     expect(insertChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: USER_ID,
