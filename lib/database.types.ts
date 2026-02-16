@@ -224,6 +224,7 @@ export type Database = {
           added_at: string | null
           id: string
           list_id: string
+          notes: string | null
           position: number
           poster_path: string | null
           title: string
@@ -233,6 +234,7 @@ export type Database = {
           added_at?: string | null
           id?: string
           list_id: string
+          notes?: string | null
           position?: number
           poster_path?: string | null
           title: string
@@ -242,6 +244,7 @@ export type Database = {
           added_at?: string | null
           id?: string
           list_id?: string
+          notes?: string | null
           position?: number
           poster_path?: string | null
           title?: string
@@ -610,6 +613,7 @@ export type Database = {
       }
       user_lists: {
         Row: {
+          cover_image_url: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -619,6 +623,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -628,6 +633,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
