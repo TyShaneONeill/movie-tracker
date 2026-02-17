@@ -20,7 +20,6 @@ import {
   Image,
   Pressable,
   ActivityIndicator,
-  ImageBackground,
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -32,13 +31,14 @@ import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
-import { Colors, Spacing, BorderRadius, Fonts, Gradients } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourney } from '@/hooks/use-journey';
 import { useGenerateArt } from '@/hooks/use-generate-art';
 import { getGenreNamesByIds } from '@/lib/genre-service';
+import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 
 // Type for the colors object
@@ -117,53 +117,7 @@ function BarcodeVisual({ colors }: { colors: ThemeColors }) {
   );
 }
 
-// Perforated edge with notches
-function PerforatedEdge({ colors }: { colors: ThemeColors }) {
-  return (
-    <View style={perforatedStyles(colors).container}>
-      <View style={perforatedStyles(colors).notchLeft} />
-      <View style={perforatedStyles(colors).dashedLine}>
-        {Array.from({ length: 20 }).map((_, i) => (
-          <View key={i} style={perforatedStyles(colors).dash} />
-        ))}
-      </View>
-      <View style={perforatedStyles(colors).notchRight} />
-    </View>
-  );
-}
-
-const perforatedStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: Spacing.md,
-  },
-  notchLeft: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    marginLeft: -10,
-  },
-  notchRight: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    marginRight: -10,
-  },
-  dashedLine: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-  },
-  dash: {
-    width: 8,
-    height: 2,
-    backgroundColor: colors.border,
-  },
-});
+// PerforatedEdge imported from shared component
 
 // Header height constant
 const HEADER_HEIGHT = 100; // paddingTop (60) + content (~40)
@@ -260,8 +214,6 @@ export default function JourneyCardScreen() {
     setIsPosterModalVisible(true);
   }, []);
 
-  const backdropUrl = getTMDBImageUrl(journey?.backdrop_path ?? null, 'w780');
-
   // Show loading state
   if (isLoading) {
     return (
@@ -303,19 +255,7 @@ export default function JourneyCardScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background blur */}
-      {backdropUrl && (
-        <ImageBackground
-          source={{ uri: backdropUrl }}
-          style={styles.ambientBackground}
-          blurRadius={50}
-        >
-          <LinearGradient
-            colors={(isDark ? Gradients.overlayDark : Gradients.overlayLight) as [string, string, string]}
-            style={StyleSheet.absoluteFill}
-          />
-        </ImageBackground>
-      )}
+      {/* Solid background — no ambient blur so ticket punch-hole divots match cleanly */}
 
       {/* Header */}
       <View style={styles.header}>
@@ -551,12 +491,6 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
     flexGrow: 1,
-  },
-
-  // Ambient Background
-  ambientBackground: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.5,
   },
 
   // Header

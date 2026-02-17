@@ -34,8 +34,8 @@ export const Colors = {
   },
   light: {
     // Base Colors
-    background: '#ffffff',
-    backgroundSecondary: '#f4f4f5', // Zinc 100
+    background: '#f4f4f5',          // Zinc 100 - Subtle gray so ticket cutouts show against white cards
+    backgroundSecondary: '#e4e4e7', // Zinc 200
     card: '#ffffff',
     glass: 'rgba(255, 255, 255, 0.8)',
 

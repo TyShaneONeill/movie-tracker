@@ -18,7 +18,6 @@ import {
   Image,
   Pressable,
   ActivityIndicator,
-  ImageBackground,
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -29,7 +28,7 @@ import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { Colors, Spacing, BorderRadius, Fonts, Gradients } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
@@ -37,6 +36,7 @@ import { useJourneysByMovie, useCreateJourney, useJourneyMutations } from '@/hoo
 import { useGenerateArt } from '@/hooks/use-generate-art';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { getGenreNamesByIds } from '@/lib/genre-service';
+import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import * as Haptics from 'expo-haptics';
@@ -228,53 +228,7 @@ const posterToggleStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.
   },
 });
 
-// Perforated edge with notches
-function PerforatedEdge({ colors }: { colors: ThemeColors }) {
-  return (
-    <View style={perforatedStyles(colors).container}>
-      <View style={perforatedStyles(colors).notchLeft} />
-      <View style={perforatedStyles(colors).dashedLine}>
-        {Array.from({ length: 20 }).map((_, i) => (
-          <View key={i} style={perforatedStyles(colors).dash} />
-        ))}
-      </View>
-      <View style={perforatedStyles(colors).notchRight} />
-    </View>
-  );
-}
-
-const perforatedStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: Spacing.md,
-  },
-  notchLeft: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    marginLeft: -10,
-  },
-  notchRight: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    marginRight: -10,
-  },
-  dashedLine: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-  },
-  dash: {
-    width: 8,
-    height: 2,
-    backgroundColor: colors.border,
-  },
-});
+// PerforatedEdge imported from shared component
 
 // Single Journey Ticket Card Component
 interface JourneyTicketProps {
@@ -627,9 +581,6 @@ export default function JourneyCarouselScreen() {
   // Total pages = journeys + 1 (add new journey card)
   const totalPages = journeys.length + 1;
 
-  // Theme detection
-  const isDark = effectiveTheme === 'dark';
-
   const styles = useMemo(() => createStyles(colors, ticketHeight, ticketWidth), [colors, ticketHeight, ticketWidth]);
 
   // Handle carousel scroll
@@ -709,11 +660,6 @@ export default function JourneyCarouselScreen() {
     }
   }, [updateJourney]);
 
-  // Get backdrop from first journey
-  const backdropUrl = journeys[0]
-    ? getTMDBImageUrl(journeys[0].backdrop_path ?? null, 'w780')
-    : null;
-
   // Get movie title from first journey
   const movieTitle = journeys[0]?.title ?? 'Movie';
 
@@ -758,19 +704,7 @@ export default function JourneyCarouselScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background blur */}
-      {backdropUrl && (
-        <ImageBackground
-          source={{ uri: backdropUrl }}
-          style={styles.ambientBackground}
-          blurRadius={50}
-        >
-          <LinearGradient
-            colors={(isDark ? Gradients.overlayDark : Gradients.overlayLight) as [string, string, string]}
-            style={StyleSheet.absoluteFill}
-          />
-        </ImageBackground>
-      )}
+      {/* Solid background — no ambient blur so ticket punch-hole divots match cleanly */}
 
       {/* Header */}
       <View style={styles.header}>
@@ -878,12 +812,6 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: nu
   },
   carouselContent: {
     paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING,
-  },
-
-  // Ambient Background
-  ambientBackground: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.5,
   },
 
   // Header
