@@ -415,7 +415,7 @@ export default function SettingsScreen() {
 
         {/* App Version */}
         <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.lg }]}>
-          Version 1.0.0 (Alpha)
+          Version 1.0.0
         </Text>
       </ScrollView>
     </SafeAreaView>
