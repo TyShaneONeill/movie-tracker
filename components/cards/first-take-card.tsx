@@ -35,6 +35,11 @@ interface FirstTakeCardProps {
   quote: string;
 
   /**
+   * Rating (0-10 scale), displayed as a number in the top-right corner
+   */
+  rating?: number | null;
+
+  /**
    * ISO date string when the take was created
    */
   createdAt: string;
@@ -61,6 +66,7 @@ export function FirstTakeCard({
   posterPath,
   emoji,
   quote,
+  rating,
   createdAt,
   isLatest = false,
   onPress,
@@ -108,7 +114,13 @@ export function FirstTakeCard({
             </Text>
           </View>
         </View>
-        <Text style={[styles.emoji, { color: colors.tint }]}>{emoji}</Text>
+        {rating != null && rating > 0 ? (
+          <Text style={[styles.ratingText, { color: colors.tint }]}>
+            {Number.isInteger(rating) ? rating.toString() : rating.toFixed(1)}
+          </Text>
+        ) : (
+          <Text style={styles.emoji}>{emoji}</Text>
+        )}
       </View>
 
       {/* Quote */}
@@ -156,6 +168,11 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 24,
+    marginLeft: Spacing.sm,
+  },
+  ratingText: {
+    fontSize: 18,
+    fontWeight: '700',
     marginLeft: Spacing.sm,
   },
   quote: {

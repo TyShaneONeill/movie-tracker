@@ -608,6 +608,7 @@ export default function ProfileScreen() {
                                 posterPath={take.poster_path}
                                 emoji={take.reaction_emoji}
                                 quote={take.quote_text}
+                                rating={take.rating}
                                 createdAt={take.created_at ?? ''}
                                 isLatest={index === 0}
                                 onPress={() => router.push(`/movie/${take.tmdb_id}`)}

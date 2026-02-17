@@ -193,6 +193,7 @@ function RootLayoutNav() {
         <Stack.Screen name="achievements" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="lists" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
