@@ -21,7 +21,7 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact } from '@/lib/haptics';
 import Slider from '@react-native-community/slider';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -361,7 +361,7 @@ export function MultiFirstTakeModal({
                           visibility === option.value && styles.visibilityPillActive,
                         ]}
                         onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          hapticImpact();
                           setVisibility(option.value);
                         }}
                       >

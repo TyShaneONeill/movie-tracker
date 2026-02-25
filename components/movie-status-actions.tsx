@@ -1,6 +1,6 @@
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle, Polyline } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
 
 import { Colors, Spacing } from '@/constants/theme';
@@ -128,7 +128,7 @@ export function MovieStatusActions({
   const watchedColor = colors.accentSecondary;
 
   const handleWatchlist = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     if (isWatchlist) {
       onStatusChange(null);
     } else {
@@ -142,7 +142,7 @@ export function MovieStatusActions({
   };
 
   const handleWatching = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     if (isWatching) {
       onStatusChange(null);
     } else {
@@ -156,7 +156,7 @@ export function MovieStatusActions({
   };
 
   const handleWatched = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     if (isWatched) {
       onStatusChange(null);
     } else {

@@ -13,7 +13,7 @@ import {
   ScrollView,
   Keyboard,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
 import Slider from '@react-native-community/slider';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
@@ -70,7 +70,7 @@ export function FirstTakeModal({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
 
     await onSubmit({
       rating,
@@ -84,7 +84,7 @@ export function FirstTakeModal({
       text1: 'First Take posted!',
       visibilityTime: 2000,
     });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    hapticNotification(NotificationFeedbackType.Success);
     // Reset state after successful submit
     setRating(5);
     setQuoteText('');
@@ -93,7 +93,7 @@ export function FirstTakeModal({
   };
 
   const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     // Reset state on close
     setRating(5);
     setQuoteText('');
@@ -238,7 +238,7 @@ export function FirstTakeModal({
                         visibility === option.value && styles.visibilityPillActive,
                       ]}
                       onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        hapticImpact();
                         setVisibility(option.value);
                       }}
                     >

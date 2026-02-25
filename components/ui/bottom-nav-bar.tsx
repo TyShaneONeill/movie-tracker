@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact } from '@/lib/haptics';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
@@ -32,9 +32,7 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
   const colors = Colors[effectiveTheme];
 
   const handlePress = (index: number, onPress: () => void) => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    hapticImpact();
     onPress();
   };
 

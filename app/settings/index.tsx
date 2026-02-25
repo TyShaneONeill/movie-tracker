@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Image, Alert, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact } from '@/lib/haptics';
 import * as WebBrowser from 'expo-web-browser';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -42,14 +42,14 @@ export default function SettingsScreen() {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleThemeToggle = async (isDarkMode: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     // When toggle is ON = dark mode, when OFF = light mode
     // We don't use 'system' from the toggle - it's a simple on/off
     await setThemePreference(isDarkMode ? 'dark' : 'light');
   };
 
   const handleFirstTakePromptToggle = async (value: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     try {
       await updatePreference('firstTakePromptEnabled', value);
     } catch (error) {
@@ -70,7 +70,7 @@ export default function SettingsScreen() {
   };
 
   const handleReviewVisibilityToggle = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     const current = preferences?.reviewVisibility ?? 'public';
     const next = visibilityCycle[current];
     try {
@@ -92,7 +92,7 @@ export default function SettingsScreen() {
 
   const handleExportCollection = async () => {
     if (!user) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     setIsExporting(true);
     try {
       const csv = await exportCollectionCSV(user.id);

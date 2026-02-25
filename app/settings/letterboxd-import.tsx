@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import Svg, { Path } from 'react-native-svg';
@@ -69,7 +69,7 @@ export default function LetterboxdImportScreen() {
   );
 
   const handleSelectFile = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     setError(null);
 
     try {
@@ -120,7 +120,7 @@ export default function LetterboxdImportScreen() {
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticImpact(ImpactFeedbackStyle.Medium);
     setState('importing');
 
     try {
@@ -131,7 +131,7 @@ export default function LetterboxdImportScreen() {
       setImportProgress(finalProgress);
       setState('done');
       triggerAchievementCheck();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      hapticNotification(NotificationFeedbackType.Success);
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), {
         context: 'letterboxd-import-import-movies',
@@ -142,7 +142,7 @@ export default function LetterboxdImportScreen() {
   }, [user, matches, triggerAchievementCheck]);
 
   const handleDone = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     router.back();
   }, []);
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -100,7 +100,7 @@ export function WatchlistModal({
                       pressed && styles.optionPressed,
                     ]}
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      hapticImpact();
                       onSelect(option.status);
                       // Show toast based on selected status
                       const toastMessage = option.status === 'watchlist' ? 'Added to Watchlist' :
@@ -139,7 +139,7 @@ export function WatchlistModal({
                   pressed && styles.removeButtonPressed,
                 ]}
                 onPress={() => {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  hapticNotification(NotificationFeedbackType.Warning);
                   if (hasFirstTake) {
                     setShowRemoveConfirmation(true);
                   } else {

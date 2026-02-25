@@ -28,7 +28,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -136,7 +136,7 @@ export default function MovieDetailScreen() {
 
   const handlePlayTrailer = () => {
     if (!trailer) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticImpact(ImpactFeedbackStyle.Medium);
     setShowTrailerModal(true);
   };
 
@@ -157,7 +157,7 @@ export default function MovieDetailScreen() {
   };
 
   const handleLike = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     requireAuth(async () => {
       const movieData = getMovieForSave();
       if (movieData) {
@@ -173,7 +173,7 @@ export default function MovieDetailScreen() {
 
   // Helper function to perform the actual removal
   const performRemoval = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     try {
       if (hasFirstTake) {
         await deleteTake();
@@ -191,7 +191,7 @@ export default function MovieDetailScreen() {
 
   const handleStatusChange = async (status: MovieStatus | null) => {
     if (isSaving) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     requireAuth(async () => {
       const movieData = getMovieForSave();
       if (!movieData) return;
@@ -250,7 +250,7 @@ export default function MovieDetailScreen() {
         }
 
         // Success haptic after action completes
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        hapticNotification(NotificationFeedbackType.Success);
       } catch (err) {
         console.error('Movie status error:', err);
         Alert.alert('Error', 'Failed to update movie status. Please try again.');
@@ -281,7 +281,7 @@ export default function MovieDetailScreen() {
   };
 
   const handleAddToList = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     requireAuth(() => {
       setShowAddToListModal(true);
     }, 'Sign in to save movies to lists');

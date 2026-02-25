@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -47,19 +47,19 @@ export function AddMovieModal({ movie, visible, onClose }: AddMovieModalProps) {
   );
 
   const handleAddMovie = async (status: MovieStatus) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     if (!movie) return;
 
     try {
       if (existingMovie) {
         // Movie already in library, update status
         await updateStatus({ tmdbId: existingMovie.tmdb_id, status });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        hapticNotification(NotificationFeedbackType.Success);
         Alert.alert('Updated', `"${movie.title}" status changed to ${status}`);
       } else {
         // Add new movie
         await addMovie({ movie, status });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        hapticNotification(NotificationFeedbackType.Success);
         Alert.alert('Added', `"${movie.title}" added to your ${status}!`);
       }
       onClose();
@@ -88,7 +88,7 @@ export function AddMovieModal({ movie, visible, onClose }: AddMovieModalProps) {
             {existingMovie ? 'Update Status' : 'Add to Library'}
           </ThemedText>
           <TouchableOpacity onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            hapticImpact();
             onClose();
           }} style={styles.closeButton}>
             <Ionicons name="close" size={28} color={colors.text} />

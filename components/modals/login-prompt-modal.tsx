@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -47,13 +47,13 @@ export function LoginPromptModal({
   const colors = Colors[effectiveTheme];
 
   const handleSignIn = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     onClose();
     router.push('/(auth)/signin');
   };
 
   const handleCreateAccount = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     onClose();
     router.push('/(auth)/signup');
   };
@@ -117,7 +117,7 @@ export function LoginPromptModal({
                 { opacity: pressed ? 0.7 : 1 },
               ]}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                hapticImpact();
                 onClose();
               }}
             >

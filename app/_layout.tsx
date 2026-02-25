@@ -2,7 +2,7 @@
 import '@/lib/sentry-init';
 
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, View, StyleSheet } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -225,8 +225,10 @@ export default function RootLayout() {
   // Request App Tracking Transparency permission before ads load (iOS 14.5+)
   useEffect(() => {
     (async () => {
-      const { status } = await requestTrackingPermissionsAsync();
-      console.log(`[ATT] Tracking permission status: ${status}`);
+      if (Platform.OS === 'ios') {
+        const { status } = await requestTrackingPermissionsAsync();
+        console.log(`[ATT] Tracking permission status: ${status}`);
+      }
     })();
   }, []);
 

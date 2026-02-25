@@ -16,9 +16,8 @@ import {
   ActivityIndicator,
   StyleSheet,
   ViewStyle,
-  Platform,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact } from '@/lib/haptics';
 
 import { useTheme } from '@/lib/theme-context';
 import { Colors, BorderRadius, Spacing } from '@/constants/theme';
@@ -58,10 +57,7 @@ export function FollowButton({ userId, username, size = 'md', style }: FollowBut
   const [isPressing, setIsPressing] = useState(false);
 
   const handlePress = async () => {
-    // Trigger haptic feedback on iOS
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    hapticImpact();
 
     await toggleFollow();
   };
