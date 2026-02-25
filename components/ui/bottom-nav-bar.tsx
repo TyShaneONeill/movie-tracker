@@ -138,10 +138,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 4,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
   },
   navItemPressed: {
     transform: [{ scale: 0.9 }],
