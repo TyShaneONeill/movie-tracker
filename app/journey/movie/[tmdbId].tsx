@@ -16,6 +16,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  Platform,
   Pressable,
   ActivityIndicator,
   useWindowDimensions,
@@ -525,6 +526,7 @@ function AddJourneyCard({ colors, ticketHeight, ticketWidth, onPress, isCreating
 
 // Header height constant
 const HEADER_HEIGHT = 100;
+const MAX_JOURNEY_WIDTH = 480;
 const CAROUSEL_HORIZONTAL_PADDING = Spacing.md;
 const CARD_GAP = Spacing.md; // Gap between carousel cards
 
@@ -533,7 +535,8 @@ export default function JourneyCarouselScreen() {
   const { tmdbId } = useLocalSearchParams<{ tmdbId: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const { height: screenHeight, width: windowWidth } = useWindowDimensions();
+  const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
   const insets = useSafeAreaInsets();
 
   // Auth gating hook
@@ -729,58 +732,64 @@ export default function JourneyCarouselScreen() {
         <View style={styles.iconButtonPlaceholder} />
       </View>
 
-      {/* Journey Carousel */}
+      {/* Journey Carousel — wrapped in vertical ScrollView on web for overflow */}
       <ScrollView
-        ref={carouselRef}
-        horizontal
-        pagingEnabled={false}
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleCarouselScroll}
-        scrollEventThrottle={16}
-        decelerationRate="fast"
-        snapToInterval={ticketWidth + CARD_GAP}
-        snapToAlignment="start"
-        contentContainerStyle={styles.carouselContent}
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={Platform.OS === 'web'}
       >
-        {journeys.map((journey) => (
-          <JourneyTicket
-            key={journey.id}
-            journey={journey}
-            firstTake={firstTake}
+        <ScrollView
+          ref={carouselRef}
+          horizontal
+          pagingEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleCarouselScroll}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          snapToInterval={ticketWidth + CARD_GAP}
+          snapToAlignment="start"
+          contentContainerStyle={styles.carouselContent}
+        >
+          {journeys.map((journey) => (
+            <JourneyTicket
+              key={journey.id}
+              journey={journey}
+              firstTake={firstTake}
+              colors={colors}
+              effectiveTheme={effectiveTheme}
+              ticketHeight={ticketHeight}
+              ticketWidth={ticketWidth}
+              infoPageWidth={infoPageWidth}
+              onGenerateArt={() => handleGenerateArt(journey)}
+              onTogglePoster={() => handleTogglePoster(journey)}
+              isGenerating={generatingJourneyId === journey.id}
+              onPosterTap={() => handlePosterTap(journey)}
+            />
+          ))}
+          {/* Add New Journey Card */}
+          <AddJourneyCard
             colors={colors}
-            effectiveTheme={effectiveTheme}
             ticketHeight={ticketHeight}
             ticketWidth={ticketWidth}
-            infoPageWidth={infoPageWidth}
-            onGenerateArt={() => handleGenerateArt(journey)}
-            onTogglePoster={() => handleTogglePoster(journey)}
-            isGenerating={generatingJourneyId === journey.id}
-            onPosterTap={() => handlePosterTap(journey)}
+            onPress={handleCreateJourney}
+            isCreating={isCreating}
           />
-        ))}
-        {/* Add New Journey Card */}
-        <AddJourneyCard
-          colors={colors}
-          ticketHeight={ticketHeight}
-          ticketWidth={ticketWidth}
-          onPress={handleCreateJourney}
-          isCreating={isCreating}
-        />
-      </ScrollView>
+        </ScrollView>
 
-      {/* Dot Indicators for Journey Carousel */}
-      <View style={styles.carouselDotsContainer}>
-        {Array.from({ length: totalPages }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.carouselDot,
-              currentJourneyIndex === index && styles.carouselDotActive,
-              index === totalPages - 1 && styles.addDot,
-            ]}
-          />
-        ))}
-      </View>
+        {/* Dot Indicators for Journey Carousel */}
+        <View style={styles.carouselDotsContainer}>
+          {Array.from({ length: totalPages }).map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.carouselDot,
+                currentJourneyIndex === index && styles.carouselDotActive,
+                index === totalPages - 1 && styles.addDot,
+              ]}
+            />
+          ))}
+        </View>
+      </ScrollView>
 
       {/* Poster Inspection Modal */}
       <PosterInspectionModal
@@ -936,12 +945,11 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.md,
     marginRight: CARD_GAP,
-    minHeight: ticketHeight,
+    minHeight: Platform.OS === 'web' ? undefined : ticketHeight,
     // Note: No overflow hidden - allows notches to show background
   },
   heroSection: {
-    flex: 1,
-    minHeight: 250,
+    ...(Platform.OS === 'web' ? { height: 350 } : { flex: 1, minHeight: 250 }),
     position: 'relative',
     overflow: 'hidden',
     borderTopLeftRadius: BorderRadius.lg,
@@ -1138,7 +1146,7 @@ const createAddCardStyles = (colors: ThemeColors, ticketHeight: number, ticketWi
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.md,
     marginRight: CARD_GAP,
-    minHeight: ticketHeight,
+    minHeight: Platform.OS === 'web' ? undefined : ticketHeight,
     borderWidth: 2,
     borderColor: colors.border,
     borderStyle: 'dashed',

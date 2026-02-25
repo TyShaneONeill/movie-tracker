@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import {
   Modal,
+  Platform,
   StyleSheet,
   View,
   Text,
@@ -41,7 +42,8 @@ export function PosterInspectionModal({
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
 
-  const cardWidth = screenWidth * 0.85;
+  const baseWidth = Platform.OS === 'web' ? Math.min(screenWidth, 480) : screenWidth;
+  const cardWidth = baseWidth * 0.85;
   const cardHeight = cardWidth * 1.5; // 2:3 aspect ratio
 
   // Use AI image if available, otherwise fall back to regular image

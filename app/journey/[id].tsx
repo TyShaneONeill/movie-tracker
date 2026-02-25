@@ -122,14 +122,15 @@ function BarcodeVisual({ colors }: { colors: ThemeColors }) {
 
 // Header height constant
 const HEADER_HEIGHT = 100; // paddingTop (60) + content (~40)
+const MAX_JOURNEY_WIDTH = 480;
 
 export default function JourneyCardScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { height: screenHeight, width: rawScreenWidth } = useWindowDimensions();
-  const screenWidth = Platform.OS === 'web' ? Math.min(rawScreenWidth, 480) : rawScreenWidth;
+  const { height: screenHeight, width: windowWidth } = useWindowDimensions();
+  const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
   const insets = useSafeAreaInsets();
 
   // Info carousel state
@@ -220,21 +221,19 @@ export default function JourneyCardScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <View style={styles.contentWrapper}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.tint} />
-            <Text style={styles.loadingText}>Loading your journey...</Text>
-          </View>
-          {/* Back button even during loading */}
-          <View style={styles.loadingBackButton}>
-            <Pressable onPress={handleGoBack} style={styles.iconButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                  <Path d="M19 12H5M12 19l-7-7 7-7" />
-                </Svg>
-              </BlurView>
-            </Pressable>
-          </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+          <Text style={styles.loadingText}>Loading your journey...</Text>
+        </View>
+        {/* Back button even during loading */}
+        <View style={styles.loadingBackButton}>
+          <Pressable onPress={handleGoBack} style={styles.iconButton}>
+            <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                <Path d="M19 12H5M12 19l-7-7 7-7" />
+              </Svg>
+            </BlurView>
+          </Pressable>
         </View>
       </View>
     );
@@ -244,16 +243,14 @@ export default function JourneyCardScreen() {
   if (isError || !journey) {
     return (
       <View style={styles.container}>
-        <View style={styles.contentWrapper}>
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorTitle}>Journey not found</Text>
-            <Text style={styles.errorSubtitle}>
-              We could not load this movie journey.
-            </Text>
-            <Pressable onPress={handleGoBack} style={styles.errorBackButton}>
-              <Text style={styles.errorBackButtonText}>Go Back</Text>
-            </Pressable>
-          </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Journey not found</Text>
+          <Text style={styles.errorSubtitle}>
+            We could not load this movie journey.
+          </Text>
+          <Pressable onPress={handleGoBack} style={styles.errorBackButton}>
+            <Text style={styles.errorBackButtonText}>Go Back</Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -261,7 +258,6 @@ export default function JourneyCardScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.contentWrapper}>
       {/* Solid background — no ambient blur so ticket punch-hole divots match cleanly */}
 
       {/* Header */}
@@ -481,7 +477,6 @@ export default function JourneyCardScreen() {
         movieTitle={journey.title}
         onClose={handlePosterModalClose}
       />
-      </View>
     </View>
   );
 }
@@ -491,10 +486,6 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  contentWrapper: {
-    flex: 1,
-    ...(Platform.OS === 'web' ? { maxWidth: 480, alignSelf: 'center' as const, width: '100%' } : {}),
   },
   scrollView: {
     flex: 1,
