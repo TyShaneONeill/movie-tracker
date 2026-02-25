@@ -18,6 +18,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  Platform,
   Pressable,
   ActivityIndicator,
   useWindowDimensions,
@@ -483,6 +484,7 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    ...(Platform.OS === 'web' ? { maxWidth: 480, alignSelf: 'center' as const, width: '100%' } : {}),
   },
   scrollView: {
     flex: 1,
