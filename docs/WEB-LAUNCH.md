@@ -1,10 +1,10 @@
 # Web App Launch Plan
 
-> **Goal:** Soft-launch Cinetrak as a usable web app at your domain while waiting for iOS App Store review.
+> **Goal:** Soft-launch Cinetrak as a usable web app at `cinetrak.app` while waiting for iOS App Store review.
 >
-> **Current State:** Expo + React Native Web architecture is in place. `npm run web` partially works. Core data layer (Supabase, TanStack Query) is platform-agnostic. Auth, routing, and most UI components have web support through Expo's transpilation. Several native-only calls will crash on web and need guarding.
+> **Current State (updated 2026-02-24):** Phase 0 and Phase 1 are **complete**. The app boots on web, all native-only modules are safely guarded, Google OAuth works on web, bottom nav is web-compatible, responsive dimensions use hooks, and content is capped at 768px max-width. Phase 2 deployment config (`vercel.json`) is created — remaining work is manual: Vercel env vars, Supabase redirect URLs, Google OAuth redirect URIs, and DNS setup.
 >
-> **Deployment Target:** Static export (`npx expo export --platform web`) deployed to Vercel/Netlify/Cloudflare Pages on your domain.
+> **Deployment Target:** Static export (`npx expo export --platform web`) deployed to **Vercel** at `cinetrak.app` (domain on Cloudflare).
 
 ---
 
@@ -15,56 +15,29 @@
 
 ### 0.1 Guard `expo-tracking-transparency`
 
-- [ ] `app/_layout.tsx` (line ~228): Wrap `requestTrackingPermissionsAsync()` in `Platform.OS === 'ios'` check
+- [x] `app/_layout.tsx`: Changed static import to dynamic `await import('expo-tracking-transparency')` inside `Platform.OS === 'ios'` guard (PR #117)
 
-### 0.2 Guard `expo-haptics` (19 unguarded files)
+### 0.2 Guard `expo-haptics` (22 files)
 
-Create a utility wrapper so we fix this once, not 19 times:
+- [x] Created `lib/haptics.ts` - thin wrapper that no-ops on web (PR #117)
+- [x] Replaced all direct `Haptics.*` imports with the wrapper across 22 files (PR #117)
 
-- [ ] Create `lib/haptics.ts` - thin wrapper that no-ops on web:
-  ```ts
-  import { Platform } from 'react-native';
-  import * as Haptics from 'expo-haptics';
-  export const hapticImpact = (style = Haptics.ImpactFeedbackStyle.Light) => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(style);
-  };
-  export const hapticNotification = (type: Haptics.NotificationFeedbackType) => {
-    if (Platform.OS !== 'web') Haptics.notificationAsync(type);
-  };
-  export const hapticSelection = () => {
-    if (Platform.OS !== 'web') Haptics.selectionAsync();
-  };
-  ```
-- [ ] Replace all direct `Haptics.*` imports with the wrapper in these files:
-  - `app/settings/index.tsx`
-  - `app/settings/edit-profile.tsx`
-  - `app/settings/letterboxd-import.tsx`
-  - `app/movie/[id].tsx`
-  - `app/journey/movie/[tmdbId].tsx`
-  - `app/journey/edit/[id].tsx`
-  - `app/journey/[id].tsx`
-  - `app/(auth)/signup.tsx`
-  - `app/(auth)/signin.tsx`
-  - `components/first-take-modal.tsx`
-  - `components/cards/first-take-card.tsx`
-  - `components/modals/trailer-modal.tsx`
-  - `components/modals/login-prompt-modal.tsx`
-  - `components/modals/review-modal.tsx`
-  - `components/movie-status-actions.tsx`
-  - `components/add-movie-modal.tsx`
-  - `components/social/FollowButton.tsx`
-  - `components/achievement-celebration.tsx`
-  - `components/haptic-tab.tsx`
+### 0.3 Guard native-only ad modules
 
-### 0.3 Verify web build compiles
+- [x] Created `lib/ads-context.web.tsx` - web stub with ads permanently disabled (PR #117)
+- [x] Created `components/ads/banner-ad.web.tsx` - returns null on web (PR #117)
+- [x] Created `components/ads/native-feed-ad.web.tsx` - returns null on web (PR #117)
+- [x] Created `hooks/use-rewarded-ad.web.ts` - no-op hook on web (PR #117)
 
-- [ ] Run `npx expo export --platform web` and fix any additional build errors
-- [ ] Run `npx serve dist` (or similar) to smoke-test in browser
+### 0.4 Fix other web runtime crashes
 
-### 0.4 Triage any other runtime crashes
+- [x] Installed `react-native-web-webview` for `react-native-youtube-iframe` web support (PR #117)
+- [x] Renamed `public/index.html` to `public/landing.html` to stop it intercepting the React app (PR #117)
 
-- [ ] Open every tab in browser, tap through core flows, note crashes
-- [ ] Fix anything that hard-crashes (white screen / error boundary)
+### 0.5 Verify web build compiles
+
+- [x] `npm run web` boots successfully in browser (PR #117)
+- [x] All automated checks pass: `npm run lint && npx tsc --noEmit && npm test` (439 tests) (PR #117)
 
 **Exit criteria:** App boots on web, all tabs load, no white screens or uncaught exceptions.
 
@@ -77,40 +50,34 @@ Create a utility wrapper so we fix this once, not 19 times:
 
 ### 1.1 Google Sign-In for Web
 
-The native `@react-native-google-signin/google-signin` package doesn't work on web. Options:
-
-- [ ] **Option A (recommended):** Use Supabase's built-in OAuth flow for web
-  - `supabase.auth.signInWithOAuth({ provider: 'google' })` redirects to Google, returns to app
-  - Already have `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` configured
-  - Need to add web redirect URL in Supabase dashboard (Auth > URL Configuration)
-  - Conditional: use native Google Sign-In on mobile, Supabase OAuth on web
-- [ ] **Option B:** Add `@react-oauth/google` for web-specific Google button
-- [ ] Configure Supabase redirect URLs for web domain
-- [ ] Test full sign-in → session → authenticated state flow on web
+- [x] Implemented Supabase OAuth flow for web: `supabase.auth.signInWithOAuth({ provider: 'google' })` (PR #118)
+- [x] Conditional: uses native Google Sign-In on mobile, Supabase OAuth on web (PR #118)
+- **TODO (manual):** Configure Supabase redirect URLs for `cinetrak.app` domain (see Phase 2.6)
+- **TODO (manual):** Add `cinetrak.app` to Google OAuth authorized redirect URIs (see Phase 2.6)
 
 ### 1.2 Apple Sign-In on Web
 
-- [ ] Already properly guarded (`Platform.OS !== 'ios'`) - just verify the UI hides it on web
-- [ ] Consider: Supabase supports Apple OAuth on web too, could add later (nice-to-have)
+- [x] Verified Apple Sign-In button is hidden on web (PR #118)
+- [x] Fixed `expo-apple-authentication` static import crash — changed to conditional `require()` behind `Platform.OS === 'ios'` (PR #118)
 
 ### 1.3 Bottom Navigation for Web
 
-`components/ui/bottom-nav-bar.tsx` uses `pointerEvents` (RN-only) and `BlurView` (limited web support).
-
-- [ ] Fix `pointerEvents` style usage for web compatibility
-- [ ] Test BlurView rendering on web - if broken, add fallback background
-- [ ] Verify all 4 tabs are tappable and route correctly on web
-- [ ] (Optional) Create `bottom-nav-bar.web.tsx` with a more web-native layout
+- [x] Refactored `bottom-nav-bar.tsx`: BlurView on native, solid background fallback on web (PR #118)
+- [x] Added `cursor: 'pointer'` for web tappable elements (PR #118)
+- [x] Verified all 4 tabs tappable and route correctly on web (PR #118)
 
 ### 1.4 Static Dimension Queries → Responsive
 
-Three files use `Dimensions.get('window')` which doesn't respond to browser resize:
+- [x] `app/achievements.tsx` → switched to `useWindowDimensions()` (PR #118)
+- [x] `app/(tabs)/profile.tsx` → switched to `useWindowDimensions()` (PR #118)
+- [x] `app/user/[id].tsx` → switched to `useWindowDimensions()` (PR #118)
 
-- [ ] `app/achievements.tsx` → switch to `useWindowDimensions()`
-- [ ] `app/(tabs)/profile.tsx` → switch to `useWindowDimensions()`
-- [ ] `app/user/[id].tsx` → switch to `useWindowDimensions()`
+### 1.5 Max-Width Cap & Theme Sync
 
-### 1.5 Core Flow Smoke Tests (manual)
+- [x] Added 768px max-width container in root `_layout.tsx` for web (PR #118)
+- [x] Added `document.body.style.backgroundColor` sync with theme to eliminate white bars (PR #118)
+
+### 1.6 Core Flow Smoke Tests (manual)
 
 Walk through each flow in a browser and note issues:
 
@@ -134,38 +101,51 @@ Walk through each flow in a browser and note issues:
 
 ### 2.1 Build Configuration
 
-- [ ] Verify `app.config.js` web output is `"static"`
-- [ ] Run production build: `npx expo export --platform web`
-- [ ] Test production build locally with `npx serve dist`
+- [x] Created `vercel.json` with build command, output dir, framework null, SPA rewrites (PR #119)
+- [x] SPA catch-all rewrite rule: `{ "source": "/(.*)", "destination": "/" }` (PR #119)
 
-### 2.2 Choose & Configure Hosting
+### 2.2 Vercel Project Setup
 
-- [ ] **Vercel** (recommended - free, instant deploys, great for static):
-  - Connect GitHub repo
-  - Build command: `npx expo export --platform web`
-  - Output directory: `dist`
-  - Environment variables: copy from `.env.local`
-- [ ] OR **Netlify** (also free, similar setup)
-- [ ] OR **Cloudflare Pages** (free, fast global CDN)
+- [ ] **TODO:** Connect GitHub repo (`TyShaneONeill/movie-tracker`) to Vercel
+  - Root directory: `cinetrak`
+  - Build command: `npx expo export --platform web` (auto from vercel.json)
+  - Output directory: `dist` (auto from vercel.json)
 
-### 2.3 Domain Configuration
+### 2.3 Domain Configuration (Cloudflare → Vercel)
 
-- [ ] Point your domain (or subdomain like `app.yourdomain.com`) to hosting provider
-- [ ] Configure SSL (automatic with Vercel/Netlify/CF)
-- [ ] Update Supabase Auth redirect URLs to include web domain
-- [ ] Update Google OAuth authorized redirect URIs for web domain
+- [ ] **TODO:** In Vercel dashboard → Project Settings → Domains → Add `cinetrak.app`
+- [ ] **TODO:** In Cloudflare DNS → Add CNAME record pointing `cinetrak.app` to `cname.vercel-dns.com`
+  - Or use Vercel's nameservers if preferred
+- [ ] SSL is automatic with Vercel
 
-### 2.4 SPA Routing / Fallback
+### 2.4 Environment Variables
 
-Static export with expo-router needs a catch-all redirect so direct URL access works:
-
-- [ ] Configure hosting provider's rewrite rules (e.g., Vercel `rewrites` in `vercel.json`)
-- [ ] Verify deep links work: `yourdomain.com/movie/123` should load the app, not 404
-
-### 2.5 Environment & Secrets
-
-- [ ] Verify all `EXPO_PUBLIC_*` vars are set in hosting provider
+- [ ] **TODO:** Add these env vars in Vercel dashboard → Project Settings → Environment Variables:
+  - `EXPO_PUBLIC_SUPABASE_URL`
+  - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+  - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+  - `EXPO_PUBLIC_SENTRY_DSN`
 - [ ] Confirm no private keys are exposed in the web bundle (check built JS)
+
+### 2.5 Supabase Auth Redirect URLs
+
+- [ ] **TODO:** In Supabase dashboard → Auth → URL Configuration:
+  - Add `https://cinetrak.app` to **Site URL** (or keep existing and add to redirect allow list)
+  - Add `https://cinetrak.app/**` to **Redirect URLs** allow list
+  - This is required for Google OAuth to redirect back to the web app after sign-in
+
+### 2.6 Google OAuth Redirect URIs
+
+- [ ] **TODO:** In Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client:
+  - Add `https://cinetrak.app` to **Authorized JavaScript origins**
+  - Add the Supabase callback URL to **Authorized redirect URIs** (format: `https://wliblwulvsrfgqcnbzeh.supabase.co/auth/v1/callback`)
+  - This ensures Google Sign-In works on the web app
+
+### 2.7 Verify Deployment
+
+- [ ] **TODO:** After DNS propagation, visit `https://cinetrak.app` and verify app loads
+- [ ] **TODO:** Test Google Sign-In flow end-to-end on web
+- [ ] **TODO:** Verify deep links work: `cinetrak.app/movie/123` loads app correctly (SPA rewrite)
 
 **Exit criteria:** App is live at your domain, HTTPS works, all routes resolve, auth redirects work.
 
@@ -177,10 +157,7 @@ Static export with expo-router needs a catch-all redirect so direct URL access w
 
 ### 3.1 Responsive Layout Improvements
 
-- [ ] Add max-width container (e.g., 480px centered) so content doesn't stretch on desktop
-- [ ] OR implement a responsive breakpoint system:
-  - Mobile (<768px): current layout
-  - Tablet/Desktop (>=768px): wider content area, possibly sidebar nav
+- [x] Added 768px max-width container centered on page (done in Phase 1, PR #118)
 - [ ] Fix any horizontally-scrolling lists that look odd on wide screens
 - [ ] Test at common widths: 375px (mobile), 768px (tablet), 1280px (desktop)
 
@@ -379,3 +356,5 @@ If all three pass and the iOS simulator boots + basic flows work, you're good to
 | 2026-02-24 | 0 | `expo-tracking-transparency` static import crashes web — need dynamic `await import()` inside Platform guard | HIGH | Fixed |
 | 2026-02-24 | 0 | Sentry build fails locally without `SENTRY_DISABLE_AUTO_UPLOAD=true` (pre-existing, not web-related) | LOW | Noted |
 | 2026-02-24 | 0 | AdMob `GADApplicationIdentifier` missing from Info.plist after stale native build — `npx expo prebuild --platform ios --clean` fixes (pre-existing) | LOW | Noted |
+| 2026-02-24 | 1 | `expo-apple-authentication` static import crashes web bundler — changed to conditional `require()` behind `Platform.OS === 'ios'` | HIGH | Fixed |
+| 2026-02-24 | 0 | `public/index.html` static landing page intercepts web app at `/` — renamed to `public/landing.html` | HIGH | Fixed |
