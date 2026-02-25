@@ -54,7 +54,7 @@ export const unstable_settings = {
 function useProtectedRoute() {
   const { user, isLoading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { isGuest, hasSeenWelcome, isLoading: guestLoading } = useGuest();
+  const { isGuest, hasSeenWelcome, isLoading: guestLoading, enterGuestMode } = useGuest();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
@@ -121,6 +121,11 @@ function useProtectedRoute() {
       // Not authenticated and not on auth screens
       if (isGuest) {
         // Guest mode - allow browsing
+        return;
+      }
+      // On web, skip welcome screen and go straight to guest browsing
+      if (Platform.OS === 'web') {
+        enterGuestMode();
         return;
       }
       // Not in guest mode - show welcome screen (or signin if they've seen welcome)
