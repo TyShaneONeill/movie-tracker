@@ -54,7 +54,7 @@ export const unstable_settings = {
 function useProtectedRoute() {
   const { user, isLoading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { isGuest, hasSeenWelcome, isLoading: guestLoading } = useGuest();
+  const { isGuest, isLoading: guestLoading, enterGuestMode } = useGuest();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
@@ -106,7 +106,7 @@ function useProtectedRoute() {
     // This prevents "route not found" errors during initial render
     const performNavigation = (route: string) => {
       setTimeout(() => {
-        router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(auth)/welcome' | '/(onboarding)');
+        router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
       }, 0);
     };
 
@@ -123,19 +123,16 @@ function useProtectedRoute() {
         // Guest mode - allow browsing
         return;
       }
-      // Not in guest mode - show welcome screen (or signin if they've seen welcome)
-      if (!hasSeenWelcome) {
-        performNavigation('/(auth)/welcome');
-      } else {
-        performNavigation('/(auth)/signin');
+      // On web, skip welcome screen and go straight to guest browsing
+      if (Platform.OS === 'web') {
+        enterGuestMode();
+        return;
       }
+      // Not in guest mode - go to signin
+      performNavigation('/(auth)/signin');
     } else if (!user && inOnboardingGroup) {
       // User is in onboarding but not logged in - redirect to auth
-      if (!hasSeenWelcome) {
-        performNavigation('/(auth)/welcome');
-      } else {
-        performNavigation('/(auth)/signin');
-      }
+      performNavigation('/(auth)/signin');
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding
       // (but don't redirect away from reset-password)
@@ -155,7 +152,7 @@ function useProtectedRoute() {
       // Authenticated and completed onboarding but still on onboarding → go to tabs
       performNavigation('/(tabs)');
     }
-  }, [user, segments, authLoading, onboardingLoading, guestLoading, hasCompletedOnboarding, isGuest, hasSeenWelcome, navigationState?.key]);
+  }, [user, segments, authLoading, onboardingLoading, guestLoading, hasCompletedOnboarding, isGuest, navigationState?.key]);
 }
 
 function RootLayoutNav() {

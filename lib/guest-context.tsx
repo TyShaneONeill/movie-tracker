@@ -10,13 +10,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
 const GUEST_MODE_KEY = 'cinetrak_is_guest';
-const HAS_SEEN_WELCOME_KEY = 'cinetrak_has_seen_welcome';
 
 interface GuestContextType {
   /** Currently in guest mode (browsing without account) */
   isGuest: boolean;
-  /** Has made a choice on welcome screen (either signed in or entered guest mode) */
-  hasSeenWelcome: boolean;
   /** Loading state while reading from AsyncStorage */
   isLoading: boolean;
   /** Enter guest mode to browse without signing in */
@@ -29,24 +26,16 @@ const GuestContext = createContext<GuestContextType | undefined>(undefined);
 
 export function GuestProvider({ children }: { children: ReactNode }) {
   const [isGuest, setIsGuest] = useState(false);
-  const [hasSeenWelcome, setHasSeenWelcome] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load guest state from AsyncStorage on mount
   useEffect(() => {
     const loadGuestState = async () => {
       try {
-        const [guestValue, welcomeValue] = await Promise.all([
-          AsyncStorage.getItem(GUEST_MODE_KEY),
-          AsyncStorage.getItem(HAS_SEEN_WELCOME_KEY),
-        ]);
-
+        const guestValue = await AsyncStorage.getItem(GUEST_MODE_KEY);
         setIsGuest(guestValue === 'true');
-        setHasSeenWelcome(welcomeValue === 'true');
       } catch (error) {
-        // If we fail to read, default to showing welcome screen
         setIsGuest(false);
-        setHasSeenWelcome(false);
       } finally {
         setIsLoading(false);
       }
@@ -62,16 +51,10 @@ export function GuestProvider({ children }: { children: ReactNode }) {
         // User logged in while in guest mode, exit guest mode
         await exitGuestMode();
       }
-
-      // Mark welcome as seen when user successfully signs in
-      if (session?.user && !hasSeenWelcome) {
-        await AsyncStorage.setItem(HAS_SEEN_WELCOME_KEY, 'true');
-        setHasSeenWelcome(true);
-      }
     });
 
     return () => subscription.unsubscribe();
-  }, [isGuest, hasSeenWelcome]);
+  }, [isGuest]);
 
   const enterGuestMode = useCallback(async () => {
     try {
@@ -79,17 +62,12 @@ export function GuestProvider({ children }: { children: ReactNode }) {
       // This prevents "Invalid Refresh Token" errors from leftover sessions
       await supabase.auth.signOut();
 
-      await Promise.all([
-        AsyncStorage.setItem(GUEST_MODE_KEY, 'true'),
-        AsyncStorage.setItem(HAS_SEEN_WELCOME_KEY, 'true'),
-      ]);
+      await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
       setIsGuest(true);
-      setHasSeenWelcome(true);
     } catch (error) {
       // Log error but continue - state will be in memory only
       console.error('Failed to save guest mode state:', error);
       setIsGuest(true);
-      setHasSeenWelcome(true);
     }
   }, []);
 
@@ -108,7 +86,6 @@ export function GuestProvider({ children }: { children: ReactNode }) {
     <GuestContext.Provider
       value={{
         isGuest,
-        hasSeenWelcome,
         isLoading,
         enterGuestMode,
         exitGuestMode,
