@@ -61,6 +61,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: ExpoStorageAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // On web, detectSessionInUrl must be true so Supabase can pick up the
+    // session from the URL hash after an OAuth redirect (e.g. Google sign-in).
+    // On native, it must be false to avoid interfering with deep links.
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });

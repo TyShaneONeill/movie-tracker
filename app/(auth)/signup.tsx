@@ -276,21 +276,23 @@ export default function SignUpScreen() {
                 </View>
               </Pressable>
 
-              <Pressable
-                onPress={() => handleOAuthSignIn('apple')}
-                style={({ pressed }) => [
-                  styles.socialButton,
-                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-                ]}
-                disabled={isSubmitting}
-              >
-                <View style={styles.socialButtonContent}>
-                  <Ionicons name="logo-apple" size={20} color={colors.text} />
-                  <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
-                    Apple
-                  </ThemedText>
-                </View>
-              </Pressable>
+              {Platform.OS === 'ios' && (
+                <Pressable
+                  onPress={() => handleOAuthSignIn('apple')}
+                  style={({ pressed }) => [
+                    styles.socialButton,
+                    { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  disabled={isSubmitting}
+                >
+                  <View style={styles.socialButtonContent}>
+                    <Ionicons name="logo-apple" size={20} color={colors.text} />
+                    <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                      Apple
+                    </ThemedText>
+                  </View>
+                </Pressable>
+              )}
 
               <Pressable
                 onPress={() => handleOAuthSignIn('meta')}

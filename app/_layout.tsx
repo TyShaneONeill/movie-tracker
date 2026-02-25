@@ -165,6 +165,14 @@ function RootLayoutNav() {
   const { isLoading: guestLoading } = useGuest();
   useProtectedRoute();
 
+  // Sync the page background color on web so the area outside the max-width container matches
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.documentElement.style.backgroundColor = Colors[effectiveTheme].background;
+      document.body.style.backgroundColor = Colors[effectiveTheme].background;
+    }
+  }, [effectiveTheme]);
+
   if (authLoading || onboardingLoading || guestLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: Colors[effectiveTheme].background }]}>
@@ -237,29 +245,39 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryProvider>
-      <NetworkProvider>
-        <AdsProvider>
-          <GuestProvider>
-            <AuthProvider>
-              <OnboardingProvider>
-                <ThemeProvider>
-                  <AchievementProvider>
-                    <ErrorBoundary>
-                      <RootLayoutNav />
-                    </ErrorBoundary>
-                  </AchievementProvider>
-                </ThemeProvider>
-              </OnboardingProvider>
-            </AuthProvider>
-          </GuestProvider>
-        </AdsProvider>
-      </NetworkProvider>
-    </QueryProvider>
+    <View style={styles.webContainer}>
+      <QueryProvider>
+        <NetworkProvider>
+          <AdsProvider>
+            <GuestProvider>
+              <AuthProvider>
+                <OnboardingProvider>
+                  <ThemeProvider>
+                    <AchievementProvider>
+                      <ErrorBoundary>
+                        <RootLayoutNav />
+                      </ErrorBoundary>
+                    </AchievementProvider>
+                  </ThemeProvider>
+                </OnboardingProvider>
+              </AuthProvider>
+            </GuestProvider>
+          </AdsProvider>
+        </NetworkProvider>
+      </QueryProvider>
+    </View>
   );
 }
 
+const MAX_APP_WIDTH = 768;
+
 const styles = StyleSheet.create({
+  webContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? MAX_APP_WIDTH : undefined,
+    alignSelf: 'center',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { StyleSheet, View, Pressable, Image, RefreshControl, Dimensions, ListRenderItemInfo, ScrollView } from 'react-native';
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { StyleSheet, View, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
@@ -44,12 +44,8 @@ const HEADER_MIN_HEIGHT = 0; // Collapsed header height
 const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
 
 // Grid layout constants
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const GRID_GAP = Spacing.sm;
-// Content area has paddingHorizontal: Spacing.lg, so available width for grid is:
-const AVAILABLE_WIDTH = SCREEN_WIDTH - (Spacing.lg * 2);
-const CARD_WIDTH = (AVAILABLE_WIDTH - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 export default function ProfileScreen() {
     const { effectiveTheme } = useTheme();
@@ -62,6 +58,12 @@ export default function ProfileScreen() {
     const flatListRef = useRef<Animated.FlatList<GroupedUserMovie>>(null);
 
     const colors = Colors[effectiveTheme];
+    const { width: screenWidth } = useWindowDimensions();
+
+    const cardWidth = useMemo(() => {
+        const availableWidth = screenWidth - (Spacing.lg * 2);
+        return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+    }, [screenWidth]);
 
     // Animated scroll value
     const scrollY = useSharedValue(0);
@@ -201,10 +203,10 @@ export default function ProfileScreen() {
                 isAiPoster={isAiPoster}
                 journeyCount={item.journeyCount}
                 onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
-                style={{ width: CARD_WIDTH }}
+                style={{ width: cardWidth }}
             />
         );
-    }, []);
+    }, [cardWidth]);
 
     const renderEmptyCollection = () => (
         <View style={styles.emptyContainer}>
