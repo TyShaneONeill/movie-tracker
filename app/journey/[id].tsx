@@ -18,6 +18,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  Platform,
   Pressable,
   ActivityIndicator,
   useWindowDimensions,
@@ -121,13 +122,15 @@ function BarcodeVisual({ colors }: { colors: ThemeColors }) {
 
 // Header height constant
 const HEADER_HEIGHT = 100; // paddingTop (60) + content (~40)
+const MAX_JOURNEY_WIDTH = 480;
 
 export default function JourneyCardScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const { height: screenHeight, width: windowWidth } = useWindowDimensions();
+  const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
   const insets = useSafeAreaInsets();
 
   // Info carousel state
