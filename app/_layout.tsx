@@ -37,7 +37,6 @@ import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
 import { NetworkProvider } from '@/lib/network-context';
 import { OfflineBanner } from '@/components/offline-banner';
-import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { AdsProvider } from '@/lib/ads-context';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AchievementProvider } from '@/lib/achievement-context';
@@ -226,6 +225,7 @@ export default function RootLayout() {
   useEffect(() => {
     (async () => {
       if (Platform.OS === 'ios') {
+        const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
         const { status } = await requestTrackingPermissionsAsync();
         console.log(`[ATT] Tracking permission status: ${status}`);
       }

@@ -374,4 +374,8 @@ If all three pass and the iOS simulator boots + basic flows work, you're good to
 
 | Date | Phase | Issue | Severity | Status |
 |------|-------|-------|----------|--------|
-| | | | | |
+| 2026-02-24 | 0 | `react-native-google-mobile-ads` `require()` crashes web bundler even inside Platform guard — need `.web.tsx` stubs | HIGH | Fixed |
+| 2026-02-24 | 0 | `react-native-youtube-iframe` needs `react-native-web-webview` peer dep for web | MEDIUM | Fixed |
+| 2026-02-24 | 0 | `expo-tracking-transparency` static import crashes web — need dynamic `await import()` inside Platform guard | HIGH | Fixed |
+| 2026-02-24 | 0 | Sentry build fails locally without `SENTRY_DISABLE_AUTO_UPLOAD=true` (pre-existing, not web-related) | LOW | Noted |
+| 2026-02-24 | 0 | AdMob `GADApplicationIdentifier` missing from Info.plist after stale native build — `npx expo prebuild --platform ios --clean` fixes (pre-existing) | LOW | Noted |
