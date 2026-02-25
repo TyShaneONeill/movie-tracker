@@ -4,9 +4,9 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Dimensions,
   Modal,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -21,12 +21,9 @@ import { ThemedText } from '@/components/themed-text';
 import { AchievementGridCard } from '@/components/achievement-grid-card';
 import type { AchievementProgress } from '@/lib/achievement-service';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
 const GRID_GAP = Spacing.sm;
 const HORIZONTAL_PADDING = Spacing.lg;
-const AVAILABLE_WIDTH = SCREEN_WIDTH - (HORIZONTAL_PADDING * 2);
-const CARD_WIDTH = (AVAILABLE_WIDTH - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -41,6 +38,12 @@ export default function AchievementsScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { width: screenWidth } = useWindowDimensions();
+
+  const cardWidth = useMemo(() => {
+    const availableWidth = screenWidth - (HORIZONTAL_PADDING * 2);
+    return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+  }, [screenWidth]);
 
   const { progress } = useAchievements();
   const [selectedProgress, setSelectedProgress] = useState<AchievementProgress | null>(null);
@@ -57,11 +60,11 @@ export default function AchievementsScreen() {
     ({ item }: { item: AchievementProgress }) => (
       <AchievementGridCard
         progress={item}
-        cardWidth={CARD_WIDTH}
+        cardWidth={cardWidth}
         onPress={() => setSelectedProgress(item)}
       />
     ),
-    []
+    [cardWidth]
   );
 
   const currentLevelData = selectedProgress

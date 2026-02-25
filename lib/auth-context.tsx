@@ -8,11 +8,16 @@ import {
 } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
 import { setSentryUser, captureException } from './sentry';
 import type { Session, User } from '@supabase/supabase-js';
+
+// Dynamically import Apple Authentication to avoid crash on web (iOS-only native module)
+let AppleAuthentication: typeof import('expo-apple-authentication') | null = null;
+if (Platform.OS === 'ios') {
+  AppleAuthentication = require('expo-apple-authentication');
+}
 
 // Get Google client IDs from expo config (exposed via app.config.js extra)
 const googleIosClientId =
@@ -47,6 +52,11 @@ try {
 } catch (error) {
   // Google Sign-In not available (expected in Expo Go)
   isGoogleSignInAvailable = false;
+}
+
+// On web, use Supabase OAuth instead of the native Google Sign-In SDK
+if (Platform.OS === 'web') {
+  isGoogleSignInAvailable = true;
 }
 
 // Export availability flags for UI components
@@ -173,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithApple = async () => {
-    if (Platform.OS !== 'ios') {
+    if (Platform.OS !== 'ios' || !AppleAuthentication) {
       throw new Error('Apple Sign-In is only available on iOS devices');
     }
 
@@ -211,6 +221,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    // On web, use Supabase OAuth redirect flow instead of native SDK
+    if (Platform.OS === 'web') {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      return;
+    }
+
     if (!isGoogleSignInAvailable || !GoogleSignin || !isSuccessResponse || !isErrorWithCode || !statusCodes) {
       throw new Error('Google Sign-In is not available. Please use a development build to test this feature.');
     }

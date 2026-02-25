@@ -10,9 +10,9 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Dimensions,
   ActivityIndicator,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -36,11 +36,8 @@ import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'watchlist';
 
 // Grid layout constants
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const GRID_GAP = Spacing.sm;
-const AVAILABLE_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
-const CARD_WIDTH = (AVAILABLE_WIDTH - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
 
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
   <Svg
@@ -97,7 +94,13 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { width: screenWidth } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<TabType>('collection');
+
+  const cardWidth = useMemo(() => {
+    const availableWidth = screenWidth - Spacing.lg * 2;
+    return (availableWidth - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
+  }, [screenWidth]);
 
   // Fetch user profile data using the hook
   const { profile, watchedMovies, firstTakes, watchlist, isLoading, isError, stats } =
@@ -222,7 +225,7 @@ export default function UserProfileScreen() {
               }
               isAiPoster={isAiPoster}
               journeyCount={movie.journeyCount}
-              style={{ width: CARD_WIDTH }}
+              style={{ width: cardWidth }}
             />
           );
         })}
@@ -329,7 +332,7 @@ export default function UserProfileScreen() {
                 onPress={() => router.push(`/movie/${movie.tmdb_id}`)}
                 style={({ pressed }) => [
                   styles.watchlistCard,
-                  { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+                  { width: cardWidth, backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
                 ]}
               >
                 <Image
@@ -745,7 +748,6 @@ const styles = StyleSheet.create({
     gap: GRID_GAP,
   },
   watchlistCard: {
-    width: CARD_WIDTH,
     aspectRatio: 2 / 3,
     borderRadius: BorderRadius.sm,
     overflow: 'hidden',

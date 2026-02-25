@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { hapticImpact } from '@/lib/haptics';
 import { ThemedText } from '@/components/themed-text';
@@ -36,47 +36,66 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
     onPress();
   };
 
+  const navContent = (
+    <View style={styles.navItems}>
+      {items.map((item, index) => {
+        const isActive = index === activeIndex;
+        return (
+          <Pressable
+            key={index}
+            onPress={() => handlePress(index, item.onPress)}
+            style={({ pressed }) => [
+              styles.navItem,
+              pressed && styles.navItemPressed,
+            ]}
+          >
+            <View style={styles.iconContainer}>
+              {item.icon(isActive ? colors.tint : colors.textTertiary)}
+            </View>
+            <ThemedText
+              style={[
+                styles.label,
+                { color: isActive ? colors.tint : colors.textTertiary },
+              ]}
+            >
+              {item.label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
-      <BlurView
-        intensity={80}
-        tint={effectiveTheme === 'light' ? 'light' : 'dark'}
-        style={[
-          styles.blurContainer,
-          {
-            backgroundColor: colors.glass,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <View style={styles.navItems}>
-          {items.map((item, index) => {
-            const isActive = index === activeIndex;
-            return (
-              <Pressable
-                key={index}
-                onPress={() => handlePress(index, item.onPress)}
-                style={({ pressed }) => [
-                  styles.navItem,
-                  pressed && styles.navItemPressed,
-                ]}
-              >
-                <View style={styles.iconContainer}>
-                  {item.icon(isActive ? colors.tint : colors.textTertiary)}
-                </View>
-                <ThemedText
-                  style={[
-                    styles.label,
-                    { color: isActive ? colors.tint : colors.textTertiary },
-                  ]}
-                >
-                  {item.label}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
+    <View style={styles.container} pointerEvents="box-none">
+      {Platform.OS === 'web' ? (
+        <View
+          style={[
+            styles.blurContainer,
+            styles.webBlurFallback,
+            {
+              backgroundColor: colors.glass,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          {navContent}
         </View>
-      </BlurView>
+      ) : (
+        <BlurView
+          intensity={80}
+          tint={effectiveTheme === 'light' ? 'light' : 'dark'}
+          style={[
+            styles.blurContainer,
+            {
+              backgroundColor: colors.glass,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          {navContent}
+        </BlurView>
+      )}
     </View>
   );
 }
@@ -90,7 +109,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
-    pointerEvents: 'box-none',
   },
   blurContainer: {
     width: '100%',
@@ -100,7 +118,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingVertical: 12,
     paddingHorizontal: Spacing.lg,
-    pointerEvents: 'auto',
+  },
+  webBlurFallback: {
+    // CSS backdrop-filter for glassmorphism on web
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      } as any,
+      default: {},
+    }),
   },
   navItems: {
     flexDirection: 'row',
@@ -111,6 +138,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 4,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+      default: {},
+    }),
   },
   navItemPressed: {
     transform: [{ scale: 0.9 }],
