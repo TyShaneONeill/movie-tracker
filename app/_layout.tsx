@@ -237,29 +237,39 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryProvider>
-      <NetworkProvider>
-        <AdsProvider>
-          <GuestProvider>
-            <AuthProvider>
-              <OnboardingProvider>
-                <ThemeProvider>
-                  <AchievementProvider>
-                    <ErrorBoundary>
-                      <RootLayoutNav />
-                    </ErrorBoundary>
-                  </AchievementProvider>
-                </ThemeProvider>
-              </OnboardingProvider>
-            </AuthProvider>
-          </GuestProvider>
-        </AdsProvider>
-      </NetworkProvider>
-    </QueryProvider>
+    <View style={styles.webContainer}>
+      <QueryProvider>
+        <NetworkProvider>
+          <AdsProvider>
+            <GuestProvider>
+              <AuthProvider>
+                <OnboardingProvider>
+                  <ThemeProvider>
+                    <AchievementProvider>
+                      <ErrorBoundary>
+                        <RootLayoutNav />
+                      </ErrorBoundary>
+                    </AchievementProvider>
+                  </ThemeProvider>
+                </OnboardingProvider>
+              </AuthProvider>
+            </GuestProvider>
+          </AdsProvider>
+        </NetworkProvider>
+      </QueryProvider>
+    </View>
   );
 }
 
+const MAX_APP_WIDTH = 768;
+
 const styles = StyleSheet.create({
+  webContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? MAX_APP_WIDTH : undefined,
+    alignSelf: 'center',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
