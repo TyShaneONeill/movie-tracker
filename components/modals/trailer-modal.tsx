@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact } from '@/lib/haptics';
 import { Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 
@@ -61,7 +61,7 @@ export function TrailerModal({
   }, []);
 
   const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     setPlaying(false);
     setError(false);
     onClose();

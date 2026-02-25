@@ -5,7 +5,8 @@ import { captureMessage } from '@/lib/sentry';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius, FontSizes } from '@/constants/theme';
 
-// Guarded require for Expo Go compatibility
+// Guarded require for Expo Go compatibility.
+// Web uses native-feed-ad.web.tsx instead (no native ads on web).
 let AdComponents: {
   BannerAd: any;
   BannerAdSize: any;

@@ -29,7 +29,7 @@ import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -167,7 +167,7 @@ export default function JourneyCardScreen() {
 
   // Handle poster modal close
   const handlePosterModalClose = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     setIsPosterModalVisible(false);
   }, []);
 
@@ -182,7 +182,7 @@ export default function JourneyCardScreen() {
   // Handle generate AI art
   const handleGenerateArt = useCallback(async () => {
     if (!journey) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     try {
       const genreNames = journey.genre_ids
         ? getGenreNamesByIds(journey.genre_ids)
@@ -194,7 +194,7 @@ export default function JourneyCardScreen() {
         genres: genreNames,
         posterUrl,
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      hapticNotification(NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Failed to generate art:', error);
     }
@@ -210,7 +210,7 @@ export default function JourneyCardScreen() {
 
   // Handle poster tap for inspection modal (must be after heroImageUrl declaration)
   const handlePosterTap = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticImpact(ImpactFeedbackStyle.Medium);
     setIsPosterModalVisible(true);
   }, []);
 

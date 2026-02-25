@@ -2,7 +2,7 @@
 import '@/lib/sentry-init';
 
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, View, StyleSheet } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -37,7 +37,6 @@ import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
 import { NetworkProvider } from '@/lib/network-context';
 import { OfflineBanner } from '@/components/offline-banner';
-import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { AdsProvider } from '@/lib/ads-context';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AchievementProvider } from '@/lib/achievement-context';
@@ -225,8 +224,11 @@ export default function RootLayout() {
   // Request App Tracking Transparency permission before ads load (iOS 14.5+)
   useEffect(() => {
     (async () => {
-      const { status } = await requestTrackingPermissionsAsync();
-      console.log(`[ATT] Tracking permission status: ${status}`);
+      if (Platform.OS === 'ios') {
+        const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
+        const { status } = await requestTrackingPermissionsAsync();
+        console.log(`[ATT] Tracking permission status: ${status}`);
+      }
     })();
   }, []);
 

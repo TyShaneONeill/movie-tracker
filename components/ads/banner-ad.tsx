@@ -5,7 +5,8 @@ import { captureMessage } from '@/lib/sentry';
 import { Spacing } from '@/constants/theme';
 
 // Use require() in try-catch to gracefully handle Expo Go
-// where the native module isn't available
+// where the native module isn't available.
+// Web uses banner-ad.web.tsx instead (no native ads on web).
 let AdComponents: {
   BannerAd: any;
   BannerAdSize: any;

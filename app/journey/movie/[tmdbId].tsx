@@ -39,7 +39,7 @@ import { getGenreNamesByIds } from '@/lib/genre-service';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 
 // Type for the colors object
@@ -569,7 +569,7 @@ export default function JourneyCarouselScreen() {
   const handlePosterTap = useCallback((journey: UserMovie) => {
     setSelectedPosterJourney(journey);
     setIsPosterModalVisible(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticImpact(ImpactFeedbackStyle.Medium);
   }, []);
 
   // Calculate dimensions

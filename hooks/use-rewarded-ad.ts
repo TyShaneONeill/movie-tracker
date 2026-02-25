@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAds } from '@/lib/ads-context';
 import { captureMessage } from '@/lib/sentry';
 
-// Guarded require for Expo Go compatibility
+// Guarded require for Expo Go compatibility.
+// Web uses use-rewarded-ad.web.ts instead (no native ads on web).
 let AdModule: {
   RewardedAd: any;
   RewardedAdEventType: any;

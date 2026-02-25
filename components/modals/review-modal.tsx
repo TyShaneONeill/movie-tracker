@@ -15,7 +15,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -91,7 +91,7 @@ export function ReviewModal({
   const [containsSpoilers, setContainsSpoilers] = useState(false);
 
   const handleSave = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     const reviewData: ReviewData = {
       rating,
       watchedDate: new Date().toISOString(), // Placeholder
@@ -99,12 +99,12 @@ export function ReviewModal({
       containsSpoilers,
     };
     onSave(reviewData);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    hapticNotification(NotificationFeedbackType.Success);
     handleClose();
   };
 
   const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
     // Reset form
     setRating(0);
     setReviewText('');

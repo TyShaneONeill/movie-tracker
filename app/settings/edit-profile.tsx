@@ -13,7 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import Svg, { Path } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 
@@ -121,7 +121,7 @@ export default function EditProfileScreen() {
   };
 
   const handleSave = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticImpact();
 
     // Validate form
     const validationErrors = validateForm(formData);
@@ -138,7 +138,7 @@ export default function EditProfileScreen() {
         bio: formData.bio || undefined,
       });
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      hapticNotification(NotificationFeedbackType.Success);
       Toast.show({
         type: 'success',
         text1: 'Profile saved',

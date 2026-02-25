@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { captureMessage, captureException } from '@/lib/sentry';
 
-// Guarded require for Expo Go compatibility
+// Guarded require for Expo Go compatibility.
+// Web uses ads-context.web.tsx instead (no native ads on web).
 let mobileAds: (() => { initialize: () => Promise<any> }) | null = null;
 
 try {
