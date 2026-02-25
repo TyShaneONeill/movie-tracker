@@ -165,6 +165,14 @@ function RootLayoutNav() {
   const { isLoading: guestLoading } = useGuest();
   useProtectedRoute();
 
+  // Sync the page background color on web so the area outside the max-width container matches
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.documentElement.style.backgroundColor = Colors[effectiveTheme].background;
+      document.body.style.backgroundColor = Colors[effectiveTheme].background;
+    }
+  }, [effectiveTheme]);
+
   if (authLoading || onboardingLoading || guestLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: Colors[effectiveTheme].background }]}>
