@@ -380,6 +380,7 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
+      paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
     },
     centeredContent: {
       flex: 1,

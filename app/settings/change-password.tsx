@@ -243,6 +243,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.md,
+    paddingTop: Platform.OS === 'web' ? Spacing.md : undefined,
   },
   successBanner: {
     marginHorizontal: Spacing.md,
