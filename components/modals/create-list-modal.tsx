@@ -143,6 +143,7 @@ export function CreateListModal({
               showsVerticalScrollIndicator={false}
               bounces={false}
               keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}
             >
               {/* Name Input */}
               <View style={styles.inputGroup}>
@@ -255,6 +256,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.md,
+  },
+  scrollContent: {
+    width: '100%',
   },
   modalCard: {
     width: '100%',
