@@ -230,7 +230,7 @@ export function MultiFirstTakeModal({
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
-              <Pressable style={styles.content} onPress={() => Keyboard.dismiss()}>
+              <Pressable style={styles.content} onPress={Platform.OS === 'web' ? undefined : () => Keyboard.dismiss()}>
                 {/* Progress Indicator */}
                 <View style={styles.progressContainer}>
                   <View style={styles.progressDots}>
