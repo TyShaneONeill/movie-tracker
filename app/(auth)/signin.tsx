@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: Spacing.md,
     marginBottom: Spacing.lg,
+    ...(Platform.OS === 'web' ? { maxWidth: 400, alignSelf: 'center' as const } : {}),
   },
   input: {
     height: 56,
@@ -368,6 +369,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: Spacing.lg,
+    ...(Platform.OS === 'web' ? { maxWidth: 400, width: '100%', alignSelf: 'center' as const } : {}),
   },
   dividerLine: {
     flex: 1,
@@ -382,6 +384,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.md,
     marginBottom: Spacing.lg,
+    ...(Platform.OS === 'web' ? { maxWidth: 400, width: '100%', alignSelf: 'center' as const } : {}),
   },
   socialButton: {
     flex: 1,
