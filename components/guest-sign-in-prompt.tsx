@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: Spacing.md,
     alignItems: 'stretch',
+    ...(Platform.OS === 'web' ? { maxWidth: 400, alignSelf: 'center' as const } : {}),
   },
   primaryButton: {
     width: '100%',
