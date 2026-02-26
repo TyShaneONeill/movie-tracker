@@ -13,6 +13,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
@@ -173,6 +174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.lg,
+    paddingTop: Platform.OS === 'web' ? Spacing.md : undefined,
   },
   headerLeft: {
     flexDirection: 'row',
