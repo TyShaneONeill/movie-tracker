@@ -17,6 +17,7 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -291,6 +292,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
   },
   backButton: {
     width: 80,
@@ -328,6 +330,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: 100,
     flexGrow: 1,
+    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
   },
   emptyContainer: {
     flex: 1,
