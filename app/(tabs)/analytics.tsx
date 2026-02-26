@@ -331,6 +331,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.lg,
+    paddingTop: Platform.OS === 'web' ? Spacing.md : undefined,
   },
   statsRow: {
     flexDirection: 'row',
