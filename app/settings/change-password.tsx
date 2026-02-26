@@ -252,6 +252,7 @@ const styles = StyleSheet.create({
   },
   form: {
     paddingHorizontal: Spacing.md,
+    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
   },
   inputGroup: {
     marginBottom: Spacing.lg,
