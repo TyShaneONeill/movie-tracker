@@ -24,7 +24,7 @@ import { Typography } from '@/constants/typography';
 
 export default function SignUpScreen() {
   const { effectiveTheme } = useTheme();
-  const { signUp, signIn, signInWithApple, signInWithGoogle, isGoogleSignInAvailable } = useAuth();
+  const { signUp, signIn, signInWithApple, signInWithGoogle, signInWithFacebook, isGoogleSignInAvailable } = useAuth();
 
   const colors = Colors[effectiveTheme];
 
@@ -86,11 +86,6 @@ export default function SignUpScreen() {
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple' | 'meta') => {
     hapticImpact();
-    if (provider === 'meta') {
-      alert('Meta sign-in coming soon');
-      return;
-    }
-
     setError(null);
     setIsSubmitting(true);
 
@@ -103,6 +98,8 @@ export default function SignUpScreen() {
         await signInWithApple();
       } else if (provider === 'google') {
         await signInWithGoogle();
+      } else if (provider === 'meta') {
+        await signInWithFacebook();
       }
       // Navigation is handled automatically by useProtectedRoute in _layout.tsx
       // which will check onboarding status and redirect appropriately

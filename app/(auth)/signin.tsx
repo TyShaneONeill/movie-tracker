@@ -26,7 +26,7 @@ import { getFriendlyErrorMessage } from '@/lib/error-messages';
 export default function SignInScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { signIn, signInWithApple, signInWithGoogle, isGoogleSignInAvailable } = useAuth();
+  const { signIn, signInWithApple, signInWithGoogle, signInWithFacebook, isGoogleSignInAvailable } = useAuth();
   const { enterGuestMode } = useGuest();
 
   const [email, setEmail] = useState('');
@@ -71,11 +71,6 @@ export default function SignInScreen() {
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple' | 'meta') => {
     hapticImpact();
-    if (provider === 'meta') {
-      alert('Meta sign-in coming soon');
-      return;
-    }
-
     setError(null);
     setIsSubmitting(true);
 
@@ -88,6 +83,8 @@ export default function SignInScreen() {
         await signInWithApple();
       } else if (provider === 'google') {
         await signInWithGoogle();
+      } else if (provider === 'meta') {
+        await signInWithFacebook();
       }
       // Navigation is handled automatically by useProtectedRoute in _layout.tsx
       // which will check onboarding status and redirect appropriately

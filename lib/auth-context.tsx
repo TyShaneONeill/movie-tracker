@@ -8,6 +8,8 @@ import {
 } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
 import { setSentryUser, captureException } from './sentry';
@@ -80,6 +82,7 @@ interface AuthContextType {
   resetPasswordForEmail: (email: string) => Promise<{ error: Error | null }>;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
   deleteAccount: () => Promise<{ error: Error | null }>;
 }
 
@@ -287,6 +290,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithFacebook = async () => {
+    // On web, use Supabase OAuth redirect flow (same as Google web)
+    if (Platform.OS === 'web') {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      return;
+    }
+
+    // On native, open an in-app browser for the OAuth flow
+    const redirectTo = makeRedirectUri();
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) throw error;
+    if (!data?.url) throw new Error('No OAuth URL returned from Supabase');
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+    if (result.type === 'success' && result.url) {
+      const url = new URL(result.url);
+      const code = url.searchParams.get('code');
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) throw exchangeError;
+      }
+    } else if (result.type === 'cancel' || result.type === 'dismiss') {
+      throw new Error('Facebook Sign-In was cancelled');
+    }
+  };
+
   const deleteAccount = async (): Promise<{ error: Error | null }> => {
     try {
       // Get the current session for the authorization header
@@ -337,6 +378,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPasswordForEmail,
       signInWithApple,
       signInWithGoogle,
+      signInWithFacebook,
       deleteAccount,
     }),
     [
@@ -350,6 +392,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPasswordForEmail,
       signInWithApple,
       signInWithGoogle,
+      signInWithFacebook,
       deleteAccount,
     ]
   );
