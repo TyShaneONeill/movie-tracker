@@ -84,6 +84,8 @@ export default function AnalyticsScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.contentContainer}
+          bounces={Platform.OS !== 'web'}
+          overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
           refreshControl={
             Platform.OS !== 'web' ? (
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
@@ -126,6 +128,8 @@ export default function AnalyticsScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
+        bounces={Platform.OS !== 'web'}
+        overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
         refreshControl={
           Platform.OS !== 'web' ? (
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />

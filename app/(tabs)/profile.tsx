@@ -766,6 +766,8 @@ export default function ProfileScreen() {
                     removeClippedSubviews={true}
                     maxToRenderPerBatch={10}
                     windowSize={5}
+                    bounces={Platform.OS !== 'web'}
+                    overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
                     refreshControl={
                         Platform.OS !== 'web' ? (
                             <RefreshControl
@@ -787,6 +789,8 @@ export default function ProfileScreen() {
                     scrollEventThrottle={16}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
+                    bounces={Platform.OS !== 'web'}
+                    overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
                     refreshControl={
                         Platform.OS !== 'web' ? (
                             <RefreshControl

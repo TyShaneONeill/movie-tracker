@@ -366,6 +366,8 @@ export default function HomeScreen() {
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
         windowSize={5}
+        bounces={Platform.OS !== 'web'}
+        overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
         refreshControl={
           Platform.OS !== 'web' ? (
             <RefreshControl
