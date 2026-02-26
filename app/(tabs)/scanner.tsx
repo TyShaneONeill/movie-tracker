@@ -634,6 +634,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     paddingTop: Spacing.md,
     gap: Spacing.md,
+    ...(Platform.OS === 'web' ? { maxWidth: 400, width: '100%', alignSelf: 'center' as const } : {}),
   },
 
   // Buttons
