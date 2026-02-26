@@ -40,7 +40,7 @@ import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 type TabType = 'collection' | 'first-takes' | 'lists';
 
 // Constants for header animation
-const HEADER_MAX_HEIGHT = 330; // Full header height (avatar, name, bio, follower stats, achievements)
+const HEADER_MAX_HEIGHT = 350; // Full header height (avatar, name, bio, follower stats, achievements)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
 const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
 
@@ -955,6 +955,7 @@ const styles = StyleSheet.create({
     achievementsScrollContent: {
         paddingHorizontal: Spacing.lg,
         gap: Spacing.sm,
+        ...(Platform.OS === 'web' ? { flexGrow: 1, justifyContent: 'center' } : {}),
     },
     // Combined stat-tab bar styles
     statTabBar: {
