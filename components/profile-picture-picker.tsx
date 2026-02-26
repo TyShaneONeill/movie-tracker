@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -44,7 +45,36 @@ export function ProfilePicturePicker({
   // Priority: local preview (just selected) > prop preview > remote URL > placeholder
   const displayUrl = localPreview || previewUri || avatarUrl || DEFAULT_AVATAR_PLACEHOLDER;
 
+  const handlePickFromLibrary = async () => {
+    try {
+      const result = await pickImage();
+      if (!result) return;
+      setLocalPreview(result.uri);
+      setLocalLoading(true);
+      try {
+        await onImageSelected(result.uri, result.type);
+        setLocalPreview(null);
+      } catch {
+        if (Platform.OS !== 'web') {
+          Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
+        }
+      } finally {
+        setLocalLoading(false);
+      }
+    } catch {
+      if (Platform.OS !== 'web') {
+        Alert.alert('Error', 'Could not open image picker. Please try again.');
+      }
+    }
+  };
+
   const showImageOptions = () => {
+    // On web, Alert.alert callbacks don't work — go directly to image picker
+    if (Platform.OS === 'web') {
+      handlePickFromLibrary();
+      return;
+    }
+
     Alert.alert(
       'Change Profile Photo',
       undefined,
@@ -72,24 +102,7 @@ export function ProfilePicturePicker({
         },
         {
           text: 'Choose from Library',
-          onPress: async () => {
-            try {
-              const result = await pickImage();
-              if (!result) return;
-              setLocalPreview(result.uri);
-              setLocalLoading(true);
-              try {
-                await onImageSelected(result.uri, result.type);
-                setLocalPreview(null);
-              } catch {
-                Alert.alert('Upload Failed', 'Could not upload profile photo. Please try again.');
-              } finally {
-                setLocalLoading(false);
-              }
-            } catch {
-              Alert.alert('Error', 'Could not open image picker. Please try again.');
-            }
-          },
+          onPress: handlePickFromLibrary,
         },
         { text: 'Cancel', style: 'cancel' },
       ]

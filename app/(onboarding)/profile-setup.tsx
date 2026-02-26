@@ -297,6 +297,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     alignItems: 'center',
     marginBottom: Spacing.xl,
+    paddingTop: Platform.OS === 'web' ? Spacing.lg : undefined,
   },
   title: {
     ...Typography.display.h2,
