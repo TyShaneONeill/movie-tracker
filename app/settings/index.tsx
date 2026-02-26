@@ -431,6 +431,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100,
+    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
   },
   header: {
     flexDirection: 'row',
@@ -438,6 +439,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.lg,
     paddingHorizontal: Spacing.md,
+    paddingTop: Platform.OS === 'web' ? Spacing.md : undefined,
   },
   section: {
     marginBottom: Spacing.xl,
