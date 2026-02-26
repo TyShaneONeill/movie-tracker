@@ -767,11 +767,13 @@ export default function ProfileScreen() {
                     maxToRenderPerBatch={10}
                     windowSize={5}
                     refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={handleRefresh}
-                            tintColor={colors.tint}
-                        />
+                        Platform.OS !== 'web' ? (
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={colors.tint}
+                            />
+                        ) : undefined
                     }
                     showsVerticalScrollIndicator={false}
                 />
@@ -786,11 +788,13 @@ export default function ProfileScreen() {
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                     refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={handleRefresh}
-                            tintColor={colors.tint}
-                        />
+                        Platform.OS !== 'web' ? (
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={colors.tint}
+                            />
+                        ) : undefined
                     }
                 >
                     {/* Collapsible Profile Header */}

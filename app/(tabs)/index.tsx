@@ -5,6 +5,7 @@ import {
   Text,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -366,11 +367,13 @@ export default function HomeScreen() {
         maxToRenderPerBatch={10}
         windowSize={5}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.tint}
-          />
+          Platform.OS !== 'web' ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.tint}
+            />
+          ) : undefined
         }
       />
     </SafeAreaView>

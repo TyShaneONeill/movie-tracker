@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, G } from 'react-native-svg';
 
@@ -85,7 +85,9 @@ export default function AnalyticsScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.contentContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
+            Platform.OS !== 'web' ? (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
+            ) : undefined
           }
         >
           <View style={styles.header}>
@@ -125,7 +127,9 @@ export default function AnalyticsScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
+          Platform.OS !== 'web' ? (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
+          ) : undefined
         }
       >
         {/* Header with Title */}
