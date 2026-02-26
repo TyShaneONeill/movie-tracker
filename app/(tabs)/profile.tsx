@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { StyleSheet, View, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions, Platform } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
     useAnimatedStyle,
     interpolate,
     Extrapolation,
+    runOnJS,
 } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -54,6 +55,7 @@ export default function ProfileScreen() {
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [stickyBarVisible, setStickyBarVisible] = useState(false);
     const scrollViewRef = useRef<Animated.ScrollView>(null);
     const flatListRef = useRef<Animated.FlatList<GroupedUserMovie>>(null);
 
@@ -111,6 +113,8 @@ export default function ProfileScreen() {
     const scrollHandler = useAnimatedScrollHandler({
         onScroll: (event) => {
             scrollY.value = event.contentOffset.y;
+            const isVisible = event.contentOffset.y >= HEADER_SCROLL_DISTANCE * 0.8;
+            runOnJS(setStickyBarVisible)(isVisible);
         },
     });
 
@@ -824,7 +828,7 @@ export default function ProfileScreen() {
                     { backgroundColor: colors.background, top: insets.top },
                     stickyTabBarStyle
                 ]}
-                pointerEvents="box-none"
+                pointerEvents={stickyBarVisible ? "box-none" : "none"}
             >
                 <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
                     {renderStatTabBar()}
@@ -851,6 +855,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         alignItems: 'center',
         paddingHorizontal: Spacing.lg,
+        paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.xs,
         paddingBottom: Spacing.sm,
         gap: Spacing.md,
     },
