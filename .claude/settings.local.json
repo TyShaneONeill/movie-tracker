@@ -82,7 +82,20 @@
       "Bash(git check-ignore:*)",
       "Bash(find:*)",
       "WebFetch(domain:shopify.github.io)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(git ls-tree:*)",
+      "mcp__vercel__list_teams",
+      "mcp__vercel__list_projects",
+      "mcp__vercel__list_deployments",
+      "mcp__vercel__get_deployment_build_logs",
+      "Bash(cat:*)",
+      "mcp__vercel__get_project",
+      "mcp__vercel__deploy_to_vercel",
+      "mcp__vercel__web_fetch_vercel_url",
+      "Bash(which sips:*)",
+      "Bash(npm test:*)",
+      "Bash(python3:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
