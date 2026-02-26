@@ -7,6 +7,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
@@ -406,6 +407,7 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: BorderRadius.md,
       alignItems: 'center',
       width: '100%',
+      ...(Platform.OS === 'web' ? { maxWidth: 400, alignSelf: 'center' as const } : {}),
     },
     primaryButtonText: {
       ...Typography.button.primary,
