@@ -125,7 +125,7 @@ export function FirstTakeModal({
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
-              <Pressable style={styles.content} onPress={() => Keyboard.dismiss()}>
+              <Pressable style={styles.content} onPress={Platform.OS === 'web' ? undefined : () => Keyboard.dismiss()}>
               {/* Header */}
               <View style={styles.header}>
                 {moviePosterUrl && (
