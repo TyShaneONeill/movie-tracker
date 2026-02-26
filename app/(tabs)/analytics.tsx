@@ -115,6 +115,8 @@ export default function AnalyticsScreen() {
 
   // Calculate max count for bar chart scaling
   const maxMonthlyCount = Math.max(...stats.monthlyActivity.map((m) => m.count), 1);
+  // Bar chart area height (container height 150 minus paddingTop)
+  const BAR_AREA_HEIGHT = 150 - Spacing.md;
 
   // Get current month for highlighting
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -170,7 +172,7 @@ export default function AnalyticsScreen() {
             {stats.monthlyActivity.map((month) => (
               <BarColumn
                 key={month.month}
-                height={(month.count / maxMonthlyCount) * 100}
+                height={Math.max((month.count / maxMonthlyCount) * BAR_AREA_HEIGHT, 4)}
                 count={month.count}
                 label={month.monthLabel}
                 isActive={month.month === currentMonth}
@@ -239,7 +241,7 @@ function BarColumn({
         style={[
           styles.bar,
           {
-            height: `${Math.max(height, 4)}%`,
+            height,
             backgroundColor: isActive ? colors.tint : colors.backgroundSecondary,
           },
         ]}
