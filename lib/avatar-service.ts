@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
 import { getFileExtension } from './image-utils';
@@ -27,20 +28,30 @@ export async function uploadAvatar(
     const filePath = `${userId}/avatar.${ext}`;
     const contentType = mimeType ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 
-    // Read file as base64 and decode to ArrayBuffer (reliable in React Native)
-    const base64 = await FileSystem.readAsStringAsync(imageUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    // Convert image to uploadable format
+    let uploadBody: ArrayBuffer;
+
+    if (Platform.OS === 'web') {
+      // Web: fetch the blob URI and convert to ArrayBuffer
+      const response = await fetch(imageUri);
+      uploadBody = await response.arrayBuffer();
+    } else {
+      // Native: read file as base64 and decode to ArrayBuffer
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      uploadBody = bytes.buffer;
     }
 
     // Upload to Supabase Storage (upsert to replace existing)
     const { error: uploadError } = await supabase.storage
       .from(AVATARS_BUCKET)
-      .upload(filePath, bytes.buffer, {
+      .upload(filePath, uploadBody, {
         contentType,
         upsert: true,
       });
