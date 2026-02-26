@@ -7,6 +7,7 @@ import {
   Modal,
   ScrollView,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -24,6 +25,7 @@ import type { AchievementProgress } from '@/lib/achievement-service';
 const COLUMN_COUNT = 3;
 const GRID_GAP = Spacing.sm;
 const HORIZONTAL_PADDING = Spacing.lg;
+const MAX_GRID_WIDTH = 768;
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -41,7 +43,8 @@ export default function AchievementsScreen() {
   const { width: screenWidth } = useWindowDimensions();
 
   const cardWidth = useMemo(() => {
-    const availableWidth = screenWidth - (HORIZONTAL_PADDING * 2);
+    const effectiveWidth = Platform.OS === 'web' ? Math.min(screenWidth, MAX_GRID_WIDTH) : screenWidth;
+    const availableWidth = effectiveWidth - (HORIZONTAL_PADDING * 2);
     return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
   }, [screenWidth]);
 
