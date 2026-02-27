@@ -22,7 +22,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,8 +32,13 @@ import Toast from 'react-native-toast-message';
 
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import { Image } from 'expo-image';
 import { useTheme } from '@/lib/theme-context';
 import { useJourneyMutations } from '@/hooks/use-journey';
+import { useAuth } from '@/hooks/use-auth';
+import { useMutualFollows } from '@/hooks/use-mutual-follows';
+import { buildAvatarUrl } from '@/lib/avatar-service';
+import { FriendPickerModal } from '@/components/social/friend-picker-modal';
 
 // Watch format options for dropdown
 const WATCH_FORMATS = [
@@ -93,6 +97,8 @@ export default function EditJourneyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { user } = useAuth();
+  const { mutualFollows } = useMutualFollows(user?.id ?? '');
 
   // Mock data loading (will be replaced with useJourneyMutations hook)
   const [isLoading] = useState(false);
@@ -137,9 +143,18 @@ export default function EditJourneyScreen() {
   // Format picker visibility
   const [showFormatPicker, setShowFormatPicker] = useState(false);
 
-  // Add friend modal state
-  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
-  const [newFriendName, setNewFriendName] = useState('');
+  // Friend picker modal state
+  const [showFriendPicker, setShowFriendPicker] = useState(false);
+
+  // Build a name → avatar URL lookup from mutual follows
+  const friendAvatarMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const p of mutualFollows) {
+      const name = (p.full_name || p.username || '').toLowerCase();
+      if (name) map.set(name, buildAvatarUrl(p.avatar_url, p.updated_at));
+    }
+    return map;
+  }, [mutualFollows]);
 
   // Create dynamic styles
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -253,25 +268,13 @@ export default function EditJourneyScreen() {
     );
   }, [id, router, deleteJourney]);
 
-  // Handle add friend (using modal for cross-platform support)
+  // Handle add friend
   const handleAddFriend = useCallback(() => {
-    setNewFriendName('');
-    setShowAddFriendModal(true);
+    setShowFriendPicker(true);
   }, []);
 
-  // Confirm add friend
-  const handleConfirmAddFriend = useCallback(() => {
-    if (newFriendName.trim()) {
-      setWatchedWith((prev) => [...prev, newFriendName.trim()]);
-    }
-    setShowAddFriendModal(false);
-    setNewFriendName('');
-  }, [newFriendName]);
-
-  // Cancel add friend
-  const handleCancelAddFriend = useCallback(() => {
-    setShowAddFriendModal(false);
-    setNewFriendName('');
+  const handleFriendSelected = useCallback((displayName: string) => {
+    setWatchedWith((prev) => [...prev, displayName]);
   }, []);
 
   // Handle remove friend
@@ -581,8 +584,18 @@ export default function EditJourneyScreen() {
                 {watchedWith.length === 0 && (
                   <Text style={styles.soloViewingText}>Solo viewing</Text>
                 )}
-                {watchedWith.map((friend, index) => (
+                {watchedWith.map((friend, index) => {
+                  const avatarUrl = friendAvatarMap.get(friend.toLowerCase());
+                  return (
                   <View key={index} style={styles.friendChip}>
+                    {avatarUrl ? (
+                      <Image
+                        source={{ uri: avatarUrl }}
+                        style={styles.friendChipAvatar}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    ) : null}
                     <Text style={styles.friendChipText}>{friend}</Text>
                     <Pressable
                       onPress={() => handleRemoveFriend(index)}
@@ -594,7 +607,8 @@ export default function EditJourneyScreen() {
                       <Text style={styles.friendChipRemoveText}>X</Text>
                     </Pressable>
                   </View>
-                ))}
+                  );
+                })}
                 <Pressable
                   onPress={handleAddFriend}
                   style={({ pressed }) => [
@@ -629,53 +643,13 @@ export default function EditJourneyScreen() {
           <View style={styles.bottomSpacer} />
         </ScrollView>
 
-        {/* Add Friend Modal */}
-        <Modal
-          visible={showAddFriendModal}
-          transparent
-          animationType="fade"
-          onRequestClose={handleCancelAddFriend}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Add Friend</Text>
-              <Text style={styles.modalSubtitle}>
-                Enter the name of who you watched with:
-              </Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Friend's name"
-                placeholderTextColor={colors.textTertiary}
-                value={newFriendName}
-                onChangeText={setNewFriendName}
-                autoFocus
-                onSubmitEditing={handleConfirmAddFriend}
-              />
-              <View style={styles.modalButtons}>
-                <Pressable
-                  onPress={handleCancelAddFriend}
-                  style={({ pressed }) => [
-                    styles.modalButton,
-                    styles.modalButtonCancel,
-                    pressed && styles.modalButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.modalButtonCancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleConfirmAddFriend}
-                  style={({ pressed }) => [
-                    styles.modalButton,
-                    styles.modalButtonConfirm,
-                    pressed && styles.modalButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.modalButtonConfirmText}>Add</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        {/* Friend Picker Modal */}
+        <FriendPickerModal
+          visible={showFriendPicker}
+          onClose={() => setShowFriendPicker(false)}
+          onSelectFriend={handleFriendSelected}
+          alreadyAdded={watchedWith}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1026,9 +1000,14 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.backgroundSecondary,
       borderRadius: BorderRadius.full,
       paddingVertical: Spacing.xs,
-      paddingLeft: Spacing.md,
+      paddingLeft: Spacing.xs,
       paddingRight: Spacing.xs,
       gap: Spacing.xs,
+    },
+    friendChipAvatar: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
     },
     friendChipText: {
       ...Typography.body.sm,
@@ -1092,72 +1071,4 @@ const createStyles = (colors: ThemeColors) =>
       height: Spacing.xl,
     },
 
-    // Add Friend Modal styles
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: Spacing.lg,
-    },
-    modalContent: {
-      backgroundColor: colors.card,
-      borderRadius: BorderRadius.md,
-      padding: Spacing.lg,
-      width: '100%',
-      maxWidth: 340,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    modalTitle: {
-      ...Typography.display.h4,
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: Spacing.xs,
-    },
-    modalSubtitle: {
-      ...Typography.body.sm,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginBottom: Spacing.md,
-    },
-    modalInput: {
-      backgroundColor: colors.backgroundSecondary,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: BorderRadius.sm,
-      padding: Spacing.sm,
-      color: colors.text,
-      ...Typography.body.base,
-      marginBottom: Spacing.md,
-    },
-    modalButtons: {
-      flexDirection: 'row',
-      gap: Spacing.sm,
-    },
-    modalButton: {
-      flex: 1,
-      padding: Spacing.sm,
-      borderRadius: BorderRadius.sm,
-      alignItems: 'center',
-    },
-    modalButtonCancel: {
-      backgroundColor: colors.backgroundSecondary,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    modalButtonConfirm: {
-      backgroundColor: colors.tint,
-    },
-    modalButtonPressed: {
-      opacity: 0.7,
-    },
-    modalButtonCancelText: {
-      ...Typography.button.secondary,
-      color: colors.textSecondary,
-    },
-    modalButtonConfirmText: {
-      ...Typography.button.primary,
-      color: '#ffffff',
-    },
   });
