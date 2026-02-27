@@ -482,7 +482,7 @@ export default function SearchScreen() {
         >
           {/* Trending Now Section */}
           {trendingMovies.length > 0 && (
-            <>
+            <View>
               <Text
                 style={[
                   styles.sectionTitle,
@@ -491,36 +491,38 @@ export default function SearchScreen() {
               >
                 TRENDING NOW
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.trendingScrollContent}
-                style={styles.trendingScroll}
-              >
-                {trendingMovies.slice(0, 10).map((movie) => (
-                  <Pressable
-                    key={movie.id}
-                    onPress={() => handleMoviePress(movie)}
-                    style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
-                  >
-                    <Image
-                      source={{ uri: getTMDBImageUrl(movie.poster_path, 'w185') || undefined }}
-                      style={[styles.trendingPoster, { backgroundColor: colors.card }]}
-                      contentFit="cover"
-                      transition={200}
-                    />
-                    <Text style={[styles.trendingTitle, { color: colors.text }]} numberOfLines={2}>
-                      {movie.title}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </>
+              <View style={styles.trendingContainer}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.trendingScrollContent}
+                  style={styles.trendingScroll}
+                >
+                  {trendingMovies.slice(0, 10).map((movie) => (
+                    <Pressable
+                      key={movie.id}
+                      onPress={() => handleMoviePress(movie)}
+                      style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
+                    >
+                      <Image
+                        source={{ uri: getTMDBImageUrl(movie.poster_path, 'w185') || undefined }}
+                        style={[styles.trendingPoster, { backgroundColor: colors.card }]}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                      <Text style={[styles.trendingTitle, { color: colors.text }]} numberOfLines={2}>
+                        {movie.title}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
           )}
 
           {/* Recent Searches Section */}
           {recentSearches.length > 0 && (
-            <>
+            <View>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
                   RECENT
@@ -574,7 +576,7 @@ export default function SearchScreen() {
                   </Pressable>
                 </Pressable>
               ))}
-            </>
+            </View>
           )}
 
           {/* Browse by Genre Section */}
@@ -800,9 +802,17 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     alignItems: 'center',
   },
-  // Trending section
-  trendingScroll: {
+  // Trending section — explicit height on web prevents the nested horizontal
+  // ScrollView from expanding to fill its parent on mobile Safari, which would
+  // push Browse by Genre off-screen.
+  trendingContainer: Platform.OS === 'web' ? {
+    height: 200,
+    overflow: 'hidden' as const,
     marginHorizontal: -Spacing.md,
+  } : {
+    marginHorizontal: -Spacing.md,
+  },
+  trendingScroll: {
   },
   trendingScrollContent: {
     paddingHorizontal: Spacing.md,
