@@ -56,7 +56,9 @@ export function NativeFeedAd({ index }: NativeFeedAdProps) {
             minHeight: 250,
           }}
           data-ad-client="ca-pub-5311715630678079"
-          data-ad-format="rectangle"
+          data-ad-slot="9968518889"
+          data-ad-format="auto"
+          data-full-width-responsive="true"
           key={instanceId}
         />
       </div>

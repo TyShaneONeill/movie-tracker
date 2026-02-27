@@ -5,6 +5,12 @@ import { Spacing } from '@/constants/theme';
 
 type BannerPlacement = 'home' | 'search' | 'stats';
 
+const BANNER_AD_SLOT_IDS: Record<BannerPlacement, string> = {
+  home: '1147502346',
+  search: '7429839669',
+  stats: '3594682229',
+};
+
 interface BannerAdProps {
   placement: BannerPlacement;
 }
@@ -39,6 +45,7 @@ export function BannerAdComponent({ placement }: BannerAdProps) {
           width: '100%',
         }}
         data-ad-client="ca-pub-5311715630678079"
+        data-ad-slot={BANNER_AD_SLOT_IDS[placement]}
         data-ad-format="auto"
         data-full-width-responsive="true"
         key={instanceId}
