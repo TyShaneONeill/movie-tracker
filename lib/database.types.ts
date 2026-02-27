@@ -115,13 +115,17 @@ export type Database = {
       first_takes: {
         Row: {
           created_at: string | null
+          episode_number: number | null
           id: string
           is_spoiler: boolean | null
+          media_type: string
           movie_title: string
           poster_path: string | null
           quote_text: string
           rating: number | null
           reaction_emoji: string
+          season_number: number | null
+          show_name: string | null
           tmdb_id: number
           updated_at: string | null
           user_id: string
@@ -129,13 +133,17 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          episode_number?: number | null
           id?: string
           is_spoiler?: boolean | null
+          media_type?: string
           movie_title: string
           poster_path?: string | null
           quote_text: string
           rating?: number | null
           reaction_emoji?: string
+          season_number?: number | null
+          show_name?: string | null
           tmdb_id: number
           updated_at?: string | null
           user_id: string
@@ -143,13 +151,17 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          episode_number?: number | null
           id?: string
           is_spoiler?: boolean | null
+          media_type?: string
           movie_title?: string
           poster_path?: string | null
           quote_text?: string
           rating?: number | null
           reaction_emoji?: string
+          season_number?: number | null
+          show_name?: string | null
           tmdb_id?: number
           updated_at?: string | null
           user_id?: string
@@ -204,16 +216,19 @@ export type Database = {
       genres: {
         Row: {
           id: number
+          media_type: string
           name: string
           slug: string
         }
         Insert: {
           id: number
+          media_type?: string
           name: string
           slug: string
         }
         Update: {
           id?: number
+          media_type?: string
           name?: string
           slug?: string
         }
@@ -224,6 +239,7 @@ export type Database = {
           added_at: string | null
           id: string
           list_id: string
+          media_type: string
           notes: string | null
           position: number
           poster_path: string | null
@@ -234,6 +250,7 @@ export type Database = {
           added_at?: string | null
           id?: string
           list_id: string
+          media_type?: string
           notes?: string | null
           position?: number
           poster_path?: string | null
@@ -244,6 +261,7 @@ export type Database = {
           added_at?: string | null
           id?: string
           list_id?: string
+          media_type?: string
           notes?: string | null
           position?: number
           poster_path?: string | null
@@ -400,6 +418,7 @@ export type Database = {
           account_tier: string
           avatar_url: string | null
           bio: string | null
+          content_mode: string
           created_at: string
           feed_last_seen_at: string | null
           first_take_prompt_enabled: boolean | null
@@ -418,6 +437,7 @@ export type Database = {
           account_tier?: string
           avatar_url?: string | null
           bio?: string | null
+          content_mode?: string
           created_at?: string
           feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null
@@ -436,6 +456,7 @@ export type Database = {
           account_tier?: string
           avatar_url?: string | null
           bio?: string | null
+          content_mode?: string
           created_at?: string
           feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null
@@ -575,6 +596,165 @@ export type Database = {
         }
         Relationships: []
       }
+      tv_episodes_cache: {
+        Row: {
+          air_date: string | null
+          created_at: string | null
+          episode_number: number
+          guest_stars: Json | null
+          id: number
+          name: string | null
+          overview: string | null
+          runtime: number | null
+          season_number: number
+          still_path: string | null
+          tmdb_fetched_at: string | null
+          tmdb_show_id: number
+          tmdb_vote_average: number | null
+          tmdb_vote_count: number | null
+        }
+        Insert: {
+          air_date?: string | null
+          created_at?: string | null
+          episode_number: number
+          guest_stars?: Json | null
+          id?: never
+          name?: string | null
+          overview?: string | null
+          runtime?: number | null
+          season_number: number
+          still_path?: string | null
+          tmdb_fetched_at?: string | null
+          tmdb_show_id: number
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
+        }
+        Update: {
+          air_date?: string | null
+          created_at?: string | null
+          episode_number?: number
+          guest_stars?: Json | null
+          id?: never
+          name?: string | null
+          overview?: string | null
+          runtime?: number | null
+          season_number?: number
+          still_path?: string | null
+          tmdb_fetched_at?: string | null
+          tmdb_show_id?: number
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
+        }
+        Relationships: []
+      }
+      tv_shows: {
+        Row: {
+          adult: boolean | null
+          backdrop_path: string | null
+          cached_cast: Json | null
+          cached_crew: Json | null
+          cached_seasons: Json | null
+          created_at: string | null
+          created_by: Json | null
+          episode_run_time: number[] | null
+          first_air_date: string | null
+          genre_ids: number[] | null
+          id: number
+          in_production: boolean | null
+          last_air_date: string | null
+          name: string
+          networks: Json | null
+          number_of_episodes: number | null
+          number_of_seasons: number | null
+          origin_country: string[] | null
+          original_language: string | null
+          original_name: string | null
+          overview: string | null
+          poster_path: string | null
+          status: string | null
+          tagline: string | null
+          tmdb_fetched_at: string | null
+          tmdb_id: number
+          tmdb_popularity: number | null
+          tmdb_vote_average: number | null
+          tmdb_vote_count: number | null
+          trailer_name: string | null
+          trailer_youtube_key: string | null
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          adult?: boolean | null
+          backdrop_path?: string | null
+          cached_cast?: Json | null
+          cached_crew?: Json | null
+          cached_seasons?: Json | null
+          created_at?: string | null
+          created_by?: Json | null
+          episode_run_time?: number[] | null
+          first_air_date?: string | null
+          genre_ids?: number[] | null
+          id?: never
+          in_production?: boolean | null
+          last_air_date?: string | null
+          name: string
+          networks?: Json | null
+          number_of_episodes?: number | null
+          number_of_seasons?: number | null
+          origin_country?: string[] | null
+          original_language?: string | null
+          original_name?: string | null
+          overview?: string | null
+          poster_path?: string | null
+          status?: string | null
+          tagline?: string | null
+          tmdb_fetched_at?: string | null
+          tmdb_id: number
+          tmdb_popularity?: number | null
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
+          trailer_name?: string | null
+          trailer_youtube_key?: string | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          adult?: boolean | null
+          backdrop_path?: string | null
+          cached_cast?: Json | null
+          cached_crew?: Json | null
+          cached_seasons?: Json | null
+          created_at?: string | null
+          created_by?: Json | null
+          episode_run_time?: number[] | null
+          first_air_date?: string | null
+          genre_ids?: number[] | null
+          id?: never
+          in_production?: boolean | null
+          last_air_date?: string | null
+          name?: string
+          networks?: Json | null
+          number_of_episodes?: number | null
+          number_of_seasons?: number | null
+          origin_country?: string[] | null
+          original_language?: string | null
+          original_name?: string | null
+          overview?: string | null
+          poster_path?: string | null
+          status?: string | null
+          tagline?: string | null
+          tmdb_fetched_at?: string | null
+          tmdb_id?: number
+          tmdb_popularity?: number | null
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
+          trailer_name?: string | null
+          trailer_youtube_key?: string | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_achievements: {
         Row: {
           achievement_id: string
@@ -596,17 +776,73 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_achievements_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      user_episode_watches: {
+        Row: {
+          created_at: string | null
+          episode_name: string | null
+          episode_number: number
+          episode_runtime: number | null
+          id: string
+          notes: string | null
+          season_number: number
+          still_path: string | null
+          tmdb_show_id: number
+          user_id: string
+          user_tv_show_id: string
+          watch_number: number | null
+          watched_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          episode_name?: string | null
+          episode_number: number
+          episode_runtime?: number | null
+          id?: string
+          notes?: string | null
+          season_number: number
+          still_path?: string | null
+          tmdb_show_id: number
+          user_id: string
+          user_tv_show_id: string
+          watch_number?: number | null
+          watched_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          episode_name?: string | null
+          episode_number?: number
+          episode_runtime?: number | null
+          id?: string
+          notes?: string | null
+          season_number?: number
+          still_path?: string | null
+          tmdb_show_id?: number
+          user_id?: string
+          user_tv_show_id?: string
+          watch_number?: number | null
+          watched_at?: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "user_achievements_achievement_id_fkey"
-            columns: ["achievement_id"]
+            foreignKeyName: "user_episode_watches_user_tv_show_id_fkey"
+            columns: ["user_tv_show_id"]
             isOneToOne: false
-            referencedRelation: "achievements"
+            referencedRelation: "user_tv_shows"
             referencedColumns: ["id"]
           },
         ]
@@ -782,6 +1018,108 @@ export type Database = {
         }
         Relationships: []
       }
+      user_tv_show_likes: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          poster_path: string | null
+          tmdb_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          poster_path?: string | null
+          tmdb_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          poster_path?: string | null
+          tmdb_id?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_tv_shows: {
+        Row: {
+          added_at: string | null
+          backdrop_path: string | null
+          current_episode: number | null
+          current_season: number | null
+          episodes_watched: number | null
+          finished_at: string | null
+          first_air_date: string | null
+          genre_ids: number[] | null
+          id: string
+          is_liked: boolean | null
+          name: string
+          number_of_episodes: number | null
+          number_of_seasons: number | null
+          overview: string | null
+          poster_path: string | null
+          started_watching_at: string | null
+          status: string
+          tmdb_id: number
+          updated_at: string | null
+          user_id: string
+          user_rating: number | null
+          vote_average: number | null
+        }
+        Insert: {
+          added_at?: string | null
+          backdrop_path?: string | null
+          current_episode?: number | null
+          current_season?: number | null
+          episodes_watched?: number | null
+          finished_at?: string | null
+          first_air_date?: string | null
+          genre_ids?: number[] | null
+          id?: string
+          is_liked?: boolean | null
+          name: string
+          number_of_episodes?: number | null
+          number_of_seasons?: number | null
+          overview?: string | null
+          poster_path?: string | null
+          started_watching_at?: string | null
+          status?: string
+          tmdb_id: number
+          updated_at?: string | null
+          user_id: string
+          user_rating?: number | null
+          vote_average?: number | null
+        }
+        Update: {
+          added_at?: string | null
+          backdrop_path?: string | null
+          current_episode?: number | null
+          current_season?: number | null
+          episodes_watched?: number | null
+          finished_at?: string | null
+          first_air_date?: string | null
+          genre_ids?: number[] | null
+          id?: string
+          is_liked?: boolean | null
+          name?: string
+          number_of_episodes?: number | null
+          number_of_seasons?: number | null
+          overview?: string | null
+          poster_path?: string | null
+          started_watching_at?: string | null
+          status?: string
+          tmdb_id?: number
+          updated_at?: string | null
+          user_id?: string
+          user_rating?: number | null
+          vote_average?: number | null
+        }
+        Relationships: []
+      }
       watchlist_comments: {
         Row: {
           created_at: string
@@ -877,6 +1215,7 @@ export type Database = {
         Returns: Json
       }
       cleanup_stale_movie_cache: { Args: never; Returns: number }
+      cleanup_stale_tv_cache: { Args: never; Returns: undefined }
       get_journey_for_movie: {
         Args: { p_tmdb_id: number }
         Returns: {
@@ -967,6 +1306,28 @@ export type Database = {
           watched_with: string[]
         }[]
       }
+      get_season_progress: {
+        Args: { p_tmdb_show_id: number; p_user_tv_show_id: string }
+        Returns: {
+          episodes_watched: number
+          season_number: number
+          total_episodes: number
+        }[]
+      }
+      get_suggested_users: {
+        Args: { p_user_id: string }
+        Returns: {
+          avatar_url: string
+          followers_count: number
+          full_name: string
+          id: string
+          is_active: boolean
+          mutual_count: number
+          mutual_usernames: string[]
+          shared_movie_count: number
+          username: string
+        }[]
+      }
       get_user_monthly_activity: {
         Args: { p_user_id: string }
         Returns: {
@@ -984,6 +1345,10 @@ export type Database = {
         }[]
       }
       increment_bonus_scans: { Args: { p_user_id: string }; Returns: Json }
+      sync_tv_show_progress: {
+        Args: { p_user_tv_show_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1122,6 +1487,10 @@ export const Constants = {
 // ============================================
 
 export type MovieStatus = 'watchlist' | 'watching' | 'watched';
+export type TvShowStatus = 'watchlist' | 'watching' | 'watched' | 'dropped' | 'on_hold';
+export type ContentMode = 'movies' | 'tv_shows' | 'both';
+export type MediaType = 'movie' | 'tv_show';
+export type FirstTakeMediaType = 'movie' | 'tv_show' | 'tv_season' | 'tv_episode';
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ReviewVisibility = 'public' | 'followers_only' | 'private';
 
@@ -1182,6 +1551,30 @@ export type Genre = Database['public']['Tables']['genres']['Row'];
 export type CachedMovie = Database['public']['Tables']['movies']['Row'];
 export type CachedMovieInsert = Database['public']['Tables']['movies']['Insert'];
 export type CachedMovieUpdate = Database['public']['Tables']['movies']['Update'];
+
+// Helper types for TV shows cache
+export type CachedTvShow = Database['public']['Tables']['tv_shows']['Row'];
+export type CachedTvShowInsert = Database['public']['Tables']['tv_shows']['Insert'];
+export type CachedTvShowUpdate = Database['public']['Tables']['tv_shows']['Update'];
+
+// Helper types for TV episodes cache
+export type CachedTvEpisode = Database['public']['Tables']['tv_episodes_cache']['Row'];
+export type CachedTvEpisodeInsert = Database['public']['Tables']['tv_episodes_cache']['Insert'];
+export type CachedTvEpisodeUpdate = Database['public']['Tables']['tv_episodes_cache']['Update'];
+
+// Helper types for user TV shows
+export type UserTvShow = Database['public']['Tables']['user_tv_shows']['Row'];
+export type UserTvShowInsert = Database['public']['Tables']['user_tv_shows']['Insert'];
+export type UserTvShowUpdate = Database['public']['Tables']['user_tv_shows']['Update'];
+
+// Helper types for user episode watches
+export type UserEpisodeWatch = Database['public']['Tables']['user_episode_watches']['Row'];
+export type UserEpisodeWatchInsert = Database['public']['Tables']['user_episode_watches']['Insert'];
+export type UserEpisodeWatchUpdate = Database['public']['Tables']['user_episode_watches']['Update'];
+
+// Helper types for user TV show likes
+export type UserTvShowLike = Database['public']['Tables']['user_tv_show_likes']['Row'];
+export type UserTvShowLikeInsert = Database['public']['Tables']['user_tv_show_likes']['Insert'];
 
 // User stats types (from get-user-stats Edge Function)
 export interface UserStatsResponse {
