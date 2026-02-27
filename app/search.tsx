@@ -16,6 +16,8 @@ import {
   Pressable,
   FlatList,
   ActivityIndicator,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -129,10 +131,13 @@ const GENRES_DATA = [
   },
 ];
 
+const MAX_APP_WIDTH = 768;
+
 export default function SearchScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { isOffline } = useNetwork();
+  const { width: screenWidth } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Top Results');
   // Search type state - setter will be used when search type toggle UI is implemented
@@ -249,6 +254,10 @@ export default function SearchScreen() {
   }, [addRecentSearch]);
 
   const showSearchResults = debouncedQuery.length >= 2 || selectedGenre !== null;
+
+  // Compute genre card width explicitly (percentage widths can fail on RN Web)
+  const containerWidth = Math.min(screenWidth, MAX_APP_WIDTH) - Spacing.md * 2; // minus horizontal padding
+  const genreCardWidth = (containerWidth - Spacing.sm) / 2; // 2 columns with gap
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -587,7 +596,7 @@ export default function SearchScreen() {
                 <Pressable
                   key={genre.id}
                   onPress={() => handleGenrePress(genre.id, genre.name)}
-                  style={({ pressed }) => [styles.genreCard, { opacity: pressed ? 0.8 : 1 }]}
+                  style={({ pressed }) => [styles.genreCard, { width: genreCardWidth, opacity: pressed ? 0.8 : 1 }]}
                 >
                   <Image
                     source={{ uri: getTMDBImageUrl(posterPath, 'w342') || undefined }}
@@ -622,6 +631,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
+    ...(Platform.OS === 'web' && { paddingTop: Spacing.md }),
   },
   topRow: {
     flexDirection: 'row',
@@ -661,7 +671,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: Spacing.md,
-    paddingBottom: 100,
+    paddingBottom: Platform.OS === 'web' ? 350 : 100,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -722,7 +732,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   genreCard: {
-    width: '48.5%',
     height: 90,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
