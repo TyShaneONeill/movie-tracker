@@ -32,10 +32,15 @@ import { useDiscoverMovies } from '@/hooks/use-discover-movies';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useRecentSearches, type RecentSearch } from '@/hooks/use-recent-searches';
 import { MovieSearchCard } from '@/components/movie-search-card';
+import { TvShowSearchCard } from '@/components/tv-show-search-card';
+import { MediaTypeToggle, type MediaType } from '@/components/media-type-toggle';
 import { UserSearchResult } from '@/components/social/UserSearchResult';
 import { useUserSearch } from '@/hooks/use-user-search';
+import { useTvShowSearch } from '@/hooks/use-tv-show-search';
+import { useDiscoverTvShows } from '@/hooks/use-discover-tv-shows';
+import { useTvShowList } from '@/hooks/use-tv-show-lists';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { TMDBMovie, SearchType } from '@/lib/tmdb.types';
+import type { TMDBMovie, TMDBTvShow, SearchType } from '@/lib/tmdb.types';
 import { useMovieList } from '@/hooks/use-movie-lists';
 import { SearchSkeletonList } from '@/components/search-skeleton';
 import { useNetwork } from '@/lib/network-context';
@@ -70,7 +75,8 @@ const XIcon = ({ color = '#a1a1aa' }: { color?: string }) => (
 );
 
 // Category filter options
-const CATEGORIES = ['Top Results', 'Movies', 'People', 'Lists', 'Users'];
+const MOVIE_CATEGORIES = ['Top Results', 'Movies', 'People', 'Lists', 'Users'];
+const TV_CATEGORIES = ['Top Results', 'TV Shows', 'Users'];
 
 // Genre data with curated poster images (no API calls needed)
 // Each genre has multiple posters that rotate
@@ -131,6 +137,64 @@ const GENRES_DATA = [
   },
 ];
 
+// TV genre data with curated poster images
+const TV_GENRES_DATA = [
+  {
+    id: 10765,
+    name: 'Sci-Fi & Fantasy',
+    posters: [
+      '/49WJfeN0moxb9IPfGn8AIqMGskD.jpg', // Stranger Things
+      '/7vjaCdMw15FEbXyLQTVa04URsPm.jpg', // The Witcher
+      '/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg', // Loki
+    ],
+  },
+  {
+    id: 10759,
+    name: 'Action & Adventure',
+    posters: [
+      '/stTEycfG9928HYGEISBFaG1ngjM.jpg', // The Boys
+      '/6ovk8JEVej2RiTeDl91BPMNiel9.jpg', // Jack Ryan
+      '/jNFDCiHAPnSgGJDgb5E5UaBekNJ.jpg', // Reacher
+    ],
+  },
+  {
+    id: 16,
+    name: 'Animation',
+    posters: [
+      '/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg', // Arcane
+      '/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg', // Attack on Titan
+      '/gdIrmf2DdY5mgN6ycVP0XlzKzbE.jpg', // Rick and Morty
+    ],
+  },
+  {
+    id: 18,
+    name: 'Drama',
+    posters: [
+      '/ggFHVNu6YYI5L9pCfOacjizRGt.jpg', // Breaking Bad
+      '/e3NBGiAifW9Xt8xD5tpARskjccO.jpg', // Succession
+      '/1M3W6jIN4AWmACZQ6hIkbhz4TVo.jpg', // The Crown
+    ],
+  },
+  {
+    id: 35,
+    name: 'Comedy',
+    posters: [
+      '/dYvIUzdh6TUv4IFRq8UBkX7bNqs.jpg', // Ted Lasso
+      '/qWnJzyZhyy74gjpSjIXWmuk0ifX.jpg', // The Office
+      '/iRJhFOsVfj5tAKE9UNQ2gPgJqop.jpg', // Schitt's Creek
+    ],
+  },
+  {
+    id: 9648,
+    name: 'Mystery',
+    posters: [
+      '/aoRMBnpMfBDAVaxHF3iQ6yBgg3P.jpg', // True Detective
+      '/pJJQEBoRKiiNjnJYsJPmMCMBOLI.jpg', // Severance
+      '/5LoMsFVTKRiUEZA5gafssFt7YaQ.jpg', // Dark
+    ],
+  },
+];
+
 const MAX_APP_WIDTH = 768;
 
 export default function SearchScreen() {
@@ -140,6 +204,7 @@ export default function SearchScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Top Results');
+  const [mediaType, setMediaType] = useState<MediaType>('movies');
   // Search type state - setter will be used when search type toggle UI is implemented
   const [searchType] = useState<SearchType>('title');
   const [posterIndices, setPosterIndices] = useState<Record<number, number>>({});
@@ -156,11 +221,53 @@ export default function SearchScreen() {
     clearRecentSearches,
   } = useRecentSearches();
 
-  // Movie search hook
+  // Movie hooks (only active when mediaType === 'movies')
   const { movies, isLoading: isMovieLoading, isError: isMovieError, error: movieError } = useMovieSearch({
     query: debouncedQuery,
     searchType,
-    enabled: debouncedQuery.length >= 2 && activeCategory !== 'Users',
+    enabled: mediaType === 'movies' && debouncedQuery.length >= 2 && activeCategory !== 'Users',
+  });
+
+  const {
+    movies: genreMovies,
+    isLoading: isGenreMovieLoading,
+    isError: isGenreMovieError,
+    error: genreMovieError,
+    isFetchingNextPage: isFetchingNextMoviePage,
+    hasNextPage: hasNextMoviePage,
+    fetchNextPage: fetchNextMoviePage,
+  } = useDiscoverMovies({
+    genreId: selectedGenre?.id ?? null,
+    enabled: mediaType === 'movies' && selectedGenre !== null,
+  });
+
+  const { movies: trendingMovies } = useMovieList({
+    type: 'trending',
+    enabled: mediaType === 'movies',
+  });
+
+  // TV hooks (only active when mediaType === 'tv')
+  const { shows: tvShows, isLoading: isTvLoading, isError: isTvError, error: tvError } = useTvShowSearch({
+    query: debouncedQuery,
+    enabled: mediaType === 'tv' && debouncedQuery.length >= 2 && activeCategory !== 'Users',
+  });
+
+  const {
+    shows: genreTvShows,
+    isLoading: isGenreTvLoading,
+    isError: isGenreTvError,
+    error: genreTvError,
+    isFetchingNextPage: isFetchingNextTvPage,
+    hasNextPage: hasNextTvPage,
+    fetchNextPage: fetchNextTvPage,
+  } = useDiscoverTvShows({
+    genreId: selectedGenre?.id ?? null,
+    enabled: mediaType === 'tv' && selectedGenre !== null,
+  });
+
+  const { shows: trendingTvShows } = useTvShowList({
+    type: 'trending',
+    enabled: mediaType === 'tv',
   });
 
   // User search hook
@@ -168,36 +275,33 @@ export default function SearchScreen() {
     activeCategory === 'Users' ? debouncedQuery : ''
   );
 
-  // Discover movies by genre hook
-  const {
-    movies: genreMovies,
-    isLoading: isGenreLoading,
-    isError: isGenreError,
-    error: genreError,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-  } = useDiscoverMovies({
-    genreId: selectedGenre?.id ?? null,
-    enabled: selectedGenre !== null,
-  });
+  // Combine loading/error states based on active category and media type
+  const isContentLoading = activeCategory === 'Users'
+    ? isUserLoading
+    : mediaType === 'movies' ? isMovieLoading : isTvLoading;
+  const isGenreLoading = mediaType === 'movies' ? isGenreMovieLoading : isGenreTvLoading;
+  const isLoading = activeCategory === 'Users' ? isUserLoading : isContentLoading;
+  const isError = activeCategory === 'Users' ? isUserError : (mediaType === 'movies' ? isMovieError : isTvError);
+  const error = activeCategory === 'Users' ? userError : (mediaType === 'movies' ? movieError : tvError);
+  const isGenreError = mediaType === 'movies' ? isGenreMovieError : isGenreTvError;
+  const genreError = mediaType === 'movies' ? genreMovieError : genreTvError;
+  const genreResults = mediaType === 'movies' ? genreMovies : genreTvShows;
+  const isFetchingNextPage = mediaType === 'movies' ? isFetchingNextMoviePage : isFetchingNextTvPage;
+  const hasNextPage = mediaType === 'movies' ? hasNextMoviePage : hasNextTvPage;
+  const fetchNextPage = mediaType === 'movies' ? fetchNextMoviePage : fetchNextTvPage;
 
-  // Trending movies for empty state
-  const { movies: trendingMovies } = useMovieList({
-    type: 'trending',
-  });
+  // Categories based on media type
+  const categories = mediaType === 'movies' ? MOVIE_CATEGORIES : TV_CATEGORIES;
 
-  // Combine loading/error states based on active category
-  const isLoading = activeCategory === 'Users' ? isUserLoading : isMovieLoading;
-  const isError = activeCategory === 'Users' ? isUserError : isMovieError;
-  const error = activeCategory === 'Users' ? userError : movieError;
+  // Genre data based on media type
+  const genresData = mediaType === 'movies' ? GENRES_DATA : TV_GENRES_DATA;
 
   // Rotate genre posters every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setPosterIndices((prev) => {
         const next = { ...prev };
-        GENRES_DATA.forEach((genre) => {
+        genresData.forEach((genre) => {
           const currentIndex = prev[genre.id] ?? 0;
           next[genre.id] = (currentIndex + 1) % genre.posters.length;
         });
@@ -206,7 +310,7 @@ export default function SearchScreen() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [genresData]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -221,7 +325,9 @@ export default function SearchScreen() {
   }, [clearRecentSearches]);
 
   const handleRecentSearchPress = useCallback((search: RecentSearch) => {
-    if (search.type === 'person') {
+    if (search.type === 'tv') {
+      router.push(`/tv/${search.tmdbId}`);
+    } else if (search.type === 'person') {
       router.push(`/person/${search.tmdbId}`);
     } else {
       router.push(`/movie/${search.tmdbId}`);
@@ -242,7 +348,6 @@ export default function SearchScreen() {
   }, []);
 
   const handleMoviePress = useCallback((movie: TMDBMovie) => {
-    // Add to recent searches
     addRecentSearch({
       type: 'movie',
       title: movie.title,
@@ -251,6 +356,17 @@ export default function SearchScreen() {
       tmdbId: movie.id,
     });
     router.push(`/movie/${movie.id}`);
+  }, [addRecentSearch]);
+
+  const handleTvShowPress = useCallback((show: TMDBTvShow) => {
+    addRecentSearch({
+      type: 'tv',
+      title: show.name,
+      subtitle: show.first_air_date?.split('-')[0] || 'TV Show',
+      posterUrl: getTMDBImageUrl(show.poster_path, 'w92') || undefined,
+      tmdbId: show.id,
+    });
+    router.push(`/tv/${show.id}`);
   }, [addRecentSearch]);
 
   const showSearchResults = debouncedQuery.length >= 2 || selectedGenre !== null;
@@ -275,7 +391,7 @@ export default function SearchScreen() {
             <SearchIconSvg color={colors.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Movies, people, lists..."
+              placeholder={mediaType === 'movies' ? "Movies, people, lists..." : "Search TV shows..."}
               placeholderTextColor={colors.textTertiary}
               value={searchQuery}
               onChangeText={(text) => {
@@ -301,6 +417,18 @@ export default function SearchScreen() {
           </View>
         </View>
 
+        {/* Media Type Toggle */}
+        <View style={styles.mediaToggleContainer}>
+          <MediaTypeToggle
+            value={mediaType}
+            onChange={(type) => {
+              setMediaType(type);
+              setActiveCategory('Top Results');
+              setSelectedGenre(null);
+            }}
+          />
+        </View>
+
         {/* Category Filter Chips */}
         <ScrollView
           horizontal
@@ -308,7 +436,7 @@ export default function SearchScreen() {
           style={styles.categoryScroll}
           contentContainerStyle={styles.categoryScrollContent}
         >
-          {CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <Tag
               key={category}
               label={category}
@@ -362,21 +490,47 @@ export default function SearchScreen() {
                   {genreError?.message || 'Please try again'}
                 </Text>
               </View>
-            ) : genreMovies.length === 0 ? (
+            ) : genreResults.length === 0 ? (
               <View style={styles.centerContainer}>
                 <Text style={[styles.centerTitle, { color: colors.text }]}>
-                  No movies found
+                  No results found
                 </Text>
                 <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                  No {selectedGenre.name} movies available
+                  No {selectedGenre.name} {mediaType === 'movies' ? 'movies' : 'TV shows'} available
                 </Text>
               </View>
-            ) : (
+            ) : mediaType === 'movies' ? (
               <FlatList
                 data={genreMovies}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={({ item }) => (
                   <MovieSearchCard movie={item} onPress={handleMoviePress} />
+                )}
+                contentContainerStyle={styles.searchResultsContainer}
+                showsVerticalScrollIndicator={false}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage();
+                  }
+                }}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                  isFetchingNextPage ? (
+                    <View style={styles.loadingFooter}>
+                      <ActivityIndicator size="small" color={colors.tint} />
+                    </View>
+                  ) : null
+                }
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+              />
+            ) : (
+              <FlatList
+                data={genreTvShows}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={({ item }) => (
+                  <TvShowSearchCard show={item} onPress={handleTvShowPress} />
                 )}
                 contentContainerStyle={styles.searchResultsContainer}
                 showsVerticalScrollIndicator={false}
@@ -407,7 +561,7 @@ export default function SearchScreen() {
                     You&apos;re offline
                   </Text>
                   <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                    Connect to the internet to search for movies
+                    Connect to the internet to search
                   </Text>
                 </View>
               ) : (
@@ -449,28 +603,54 @@ export default function SearchScreen() {
                   windowSize={5}
                 />
               )
-            ) : movies.length === 0 ? (
-              <View style={styles.centerContainer}>
-                <Text style={[styles.centerTitle, { color: colors.text }]}>
-                  No results found
-                </Text>
-                <Text style={[styles.centerText, { color: colors.textSecondary }]}>
-                  Try a different search term
-                </Text>
-              </View>
+            ) : mediaType === 'movies' ? (
+              movies.length === 0 ? (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.centerTitle, { color: colors.text }]}>
+                    No results found
+                  </Text>
+                  <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                    Try a different search term
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={movies}
+                  keyExtractor={(item) => String(item.id)}
+                  renderItem={({ item }) => (
+                    <MovieSearchCard movie={item} onPress={handleMoviePress} />
+                  )}
+                  contentContainerStyle={styles.searchResultsContainer}
+                  showsVerticalScrollIndicator={false}
+                  removeClippedSubviews={true}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
+                />
+              )
             ) : (
-              <FlatList
-                data={movies}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                  <MovieSearchCard movie={item} onPress={handleMoviePress} />
-                )}
-                contentContainerStyle={styles.searchResultsContainer}
-                showsVerticalScrollIndicator={false}
-                removeClippedSubviews={true}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-              />
+              tvShows.length === 0 ? (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.centerTitle, { color: colors.text }]}>
+                    No TV shows found
+                  </Text>
+                  <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+                    Try a different search term
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={tvShows}
+                  keyExtractor={(item) => String(item.id)}
+                  renderItem={({ item }) => (
+                    <TvShowSearchCard show={item} onPress={handleTvShowPress} />
+                  )}
+                  contentContainerStyle={styles.searchResultsContainer}
+                  showsVerticalScrollIndicator={false}
+                  removeClippedSubviews={true}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
+                />
+              )
             )
           )}
         </View>
@@ -481,43 +661,84 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Trending Now Section */}
-          {trendingMovies.length > 0 && (
-            <View>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: colors.textSecondary, marginTop: Spacing.sm, marginBottom: Spacing.sm },
-                ]}
-              >
-                TRENDING NOW
-              </Text>
-              <View style={styles.trendingContainer}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.trendingScrollContent}
-                  style={styles.trendingScroll}
+          {mediaType === 'movies' ? (
+            trendingMovies.length > 0 && (
+              <View>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    { color: colors.textSecondary, marginTop: Spacing.sm, marginBottom: Spacing.sm },
+                  ]}
                 >
-                  {trendingMovies.slice(0, 10).map((movie) => (
-                    <Pressable
-                      key={movie.id}
-                      onPress={() => handleMoviePress(movie)}
-                      style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
-                    >
-                      <Image
-                        source={{ uri: getTMDBImageUrl(movie.poster_path, 'w185') || undefined }}
-                        style={[styles.trendingPoster, { backgroundColor: colors.card }]}
-                        contentFit="cover"
-                        transition={200}
-                      />
-                      <Text style={[styles.trendingTitle, { color: colors.text }]} numberOfLines={2}>
-                        {movie.title}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+                  TRENDING NOW
+                </Text>
+                <View style={styles.trendingContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.trendingScrollContent}
+                    style={styles.trendingScroll}
+                  >
+                    {trendingMovies.slice(0, 10).map((movie) => (
+                      <Pressable
+                        key={movie.id}
+                        onPress={() => handleMoviePress(movie)}
+                        style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
+                      >
+                        <Image
+                          source={{ uri: getTMDBImageUrl(movie.poster_path, 'w185') || undefined }}
+                          style={[styles.trendingPoster, { backgroundColor: colors.card }]}
+                          contentFit="cover"
+                          transition={200}
+                        />
+                        <Text style={[styles.trendingTitle, { color: colors.text }]} numberOfLines={2}>
+                          {movie.title}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
-            </View>
+            )
+          ) : (
+            trendingTvShows.length > 0 && (
+              <View>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    { color: colors.textSecondary, marginTop: Spacing.sm, marginBottom: Spacing.sm },
+                  ]}
+                >
+                  TRENDING NOW
+                </Text>
+                <View style={styles.trendingContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.trendingScrollContent}
+                    style={styles.trendingScroll}
+                  >
+                    {trendingTvShows.slice(0, 10).map((show) => (
+                      <Pressable
+                        key={show.id}
+                        onPress={() => handleTvShowPress(show)}
+                        style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
+                      >
+                        <Image
+                          source={{ uri: getTMDBImageUrl(show.poster_path, 'w185') || undefined }}
+                          style={[styles.trendingPoster, { backgroundColor: colors.card }]}
+                          contentFit="cover"
+                          transition={200}
+                        />
+                        <Text style={[styles.trendingTitle, { color: colors.text }]} numberOfLines={2}>
+                          {show.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            )
           )}
 
           {/* Recent Searches Section */}
@@ -590,7 +811,7 @@ export default function SearchScreen() {
           </Text>
 
           <View style={styles.genreGrid}>
-            {GENRES_DATA.map((genre) => {
+            {genresData.map((genre) => {
               const posterIndex = posterIndices[genre.id] ?? 0;
               const posterPath = genre.posters[posterIndex];
 
@@ -660,6 +881,9 @@ const styles = StyleSheet.create({
   },
   clearInputButton: {
     padding: Spacing.xs,
+  },
+  mediaToggleContainer: {
+    marginTop: Spacing.sm,
   },
   categoryScroll: {
     marginTop: Spacing.sm,

@@ -7,7 +7,7 @@ const MAX_RECENT_SEARCHES = 10;
 
 export interface RecentSearch {
   id: string;
-  type: 'movie' | 'person';
+  type: 'movie' | 'person' | 'tv';
   title: string;
   subtitle: string;
   posterUrl?: string;
