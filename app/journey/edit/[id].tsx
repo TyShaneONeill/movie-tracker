@@ -10,7 +10,7 @@
  * 5. DELETE JOURNEY - Confirmation alert before deleting
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,7 +34,8 @@ import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { Image } from 'expo-image';
 import { useTheme } from '@/lib/theme-context';
-import { useJourneyMutations } from '@/hooks/use-journey';
+import { useJourney, useJourneyMutations } from '@/hooks/use-journey';
+import type { WatchFormat as DbWatchFormat } from '@/lib/database.types';
 import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { buildAvatarUrl } from '@/lib/avatar-service';
@@ -53,44 +54,12 @@ const WATCH_FORMATS = [
 
 type WatchFormat = (typeof WATCH_FORMATS)[number];
 
-// Journey data type (matching database schema expectations)
-interface JourneyData {
-  id: string;
-  tmdb_id: number;
-  movie_title: string;
-  journey_tagline: string | null;
-  journey_notes: string | null;
-  watched_at: string | null;
-  watch_time: string | null;
-  location_name: string | null;
-  seat_location: string | null;
-  watch_format: string | null;
-  auditorium: string | null;
-  ticket_price: number | null;
-  ticket_id: string | null;
-  watched_with: string[] | null;
-  // First Take data (read-only reference)
-  first_take_rating: number | null;
+// Convert DB watch_format (lowercase) to display format
+function toDisplayFormat(dbFormat: string | null): WatchFormat {
+  if (!dbFormat) return 'Standard';
+  const match = WATCH_FORMATS.find((f) => f.toLowerCase() === dbFormat.toLowerCase());
+  return match || 'Standard';
 }
-
-// Mock journey data for Phase 1 (until hook is implemented)
-const getMockJourneyData = (id: string): JourneyData => ({
-  id,
-  tmdb_id: 693134,
-  movie_title: 'Dune: Part Two',
-  journey_tagline: 'Masterpiece',
-  journey_notes: 'The visuals were absolutely insane. Needs to be seen on the biggest screen possible.',
-  watched_at: '2024-03-01T00:00:00Z',
-  watch_time: '19:00',
-  location_name: 'IMAX Metreon',
-  seat_location: 'H-12, H-13',
-  watch_format: 'IMAX',
-  auditorium: 'Theater 4',
-  ticket_price: 18.50,
-  ticket_id: '8X92-MM24',
-  watched_with: ['Sarah'],
-  first_take_rating: 9.2,
-});
 
 export default function EditJourneyScreen() {
   const router = useRouter();
@@ -100,45 +69,51 @@ export default function EditJourneyScreen() {
   const { user } = useAuth();
   const { mutualFollows } = useMutualFollows(user?.id ?? '');
 
-  // Mock data loading (will be replaced with useJourneyMutations hook)
-  const [isLoading] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  // Fetch real journey data
+  const { data: journeyData, isLoading: isLoadingJourney } = useJourney(id);
 
-  // Use the journey mutations hook for delete
-  const { deleteJourney, isDeleting } = useJourneyMutations();
+  // Journey mutations (update + delete)
+  const { updateJourney: updateJourneyMutation, isUpdating, deleteJourney, isDeleting } =
+    useJourneyMutations(journeyData?.tmdb_id);
 
-  // Initialize form with mock data
-  const initialData = useMemo(() => getMockJourneyData(id || ''), [id]);
+  // Form state (initialized with defaults, populated via useEffect when data loads)
+  const [tagline, setTagline] = useState('');
+  const [notes, setNotes] = useState('');
+  const [rating, setRating] = useState(5);
+  const [watchedAt, setWatchedAt] = useState<Date>(new Date());
+  const [watchTime, setWatchTime] = useState<Date>(new Date());
+  const [locationName, setLocationName] = useState('');
+  const [seatLocation, setSeatLocation] = useState('');
+  const [watchFormat, setWatchFormat] = useState<WatchFormat>('Standard');
+  const [auditorium, setAuditorium] = useState('');
+  const [ticketPrice, setTicketPrice] = useState('');
+  const [ticketId, setTicketId] = useState('');
+  const [watchedWith, setWatchedWith] = useState<string[]>([]);
 
-  // Form state
-  const [tagline, setTagline] = useState(initialData.journey_tagline || '');
-  const [notes, setNotes] = useState(initialData.journey_notes || '');
-  const [rating, setRating] = useState(initialData.first_take_rating || 5);
-  const [watchedAt, setWatchedAt] = useState<Date>(
-    initialData.watched_at ? new Date(initialData.watched_at) : new Date()
-  );
-  const [watchTime, setWatchTime] = useState<Date>(() => {
-    if (initialData.watch_time) {
-      const [hours, minutes] = initialData.watch_time.split(':').map(Number);
-      const date = new Date();
-      date.setHours(hours, minutes, 0, 0);
-      return date;
-    }
-    return new Date();
-  });
-  const [locationName, setLocationName] = useState(initialData.location_name || '');
-  const [seatLocation, setSeatLocation] = useState(initialData.seat_location || '');
-  const [watchFormat, setWatchFormat] = useState<WatchFormat>(
-    (initialData.watch_format as WatchFormat) || 'Standard'
-  );
-  const [auditorium, setAuditorium] = useState(initialData.auditorium || '');
-  const [ticketPrice, setTicketPrice] = useState(
-    initialData.ticket_price?.toString() || ''
-  );
-  const [ticketId, setTicketId] = useState(initialData.ticket_id || '');
-  const [watchedWith, setWatchedWith] = useState<string[]>(
-    initialData.watched_with || []
-  );
+  // Populate form state when journey data loads
+  useEffect(() => {
+    if (!journeyData) return;
+    setTagline(journeyData.journey_tagline || '');
+    setNotes(journeyData.journey_notes || '');
+    setRating(journeyData.firstTake?.rating || 5);
+    setWatchedAt(journeyData.watched_at ? new Date(journeyData.watched_at) : new Date());
+    setWatchTime(() => {
+      if (journeyData.watch_time) {
+        const [hours, minutes] = journeyData.watch_time.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+      }
+      return new Date();
+    });
+    setLocationName(journeyData.location_name || '');
+    setSeatLocation(journeyData.seat_location || '');
+    setWatchFormat(toDisplayFormat(journeyData.watch_format));
+    setAuditorium(journeyData.auditorium || '');
+    setTicketPrice(journeyData.ticket_price?.toString() || '');
+    setTicketId(journeyData.ticket_id || '');
+    setWatchedWith(journeyData.watched_with || []);
+  }, [journeyData]);
 
   // Format picker visibility
   const [showFormatPicker, setShowFormatPicker] = useState(false);
@@ -176,45 +151,46 @@ export default function EditJourneyScreen() {
 
   // Handle save
   const handleSave = useCallback(async () => {
+    if (!id) return;
     hapticImpact();
-    setIsUpdating(true);
 
-    const journeyData = {
-      journey_tagline: tagline.trim() || null,
-      journey_notes: notes.trim() || null,
-      watched_at: watchedAt.toISOString(),
-      watch_time: `${watchTime.getHours().toString().padStart(2, '0')}:${watchTime.getMinutes().toString().padStart(2, '0')}`,
-      location_name: locationName.trim() || null,
-      seat_location: seatLocation.trim() || null,
-      watch_format: watchFormat,
-      auditorium: auditorium.trim() || null,
-      ticket_price: ticketPrice ? parseFloat(ticketPrice) : null,
-      ticket_id: ticketId.trim() || null,
-      watched_with: watchedWith.length > 0 ? watchedWith : null,
-    };
+    try {
+      await updateJourneyMutation({
+        journeyId: id,
+        data: {
+          journey_tagline: tagline.trim() || null,
+          journey_notes: notes.trim() || null,
+          watched_at: watchedAt.toISOString(),
+          watch_time: `${watchTime.getHours().toString().padStart(2, '0')}:${watchTime.getMinutes().toString().padStart(2, '0')}`,
+          location_name: locationName.trim() || null,
+          seat_location: seatLocation.trim() || null,
+          watch_format: watchFormat.toLowerCase() as DbWatchFormat,
+          auditorium: auditorium.trim() || null,
+          ticket_price: ticketPrice ? parseFloat(ticketPrice) : null,
+          ticket_id: ticketId.trim() || null,
+          watched_with: watchedWith.length > 0 ? watchedWith : null,
+        },
+      });
 
-    // Log data for Phase 1 (will be replaced with actual mutation)
-    console.log('Saving journey data:', journeyData);
+      hapticNotification(NotificationFeedbackType.Success);
+      Toast.show({
+        type: 'success',
+        text1: 'Journey updated',
+        visibilityTime: 2000,
+      });
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    setIsUpdating(false);
-    hapticNotification(NotificationFeedbackType.Success);
-
-    // Show toast before navigation so user sees it
-    const isNewJourney = id === 'new';
-    Toast.show({
-      type: 'success',
-      text1: isNewJourney ? 'Journey created' : 'Journey updated',
-      visibilityTime: 2000,
-    });
-
-    // Navigate back
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to save',
+        text2: 'Please try again',
+        visibilityTime: 3000,
+      });
     }
   }, [
     id,
@@ -229,6 +205,7 @@ export default function EditJourneyScreen() {
     ticketPrice,
     ticketId,
     watchedWith,
+    updateJourneyMutation,
     router,
   ]);
 
@@ -288,12 +265,22 @@ export default function EditJourneyScreen() {
     setShowFormatPicker(false);
   }, []);
 
-  if (isLoading) {
+  if (isLoadingJourney) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.tint} />
           <Text style={styles.loadingText}>Loading journey...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!isLoadingJourney && !journeyData) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Journey not found</Text>
         </View>
       </SafeAreaView>
     );
