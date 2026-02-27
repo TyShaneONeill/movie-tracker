@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { FirstTake, FirstTakeInsert, FirstTakeUpdate, ReviewVisibility } from './database.types';
+import type { FirstTake, FirstTakeInsert, FirstTakeUpdate, FirstTakeMediaType, ReviewVisibility } from './database.types';
 
 export interface CreateFirstTakeData {
   tmdbId: number;
@@ -10,6 +10,10 @@ export interface CreateFirstTakeData {
   isSpoiler?: boolean;
   rating?: number | null;
   visibility?: ReviewVisibility;
+  mediaType?: FirstTakeMediaType;
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
+  showName?: string | null;
 }
 
 /**
@@ -33,6 +37,10 @@ export async function createFirstTake(
     quote_text: trimmedQuote,
     is_spoiler: data.isSpoiler ?? false,
     rating: data.rating ?? null,
+    media_type: data.mediaType ?? 'movie',
+    season_number: data.seasonNumber ?? null,
+    episode_number: data.episodeNumber ?? null,
+    show_name: data.showName ?? null,
     ...(data.visibility !== undefined && { visibility: data.visibility }),
   };
 
@@ -58,13 +66,15 @@ export async function createFirstTake(
  */
 export async function getFirstTakeByTmdbId(
   userId: string,
-  tmdbId: number
+  tmdbId: number,
+  mediaType: FirstTakeMediaType = 'movie'
 ): Promise<FirstTake | null> {
   const { data, error } = await supabase
     .from('first_takes')
     .select('*')
     .eq('user_id', userId)
     .eq('tmdb_id', tmdbId)
+    .eq('media_type', mediaType)
     .maybeSingle();
 
   if (error) {

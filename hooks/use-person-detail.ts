@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPersonDetails } from '@/lib/movie-service';
-import type { TMDBPerson, TMDBPersonMovieCredit, TMDBPersonCrewCredit } from '@/lib/tmdb.types';
+import type { TMDBPerson, TMDBPersonMovieCredit, TMDBPersonCrewCredit, TMDBPersonTvCredit } from '@/lib/tmdb.types';
 
 interface UsePersonDetailOptions {
   personId: string | number;
@@ -11,6 +11,8 @@ interface UsePersonDetailResult {
   person: TMDBPerson | null;
   movieCredits: TMDBPersonMovieCredit[];
   crewCredits: TMDBPersonCrewCredit[];
+  tvCredits: TMDBPersonTvCredit[];
+  tvCrewCredits: TMDBPersonTvCredit[];
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
@@ -36,6 +38,8 @@ export function usePersonDetail({
     person: data?.person ?? null,
     movieCredits: data?.movieCredits ?? [],
     crewCredits: data?.crewCredits ?? [],
+    tvCredits: data?.tvCredits ?? [],
+    tvCrewCredits: data?.tvCrewCredits ?? [],
     isLoading,
     isError,
     error: error ?? null,
