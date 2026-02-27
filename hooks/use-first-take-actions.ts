@@ -8,7 +8,7 @@ import {
   deleteFirstTake,
   type CreateFirstTakeData,
 } from '@/lib/first-take-service';
-import type { FirstTake } from '@/lib/database.types';
+import type { FirstTake, FirstTakeMediaType } from '@/lib/database.types';
 
 interface UseFirstTakeActionsResult {
   // State
@@ -27,15 +27,15 @@ interface UseFirstTakeActionsResult {
   deleteTake: () => Promise<void>;
 }
 
-export function useFirstTakeActions(tmdbId: number): UseFirstTakeActionsResult {
+export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaType = 'movie'): UseFirstTakeActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
 
   // Query to check if a First Take exists for this movie
   const { data: existingTake, isLoading: isLoadingTake } = useQuery({
-    queryKey: ['firstTake', user?.id, tmdbId],
-    queryFn: () => getFirstTakeByTmdbId(user!.id, tmdbId),
+    queryKey: ['firstTake', user?.id, tmdbId, mediaType],
+    queryFn: () => getFirstTakeByTmdbId(user!.id, tmdbId, mediaType),
     enabled: !!user && tmdbId > 0,
   });
 
@@ -47,7 +47,7 @@ export function useFirstTakeActions(tmdbId: number): UseFirstTakeActionsResult {
     },
     onSuccess: () => {
       // Invalidate the single movie's first take query
-      queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId] });
+      queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId, mediaType] });
       // Invalidate the profile's first takes feed
       queryClient.invalidateQueries({ queryKey: ['first-takes', user?.id] });
       // Invalidate profile stats (firstTakes count)
@@ -66,7 +66,7 @@ export function useFirstTakeActions(tmdbId: number): UseFirstTakeActionsResult {
       return updateFirstTake(existingTake.id, updates);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId] });
+      queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId, mediaType] });
       queryClient.invalidateQueries({ queryKey: ['first-takes', user?.id] });
     },
   });
@@ -78,7 +78,7 @@ export function useFirstTakeActions(tmdbId: number): UseFirstTakeActionsResult {
       return deleteFirstTake(existingTake.id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId] });
+      queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId, mediaType] });
       queryClient.invalidateQueries({ queryKey: ['first-takes', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
     },

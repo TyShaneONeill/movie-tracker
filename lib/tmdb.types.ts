@@ -223,4 +223,133 @@ export interface PersonDetailResponse {
   person: TMDBPerson;
   movieCredits: TMDBPersonMovieCredit[];
   crewCredits: TMDBPersonCrewCredit[];
+  tvCredits: TMDBPersonTvCredit[];
+  tvCrewCredits: TMDBPersonTvCredit[];
+}
+
+// ============================================
+// TV Show Types
+// ============================================
+
+// TV Show list type for different TMDB endpoints
+export type TvShowListType = 'trending' | 'airing_today' | 'on_the_air' | 'top_rated';
+
+// TMDB TV Show from API response (parallels TMDBMovie)
+export interface TMDBTvShow {
+  id: number;
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  first_air_date: string;
+  vote_average: number;
+  vote_count: number;
+  genre_ids: number[];
+  origin_country: string[];
+  original_language: string;
+  popularity: number;
+}
+
+// Extended TV show detail (parallels TMDBMovieDetail)
+export interface TMDBTvShowDetail {
+  id: number;
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  first_air_date: string;
+  last_air_date: string | null;
+  vote_average: number;
+  vote_count: number;
+  genre_ids: number[];
+  genres: { id: number; name: string }[];
+  tagline: string | null;
+  status: string;
+  type: string;
+  in_production: boolean;
+  number_of_seasons: number;
+  number_of_episodes: number;
+  episode_run_time: number[];
+  networks: { id: number; name: string; logo_path: string | null }[];
+  created_by: { id: number; name: string; profile_path: string | null }[];
+  seasons: TMDBSeason[];
+  original_language: string;
+  origin_country: string[];
+}
+
+// Season summary from show detail
+export interface TMDBSeason {
+  id: number;
+  season_number: number;
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  air_date: string | null;
+  episode_count: number;
+  vote_average: number;
+}
+
+// Episode from season detail endpoint
+export interface TMDBEpisode {
+  id: number;
+  episode_number: number;
+  season_number: number;
+  name: string;
+  overview: string;
+  air_date: string | null;
+  runtime: number | null;
+  still_path: string | null;
+  vote_average: number;
+  vote_count: number;
+  guest_stars: { id: number; name: string; character: string; profile_path: string | null }[];
+}
+
+// Response types for TV edge functions
+export interface SearchTvShowsResponse {
+  shows: TMDBTvShow[];
+  page: number;
+  totalPages: number;
+  totalResults: number;
+}
+
+export interface TvShowDetailResponse {
+  show: TMDBTvShowDetail;
+  cast: TMDBCastMember[];
+  crew: TMDBCrewMember[];
+  trailer: TMDBVideo | null;
+  watchProviders: Record<string, TMDBWatchProviders>;
+  seasons: TMDBSeason[];
+}
+
+export interface TvShowListResponse {
+  shows: TMDBTvShow[];
+  page: number;
+  totalPages: number;
+  totalResults: number;
+}
+
+export interface SeasonDetailResponse {
+  episodes: TMDBEpisode[];
+  seasonNumber: number;
+  name: string;
+  overview: string;
+  posterPath: string | null;
+}
+
+// Person TV credits (parallels TMDBPersonMovieCredit)
+export interface TMDBPersonTvCredit {
+  id: number;
+  name: string;
+  original_name: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  first_air_date: string;
+  vote_average: number;
+  vote_count: number;
+  genre_ids: number[];
+  overview: string;
+  popularity: number;
+  character: string;
+  credit_id: string;
+  episode_count: number;
 }
