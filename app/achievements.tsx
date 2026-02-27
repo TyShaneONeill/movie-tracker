@@ -120,7 +120,8 @@ export default function AchievementsScreen() {
           presentationStyle="pageSheet"
           onRequestClose={() => setSelectedProgress(null)}
         >
-          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalOuter, { backgroundColor: colors.background }]}>
+          <View style={styles.modalContainer}>
             {/* Modal header */}
             <View style={styles.modalHeader}>
               <Pressable
@@ -207,6 +208,7 @@ export default function AchievementsScreen() {
               )}
             </ScrollView>
           </View>
+          </View>
         </Modal>
       )}
     </SafeAreaView>
@@ -247,13 +249,19 @@ const createStyles = (colors: typeof Colors.dark) =>
       gap: GRID_GAP,
       marginBottom: GRID_GAP,
     },
-    // Detail modal (pageSheet — iOS handles safe area natively)
-    modalContainer: {
+    // Detail modal — outer fills the full screen with background color,
+    // inner constrains width on desktop web to match the rest of the app.
+    modalOuter: {
       flex: 1,
       ...(Platform.OS === 'web' && {
+        alignItems: 'center' as const,
+      }),
+    },
+    modalContainer: {
+      flex: 1,
+      width: '100%',
+      ...(Platform.OS === 'web' && {
         maxWidth: MAX_GRID_WIDTH,
-        width: '100%',
-        alignSelf: 'center' as const,
       }),
     },
     modalHeader: {
