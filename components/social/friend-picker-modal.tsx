@@ -263,7 +263,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       padding: Spacing.lg,
       maxHeight: '70%',
       ...(Platform.OS === 'web' && {
-        maxWidth: 768,
+        maxWidth: 500,
         width: '100%',
         alignSelf: 'center' as const,
       }),
