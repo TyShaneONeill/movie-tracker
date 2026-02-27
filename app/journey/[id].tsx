@@ -38,7 +38,10 @@ import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourney } from '@/hooks/use-journey';
 import { useGenerateArt } from '@/hooks/use-generate-art';
+import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { getGenreNamesByIds } from '@/lib/genre-service';
+import { useAuth } from '@/lib/auth-context';
+import { buildAvatarUrl } from '@/lib/avatar-service';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 
@@ -138,6 +141,19 @@ export default function JourneyCardScreen() {
 
   // Poster inspection modal state
   const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
+
+  // Auth & companion avatars
+  const { user } = useAuth();
+  const { mutualFollows } = useMutualFollows(user?.id ?? '');
+
+  const companionAvatarMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const p of mutualFollows) {
+      const name = (p.full_name || p.username || '').toLowerCase();
+      if (name) map.set(name, buildAvatarUrl(p.avatar_url, p.updated_at));
+    }
+    return map;
+  }, [mutualFollows]);
 
   // Fetch journey data
   const { data: journeyData, isLoading, isError } = useJourney(id);
@@ -409,9 +425,28 @@ export default function JourneyCardScreen() {
                   </View>
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>WITH</Text>
-                    <Text style={styles.infoValue}>
-                      {journey.watched_with?.join(', ') || 'Solo'}
-                    </Text>
+                    {journey.watched_with?.length ? (
+                      <View style={styles.companionList}>
+                        {journey.watched_with.map((name, i) => {
+                          const avatarUrl = companionAvatarMap.get(name.toLowerCase());
+                          return (
+                            <View key={i} style={styles.companionItem}>
+                              {avatarUrl ? (
+                                <Image
+                                  source={{ uri: avatarUrl }}
+                                  style={styles.companionAvatar}
+                                  contentFit="cover"
+                                  transition={200}
+                                />
+                              ) : null}
+                              <Text style={styles.infoValue}>{name}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>Solo</Text>
+                    )}
                   </View>
                 </View>
               </View>
@@ -658,6 +693,22 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
   infoValue: {
     ...Typography.body.baseMedium,
     color: colors.text,
+  },
+  companionList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    alignItems: 'center',
+  },
+  companionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  companionAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
   dotsContainer: {
     flexDirection: 'row',
