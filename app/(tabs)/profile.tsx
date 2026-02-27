@@ -62,8 +62,10 @@ export default function ProfileScreen() {
     const colors = Colors[effectiveTheme];
     const { width: screenWidth } = useWindowDimensions();
 
+    const MAX_APP_WIDTH = 768;
     const cardWidth = useMemo(() => {
-        const availableWidth = screenWidth - (Spacing.lg * 2);
+        const effectiveWidth = Platform.OS === 'web' ? Math.min(screenWidth, MAX_APP_WIDTH) : screenWidth;
+        const availableWidth = effectiveWidth - (Spacing.lg * 2);
         return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
     }, [screenWidth]);
 
