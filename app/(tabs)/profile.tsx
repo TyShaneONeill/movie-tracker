@@ -573,10 +573,12 @@ export default function ProfileScreen() {
                 {renderAchievementsRow()}
             </Animated.View>
 
-            {/* Combined Stat-Tab Bar */}
-            <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }, isWeb && styles.statTabBarSticky]}>
-                {renderStatTabBar()}
-            </View>
+            {/* Combined Stat-Tab Bar (on web, rendered outside FlatList — sticky doesn't work inside FlatList) */}
+            {!isWeb && (
+                <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    {renderStatTabBar()}
+                </View>
+            )}
         </>
     );
 
@@ -754,6 +756,13 @@ export default function ProfileScreen() {
                     </Svg>
                 </Pressable>
             </View>
+
+            {/* On web, pin the tab bar above FlatList (CSS sticky doesn't work inside FlatList) */}
+            {isWeb && activeTab === 'collection' && (
+                <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    {renderStatTabBar()}
+                </View>
+            )}
 
             {/* Collection tab uses FlatList with numColumns for proper 3-column grid */}
             {activeTab === 'collection' && (
