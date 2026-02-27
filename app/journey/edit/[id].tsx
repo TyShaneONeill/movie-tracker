@@ -22,7 +22,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,6 +34,7 @@ import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useJourneyMutations } from '@/hooks/use-journey';
+import { FriendPickerModal } from '@/components/social/friend-picker-modal';
 
 // Watch format options for dropdown
 const WATCH_FORMATS = [
@@ -137,9 +137,8 @@ export default function EditJourneyScreen() {
   // Format picker visibility
   const [showFormatPicker, setShowFormatPicker] = useState(false);
 
-  // Add friend modal state
-  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
-  const [newFriendName, setNewFriendName] = useState('');
+  // Friend picker modal state
+  const [showFriendPicker, setShowFriendPicker] = useState(false);
 
   // Create dynamic styles
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -253,25 +252,13 @@ export default function EditJourneyScreen() {
     );
   }, [id, router, deleteJourney]);
 
-  // Handle add friend (using modal for cross-platform support)
+  // Handle add friend
   const handleAddFriend = useCallback(() => {
-    setNewFriendName('');
-    setShowAddFriendModal(true);
+    setShowFriendPicker(true);
   }, []);
 
-  // Confirm add friend
-  const handleConfirmAddFriend = useCallback(() => {
-    if (newFriendName.trim()) {
-      setWatchedWith((prev) => [...prev, newFriendName.trim()]);
-    }
-    setShowAddFriendModal(false);
-    setNewFriendName('');
-  }, [newFriendName]);
-
-  // Cancel add friend
-  const handleCancelAddFriend = useCallback(() => {
-    setShowAddFriendModal(false);
-    setNewFriendName('');
+  const handleFriendSelected = useCallback((displayName: string) => {
+    setWatchedWith((prev) => [...prev, displayName]);
   }, []);
 
   // Handle remove friend
@@ -629,53 +616,13 @@ export default function EditJourneyScreen() {
           <View style={styles.bottomSpacer} />
         </ScrollView>
 
-        {/* Add Friend Modal */}
-        <Modal
-          visible={showAddFriendModal}
-          transparent
-          animationType="fade"
-          onRequestClose={handleCancelAddFriend}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Add Friend</Text>
-              <Text style={styles.modalSubtitle}>
-                Enter the name of who you watched with:
-              </Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Friend's name"
-                placeholderTextColor={colors.textTertiary}
-                value={newFriendName}
-                onChangeText={setNewFriendName}
-                autoFocus
-                onSubmitEditing={handleConfirmAddFriend}
-              />
-              <View style={styles.modalButtons}>
-                <Pressable
-                  onPress={handleCancelAddFriend}
-                  style={({ pressed }) => [
-                    styles.modalButton,
-                    styles.modalButtonCancel,
-                    pressed && styles.modalButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.modalButtonCancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleConfirmAddFriend}
-                  style={({ pressed }) => [
-                    styles.modalButton,
-                    styles.modalButtonConfirm,
-                    pressed && styles.modalButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.modalButtonConfirmText}>Add</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        {/* Friend Picker Modal */}
+        <FriendPickerModal
+          visible={showFriendPicker}
+          onClose={() => setShowFriendPicker(false)}
+          onSelectFriend={handleFriendSelected}
+          alreadyAdded={watchedWith}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1092,72 +1039,4 @@ const createStyles = (colors: ThemeColors) =>
       height: Spacing.xl,
     },
 
-    // Add Friend Modal styles
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: Spacing.lg,
-    },
-    modalContent: {
-      backgroundColor: colors.card,
-      borderRadius: BorderRadius.md,
-      padding: Spacing.lg,
-      width: '100%',
-      maxWidth: 340,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    modalTitle: {
-      ...Typography.display.h4,
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: Spacing.xs,
-    },
-    modalSubtitle: {
-      ...Typography.body.sm,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginBottom: Spacing.md,
-    },
-    modalInput: {
-      backgroundColor: colors.backgroundSecondary,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: BorderRadius.sm,
-      padding: Spacing.sm,
-      color: colors.text,
-      ...Typography.body.base,
-      marginBottom: Spacing.md,
-    },
-    modalButtons: {
-      flexDirection: 'row',
-      gap: Spacing.sm,
-    },
-    modalButton: {
-      flex: 1,
-      padding: Spacing.sm,
-      borderRadius: BorderRadius.sm,
-      alignItems: 'center',
-    },
-    modalButtonCancel: {
-      backgroundColor: colors.backgroundSecondary,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    modalButtonConfirm: {
-      backgroundColor: colors.tint,
-    },
-    modalButtonPressed: {
-      opacity: 0.7,
-    },
-    modalButtonCancelText: {
-      ...Typography.button.secondary,
-      color: colors.textSecondary,
-    },
-    modalButtonConfirmText: {
-      ...Typography.button.primary,
-      color: '#ffffff',
-    },
   });
