@@ -250,6 +250,11 @@ const createStyles = (colors: typeof Colors.dark) =>
     // Detail modal (pageSheet — iOS handles safe area natively)
     modalContainer: {
       flex: 1,
+      ...(Platform.OS === 'web' && {
+        maxWidth: MAX_GRID_WIDTH,
+        width: '100%',
+        alignSelf: 'center' as const,
+      }),
     },
     modalHeader: {
       flexDirection: 'row',
