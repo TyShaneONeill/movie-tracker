@@ -32,8 +32,12 @@ import Toast from 'react-native-toast-message';
 
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import { Image } from 'expo-image';
 import { useTheme } from '@/lib/theme-context';
 import { useJourneyMutations } from '@/hooks/use-journey';
+import { useAuth } from '@/hooks/use-auth';
+import { useMutualFollows } from '@/hooks/use-mutual-follows';
+import { buildAvatarUrl } from '@/lib/avatar-service';
 import { FriendPickerModal } from '@/components/social/friend-picker-modal';
 
 // Watch format options for dropdown
@@ -93,6 +97,8 @@ export default function EditJourneyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { user } = useAuth();
+  const { mutualFollows } = useMutualFollows(user?.id ?? '');
 
   // Mock data loading (will be replaced with useJourneyMutations hook)
   const [isLoading] = useState(false);
@@ -139,6 +145,16 @@ export default function EditJourneyScreen() {
 
   // Friend picker modal state
   const [showFriendPicker, setShowFriendPicker] = useState(false);
+
+  // Build a name → avatar URL lookup from mutual follows
+  const friendAvatarMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const p of mutualFollows) {
+      const name = (p.full_name || p.username || '').toLowerCase();
+      if (name) map.set(name, buildAvatarUrl(p.avatar_url, p.updated_at));
+    }
+    return map;
+  }, [mutualFollows]);
 
   // Create dynamic styles
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -568,8 +584,18 @@ export default function EditJourneyScreen() {
                 {watchedWith.length === 0 && (
                   <Text style={styles.soloViewingText}>Solo viewing</Text>
                 )}
-                {watchedWith.map((friend, index) => (
+                {watchedWith.map((friend, index) => {
+                  const avatarUrl = friendAvatarMap.get(friend.toLowerCase());
+                  return (
                   <View key={index} style={styles.friendChip}>
+                    {avatarUrl ? (
+                      <Image
+                        source={{ uri: avatarUrl }}
+                        style={styles.friendChipAvatar}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    ) : null}
                     <Text style={styles.friendChipText}>{friend}</Text>
                     <Pressable
                       onPress={() => handleRemoveFriend(index)}
@@ -581,7 +607,8 @@ export default function EditJourneyScreen() {
                       <Text style={styles.friendChipRemoveText}>X</Text>
                     </Pressable>
                   </View>
-                ))}
+                  );
+                })}
                 <Pressable
                   onPress={handleAddFriend}
                   style={({ pressed }) => [
@@ -973,9 +1000,14 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.backgroundSecondary,
       borderRadius: BorderRadius.full,
       paddingVertical: Spacing.xs,
-      paddingLeft: Spacing.md,
+      paddingLeft: Spacing.xs,
       paddingRight: Spacing.xs,
       gap: Spacing.xs,
+    },
+    friendChipAvatar: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
     },
     friendChipText: {
       ...Typography.body.sm,

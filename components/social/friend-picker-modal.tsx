@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -261,6 +262,11 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderTopRightRadius: BorderRadius.lg,
       padding: Spacing.lg,
       maxHeight: '70%',
+      ...(Platform.OS === 'web' && {
+        maxWidth: 768,
+        width: '100%',
+        alignSelf: 'center' as const,
+      }),
     },
     header: {
       flexDirection: 'row',
