@@ -20,10 +20,10 @@ export const MOCK_USER_LISTS: UserListWithMovies[] = [
     updated_at: '2024-01-20T00:00:00Z',
     movie_count: 24,
     movies: [
-      { id: '1', list_id: '1', tmdb_id: 550, title: 'Fight Club', poster_path: '/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg', position: 0, notes: null, added_at: '2024-01-15T00:00:00Z' },
-      { id: '2', list_id: '1', tmdb_id: 680, title: 'Pulp Fiction', poster_path: '/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg', position: 1, notes: null, added_at: '2024-01-15T00:00:00Z' },
-      { id: '3', list_id: '1', tmdb_id: 155, title: 'The Dark Knight', poster_path: '/qJ2tW6WMUDux911r6m7haRef0WH.jpg', position: 2, notes: null, added_at: '2024-01-15T00:00:00Z' },
-      { id: '4', list_id: '1', tmdb_id: 27205, title: 'Inception', poster_path: '/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg', position: 3, notes: null, added_at: '2024-01-15T00:00:00Z' },
+      { id: '1', list_id: '1', tmdb_id: 550, title: 'Fight Club', poster_path: '/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg', position: 0, notes: null, added_at: '2024-01-15T00:00:00Z', media_type: 'movie' },
+      { id: '2', list_id: '1', tmdb_id: 680, title: 'Pulp Fiction', poster_path: '/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg', position: 1, notes: null, added_at: '2024-01-15T00:00:00Z', media_type: 'movie' },
+      { id: '3', list_id: '1', tmdb_id: 155, title: 'The Dark Knight', poster_path: '/qJ2tW6WMUDux911r6m7haRef0WH.jpg', position: 2, notes: null, added_at: '2024-01-15T00:00:00Z', media_type: 'movie' },
+      { id: '4', list_id: '1', tmdb_id: 27205, title: 'Inception', poster_path: '/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg', position: 3, notes: null, added_at: '2024-01-15T00:00:00Z', media_type: 'movie' },
     ],
   },
   {
@@ -37,8 +37,8 @@ export const MOCK_USER_LISTS: UserListWithMovies[] = [
     updated_at: '2024-01-18T00:00:00Z',
     movie_count: 12,
     movies: [
-      { id: '5', list_id: '2', tmdb_id: 508442, title: 'Soul', poster_path: '/hm58Jw4Lw8OIeECIq5qyPYhAeRJ.jpg', position: 0, notes: null, added_at: '2024-01-10T00:00:00Z' },
-      { id: '6', list_id: '2', tmdb_id: 862, title: 'Toy Story', poster_path: '/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg', position: 1, notes: null, added_at: '2024-01-10T00:00:00Z' },
+      { id: '5', list_id: '2', tmdb_id: 508442, title: 'Soul', poster_path: '/hm58Jw4Lw8OIeECIq5qyPYhAeRJ.jpg', position: 0, notes: null, added_at: '2024-01-10T00:00:00Z', media_type: 'movie' },
+      { id: '6', list_id: '2', tmdb_id: 862, title: 'Toy Story', poster_path: '/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg', position: 1, notes: null, added_at: '2024-01-10T00:00:00Z', media_type: 'movie' },
     ],
   },
   {
