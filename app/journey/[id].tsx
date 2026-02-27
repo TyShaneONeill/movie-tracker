@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Image as ExpoImage } from 'expo-image';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
@@ -175,7 +176,7 @@ export default function JourneyCardScreen() {
   const isDark = effectiveTheme === 'dark';
 
   // Dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors, ticketHeight, infoPageWidth, isDark), [colors, ticketHeight, infoPageWidth, isDark]);
+  const styles = useMemo(() => createStyles(colors, ticketHeight, infoPageWidth, isDark, insets.top), [colors, ticketHeight, infoPageWidth, isDark, insets.top]);
 
   // Handle info carousel scroll
   const handleInfoScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -432,7 +433,7 @@ export default function JourneyCardScreen() {
                           return (
                             <View key={i} style={styles.companionItem}>
                               {avatarUrl ? (
-                                <Image
+                                <ExpoImage
                                   source={{ uri: avatarUrl }}
                                   style={styles.companionAvatar}
                                   contentFit="cover"
@@ -517,7 +518,7 @@ export default function JourneyCardScreen() {
 }
 
 // Create styles function that takes theme colors, ticket height, info page width, and theme
-const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: number, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: number, isDark: boolean, topInset: number) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -537,7 +538,7 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingTop: 60,
+    paddingTop: topInset + Spacing.sm,
     paddingBottom: Spacing.md,
     zIndex: 10,
   },
