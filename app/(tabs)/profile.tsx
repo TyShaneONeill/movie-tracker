@@ -109,17 +109,23 @@ export default function ProfileScreen() {
         refetch: refetchTakes,
     } = useFirstTakes();
 
-    // Scroll handler for tracking scroll position
+    // Scroll handler for tracking scroll position (native only needs the
+    // sticky-bar visibility bridge; web uses CSS position:sticky instead).
+    const isWeb = Platform.OS === 'web';
     const scrollHandler = useAnimatedScrollHandler({
         onScroll: (event) => {
             scrollY.value = event.contentOffset.y;
-            const isVisible = event.contentOffset.y >= HEADER_SCROLL_DISTANCE * 0.8;
-            runOnJS(setStickyBarVisible)(isVisible);
+            if (!isWeb) {
+                const isVisible = event.contentOffset.y >= HEADER_SCROLL_DISTANCE * 0.8;
+                runOnJS(setStickyBarVisible)(isVisible);
+            }
         },
     });
 
-    // Animated style for collapsible header
+    // Animated style for collapsible header (native only — on web the header
+    // scrolls away naturally to avoid expensive per-frame height reflows).
     const headerAnimatedStyle = useAnimatedStyle(() => {
+        if (Platform.OS === 'web') return {};
         const height = interpolate(
             scrollY.value,
             [0, HEADER_SCROLL_DISTANCE],
@@ -568,7 +574,7 @@ export default function ProfileScreen() {
             </Animated.View>
 
             {/* Combined Stat-Tab Bar */}
-            <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+            <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }, isWeb && styles.statTabBarSticky]}>
                 {renderStatTabBar()}
             </View>
         </>
@@ -818,7 +824,7 @@ export default function ProfileScreen() {
                     </Animated.View>
 
                     {/* Combined Stat-Tab Bar */}
-                    <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }, isWeb && styles.statTabBarSticky]}>
                         {renderStatTabBar()}
                     </View>
 
@@ -829,19 +835,22 @@ export default function ProfileScreen() {
                 </Animated.ScrollView>
             )}
 
-            {/* Sticky Stat-Tab Bar Overlay - appears when header is collapsed */}
-            <Animated.View
-                style={[
-                    styles.stickyTabBarOverlay,
-                    { backgroundColor: colors.background, top: insets.top },
-                    stickyTabBarStyle
-                ]}
-                pointerEvents={stickyBarVisible ? "box-none" : "none"}
-            >
-                <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
-                    {renderStatTabBar()}
-                </View>
-            </Animated.View>
+            {/* Sticky Stat-Tab Bar Overlay - appears when header is collapsed (native only;
+                web uses CSS position:sticky on the inline tab bar instead) */}
+            {!isWeb && (
+                <Animated.View
+                    style={[
+                        styles.stickyTabBarOverlay,
+                        { backgroundColor: colors.background, top: insets.top },
+                        stickyTabBarStyle
+                    ]}
+                    pointerEvents={stickyBarVisible ? "box-none" : "none"}
+                >
+                    <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
+                        {renderStatTabBar()}
+                    </View>
+                </Animated.View>
+            )}
 
             <CreateListModal
                 visible={showCreateModal}
@@ -972,6 +981,11 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.md,
         paddingBottom: Spacing.sm,
         borderBottomWidth: 1,
+    },
+    statTabBarSticky: {
+        position: 'sticky' as any,
+        top: 0,
+        zIndex: 10,
     },
     statTabItem: {
         flex: 1,
