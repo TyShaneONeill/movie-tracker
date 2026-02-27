@@ -882,7 +882,7 @@ export default function ProfileScreen() {
                                                 isAiPoster={isAiPoster}
                                                 journeyCount={item.journeyCount}
                                                 onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
-                                                style={{ width: cardWidth }}
+                                                style={{ width: cardWidth, flex: 0 }}
                                             />
                                         );
                                     })}
