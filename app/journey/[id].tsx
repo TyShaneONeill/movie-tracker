@@ -538,8 +538,8 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingTop: topInset + Spacing.sm,
-    paddingBottom: Spacing.md,
+    paddingTop: topInset + (Platform.OS === 'web' ? Spacing.md : Spacing.sm),
+    paddingBottom: Spacing.sm,
     zIndex: 10,
   },
   headerCenter: {

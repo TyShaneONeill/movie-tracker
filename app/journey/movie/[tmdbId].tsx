@@ -584,7 +584,7 @@ export default function JourneyCarouselScreen() {
   // Total pages = journeys + 1 (add new journey card)
   const totalPages = journeys.length + 1;
 
-  const styles = useMemo(() => createStyles(colors, ticketHeight, ticketWidth), [colors, ticketHeight, ticketWidth]);
+  const styles = useMemo(() => createStyles(colors, ticketHeight, ticketWidth, insets.top), [colors, ticketHeight, ticketWidth, insets.top]);
 
   // Handle carousel scroll
   const handleCarouselScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -814,7 +814,7 @@ export default function JourneyCarouselScreen() {
 }
 
 // Create styles for the main screen
-const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: number) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: number, topInset: number) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -829,8 +829,8 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: nu
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingTop: 60,
-    paddingBottom: Spacing.md,
+    paddingTop: topInset + (Platform.OS === 'web' ? Spacing.md : Spacing.sm),
+    paddingBottom: Spacing.sm,
     zIndex: 10,
   },
   headerCenter: {
