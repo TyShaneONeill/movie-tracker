@@ -62,8 +62,10 @@ export default function ProfileScreen() {
     const colors = Colors[effectiveTheme];
     const { width: screenWidth } = useWindowDimensions();
 
+    const MAX_APP_WIDTH = 768;
     const cardWidth = useMemo(() => {
-        const availableWidth = screenWidth - (Spacing.lg * 2);
+        const effectiveWidth = Platform.OS === 'web' ? Math.min(screenWidth, MAX_APP_WIDTH) : screenWidth;
+        const availableWidth = effectiveWidth - (Spacing.lg * 2);
         return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
     }, [screenWidth]);
 
@@ -109,17 +111,23 @@ export default function ProfileScreen() {
         refetch: refetchTakes,
     } = useFirstTakes();
 
-    // Scroll handler for tracking scroll position
+    // Scroll handler for tracking scroll position (native only needs the
+    // sticky-bar visibility bridge; web uses CSS position:sticky instead).
+    const isWeb = Platform.OS === 'web';
     const scrollHandler = useAnimatedScrollHandler({
         onScroll: (event) => {
             scrollY.value = event.contentOffset.y;
-            const isVisible = event.contentOffset.y >= HEADER_SCROLL_DISTANCE * 0.8;
-            runOnJS(setStickyBarVisible)(isVisible);
+            if (!isWeb) {
+                const isVisible = event.contentOffset.y >= HEADER_SCROLL_DISTANCE * 0.8;
+                runOnJS(setStickyBarVisible)(isVisible);
+            }
         },
     });
 
-    // Animated style for collapsible header
+    // Animated style for collapsible header (native only — on web the header
+    // scrolls away naturally to avoid expensive per-frame height reflows).
     const headerAnimatedStyle = useAnimatedStyle(() => {
+        if (Platform.OS === 'web') return {};
         const height = interpolate(
             scrollY.value,
             [0, HEADER_SCROLL_DISTANCE],
@@ -164,19 +172,19 @@ export default function ProfileScreen() {
         // Reset scroll position immediately to prevent sticky header duplication
         scrollY.value = 0;
         setActiveTab(tab);
-        // Scroll to top to expand header (use appropriate ref based on which tab we're switching to)
-        if (tab === 'collection') {
+        // Scroll to top (on web all tabs use ScrollView; on native collection uses FlatList)
+        if (!isWeb && tab === 'collection') {
             flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
         } else {
             scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         }
-    }, [scrollY]);
+    }, [scrollY, isWeb]);
 
     // Handle refresh
     const handleRefresh = useCallback(async () => {
         setIsRefreshing(true);
         // Scroll to top first to show the header
-        if (activeTab === 'collection') {
+        if (!isWeb && activeTab === 'collection') {
             flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         } else {
             scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -191,7 +199,7 @@ export default function ProfileScreen() {
             refetchAchievements(),
         ]);
         setIsRefreshing(false);
-    }, [activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes, refetchAchievements]);
+    }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes, refetchAchievements]);
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
         const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
@@ -749,8 +757,8 @@ export default function ProfileScreen() {
                 </Pressable>
             </View>
 
-            {/* Collection tab uses FlatList with numColumns for proper 3-column grid */}
-            {activeTab === 'collection' && (
+            {/* Native collection tab uses FlatList for virtualized 3-column grid */}
+            {!isWeb && activeTab === 'collection' && (
                 <Animated.FlatList
                     ref={flatListRef}
                     data={isLoading || isError ? [] : groupedMovies}
@@ -766,23 +774,21 @@ export default function ProfileScreen() {
                     removeClippedSubviews={true}
                     maxToRenderPerBatch={10}
                     windowSize={5}
-                    bounces={Platform.OS !== 'web'}
-                    overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
+                    bounces={true}
                     refreshControl={
-                        Platform.OS !== 'web' ? (
-                            <RefreshControl
-                                refreshing={isRefreshing}
-                                onRefresh={handleRefresh}
-                                tintColor={colors.tint}
-                            />
-                        ) : undefined
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={colors.tint}
+                        />
                     }
                     showsVerticalScrollIndicator={false}
                 />
             )}
 
-            {/* First Takes and Lists tabs use ScrollView */}
-            {activeTab !== 'collection' && (
+            {/* Web uses ScrollView for ALL tabs (CSS position:sticky works in ScrollView
+                but not inside FlatList). Native uses it for First Takes + Lists only. */}
+            {(isWeb || activeTab !== 'collection') && (
                 <Animated.ScrollView
                     ref={scrollViewRef}
                     onScroll={scrollHandler}
@@ -801,7 +807,7 @@ export default function ProfileScreen() {
                         ) : undefined
                     }
                 >
-                    {/* Collapsible Profile Header */}
+                    {/* Profile Header */}
                     <Animated.View style={[styles.header, headerAnimatedStyle]}>
                         <Image
                             source={{ uri: buildAvatarUrl(profile?.avatar_url, profile?.updated_at) || MOCK_USER.avatarUrl }}
@@ -813,35 +819,96 @@ export default function ProfileScreen() {
                         <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
                             {profile?.bio || MOCK_USER.bio}
                         </ThemedText>
+                        {/* Follower/Following Stats */}
+                        <View style={styles.followStats}>
+                            <Pressable
+                                onPress={() => user && router.push(`/followers/${user.id}`)}
+                                style={({ pressed }) => [
+                                    styles.followStatItem,
+                                    { opacity: pressed ? 0.7 : 1 },
+                                ]}
+                            >
+                                <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
+                                    {profile?.followers_count ?? 0}
+                                </ThemedText>
+                                <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+                                    Followers
+                                </ThemedText>
+                            </Pressable>
+                            <View style={[styles.followStatDivider, { backgroundColor: colors.border }]} />
+                            <Pressable
+                                onPress={() => user && router.push(`/following/${user.id}`)}
+                                style={({ pressed }) => [
+                                    styles.followStatItem,
+                                    { opacity: pressed ? 0.7 : 1 },
+                                ]}
+                            >
+                                <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
+                                    {profile?.following_count ?? 0}
+                                </ThemedText>
+                                <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+                                    Following
+                                </ThemedText>
+                            </Pressable>
+                        </View>
                         {/* Achievements Row */}
                         {renderAchievementsRow()}
                     </Animated.View>
 
-                    {/* Combined Stat-Tab Bar */}
-                    <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    {/* Combined Stat-Tab Bar (CSS sticky on web) */}
+                    <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }, isWeb && styles.statTabBarSticky]}>
                         {renderStatTabBar()}
                     </View>
 
                     {/* Tab Content */}
                     <View style={styles.content}>
-                        {renderTabContent()}
+                        {activeTab === 'collection' ? (
+                            isLoading ? renderLoadingSkeleton() :
+                            isError ? renderErrorState() :
+                            !groupedMovies?.length ? renderEmptyCollection() : (
+                                <View style={styles.webCollectionGrid}>
+                                    {groupedMovies.map((item) => {
+                                        const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
+                                        return (
+                                            <CollectionGridCard
+                                                key={item.tmdb_id}
+                                                posterUrl={
+                                                    isAiPoster
+                                                        ? item.ai_poster_url!
+                                                        : item.poster_path
+                                                            ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
+                                                            : ''
+                                                }
+                                                isAiPoster={isAiPoster}
+                                                journeyCount={item.journeyCount}
+                                                onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
+                                                style={{ width: cardWidth, flexGrow: 0, flexShrink: 0, flexBasis: cardWidth }}
+                                            />
+                                        );
+                                    })}
+                                </View>
+                            )
+                        ) : renderTabContent()}
                     </View>
                 </Animated.ScrollView>
             )}
 
-            {/* Sticky Stat-Tab Bar Overlay - appears when header is collapsed */}
-            <Animated.View
-                style={[
-                    styles.stickyTabBarOverlay,
-                    { backgroundColor: colors.background, top: insets.top },
-                    stickyTabBarStyle
-                ]}
-                pointerEvents={stickyBarVisible ? "box-none" : "none"}
-            >
-                <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
-                    {renderStatTabBar()}
-                </View>
-            </Animated.View>
+            {/* Sticky Stat-Tab Bar Overlay - appears when header is collapsed (native only;
+                web uses CSS position:sticky on the inline tab bar instead) */}
+            {!isWeb && (
+                <Animated.View
+                    style={[
+                        styles.stickyTabBarOverlay,
+                        { backgroundColor: colors.background, top: insets.top },
+                        stickyTabBarStyle
+                    ]}
+                    pointerEvents={stickyBarVisible ? "box-none" : "none"}
+                >
+                    <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
+                        {renderStatTabBar()}
+                    </View>
+                </Animated.View>
+            )}
 
             <CreateListModal
                 visible={showCreateModal}
@@ -973,6 +1040,11 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.sm,
         borderBottomWidth: 1,
     },
+    statTabBarSticky: {
+        position: 'sticky' as any,
+        top: 0,
+        zIndex: 10,
+    },
     statTabItem: {
         flex: 1,
         alignItems: 'center',
@@ -997,11 +1069,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         minHeight: 400,
     },
-    // FlatList column wrapper for 3-column grid
+    // FlatList column wrapper for 3-column grid (native)
     columnWrapper: {
         paddingHorizontal: Spacing.lg,
         gap: GRID_GAP,
         marginTop: GRID_GAP,
+    },
+    // Web collection grid (flex-wrap replaces FlatList numColumns)
+    webCollectionGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: GRID_GAP,
+        paddingTop: GRID_GAP,
     },
     sectionSubtitle: {
         fontSize: 12,
