@@ -47,6 +47,13 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <meta name="apple-mobile-web-app-title" content="CineTrak" />
 
+        {/* Google AdSense */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5311715630678079"
+          crossOrigin="anonymous"
+        />
+
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
