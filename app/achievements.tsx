@@ -137,7 +137,7 @@ export default function AchievementsScreen() {
               <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
                 {selectedProgress.achievement.name}
               </ThemedText>
-              <View style={styles.modalCloseButton} />
+              <View style={styles.modalHeaderSpacer} />
             </View>
 
             <ScrollView
@@ -278,6 +278,9 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderWidth: 1,
       justifyContent: 'center',
       alignItems: 'center',
+    },
+    modalHeaderSpacer: {
+      width: 32,
     },
     modalContent: {
       alignItems: 'center',
