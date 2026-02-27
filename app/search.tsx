@@ -617,11 +617,11 @@ export default function SearchScreen() {
               );
             })}
           </View>
+
+          {/* Banner Ad — inside ScrollView so it doesn't steal layout space */}
+          <BannerAdComponent placement="search" />
         </ScrollView>
       )}
-
-      {/* Bottom Banner Ad */}
-      <BannerAdComponent placement="search" />
     </SafeAreaView>
   );
 }
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: Spacing.md,
-    paddingBottom: Platform.OS === 'web' ? 350 : 100,
+    paddingBottom: 100,
   },
   sectionHeader: {
     flexDirection: 'row',
