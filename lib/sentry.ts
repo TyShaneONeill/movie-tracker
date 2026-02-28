@@ -33,9 +33,8 @@ export function initSentry() {
     // Attach stack traces to all messages
     attachStacktrace: true,
 
-    // TODO: Set back to !__DEV__ after testing
-    // Don't send events in development (optional - remove if you want dev errors)
-    enabled: true,
+    // Don't send events in development
+    enabled: !__DEV__,
 
     // Filter out noisy errors
     beforeSend(event) {

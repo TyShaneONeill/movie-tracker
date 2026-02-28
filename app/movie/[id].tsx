@@ -21,13 +21,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   Pressable,
-  ImageBackground,
   ActivityIndicator,
   Alert,
   Linking,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
@@ -357,11 +356,13 @@ export default function MovieDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Banner */}
-        <ImageBackground
-          source={{ uri: backdropUrl || undefined }}
-          style={dynamicStyles.heroBanner}
-          resizeMode="cover"
-        >
+        <View style={dynamicStyles.heroBanner}>
+          <Image
+            source={{ uri: backdropUrl || undefined }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={200}
+          />
           {/* Gradient Overlay */}
           <LinearGradient
             colors={['rgba(0, 0, 0, 0.3)', 'transparent', colors.background]}
@@ -393,7 +394,7 @@ export default function MovieDetailScreen() {
               </BlurView>
             </Pressable>
           )}
-        </ImageBackground>
+        </View>
 
         {/* Content Container - Overlaps hero by 120px */}
         <View style={dynamicStyles.contentContainer}>
@@ -402,7 +403,8 @@ export default function MovieDetailScreen() {
             <Image
               source={{ uri: posterUrl || undefined }}
               style={dynamicStyles.posterThumb}
-              resizeMode="cover"
+              contentFit="cover"
+              transition={200}
             />
             <View style={dynamicStyles.titleSection}>
               <Text style={dynamicStyles.title}>{movie.title}</Text>
@@ -538,7 +540,8 @@ export default function MovieDetailScreen() {
                     <Image
                       source={{ uri: getTMDBImageUrl(person.profile_path, 'w185') || undefined }}
                       style={dynamicStyles.castImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      transition={200}
                     />
                     <Text style={dynamicStyles.castName} numberOfLines={1}>{person.name}</Text>
                     <Text style={dynamicStyles.castCharacter} numberOfLines={1}>{person.character}</Text>
@@ -565,6 +568,8 @@ export default function MovieDetailScreen() {
                         <Image
                           source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
                           style={dynamicStyles.providerLogo}
+                          contentFit="cover"
+                          transition={200}
                         />
                         <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
                       </Pressable>
@@ -585,6 +590,8 @@ export default function MovieDetailScreen() {
                         <Image
                           source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
                           style={dynamicStyles.providerLogo}
+                          contentFit="cover"
+                          transition={200}
                         />
                         <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
                       </Pressable>
@@ -605,6 +612,8 @@ export default function MovieDetailScreen() {
                         <Image
                           source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
                           style={dynamicStyles.providerLogo}
+                          contentFit="cover"
+                          transition={200}
                         />
                         <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
                       </Pressable>
