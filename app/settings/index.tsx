@@ -80,6 +80,22 @@ export default function SettingsScreen() {
     }
   };
 
+  const collectionViewLabels: Record<string, string> = {
+    movies: 'Movies',
+    tv: 'TV Shows',
+  };
+
+  const handleCollectionViewToggle = async () => {
+    hapticImpact();
+    const current = preferences?.defaultCollectionView ?? 'movies';
+    const next = current === 'movies' ? 'tv' : 'movies';
+    try {
+      await updatePreference('defaultCollectionView', next);
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-collection-view-toggle' });
+    }
+  };
+
   const handleTestSentry = () => {
     Sentry.captureException(new Error('Test error from CineTrak Settings'));
     Toast.show({
@@ -277,8 +293,7 @@ export default function SettingsScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.settingsItem,
-              styles.lastItem,
-              { backgroundColor: colors.card },
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary },
             ]}
             onPress={handleReviewVisibilityToggle}
@@ -290,6 +305,25 @@ export default function SettingsScreen() {
             </View>
             <Text style={[Typography.body.sm, { color: colors.tint }]}>
               {visibilityLabels[preferences?.reviewVisibility ?? 'public']}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary },
+            ]}
+            onPress={handleCollectionViewToggle}
+            disabled={isLoadingPreferences || isUpdating}
+          >
+            <View style={styles.settingsItemContent}>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Collection View</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Default media type on profile</Text>
+            </View>
+            <Text style={[Typography.body.sm, { color: colors.tint }]}>
+              {collectionViewLabels[preferences?.defaultCollectionView ?? 'movies']}
             </Text>
           </Pressable>
         </View>
