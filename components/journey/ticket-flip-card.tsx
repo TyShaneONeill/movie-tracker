@@ -67,19 +67,24 @@ function formatPrice(price: number | null): string {
 // --- BarcodeVisual ---
 
 function BarcodeVisual({ colors }: { colors: ThemeColors }) {
-  const barWidths = [2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1];
+  const barWidths = [
+    2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1,
+    1, 3, 2, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1, 2, 1,
+    3, 1, 2, 1, 1, 3, 2, 1,
+  ];
 
   return (
-    <Svg height={40} width={120} viewBox="0 0 120 40">
+    <Svg height={45} width={176} viewBox="0 0 176 45">
       {barWidths.map((width, index) => {
         const x = barWidths.slice(0, index).reduce((sum, w) => sum + w + 2, 0);
+        if (x + width > 176) return null;
         return (
           <Rect
             key={index}
             x={x}
             y={0}
             width={width}
-            height={40}
+            height={45}
             fill={colors.textSecondary}
           />
         );
@@ -308,32 +313,36 @@ export function TicketFlipCard({
             </View>
           )}
 
-          {/* Tap-to-flip hint */}
-          {showHint && (
-            <View style={styles.hintRow}>
-              <Text style={styles.hintText}>Tap to flip</Text>
-            </View>
-          )}
         </Animated.View>
 
         {/* Back face — absolutely positioned to fill */}
         <Animated.View style={[styles.face, styles.backFace, backAnimatedStyle]}>
-          {/* ADMIT ONE disclaimer */}
-          <Text style={styles.admitOneText}>
-            ADMIT ONE{'\n'}NON-TRANSFERABLE{'\n'}SUBJECT TO TERMS
-          </Text>
-
-          {/* Ticket ID — monospace, rotated */}
-          <View style={styles.backIdContainer}>
-            <Text style={styles.backIdText}>{ticketId}</Text>
+          {/* Large rotated ticket number on the left edge */}
+          <View style={styles.backIdRotatedContainer}>
+            <Text style={styles.backIdRotatedText}>
+              #{journey.id.slice(0, 6).toUpperCase()}
+            </Text>
           </View>
 
-          {/* Barcode */}
+          {/* Disclaimer text — upper right */}
+          <Text style={styles.admitOneText}>
+            {'ADMIT ONE\nNON-TRANSFERABLE\nSUBJECT TO TERMS'}
+          </Text>
+
+          {/* Monospace ticket ID — middle right */}
+          <Text style={styles.backIdText}>{ticketId}</Text>
+
+          {/* Wide barcode — bottom right */}
           <View style={styles.barcodeContainer}>
             <BarcodeVisual colors={colors} />
           </View>
         </Animated.View>
       </Pressable>
+
+      {/* Tap-to-flip hint — outside the flip so it's always visible */}
+      <View style={styles.hintRow}>
+        <Text style={styles.hintText}>Tap to flip</Text>
+      </View>
     </View>
   );
 }
@@ -343,12 +352,12 @@ export function TicketFlipCard({
 const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidth: number) =>
   StyleSheet.create({
     flipWrapper: {
-      minHeight: 340,
+      minHeight: 260,
     },
 
     // Shared face styles
     face: {
-      paddingBottom: Spacing.lg,
+      paddingBottom: Spacing.md,
     },
     backFace: {
       position: 'absolute',
@@ -356,12 +365,10 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: isDark ? '#1a1a24' : '#e8e8ed',
+      backgroundColor: colors.card,
       borderBottomLeftRadius: BorderRadius.lg,
       borderBottomRightRadius: BorderRadius.lg,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingBottom: 0,
+      overflow: 'hidden',
     },
 
     // Title Section
@@ -473,51 +480,80 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
 
     // Hint
     hintRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
       alignItems: 'center',
-      marginTop: Spacing.md,
-      gap: 6,
+      paddingTop: Spacing.sm,
+      paddingBottom: Spacing.md,
     },
     hintText: {
       ...Typography.caption.medium,
       color: colors.textTertiary,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontSize: 11,
     },
 
     // Back face content
-    admitOneText: {
-      ...Typography.caption.medium,
-      color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)',
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      textAlign: 'right',
-      lineHeight: 18,
+
+    // Large rotated ticket number on the left edge
+    backIdRotatedContainer: {
       position: 'absolute',
-      top: Spacing.lg,
-      right: Spacing.lg,
-    },
-    backIdContainer: {
-      position: 'absolute',
-      left: Spacing.lg,
-      bottom: Spacing.lg,
-      transform: [{ rotate: '-90deg' }],
+      left: 40,
+      bottom: 16,
       transformOrigin: 'left bottom',
+      transform: [{ rotate: '-90deg' }],
     },
-    backIdText: {
+    backIdRotatedText: {
       fontFamily: Platform.select({
         ios: 'Courier',
         android: 'monospace',
         web: '"Courier New", Courier, monospace',
       }),
-      fontSize: 18,
+      fontSize: 22,
       fontWeight: '700',
-      letterSpacing: 3,
-      color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.25)',
+      letterSpacing: 4,
+      color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.2)',
     },
+
+    // "ADMIT ONE / NON-TRANSFERABLE / SUBJECT TO TERMS" — upper right
+    admitOneText: {
+      position: 'absolute',
+      bottom: 100,
+      right: 20,
+      textAlign: 'right',
+      fontSize: 10,
+      letterSpacing: 0.5,
+      lineHeight: 15,
+      color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)',
+      textTransform: 'uppercase',
+      fontFamily: Platform.select({
+        ios: 'Courier',
+        android: 'monospace',
+        web: '"Courier New", Courier, monospace',
+      }),
+    },
+
+    // Monospace ticket ID — middle right area
+    backIdText: {
+      position: 'absolute',
+      right: 20,
+      bottom: 80,
+      fontFamily: Platform.select({
+        ios: 'Courier',
+        android: 'monospace',
+        web: '"Courier New", Courier, monospace',
+      }),
+      fontSize: 14,
+      fontWeight: '600',
+      letterSpacing: 2,
+      color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.35)',
+    },
+
+    // Wide barcode — bottom right
     barcodeContainer: {
       position: 'absolute',
-      bottom: Spacing.lg,
-      right: Spacing.lg,
-      opacity: 0.6,
+      bottom: 20,
+      right: 20,
+      alignItems: 'flex-end',
+      opacity: 0.5,
     },
   });
