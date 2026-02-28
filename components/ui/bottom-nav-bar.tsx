@@ -44,6 +44,9 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
           <Pressable
             key={index}
             onPress={() => handlePress(index, item.onPress)}
+            accessibilityRole="tab"
+            accessibilityLabel={item.label}
+            accessibilityState={{ selected: isActive }}
             style={({ pressed }) => [
               styles.navItem,
               pressed && styles.navItemPressed,

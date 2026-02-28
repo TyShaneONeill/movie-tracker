@@ -189,6 +189,8 @@ export function FeedItemCard({
           >
             <Pressable
               onPress={handleRevealSpoiler}
+              accessibilityRole="button"
+              accessibilityLabel="Reveal spoiler"
               style={({ pressed }) => [
                 styles.spoilerButton,
                 pressed && styles.spoilerButtonPressed,
@@ -252,6 +254,8 @@ export function FeedItemCard({
       {/* Content Row: Poster + Movie Info */}
       <Pressable
         onPress={onMoviePress}
+        accessibilityRole="button"
+        accessibilityLabel={`${movieTitle}${formattedRating ? `, rated ${formattedRating}` : ''}`}
         style={({ pressed }) => [
           styles.contentRow,
           { opacity: pressed ? 0.7 : 1 },
