@@ -143,7 +143,7 @@ export default function AnalyticsScreen() {
           <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
         </View>
 
-        {/* Summary Stats Row */}
+        {/* Summary Stats Row 1 */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Text style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>
@@ -158,10 +158,34 @@ export default function AnalyticsScreen() {
             <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>TV Shows</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.display.h3, { color: '#8b5cf6', marginBottom: Spacing.xs }]}>
+              {stats.summary.totalEpisodesWatched}
+            </Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Episodes</Text>
+          </View>
+        </View>
+
+        {/* Summary Stats Row 2 */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.display.h3, { color: '#3b82f6', marginBottom: Spacing.xs }]}>
+              {stats.summary.totalWatchTimeMinutes > 0
+                ? `${Math.floor(stats.summary.totalWatchTimeMinutes / 60)}h ${stats.summary.totalWatchTimeMinutes % 60}m`
+                : '--'}
+            </Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Watch Time</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
               {stats.summary.totalFirstTakes}
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>First Takes</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.display.h3, { color: '#14b8a6', marginBottom: Spacing.xs }]}>
+              {stats.summary.averageRating != null ? stats.summary.averageRating.toFixed(1) : '--'}
+            </Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Avg Rating</Text>
           </View>
         </View>
 

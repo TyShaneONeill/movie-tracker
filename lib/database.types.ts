@@ -1346,8 +1346,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: {
           avg_rating: number
+          total_episodes_watched: number
           total_first_takes: number
           total_tv_watched: number
+          total_watch_time_minutes: number
           total_watched: number
         }[]
       }
