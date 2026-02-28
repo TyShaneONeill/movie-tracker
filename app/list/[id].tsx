@@ -15,12 +15,11 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Image,
   Pressable,
-  ImageBackground,
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -149,7 +148,8 @@ export default function ListDetailScreen() {
         <Image
           source={{ uri: posterUrl ?? undefined }}
           style={dynamicStyles.moviePoster}
-          resizeMode="cover"
+          contentFit="cover"
+          transition={200}
         />
         {/* Rank Badge */}
         <View style={dynamicStyles.rankBadge}>
@@ -181,12 +181,13 @@ export default function ListDetailScreen() {
     <>
       {/* Hero Section */}
       <View style={dynamicStyles.heroContainer}>
-        <ImageBackground
-          source={heroImageUrl ? { uri: heroImageUrl } : undefined}
-          style={dynamicStyles.heroBanner}
-          resizeMode="cover"
-          imageStyle={dynamicStyles.heroImage}
-        >
+        <View style={dynamicStyles.heroBanner}>
+          <Image
+            source={heroImageUrl ? { uri: heroImageUrl } : undefined}
+            style={[StyleSheet.absoluteFill, dynamicStyles.heroImage]}
+            contentFit="cover"
+            transition={200}
+          />
           {/* Gradient Overlay */}
           <LinearGradient
             colors={['rgba(0, 0, 0, 0.4)', 'transparent', colors.background]}
@@ -211,6 +212,8 @@ export default function ListDetailScreen() {
                 <Image
                   source={{ uri: profile.avatar_url }}
                   style={dynamicStyles.creatorAvatar}
+                  contentFit="cover"
+                  transition={200}
                 />
               ) : (
                 <View style={[dynamicStyles.creatorAvatar, dynamicStyles.creatorAvatarPlaceholder]}>
@@ -233,7 +236,7 @@ export default function ListDetailScreen() {
             {/* List Description */}
             <Text style={dynamicStyles.listDescription}>{listMeta.description}</Text>
           </View>
-        </ImageBackground>
+        </View>
       </View>
     </>
   );

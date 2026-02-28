@@ -25,9 +25,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   Pressable,
-  ImageBackground,
   ActivityIndicator,
   Alert,
   Linking,
@@ -37,7 +35,7 @@ import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image as ExpoImage } from 'expo-image';
+import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -134,7 +132,7 @@ function SeasonAccordionItem({
       {/* Collapsed header - always visible */}
       <Pressable onPress={onToggle} style={dynamicStyles.seasonHeader}>
         {posterUrl ? (
-          <Image source={{ uri: posterUrl }} style={dynamicStyles.seasonPoster} resizeMode="cover" />
+          <Image source={{ uri: posterUrl }} style={dynamicStyles.seasonPoster} contentFit="cover" transition={200} />
         ) : (
           <View style={[dynamicStyles.seasonPoster, dynamicStyles.seasonPosterPlaceholder]} />
         )}
@@ -471,7 +469,7 @@ export default function TvShowDetailScreen() {
         </View>
         {/* Back button even during loading */}
         <View style={dynamicStyles.loadingBackButton}>
-          <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
+          <Pressable onPress={handleGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={dynamicStyles.iconButton}>
             <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
               <Text style={dynamicStyles.backIcon}>{'\u2190'}</Text>
             </BlurView>
@@ -525,11 +523,13 @@ export default function TvShowDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Banner */}
-        <ImageBackground
-          source={{ uri: backdropUrl || undefined }}
-          style={dynamicStyles.heroBanner}
-          resizeMode="cover"
-        >
+        <View style={dynamicStyles.heroBanner}>
+          <Image
+            source={{ uri: backdropUrl || undefined }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={200}
+          />
           {/* Gradient Overlay */}
           <LinearGradient
             colors={['rgba(0, 0, 0, 0.3)', 'transparent', colors.background]}
@@ -539,7 +539,7 @@ export default function TvShowDetailScreen() {
 
           {/* Top Buttons */}
           <View style={dynamicStyles.topButtons}>
-            <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
+            <Pressable onPress={handleGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={dynamicStyles.iconButton}>
               <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
                 <Text style={dynamicStyles.backIcon}>{'\u2190'}</Text>
               </BlurView>
@@ -551,6 +551,8 @@ export default function TvShowDetailScreen() {
           {trailer && (
             <Pressable
               onPress={handlePlayTrailer}
+              accessibilityRole="button"
+              accessibilityLabel="Play trailer"
               style={({ pressed }) => [
                 dynamicStyles.playButton,
                 { opacity: pressed ? 0.8 : 1 },
@@ -561,7 +563,7 @@ export default function TvShowDetailScreen() {
               </BlurView>
             </Pressable>
           )}
-        </ImageBackground>
+        </View>
 
         {/* Content Container - Overlaps hero by 120px */}
         <View style={dynamicStyles.contentContainer}>
@@ -570,7 +572,8 @@ export default function TvShowDetailScreen() {
             <Image
               source={{ uri: posterUrl || undefined }}
               style={dynamicStyles.posterThumb}
-              resizeMode="cover"
+              contentFit="cover"
+              transition={200}
             />
             <View style={dynamicStyles.titleSection}>
               <Text style={dynamicStyles.title}>{show.name}</Text>
@@ -640,6 +643,9 @@ export default function TvShowDetailScreen() {
             <Pressable
               onPress={handleLike}
               disabled={isTogglingLike}
+              accessibilityRole="button"
+              accessibilityLabel={isLiked ? 'Unlike this show' : 'Like this show'}
+              accessibilityState={{ selected: isLiked }}
               style={({ pressed }) => [
                 dynamicStyles.actionItem,
                 pressed && dynamicStyles.actionItemPressed,
@@ -658,6 +664,8 @@ export default function TvShowDetailScreen() {
             </Pressable>
             <Pressable
               onPress={handleAddToList}
+              accessibilityRole="button"
+              accessibilityLabel="Add to list"
               style={({ pressed }) => [
                 dynamicStyles.actionItem,
                 pressed && dynamicStyles.actionItemPressed,
@@ -734,11 +742,12 @@ export default function TvShowDetailScreen() {
                 contentContainerStyle={dynamicStyles.castScrollContent}
               >
                 {cast.slice(0, 10).map((person) => (
-                  <Pressable key={person.id} style={dynamicStyles.castCard} onPress={() => router.push(`/person/${person.id}`)}>
+                  <Pressable key={person.id} style={dynamicStyles.castCard} onPress={() => router.push(`/person/${person.id}`)} accessibilityRole="button" accessibilityLabel={`${person.name} as ${person.character}`}>
                     <Image
                       source={{ uri: getTMDBImageUrl(person.profile_path, 'w185') || undefined }}
                       style={dynamicStyles.castImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      transition={200}
                     />
                     <Text style={dynamicStyles.castName} numberOfLines={1}>{person.name}</Text>
                     <Text style={dynamicStyles.castCharacter} numberOfLines={1}>{person.character}</Text>
@@ -765,6 +774,8 @@ export default function TvShowDetailScreen() {
                         <Image
                           source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
                           style={dynamicStyles.providerLogo}
+                          contentFit="cover"
+                          transition={200}
                         />
                         <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
                       </Pressable>
@@ -785,6 +796,8 @@ export default function TvShowDetailScreen() {
                         <Image
                           source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
                           style={dynamicStyles.providerLogo}
+                          contentFit="cover"
+                          transition={200}
                         />
                         <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
                       </Pressable>
@@ -805,6 +818,8 @@ export default function TvShowDetailScreen() {
                         <Image
                           source={{ uri: getTMDBImageUrl(provider.logo_path, 'w92') || undefined }}
                           style={dynamicStyles.providerLogo}
+                          contentFit="cover"
+                          transition={200}
                         />
                         <Text style={dynamicStyles.providerName} numberOfLines={1}>{provider.provider_name}</Text>
                       </Pressable>
@@ -843,7 +858,7 @@ export default function TvShowDetailScreen() {
                       ]}
                     >
                       {recPosterUrl ? (
-                        <ExpoImage
+                        <Image
                           source={{ uri: recPosterUrl }}
                           style={dynamicStyles.recPoster}
                           contentFit="cover"
