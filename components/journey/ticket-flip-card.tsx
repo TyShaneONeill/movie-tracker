@@ -27,7 +27,9 @@ import Animated, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Rect } from 'react-native-svg';
 import { Image as ExpoImage } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { Typography } from '@/constants/typography';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
@@ -144,6 +146,7 @@ export function TicketFlipCard({
   const [isFlipped, setIsFlipped] = useState(false);
   const [infoPageIndex, setInfoPageIndex] = useState(0);
   const showHint = useFlipHint();
+  const posterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w500');
 
   const styles = useMemo(
     () => createFlipCardStyles(colors, isDark, infoPageWidth),
@@ -189,7 +192,7 @@ export function TicketFlipCard({
   return (
     <View>
       {/* Perforated edge stays fixed — does NOT flip */}
-      <PerforatedEdge colors={colors} />
+      <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
 
       {/* Flip wrapper */}
       <Pressable
@@ -199,7 +202,29 @@ export function TicketFlipCard({
         accessibilityLabel={isFlipped ? 'Flip ticket to front' : 'Flip ticket to see barcode'}
       >
         {/* Front face */}
-        <Animated.View style={[styles.face, frontAnimatedStyle]}>
+        <Animated.View style={[styles.face, styles.frontFace, frontAnimatedStyle]}>
+          {/* Poster background + frosted glass overlay */}
+          {posterUrl && (
+            <>
+              <ExpoImage
+                source={{ uri: posterUrl }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={200}
+              />
+              {Platform.OS === 'web' ? (
+                <View style={[StyleSheet.absoluteFill, styles.posterOverlay, styles.webBlurFallback]} />
+              ) : (
+                <BlurView
+                  intensity={80}
+                  tint={isDark ? 'dark' : 'light'}
+                  experimentalBlurMethod="dimezisBlurView"
+                  style={[StyleSheet.absoluteFill, styles.posterOverlay]}
+                />
+              )}
+            </>
+          )}
+
           {/* Title & Rating */}
           <View style={styles.titleSection}>
             <Text style={styles.movieTitle}>{journey.title}</Text>
@@ -341,7 +366,9 @@ export function TicketFlipCard({
 
       {/* Tap-to-flip hint — outside the flip so it's always visible */}
       <View style={styles.hintRow}>
-        <Text style={styles.hintText}>Tap to flip</Text>
+        <View style={styles.hintPill}>
+          <Text style={styles.hintText}>Tap to flip</Text>
+        </View>
       </View>
     </View>
   );
@@ -358,6 +385,20 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     // Shared face styles
     face: {
       paddingBottom: Spacing.md,
+    },
+    frontFace: {
+      overflow: 'hidden',
+      borderBottomLeftRadius: BorderRadius.lg,
+      borderBottomRightRadius: BorderRadius.lg,
+    },
+    posterOverlay: {
+      backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
+    },
+    webBlurFallback: {
+      ...Platform.select({
+        web: { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any,
+        default: {},
+      }),
     },
     backFace: {
       position: 'absolute',
@@ -401,7 +442,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
 
     // Info Carousel
     infoCarouselContainer: {
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
+      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.35)',
       borderRadius: BorderRadius.md,
       marginHorizontal: Spacing.md,
       marginTop: Spacing.md,
@@ -466,7 +507,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       marginHorizontal: Spacing.lg,
       marginTop: Spacing.md,
       padding: Spacing.md,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
+      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.35)',
       borderRadius: BorderRadius.md,
       borderLeftWidth: 3,
       borderLeftColor: colors.tint,
@@ -483,6 +524,12 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       alignItems: 'center',
       paddingTop: Spacing.sm,
       paddingBottom: Spacing.md,
+    },
+    hintPill: {
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.full,
     },
     hintText: {
       ...Typography.caption.medium,

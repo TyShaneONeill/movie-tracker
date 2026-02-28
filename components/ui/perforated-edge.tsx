@@ -14,13 +14,14 @@ type ThemeColors = typeof Colors.dark;
 
 interface PerforatedEdgeProps {
   colors: ThemeColors;
+  dashColor?: string;
 }
 
 const NOTCH_SIZE = 20;
 const NOTCH_RADIUS = NOTCH_SIZE / 2;
 const DASH_COUNT = 20;
 
-export function PerforatedEdge({ colors }: PerforatedEdgeProps) {
+export function PerforatedEdge({ colors, dashColor }: PerforatedEdgeProps) {
   return (
     <View style={styles.container}>
       <View
@@ -31,7 +32,7 @@ export function PerforatedEdge({ colors }: PerforatedEdgeProps) {
       />
       <View style={styles.dashedLine}>
         {Array.from({ length: DASH_COUNT }).map((_, i) => (
-          <View key={i} style={[styles.dash, { backgroundColor: colors.border }]} />
+          <View key={i} style={[styles.dash, { backgroundColor: dashColor ?? colors.border }]} />
         ))}
       </View>
       <View
