@@ -32,10 +32,12 @@ import { useListMutations } from '@/hooks/use-list-mutations';
 import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useProfile } from '@/hooks/use-profile';
 import { useNotifications } from '@/hooks/use-notifications';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useUserTvShows } from '@/hooks/use-user-tv-shows';
 import { MOCK_USER } from '@/lib/mock-data/users';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
+import type { UserMovie, GroupedUserMovie, UserTvShow } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'lists';
 
@@ -77,6 +79,18 @@ export default function ProfileScreen() {
 
     // Fetch notification unread count
     const { unreadCount } = useNotifications();
+
+    // Fetch user preferences (default collection view)
+    const { preferences } = useUserPreferences();
+
+    // Fetch watched TV shows for collection
+    const {
+        shows: watchedTvShows,
+        isLoading: tvShowsLoading,
+        refetch: refetchTvShows,
+    } = useUserTvShows('watched');
+
+    const showingTv = preferences?.defaultCollectionView === 'tv';
 
     // Fetch achievements
     const { progress: achievementProgress, refetch: refetchAchievements } = useAchievements();
@@ -194,12 +208,13 @@ export default function ProfileScreen() {
             refetchProfile(),
             refetchStats(),
             refetch(),
+            refetchTvShows(),
             refetchLists(),
             refetchTakes(),
             refetchAchievements(),
         ]);
         setIsRefreshing(false);
-    }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchLists, refetchTakes, refetchAchievements]);
+    }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchTvShows, refetchLists, refetchTakes, refetchAchievements]);
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
         const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
@@ -220,14 +235,30 @@ export default function ProfileScreen() {
         );
     }, [cardWidth]);
 
+    const renderTvCollectionItem = useCallback(({ item }: ListRenderItemInfo<UserTvShow>) => {
+        return (
+            <CollectionGridCard
+                posterUrl={
+                    item.poster_path
+                        ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
+                        : ''
+                }
+                isAiPoster={false}
+                journeyCount={0}
+                onPress={() => router.push(`/tv/${item.tmdb_id}`)}
+                style={{ width: cardWidth }}
+            />
+        );
+    }, [cardWidth]);
+
     const renderEmptyCollection = () => (
         <View style={styles.emptyContainer}>
-            <Ionicons name="film-outline" size={48} color={colors.textSecondary} />
+            <Ionicons name={showingTv ? 'tv-outline' : 'film-outline'} size={48} color={colors.textSecondary} />
             <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-                No movies yet
+                {showingTv ? 'No TV shows watched yet' : 'No movies yet'}
             </ThemedText>
             <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Movies you mark as watched will appear here
+                {showingTv ? 'TV shows you mark as watched will appear here' : 'Movies you mark as watched will appear here'}
             </ThemedText>
         </View>
     );
@@ -462,7 +493,7 @@ export default function ProfileScreen() {
         <>
             {TAB_CONFIG.map(({ key, label, statKey }) => {
                 const isActive = activeTab === key;
-                const count = stats[statKey];
+                const count = statKey === 'watched' ? stats[statKey] + watchedTvShows.length : stats[statKey];
                 return (
                     <Pressable
                         key={key}
@@ -584,10 +615,10 @@ export default function ProfileScreen() {
 
     // Empty/loading/error component for FlatList
     const renderCollectionListEmpty = () => {
-        if (isLoading) {
+        if (showingTv ? tvShowsLoading : isLoading) {
             return <View style={styles.content}>{renderLoadingSkeleton()}</View>;
         }
-        if (isError) {
+        if (!showingTv && isError) {
             return <View style={styles.content}>{renderErrorState()}</View>;
         }
         return <View style={styles.content}>{renderEmptyCollection()}</View>;
@@ -758,7 +789,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Native collection tab uses FlatList for virtualized 3-column grid */}
-            {!isWeb && activeTab === 'collection' && (
+            {!isWeb && activeTab === 'collection' && !showingTv && (
                 <Animated.FlatList
                     ref={flatListRef}
                     data={isLoading || isError ? [] : groupedMovies}
@@ -770,6 +801,34 @@ export default function ProfileScreen() {
                     onScroll={scrollHandler}
                     scrollEventThrottle={16}
                     columnWrapperStyle={groupedMovies?.length && !isLoading && !isError ? styles.columnWrapper : undefined}
+                    contentContainerStyle={styles.scrollContent}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    bounces={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={colors.tint}
+                        />
+                    }
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
+
+            {/* Native collection tab - TV shows grid */}
+            {!isWeb && activeTab === 'collection' && showingTv && (
+                <Animated.FlatList
+                    data={tvShowsLoading ? [] : watchedTvShows}
+                    renderItem={renderTvCollectionItem}
+                    keyExtractor={(item) => `${item.tmdb_id}`}
+                    numColumns={COLUMN_COUNT}
+                    ListHeaderComponent={renderCollectionListHeader}
+                    ListEmptyComponent={renderCollectionListEmpty}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
+                    columnWrapperStyle={watchedTvShows?.length && !tvShowsLoading ? styles.columnWrapper : undefined}
                     contentContainerStyle={styles.scrollContent}
                     removeClippedSubviews={true}
                     maxToRenderPerBatch={10}
@@ -863,30 +922,52 @@ export default function ProfileScreen() {
                     {/* Tab Content */}
                     <View style={styles.content}>
                         {activeTab === 'collection' ? (
-                            isLoading ? renderLoadingSkeleton() :
-                            isError ? renderErrorState() :
-                            !groupedMovies?.length ? renderEmptyCollection() : (
-                                <View style={styles.webCollectionGrid}>
-                                    {groupedMovies.map((item) => {
-                                        const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
-                                        return (
+                            showingTv ? (
+                                tvShowsLoading ? renderLoadingSkeleton() :
+                                !watchedTvShows?.length ? renderEmptyCollection() : (
+                                    <View style={styles.webCollectionGrid}>
+                                        {watchedTvShows.map((item) => (
                                             <CollectionGridCard
                                                 key={item.tmdb_id}
                                                 posterUrl={
-                                                    isAiPoster
-                                                        ? item.ai_poster_url!
-                                                        : item.poster_path
-                                                            ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
-                                                            : ''
+                                                    item.poster_path
+                                                        ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
+                                                        : ''
                                                 }
-                                                isAiPoster={isAiPoster}
-                                                journeyCount={item.journeyCount}
-                                                onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
+                                                isAiPoster={false}
+                                                journeyCount={0}
+                                                onPress={() => router.push(`/tv/${item.tmdb_id}`)}
                                                 style={{ width: cardWidth, flexGrow: 0, flexShrink: 0, flexBasis: cardWidth }}
                                             />
-                                        );
-                                    })}
-                                </View>
+                                        ))}
+                                    </View>
+                                )
+                            ) : (
+                                isLoading ? renderLoadingSkeleton() :
+                                isError ? renderErrorState() :
+                                !groupedMovies?.length ? renderEmptyCollection() : (
+                                    <View style={styles.webCollectionGrid}>
+                                        {groupedMovies.map((item) => {
+                                            const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
+                                            return (
+                                                <CollectionGridCard
+                                                    key={item.tmdb_id}
+                                                    posterUrl={
+                                                        isAiPoster
+                                                            ? item.ai_poster_url!
+                                                            : item.poster_path
+                                                                ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
+                                                                : ''
+                                                    }
+                                                    isAiPoster={isAiPoster}
+                                                    journeyCount={item.journeyCount}
+                                                    onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
+                                                    style={{ width: cardWidth, flexGrow: 0, flexShrink: 0, flexBasis: cardWidth }}
+                                                />
+                                            );
+                                        })}
+                                    </View>
+                                )
                             )
                         ) : renderTabContent()}
                     </View>

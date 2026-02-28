@@ -420,6 +420,7 @@ export type Database = {
           bio: string | null
           content_mode: string
           created_at: string
+          default_collection_view: string
           feed_last_seen_at: string | null
           first_take_prompt_enabled: boolean | null
           followers_count: number | null
@@ -439,6 +440,7 @@ export type Database = {
           bio?: string | null
           content_mode?: string
           created_at?: string
+          default_collection_view?: string
           feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null
           followers_count?: number | null
@@ -458,6 +460,7 @@ export type Database = {
           bio?: string | null
           content_mode?: string
           created_at?: string
+          default_collection_view?: string
           feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null
           followers_count?: number | null

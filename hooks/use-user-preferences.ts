@@ -7,6 +7,7 @@ import type { Database, ReviewVisibility } from '@/lib/database.types';
 export interface UserPreferences {
   firstTakePromptEnabled: boolean;
   reviewVisibility: ReviewVisibility;
+  defaultCollectionView: 'movies' | 'tv';
 }
 
 export interface UseUserPreferencesResult {
@@ -22,6 +23,7 @@ export interface UseUserPreferencesResult {
 const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
   firstTakePromptEnabled: 'first_take_prompt_enabled',
   reviewVisibility: 'review_visibility',
+  defaultCollectionView: 'default_collection_view',
 };
 
 /**
@@ -30,7 +32,7 @@ const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
 async function fetchUserPreferences(userId: string): Promise<UserPreferences | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('first_take_prompt_enabled, review_visibility')
+    .select('first_take_prompt_enabled, review_visibility, default_collection_view')
     .eq('id', userId)
     .single();
 
@@ -43,13 +45,14 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     throw error;
   }
 
-  const profileData = data as { first_take_prompt_enabled: boolean | null; review_visibility: ReviewVisibility | null } | null;
+  const profileData = data as { first_take_prompt_enabled: boolean | null; review_visibility: ReviewVisibility | null; default_collection_view: string | null } | null;
 
   return {
     // Default to true for backwards compatibility (existing users without preference set)
     firstTakePromptEnabled: profileData?.first_take_prompt_enabled ?? true,
     // Default to 'public' for backwards compatibility
     reviewVisibility: profileData?.review_visibility ?? 'public',
+    defaultCollectionView: profileData?.default_collection_view === 'tv' ? 'tv' : 'movies',
   };
 }
 
@@ -70,6 +73,8 @@ async function updateUserPreference(
     updateData.first_take_prompt_enabled = value as boolean;
   } else if (key === 'reviewVisibility') {
     updateData.review_visibility = value as ReviewVisibility;
+  } else if (key === 'defaultCollectionView') {
+    updateData.default_collection_view = value as string;
   }
 
   // Use type assertion to work around Supabase client generic inference issue
