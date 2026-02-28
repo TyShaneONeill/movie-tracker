@@ -8,6 +8,7 @@ import type {
   TMDBVideo,
   TMDBWatchProviders,
   TMDBSeason,
+  TMDBTvRecommendation,
 } from '@/lib/tmdb.types';
 
 interface UseTvShowDetailOptions {
@@ -22,6 +23,7 @@ interface UseTvShowDetailResult {
   trailer: TMDBVideo | null;
   watchProviders: Record<string, TMDBWatchProviders>;
   seasons: TMDBSeason[];
+  recommendations: TMDBTvRecommendation[];
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
@@ -53,6 +55,7 @@ export function useTvShowDetail({
     trailer: data?.trailer ?? null,
     watchProviders: data?.watchProviders ?? {},
     seasons: data?.seasons ?? [],
+    recommendations: data?.recommendations ?? [],
     isLoading,
     isError,
     error: error ?? null,

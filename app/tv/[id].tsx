@@ -37,6 +37,7 @@ import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image as ExpoImage } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -215,7 +216,7 @@ export default function TvShowDetailScreen() {
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
 
   // Fetch TV show details using the hook
-  const { show, cast, crew, trailer, watchProviders, seasons, isLoading, isError, error } = useTvShowDetail({
+  const { show, cast, crew, trailer, watchProviders, seasons, recommendations, isLoading, isError, error } = useTvShowDetail({
     showId: id || '',
     enabled: !!id,
   });
@@ -812,6 +813,50 @@ export default function TvShowDetailScreen() {
               <Text style={dynamicStyles.noProvidersText}>Not available for streaming in your region</Text>
             </>
           )}
+
+          {/* You Might Also Like Section */}
+          {recommendations.length > 0 && (
+            <>
+              <Text style={dynamicStyles.sectionTitle}>You Might Also Like</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={dynamicStyles.recsScrollContent}
+                style={dynamicStyles.recsScroll}
+              >
+                {recommendations.map((rec) => {
+                  const recPosterUrl = getTMDBImageUrl(rec.poster_path, 'w185');
+                  return (
+                    <Pressable
+                      key={rec.id}
+                      onPress={() => router.push(`/tv/${rec.id}`)}
+                      style={({ pressed }) => [
+                        dynamicStyles.recCard,
+                        pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+                      ]}
+                    >
+                      {recPosterUrl ? (
+                        <ExpoImage
+                          source={{ uri: recPosterUrl }}
+                          style={dynamicStyles.recPoster}
+                          contentFit="cover"
+                          transition={200}
+                        />
+                      ) : (
+                        <View style={[dynamicStyles.recPoster, dynamicStyles.recPosterPlaceholder]} />
+                      )}
+                      <Text style={dynamicStyles.recName} numberOfLines={1}>{rec.name}</Text>
+                      {rec.vote_average > 0 && (
+                        <Text style={dynamicStyles.recRating}>
+                          {'\u2605'} {rec.vote_average.toFixed(1)}
+                        </Text>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -1230,6 +1275,41 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...Typography.body.sm,
     color: colors.textSecondary,
     marginTop: Spacing.xs,
+  },
+
+  // Recommendations
+  recsScroll: {
+    marginHorizontal: -Spacing.md,
+  },
+  recsScrollContent: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+    paddingBottom: Spacing.md,
+  },
+  recCard: {
+    width: 130,
+    alignItems: 'center',
+  },
+  recPoster: {
+    width: 130,
+    aspectRatio: 2 / 3,
+    borderRadius: BorderRadius.md,
+    backgroundColor: colors.card,
+    marginBottom: Spacing.xs,
+  },
+  recPosterPlaceholder: {
+    backgroundColor: colors.border,
+  },
+  recName: {
+    ...Typography.body.sm,
+    color: colors.text,
+    textAlign: 'center',
+    width: 130,
+  },
+  recRating: {
+    ...Typography.caption.default,
+    color: colors.gold,
+    marginTop: 2,
   },
 
   // Seasons & Episodes
