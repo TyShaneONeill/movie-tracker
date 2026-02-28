@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Image as ExpoImage } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -212,12 +213,35 @@ function JourneyTicket({
 
   const hasAiPoster = !!journey.ai_poster_url;
   const isHolographic = journey.ai_poster_rarity === 'holographic';
+  const blurPosterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w500');
 
   const isDark = effectiveTheme === 'dark';
   const styles = useMemo(() => createTicketStyles(colors, ticketHeight, ticketWidth, infoPageWidth, isDark), [colors, ticketHeight, ticketWidth, infoPageWidth, isDark]);
 
   return (
     <View style={styles.ticketCard}>
+      {/* Frosted poster background — covers entire card below hero */}
+      {blurPosterUrl && (
+        <>
+          <ExpoImage
+            source={{ uri: blurPosterUrl }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={200}
+          />
+          {Platform.OS === 'web' ? (
+            <View style={[StyleSheet.absoluteFill, styles.posterOverlay, styles.webBlurFallback]} />
+          ) : (
+            <BlurView
+              intensity={80}
+              tint={isDark ? 'dark' : 'light'}
+              experimentalBlurMethod="dimezisBlurView"
+              style={[StyleSheet.absoluteFill, styles.posterOverlay]}
+            />
+          )}
+        </>
+      )}
+
       {/* Hero Image Area */}
       <Pressable
         onPress={onPosterTap}
@@ -776,10 +800,19 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     width: ticketWidth,
     backgroundColor: colors.card,
     borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
     marginTop: Spacing.md,
     marginRight: CARD_GAP,
     minHeight: Platform.OS === 'web' ? undefined : ticketHeight,
-    // Note: No overflow hidden - allows notches to show background
+  },
+  posterOverlay: {
+    backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
+  },
+  webBlurFallback: {
+    ...Platform.select({
+      web: { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any,
+      default: {},
+    }),
   },
   heroSection: {
     ...(Platform.OS === 'web' ? { height: 350 } : { flex: 1, minHeight: 250 }),

@@ -27,9 +27,7 @@ import Animated, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Rect } from 'react-native-svg';
 import { Image as ExpoImage } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
-import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { Typography } from '@/constants/typography';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
@@ -146,7 +144,6 @@ export function TicketFlipCard({
   const [isFlipped, setIsFlipped] = useState(false);
   const [infoPageIndex, setInfoPageIndex] = useState(0);
   const showHint = useFlipHint();
-  const posterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w500');
 
   const styles = useMemo(
     () => createFlipCardStyles(colors, isDark, infoPageWidth),
@@ -202,29 +199,7 @@ export function TicketFlipCard({
         accessibilityLabel={isFlipped ? 'Flip ticket to front' : 'Flip ticket to see barcode'}
       >
         {/* Front face */}
-        <Animated.View style={[styles.face, styles.frontFace, frontAnimatedStyle]}>
-          {/* Poster background + frosted glass overlay */}
-          {posterUrl && (
-            <>
-              <ExpoImage
-                source={{ uri: posterUrl }}
-                style={StyleSheet.absoluteFill}
-                contentFit="cover"
-                transition={200}
-              />
-              {Platform.OS === 'web' ? (
-                <View style={[StyleSheet.absoluteFill, styles.posterOverlay, styles.webBlurFallback]} />
-              ) : (
-                <BlurView
-                  intensity={80}
-                  tint={isDark ? 'dark' : 'light'}
-                  experimentalBlurMethod="dimezisBlurView"
-                  style={[StyleSheet.absoluteFill, styles.posterOverlay]}
-                />
-              )}
-            </>
-          )}
-
+        <Animated.View style={[styles.face, frontAnimatedStyle]}>
           {/* Title & Rating */}
           <View style={styles.titleSection}>
             <Text style={styles.movieTitle}>{journey.title}</Text>
@@ -385,20 +360,6 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     // Shared face styles
     face: {
       paddingBottom: Spacing.md,
-    },
-    frontFace: {
-      overflow: 'hidden',
-      borderBottomLeftRadius: BorderRadius.lg,
-      borderBottomRightRadius: BorderRadius.lg,
-    },
-    posterOverlay: {
-      backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
-    },
-    webBlurFallback: {
-      ...Platform.select({
-        web: { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any,
-        default: {},
-      }),
     },
     backFace: {
       position: 'absolute',
