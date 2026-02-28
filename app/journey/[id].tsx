@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Image as ExpoImage } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -110,7 +111,7 @@ export default function JourneyCardScreen() {
   const isDark = effectiveTheme === 'dark';
 
   // Dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors, ticketHeight, insets.top), [colors, ticketHeight, insets.top]);
+  const styles = useMemo(() => createStyles(colors, ticketHeight, insets.top, isDark), [colors, ticketHeight, insets.top, isDark]);
 
   // Handle poster modal close
   const handlePosterModalClose = useCallback(() => {
@@ -154,6 +155,9 @@ export default function JourneyCardScreen() {
   const heroImageUrl = journey?.journey_photos?.[0]
     ? journey.journey_photos[0]
     : getTMDBImageUrl(journey?.poster_path ?? null, 'w780');
+
+  // Poster URL for frosted glass background on lower ticket area
+  const blurPosterUrl = getTMDBImageUrl(journey?.poster_path ?? null, 'w500');
 
   // Handle poster tap for inspection modal (must be after heroImageUrl declaration)
   const handlePosterTap = useCallback(() => {
@@ -238,6 +242,28 @@ export default function JourneyCardScreen() {
       >
         {/* Ticket Card */}
         <View style={styles.ticketCard}>
+          {/* Frosted poster background — covers entire card below hero */}
+          {blurPosterUrl && (
+            <>
+              <ExpoImage
+                source={{ uri: blurPosterUrl }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={200}
+              />
+              {Platform.OS === 'web' ? (
+                <View style={[StyleSheet.absoluteFill, styles.posterOverlay, styles.webBlurFallback]} />
+              ) : (
+                <BlurView
+                  intensity={80}
+                  tint={isDark ? 'dark' : 'light'}
+                  experimentalBlurMethod="dimezisBlurView"
+                  style={[StyleSheet.absoluteFill, styles.posterOverlay]}
+                />
+              )}
+            </>
+          )}
+
           {/* Hero Image Area */}
           <Pressable
             onPress={handlePosterTap}
@@ -325,7 +351,7 @@ export default function JourneyCardScreen() {
 }
 
 // Create styles function that takes theme colors, ticket height, info page width, and theme
-const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: number) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: number, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -387,6 +413,15 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
     overflow: 'hidden',
     marginTop: Spacing.md,
     minHeight: ticketHeight,
+  },
+  posterOverlay: {
+    backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
+  },
+  webBlurFallback: {
+    ...Platform.select({
+      web: { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any,
+      default: {},
+    }),
   },
 
   // Hero Section

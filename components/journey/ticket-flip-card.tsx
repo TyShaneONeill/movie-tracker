@@ -189,7 +189,7 @@ export function TicketFlipCard({
   return (
     <View>
       {/* Perforated edge stays fixed — does NOT flip */}
-      <PerforatedEdge colors={colors} />
+      <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
 
       {/* Flip wrapper */}
       <Pressable
@@ -341,7 +341,9 @@ export function TicketFlipCard({
 
       {/* Tap-to-flip hint — outside the flip so it's always visible */}
       <View style={styles.hintRow}>
-        <Text style={styles.hintText}>Tap to flip</Text>
+        <View style={styles.hintPill}>
+          <Text style={styles.hintText}>Tap to flip</Text>
+        </View>
       </View>
     </View>
   );
@@ -401,7 +403,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
 
     // Info Carousel
     infoCarouselContainer: {
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
+      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.35)',
       borderRadius: BorderRadius.md,
       marginHorizontal: Spacing.md,
       marginTop: Spacing.md,
@@ -466,7 +468,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       marginHorizontal: Spacing.lg,
       marginTop: Spacing.md,
       padding: Spacing.md,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
+      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.35)',
       borderRadius: BorderRadius.md,
       borderLeftWidth: 3,
       borderLeftColor: colors.tint,
@@ -483,6 +485,12 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       alignItems: 'center',
       paddingTop: Spacing.sm,
       paddingBottom: Spacing.md,
+    },
+    hintPill: {
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.full,
     },
     hintText: {
       ...Typography.caption.medium,
