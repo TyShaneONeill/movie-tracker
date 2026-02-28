@@ -54,7 +54,7 @@ export const unstable_settings = {
 function useProtectedRoute() {
   const { user, isLoading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { isGuest, isLoading: guestLoading, enterGuestMode } = useGuest();
+  const { isGuest, isLoading: guestLoading } = useGuest();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
@@ -118,20 +118,19 @@ function useProtectedRoute() {
     }
 
     if (!user && !inAuthGroup && !inOnboardingGroup) {
-      // Not authenticated and not on auth screens
-      if (isGuest) {
-        // Guest mode - allow browsing
-        return;
-      }
-      // On web, skip welcome screen and go straight to guest browsing
-      if (Platform.OS === 'web') {
-        enterGuestMode();
-        return;
-      }
-      // Not in guest mode - go to signin
+      // On web, always allow unauthenticated browsing (content-first, like Letterboxd)
+      if (Platform.OS === 'web') return;
+      // On native, allow guest mode browsing
+      if (isGuest) return;
+      // Not in guest mode on native - go to signin
       performNavigation('/(auth)/signin');
     } else if (!user && inOnboardingGroup) {
-      // User is in onboarding but not logged in - redirect to auth
+      // User is in onboarding but not logged in
+      if (Platform.OS === 'web') {
+        // Redirect to home — onboarding is only for authenticated users
+        performNavigation('/(tabs)');
+        return;
+      }
       performNavigation('/(auth)/signin');
     } else if (user && inAuthGroup) {
       // Authenticated but on auth screens → check onboarding

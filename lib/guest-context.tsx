@@ -6,6 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
@@ -25,17 +26,23 @@ interface GuestContextType {
 const GuestContext = createContext<GuestContextType | undefined>(undefined);
 
 export function GuestProvider({ children }: { children: ReactNode }) {
-  const [isGuest, setIsGuest] = useState(false);
+  // On web, default to guest mode immediately (content-first, no signin wall)
+  const [isGuest, setIsGuest] = useState(Platform.OS === 'web');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load guest state from AsyncStorage on mount
   useEffect(() => {
     const loadGuestState = async () => {
       try {
-        const guestValue = await AsyncStorage.getItem(GUEST_MODE_KEY);
-        setIsGuest(guestValue === 'true');
+        if (Platform.OS === 'web') {
+          // Web always starts in guest mode — no need to check AsyncStorage
+          setIsGuest(true);
+        } else {
+          const guestValue = await AsyncStorage.getItem(GUEST_MODE_KEY);
+          setIsGuest(guestValue === 'true');
+        }
       } catch (error) {
-        setIsGuest(false);
+        setIsGuest(Platform.OS === 'web');
       } finally {
         setIsLoading(false);
       }
