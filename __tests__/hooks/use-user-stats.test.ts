@@ -40,7 +40,14 @@ function createWrapper() {
 
 function makeEdgeFunctionResponse(overrides: Record<string, unknown> = {}) {
   return {
-    summary: { totalWatched: 42, totalFirstTakes: 10, averageRating: 7.5 },
+    summary: {
+      totalWatched: 42,
+      totalTvWatched: 5,
+      totalFirstTakes: 10,
+      averageRating: 7.5,
+      totalEpisodesWatched: 48,
+      totalWatchTimeMinutes: 3200,
+    },
     genres: [
       { genreId: 28, count: 15, percentage: 35.7 },
       { genreId: 18, count: 10, percentage: 23.8 },
@@ -250,6 +257,107 @@ describe('useUserStats', () => {
       });
 
       expect(result.current.error?.message).toBe('No data returned from stats endpoint');
+    });
+  });
+
+  // ============================================================================
+  // Tests: TV show fields in summary
+  // ============================================================================
+
+  describe('TV show stats', () => {
+    it('includes totalTvWatched in summary', async () => {
+      const { result } = renderHook(() => useUserStats(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data!.summary.totalTvWatched).toBe(5);
+    });
+
+    it('includes totalEpisodesWatched in summary', async () => {
+      const { result } = renderHook(() => useUserStats(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data!.summary.totalEpisodesWatched).toBe(48);
+    });
+
+    it('includes totalWatchTimeMinutes in summary', async () => {
+      const { result } = renderHook(() => useUserStats(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data!.summary.totalWatchTimeMinutes).toBe(3200);
+    });
+
+    it('passes through all TV summary fields unchanged', async () => {
+      const response = makeEdgeFunctionResponse({
+        summary: {
+          totalWatched: 100,
+          totalTvWatched: 12,
+          totalFirstTakes: 20,
+          averageRating: 8.2,
+          totalEpisodesWatched: 150,
+          totalWatchTimeMinutes: 9000,
+        },
+      });
+      mockInvoke.mockResolvedValue({ data: response, error: null });
+
+      const { result } = renderHook(() => useUserStats(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data!.summary).toEqual({
+        totalWatched: 100,
+        totalTvWatched: 12,
+        totalFirstTakes: 20,
+        averageRating: 8.2,
+        totalEpisodesWatched: 150,
+        totalWatchTimeMinutes: 9000,
+      });
+    });
+
+    it('maps TV genre IDs to names in combined genre list', async () => {
+      // Genre 10765 = "Sci-Fi & Fantasy" in TMDB TV genres
+      // Genre 18 = "Drama" shared between movies and TV
+      mockInvoke.mockResolvedValue({
+        data: makeEdgeFunctionResponse({
+          genres: [
+            { genreId: 18, count: 20, percentage: 50 },
+            { genreId: 10765, count: 10, percentage: 25 },
+            { genreId: 28, count: 10, percentage: 25 },
+          ],
+        }),
+        error: null,
+      });
+
+      const { result } = renderHook(() => useUserStats(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      const genres = result.current.data!.genres;
+      expect(genres).toHaveLength(3);
+      expect(genres[0]).toEqual({ genreId: 18, genreName: 'Drama', count: 20, percentage: 50 });
+      expect(genres[2]).toEqual({ genreId: 28, genreName: 'Action', count: 10, percentage: 25 });
     });
   });
 });
