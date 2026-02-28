@@ -78,7 +78,7 @@ export default function ListDetailScreen() {
   const { profile } = useProfile();
 
   // Unified movie data as a common shape
-  const movies: { id: string; tmdb_id: number; poster_path: string | null }[] = useMemo(() => {
+  const movies: { id: string; tmdb_id: number; poster_path: string | null; media_type?: string }[] = useMemo(() => {
     if (isSystemList) {
       return systemMovies.map((m: UserMovie) => ({
         id: m.id,
@@ -90,6 +90,7 @@ export default function ListDetailScreen() {
       id: m.id,
       tmdb_id: m.tmdb_id,
       poster_path: m.poster_path,
+      media_type: m.media_type,
     }));
   }, [isSystemList, systemMovies, customList?.movies]);
 
@@ -121,21 +122,25 @@ export default function ListDetailScreen() {
     }
   };
 
-  const handleMoviePress = (tmdbId: number) => {
-    router.push(`/movie/${tmdbId}`);
+  const handleMoviePress = (tmdbId: number, mediaType?: string) => {
+    if (mediaType === 'tv_show') {
+      router.push(`/tv/${tmdbId}`);
+    } else {
+      router.push(`/movie/${tmdbId}`);
+    }
   };
 
   // Dynamic styles based on theme
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
   // Render movie grid item
-  const renderMovieItem = ({ item, index }: { item: { id: string; tmdb_id: number; poster_path: string | null }; index: number }) => {
+  const renderMovieItem = ({ item, index }: { item: { id: string; tmdb_id: number; poster_path: string | null; media_type?: string }; index: number }) => {
     const posterUrl = getTMDBImageUrl(item.poster_path, 'w342');
     const rank = index + 1;
 
     return (
       <Pressable
-        onPress={() => handleMoviePress(item.tmdb_id)}
+        onPress={() => handleMoviePress(item.tmdb_id, item.media_type)}
         style={({ pressed }) => [
           dynamicStyles.movieCard,
           pressed && dynamicStyles.movieCardPressed,

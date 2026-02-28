@@ -160,13 +160,14 @@ export async function getUserLists(
 // List Items (Movies)
 // ============================================================================
 
-/** Add a movie to a list. Auto-computes position as max+1. */
+/** Add a movie or TV show to a list. Auto-computes position as max+1. */
 export async function addMovieToList(
   listId: string,
   tmdbId: number,
   title: string,
   posterPath: string | null,
-  notes?: string
+  notes?: string,
+  mediaType: 'movie' | 'tv_show' = 'movie'
 ): Promise<ListMovie> {
   // Get the current max position
   const { data: existing } = await supabase
@@ -185,6 +186,7 @@ export async function addMovieToList(
     poster_path: posterPath,
     position: maxPosition + 1,
     notes: notes ?? null,
+    media_type: mediaType,
   };
 
   const { data, error } = await supabase
