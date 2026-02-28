@@ -38,6 +38,15 @@ function createWrapper() {
     React.createElement(QueryClientProvider, { client }, children);
 }
 
+function createClientAndWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client }, children);
+  return { client, wrapper };
+}
+
 function makeEdgeFunctionResponse(overrides: Record<string, unknown> = {}) {
   return {
     summary: {
@@ -59,8 +68,30 @@ function makeEdgeFunctionResponse(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** Renders the hook with default wrapper and waits for success. */
+async function renderAndSettle() {
+  const { result } = renderHook(() => useUserStats(), {
+    wrapper: createWrapper(),
+  });
+
+  await waitFor(() => {
+    expect(result.current.isSuccess).toBe(true);
+  });
+
+  return result;
+}
+
+/** Renders the hook with overridden mock data and waits for success. */
+async function renderWithResponse(overrides: Record<string, unknown>) {
+  mockInvoke.mockResolvedValue({
+    data: makeEdgeFunctionResponse(overrides),
+    error: null,
+  });
+  return renderAndSettle();
+}
+
 // ============================================================================
-// Tests: React Query Configuration
+// Tests
 // ============================================================================
 
 describe('useUserStats', () => {
@@ -70,65 +101,52 @@ describe('useUserStats', () => {
     mockInvoke.mockResolvedValue({ data: makeEdgeFunctionResponse(), error: null });
   });
 
+  // ============================================================================
+  // React Query Configuration
+  // ============================================================================
+
   describe('React Query configuration', () => {
     it.each([
       ['staleTime', 10 * 60 * 1000],
       ['gcTime', 30 * 60 * 1000],
       ['refetchOnMount', false],
     ])('passes %s = %s', async (option, expected) => {
-      // Spy on QueryClient to capture options
-      const observedOptions: Record<string, unknown> = {};
-      const client = new QueryClient({
-        defaultOptions: { queries: { retry: false } },
-      });
-      const originalFetchQuery = client.defaultQueryOptions;
-      // We verify by rendering and checking the query observer's options
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: ({ children }: { children: React.ReactNode }) =>
-          React.createElement(QueryClientProvider, { client }, children),
-      });
+      const { client, wrapper } = createClientAndWrapper();
+
+      const { result } = renderHook(() => useUserStats(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isSuccess || result.current.isError || !result.current.isFetching).toBe(true);
       });
 
-      // Access the query cache to verify options
       const queries = client.getQueryCache().getAll();
       expect(queries).toHaveLength(1);
-      const queryOptions = queries[0].options;
-      expect(queryOptions[option as keyof typeof queryOptions]).toBe(expected);
+      expect(queries[0].options[option as keyof typeof queries[0]['options']]).toBe(expected);
     });
   });
 
   // ============================================================================
-  // Tests: Query Key
+  // Query Key
   // ============================================================================
 
   describe('query key', () => {
     it('includes the user ID', async () => {
       mockUseAuth.mockReturnValue({ user: { id: 'user-xyz-789' } });
+      const { client, wrapper } = createClientAndWrapper();
 
-      const client = new QueryClient({
-        defaultOptions: { queries: { retry: false } },
-      });
-
-      renderHook(() => useUserStats(), {
-        wrapper: ({ children }: { children: React.ReactNode }) =>
-          React.createElement(QueryClientProvider, { client }, children),
-      });
+      renderHook(() => useUserStats(), { wrapper });
 
       await waitFor(() => {
         const queries = client.getQueryCache().getAll();
         expect(queries).toHaveLength(1);
       });
 
-      const queries = client.getQueryCache().getAll();
-      expect(queries[0].queryKey).toEqual(['userStats', 'user-xyz-789']);
+      expect(client.getQueryCache().getAll()[0].queryKey).toEqual(['userStats', 'user-xyz-789']);
     });
   });
 
   // ============================================================================
-  // Tests: Enabled Gating
+  // Enabled Gating
   // ============================================================================
 
   describe('enabled gating', () => {
@@ -139,74 +157,40 @@ describe('useUserStats', () => {
         wrapper: createWrapper(),
       });
 
-      // Query should remain idle — fetchStatus 'idle' means it never started
       expect(result.current.fetchStatus).toBe('idle');
       expect(mockInvoke).not.toHaveBeenCalled();
     });
 
     it('fetches when user is present', async () => {
-      mockUseAuth.mockReturnValue({ user: { id: 'user-123' } });
-
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
-
+      await renderAndSettle();
       expect(mockInvoke).toHaveBeenCalledWith('get-user-stats');
     });
   });
 
   // ============================================================================
-  // Tests: fetchUserStats (data mapping)
+  // Data Mapping
   // ============================================================================
 
   describe('fetchUserStats', () => {
     it('calls supabase.functions.invoke with get-user-stats', async () => {
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
+      await renderAndSettle();
 
       expect(mockInvoke).toHaveBeenCalledTimes(1);
       expect(mockInvoke).toHaveBeenCalledWith('get-user-stats');
     });
 
     it('maps genre IDs to names using TMDB_GENRE_MAP', async () => {
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
+      const result = await renderAndSettle();
 
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
-
-      const genres = result.current.data!.genres;
-      expect(genres).toEqual([
+      expect(result.current.data!.genres).toEqual([
         { genreId: 28, genreName: 'Action', count: 15, percentage: 35.7 },
         { genreId: 18, genreName: 'Drama', count: 10, percentage: 23.8 },
       ]);
     });
 
     it('falls back to "Other" for unknown genre IDs', async () => {
-      mockInvoke.mockResolvedValue({
-        data: makeEdgeFunctionResponse({
-          genres: [{ genreId: 99999, count: 3, percentage: 100 }],
-        }),
-        error: null,
-      });
-
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+      const result = await renderWithResponse({
+        genres: [{ genreId: 99999, count: 3, percentage: 100 }],
       });
 
       expect(result.current.data!.genres[0].genreName).toBe('Other');
@@ -214,15 +198,7 @@ describe('useUserStats', () => {
 
     it('passes through summary and monthlyActivity unchanged', async () => {
       const response = makeEdgeFunctionResponse();
-      mockInvoke.mockResolvedValue({ data: response, error: null });
-
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
+      const result = await renderAndSettle();
 
       expect(result.current.data!.summary).toEqual(response.summary);
       expect(result.current.data!.monthlyActivity).toEqual(response.monthlyActivity);
@@ -261,97 +237,40 @@ describe('useUserStats', () => {
   });
 
   // ============================================================================
-  // Tests: TV show fields in summary
+  // TV Show Stats
   // ============================================================================
 
   describe('TV show stats', () => {
-    it('includes totalTvWatched in summary', async () => {
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
-
-      expect(result.current.data!.summary.totalTvWatched).toBe(5);
+    it.each([
+      ['totalTvWatched', 5],
+      ['totalEpisodesWatched', 48],
+      ['totalWatchTimeMinutes', 3200],
+    ] as const)('includes %s = %s in summary', async (field, expected) => {
+      const result = await renderAndSettle();
+      expect(result.current.data!.summary[field]).toBe(expected);
     });
 
-    it('includes totalEpisodesWatched in summary', async () => {
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
-
-      expect(result.current.data!.summary.totalEpisodesWatched).toBe(48);
-    });
-
-    it('includes totalWatchTimeMinutes in summary', async () => {
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
-
-      expect(result.current.data!.summary.totalWatchTimeMinutes).toBe(3200);
-    });
-
-    it('passes through all TV summary fields unchanged', async () => {
-      const response = makeEdgeFunctionResponse({
-        summary: {
-          totalWatched: 100,
-          totalTvWatched: 12,
-          totalFirstTakes: 20,
-          averageRating: 8.2,
-          totalEpisodesWatched: 150,
-          totalWatchTimeMinutes: 9000,
-        },
-      });
-      mockInvoke.mockResolvedValue({ data: response, error: null });
-
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
-      });
-
-      expect(result.current.data!.summary).toEqual({
+    it('passes through custom TV summary fields unchanged', async () => {
+      const customSummary = {
         totalWatched: 100,
         totalTvWatched: 12,
         totalFirstTakes: 20,
         averageRating: 8.2,
         totalEpisodesWatched: 150,
         totalWatchTimeMinutes: 9000,
-      });
+      };
+
+      const result = await renderWithResponse({ summary: customSummary });
+      expect(result.current.data!.summary).toEqual(customSummary);
     });
 
     it('maps TV genre IDs to names in combined genre list', async () => {
-      // Genre 10765 = "Sci-Fi & Fantasy" in TMDB TV genres
-      // Genre 18 = "Drama" shared between movies and TV
-      mockInvoke.mockResolvedValue({
-        data: makeEdgeFunctionResponse({
-          genres: [
-            { genreId: 18, count: 20, percentage: 50 },
-            { genreId: 10765, count: 10, percentage: 25 },
-            { genreId: 28, count: 10, percentage: 25 },
-          ],
-        }),
-        error: null,
-      });
-
-      const { result } = renderHook(() => useUserStats(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+      const result = await renderWithResponse({
+        genres: [
+          { genreId: 18, count: 20, percentage: 50 },
+          { genreId: 10765, count: 10, percentage: 25 },
+          { genreId: 28, count: 10, percentage: 25 },
+        ],
       });
 
       const genres = result.current.data!.genres;

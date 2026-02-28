@@ -66,6 +66,19 @@ function makeUserTvShow(overrides: Partial<UserTvShow> = {}): UserTvShow {
   } as UserTvShow;
 }
 
+/** Renders the hook, waits for loading to finish, and returns the result. */
+async function renderAndSettle() {
+  const { result } = renderHook(() => useContinueWatching(), {
+    wrapper: createWrapper(),
+  });
+
+  await waitFor(() => {
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  return result;
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -77,53 +90,24 @@ describe('useContinueWatching', () => {
     mockFetchUserTvShows.mockResolvedValue([]);
   });
 
-  it('returns shows with status "watching" sorted by most recently updated', async () => {
-    const show1 = makeUserTvShow({
-      id: 'tv-1',
-      tmdb_id: 100,
-      name: 'Breaking Bad',
-      updated_at: '2024-06-10T00:00:00Z',
-    });
-    const show2 = makeUserTvShow({
-      id: 'tv-2',
-      tmdb_id: 200,
-      name: 'Better Call Saul',
-      updated_at: '2024-06-15T00:00:00Z',
-    });
-    const show3 = makeUserTvShow({
-      id: 'tv-3',
-      tmdb_id: 300,
-      name: 'The Wire',
-      updated_at: '2024-06-12T00:00:00Z',
-    });
+  it('returns shows sorted by most recently updated', async () => {
+    mockFetchUserTvShows.mockResolvedValue([
+      makeUserTvShow({ id: 'tv-1', tmdb_id: 100, name: 'Breaking Bad', updated_at: '2024-06-10T00:00:00Z' }),
+      makeUserTvShow({ id: 'tv-2', tmdb_id: 200, name: 'Better Call Saul', updated_at: '2024-06-15T00:00:00Z' }),
+      makeUserTvShow({ id: 'tv-3', tmdb_id: 300, name: 'The Wire', updated_at: '2024-06-12T00:00:00Z' }),
+    ]);
 
-    mockFetchUserTvShows.mockResolvedValue([show1, show2, show3]);
+    const result = await renderAndSettle();
 
-    const { result } = renderHook(() => useContinueWatching(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    expect(result.current.shows).toHaveLength(3);
-    expect(result.current.shows[0].name).toBe('Better Call Saul');
-    expect(result.current.shows[1].name).toBe('The Wire');
-    expect(result.current.shows[2].name).toBe('Breaking Bad');
+    expect(result.current.shows.map((s) => s.name)).toEqual([
+      'Better Call Saul',
+      'The Wire',
+      'Breaking Bad',
+    ]);
   });
 
   it('returns empty array when no shows are being watched', async () => {
-    mockFetchUserTvShows.mockResolvedValue([]);
-
-    const { result } = renderHook(() => useContinueWatching(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
+    const result = await renderAndSettle();
     expect(result.current.shows).toEqual([]);
   });
 
@@ -146,54 +130,29 @@ describe('useContinueWatching', () => {
         updated_at: `2024-06-${String(i + 1).padStart(2, '0')}T00:00:00Z`,
       })
     );
-
     mockFetchUserTvShows.mockResolvedValue(shows);
 
-    const { result } = renderHook(() => useContinueWatching(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
+    const result = await renderAndSettle();
     expect(result.current.shows).toHaveLength(10);
   });
 
-  it('handles shows with null updated_at (sorts them last)', async () => {
-    const show1 = makeUserTvShow({
-      id: 'tv-1',
-      tmdb_id: 100,
-      name: 'Show With Date',
-      updated_at: '2024-06-15T00:00:00Z',
-    });
-    const show2 = makeUserTvShow({
-      id: 'tv-2',
-      tmdb_id: 200,
-      name: 'Show Without Date',
-      updated_at: null,
-    });
+  it('sorts shows with null updated_at last', async () => {
+    mockFetchUserTvShows.mockResolvedValue([
+      makeUserTvShow({ id: 'tv-2', tmdb_id: 200, name: 'No Date', updated_at: null }),
+      makeUserTvShow({ id: 'tv-1', tmdb_id: 100, name: 'Has Date', updated_at: '2024-06-15T00:00:00Z' }),
+    ]);
 
-    mockFetchUserTvShows.mockResolvedValue([show2, show1]);
+    const result = await renderAndSettle();
 
-    const { result } = renderHook(() => useContinueWatching(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    expect(result.current.shows[0].name).toBe('Show With Date');
-    expect(result.current.shows[1].name).toBe('Show Without Date');
+    expect(result.current.shows[0].name).toBe('Has Date');
+    expect(result.current.shows[1].name).toBe('No Date');
   });
 
-  it('exposes isLoading state', async () => {
-    let resolveShows: (value: UserTvShow[]) => void;
-    const pendingPromise = new Promise<UserTvShow[]>((resolve) => {
-      resolveShows = resolve;
-    });
-    mockFetchUserTvShows.mockReturnValue(pendingPromise);
+  it('exposes isLoading state that transitions from true to false', async () => {
+    let resolveShows!: (value: UserTvShow[]) => void;
+    mockFetchUserTvShows.mockReturnValue(
+      new Promise<UserTvShow[]>((resolve) => { resolveShows = resolve; })
+    );
 
     const { result } = renderHook(() => useContinueWatching(), {
       wrapper: createWrapper(),
@@ -201,7 +160,7 @@ describe('useContinueWatching', () => {
 
     expect(result.current.isLoading).toBe(true);
 
-    resolveShows!([]);
+    resolveShows([]);
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -209,14 +168,7 @@ describe('useContinueWatching', () => {
   });
 
   it('calls fetchUserTvShows with "watching" status filter', async () => {
-    const { result } = renderHook(() => useContinueWatching(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
+    await renderAndSettle();
     expect(mockFetchUserTvShows).toHaveBeenCalledWith('user-123', 'watching');
   });
 });
