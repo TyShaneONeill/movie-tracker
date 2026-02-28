@@ -90,6 +90,7 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
     return createMutation.mutateAsync({
       ...data,
       tmdbId: data.tmdbId ?? tmdbId,
+      mediaType: data.mediaType ?? mediaType,
     });
   };
 
