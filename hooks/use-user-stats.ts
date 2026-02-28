@@ -26,6 +26,8 @@ interface UserStats {
     totalTvWatched: number;
     totalFirstTakes: number;
     averageRating: number | null;
+    totalEpisodesWatched: number;
+    totalWatchTimeMinutes: number;
   };
   genres: GenreStats[];
   monthlyActivity: MonthlyActivity[];
@@ -37,6 +39,8 @@ interface EdgeFunctionResponse {
     totalTvWatched: number;
     totalFirstTakes: number;
     averageRating: number | null;
+    totalEpisodesWatched: number;
+    totalWatchTimeMinutes: number;
   };
   genres: Array<{
     genreId: number;
