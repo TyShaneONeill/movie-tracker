@@ -128,7 +128,7 @@ export function formatRelativeTime(dateString: string): string {
   }
 
   const diffInWeeks = Math.floor(diffInDays / 7);
-  if (diffInWeeks < 4) {
+  if (diffInDays < 30) {
     return `${diffInWeeks}w ago`;
   }
 
