@@ -35,6 +35,7 @@ function makeActivityItem(
     isSpoiler: false,
     visibility: 'public',
     createdAt: '2024-01-01T00:00:00Z',
+    mediaType: 'movie',
     userDisplayName: 'John Doe',
     userAvatarUrl: 'https://example.com/avatar.jpg',
     ...overrides,

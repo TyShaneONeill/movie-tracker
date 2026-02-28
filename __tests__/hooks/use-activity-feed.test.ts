@@ -24,6 +24,7 @@ function makeRow(overrides?: Partial<FirstTakeWithProfile>): FirstTakeWithProfil
     is_spoiler: false,
     visibility: 'public',
     created_at: '2024-01-01T00:00:00Z',
+    media_type: null,
     profiles: {
       full_name: 'John Doe',
       username: 'johndoe',
@@ -40,7 +41,7 @@ function makeRow(overrides?: Partial<FirstTakeWithProfile>): FirstTakeWithProfil
 describe('ACTIVITY_FEED_SELECT', () => {
   it('is a single JOINed select string with profiles', () => {
     expect(ACTIVITY_FEED_SELECT).toBe(
-      'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, profiles(full_name, username, avatar_url)'
+      'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, profiles(full_name, username, avatar_url)'
     );
   });
 });
@@ -60,6 +61,7 @@ describe('mapToFeedItem', () => {
       isSpoiler: false,
       visibility: 'public',
       createdAt: '2024-01-01T00:00:00Z',
+      mediaType: 'movie',
       userDisplayName: 'John Doe',
       userAvatarUrl: 'https://example.com/avatar.jpg',
     });

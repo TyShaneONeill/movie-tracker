@@ -123,10 +123,6 @@ export default function HomeScreen() {
     router.push(`/tv/${showId}`);
   }, []);
 
-  const handleActivityMoviePress = (movieId: number) => {
-    router.push(`/movie/${movieId}`);
-  };
-
   // Render activity feed item, ad, or separator
   const renderFeedItem = useCallback(
     ({ item }: { item: FeedListItem }) => {
@@ -160,7 +156,14 @@ export default function HomeScreen() {
           reviewText={feed.quoteText}
           isSpoiler={feed.isSpoiler ?? undefined}
           isCurrentUser={user?.id === feed.userId}
-          onMoviePress={() => handleActivityMoviePress(feed.tmdbId)}
+          mediaType={feed.mediaType}
+          onMoviePress={() => {
+            if (feed.mediaType === 'tv_show') {
+              router.push(`/tv/${feed.tmdbId}`);
+            } else {
+              router.push(`/movie/${feed.tmdbId}`);
+            }
+          }}
         />
       );
     },
