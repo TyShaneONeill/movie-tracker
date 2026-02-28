@@ -398,10 +398,31 @@ export async function markSeasonWatched(
 
   const { error } = await (supabase
     .from('user_episode_watches') as any)
-    .insert(insertData);
+    .upsert(insertData, { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true });
 
   if (error) {
     throw new Error(error.message || 'Failed to mark season as watched');
+  }
+
+  // Sync TV show progress
+  await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+}
+
+// Unmark an entire season as watched
+export async function unmarkSeasonWatched(
+  userId: string,
+  userTvShowId: string,
+  seasonNumber: number
+): Promise<void> {
+  const { error } = await supabase
+    .from('user_episode_watches')
+    .delete()
+    .eq('user_id', userId)
+    .eq('user_tv_show_id', userTvShowId)
+    .eq('season_number', seasonNumber);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to unmark season');
   }
 
   // Sync TV show progress
