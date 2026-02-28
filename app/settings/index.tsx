@@ -96,6 +96,15 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleContinueWatchingToggle = async (value: boolean) => {
+    hapticImpact();
+    try {
+      await updatePreference('showContinueWatching', value);
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-continue-watching-toggle' });
+    }
+  };
+
   const handleTestSentry = () => {
     Sentry.captureException(new Error('Test error from CineTrak Settings'));
     Toast.show({
@@ -311,8 +320,7 @@ export default function SettingsScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.settingsItem,
-              styles.lastItem,
-              { backgroundColor: colors.card },
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary },
             ]}
             onPress={handleCollectionViewToggle}
@@ -326,6 +334,24 @@ export default function SettingsScreen() {
               {collectionViewLabels[preferences?.defaultCollectionView ?? 'movies']}
             </Text>
           </Pressable>
+
+          <View
+            style={[
+              styles.settingsItem,
+              styles.lastItem,
+              { backgroundColor: colors.card }
+            ]}
+          >
+            <View style={styles.settingsItemContent}>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Continue Watching</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Show section on home screen</Text>
+            </View>
+            <ToggleSwitch
+              value={preferences?.showContinueWatching ?? true}
+              onValueChange={handleContinueWatchingToggle}
+              disabled={isLoadingPreferences || isUpdating}
+            />
+          </View>
         </View>
 
         {/* Integrations Section */}
