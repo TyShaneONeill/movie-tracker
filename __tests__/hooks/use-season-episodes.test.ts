@@ -57,7 +57,22 @@ function makeSeasonDetail(
   };
 }
 
-function createTestHarness() {
+interface RenderOptions {
+  showId?: number;
+  seasonNumber?: number;
+  enabled?: boolean;
+}
+
+/**
+ * Renders the hook with a fresh QueryClient and waits for loading to complete.
+ */
+async function renderSeasonEpisodes(opts?: RenderOptions) {
+  const {
+    showId = SHOW_ID,
+    seasonNumber = SEASON_NUMBER,
+    enabled,
+  } = opts ?? {};
+
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -66,7 +81,42 @@ function createTestHarness() {
   });
   const wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: queryClient }, children);
-  return { queryClient, wrapper };
+
+  const rendered = renderHook(
+    () => useSeasonEpisodes({ showId, seasonNumber, enabled }),
+    { wrapper }
+  );
+
+  await waitFor(() => {
+    expect(rendered.result.current.isLoading).toBe(false);
+  });
+
+  return { ...rendered, queryClient };
+}
+
+/**
+ * Renders the hook without waiting for load (for disabled-query tests).
+ */
+function renderSeasonEpisodesNoWait(opts?: RenderOptions) {
+  const {
+    showId = SHOW_ID,
+    seasonNumber = SEASON_NUMBER,
+    enabled,
+  } = opts ?? {};
+
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+  return renderHook(
+    () => useSeasonEpisodes({ showId, seasonNumber, enabled }),
+    { wrapper }
+  );
 }
 
 // ============================================================================
@@ -76,6 +126,7 @@ function createTestHarness() {
 describe('useSeasonEpisodes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetSeasonEpisodes.mockResolvedValue(makeSeasonDetail());
   });
 
   // ==========================================================================
@@ -84,18 +135,7 @@ describe('useSeasonEpisodes', () => {
 
   describe('fetching episodes', () => {
     it('fetches and returns episodes for a given season', async () => {
-      const seasonDetail = makeSeasonDetail();
-      mockGetSeasonEpisodes.mockResolvedValue(seasonDetail);
-
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      const { result } = await renderSeasonEpisodes();
 
       expect(result.current.episodes).toHaveLength(3);
       expect(result.current.episodes[0].name).toBe('Winter Is Coming');
@@ -116,17 +156,9 @@ describe('useSeasonEpisodes', () => {
         makeSeasonDetail({ episodes: [episode] })
       );
 
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
+      const { result } = await renderSeasonEpisodes();
       const ep = result.current.episodes[0];
+
       expect(ep.episode_number).toBe(5);
       expect(ep.name).toBe('The Wolf and the Lion');
       expect(ep.air_date).toBe('2011-05-15');
@@ -135,22 +167,15 @@ describe('useSeasonEpisodes', () => {
     });
 
     it('returns season metadata (name, overview, posterPath)', async () => {
-      const seasonDetail = makeSeasonDetail({
-        name: 'Season 2',
-        overview: 'The war of five kings.',
-        posterPath: '/season2.jpg',
-      });
-      mockGetSeasonEpisodes.mockResolvedValue(seasonDetail);
-
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: 2 }),
-        { wrapper }
+      mockGetSeasonEpisodes.mockResolvedValue(
+        makeSeasonDetail({
+          name: 'Season 2',
+          overview: 'The war of five kings.',
+          posterPath: '/season2.jpg',
+        })
       );
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      const { result } = await renderSeasonEpisodes({ seasonNumber: 2 });
 
       expect(result.current.seasonName).toBe('Season 2');
       expect(result.current.seasonOverview).toBe('The war of five kings.');
@@ -164,36 +189,16 @@ describe('useSeasonEpisodes', () => {
 
   describe('empty / missing seasons', () => {
     it('returns empty episodes array when season has no episodes', async () => {
-      mockGetSeasonEpisodes.mockResolvedValue(
-        makeSeasonDetail({ episodes: [] })
-      );
+      mockGetSeasonEpisodes.mockResolvedValue(makeSeasonDetail({ episodes: [] }));
 
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
+      const { result } = await renderSeasonEpisodes();
       expect(result.current.episodes).toEqual([]);
     });
 
     it('returns defaults when data is undefined', async () => {
-      // Simulate a case where queryFn returns undefined-ish data
       mockGetSeasonEpisodes.mockResolvedValue(undefined);
 
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      const { result } = await renderSeasonEpisodes();
 
       expect(result.current.episodes).toEqual([]);
       expect(result.current.seasonName).toBe('');
@@ -202,20 +207,9 @@ describe('useSeasonEpisodes', () => {
     });
 
     it('handles null posterPath in response', async () => {
-      mockGetSeasonEpisodes.mockResolvedValue(
-        makeSeasonDetail({ posterPath: null })
-      );
+      mockGetSeasonEpisodes.mockResolvedValue(makeSeasonDetail({ posterPath: null }));
 
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
+      const { result } = await renderSeasonEpisodes();
       expect(result.current.posterPath).toBeNull();
     });
   });
@@ -228,16 +222,9 @@ describe('useSeasonEpisodes', () => {
     it('sets isError and error when fetch fails', async () => {
       mockGetSeasonEpisodes.mockRejectedValue(new Error('Failed to fetch'));
 
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
+      const { result } = await renderSeasonEpisodes();
 
-      await waitFor(() => {
-        expect(result.current.isError).toBe(true);
-      });
-
+      expect(result.current.isError).toBe(true);
       expect(result.current.error).toBeInstanceOf(Error);
       expect(result.current.error?.message).toBe('Failed to fetch');
       expect(result.current.episodes).toEqual([]);
@@ -245,47 +232,16 @@ describe('useSeasonEpisodes', () => {
   });
 
   // ==========================================================================
-  // Enabled / disabled behavior
+  // Enabled / disabled behavior (parameterized)
   // ==========================================================================
 
   describe('enabled / disabled behavior', () => {
-    it('does not fetch when enabled is false', async () => {
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () =>
-          useSeasonEpisodes({
-            showId: SHOW_ID,
-            seasonNumber: SEASON_NUMBER,
-            enabled: false,
-          }),
-        { wrapper }
-      );
-
-      // Give it time to potentially fire
-      await new Promise((r) => setTimeout(r, 50));
-
-      expect(mockGetSeasonEpisodes).not.toHaveBeenCalled();
-      expect(result.current.episodes).toEqual([]);
-    });
-
-    it('does not fetch when showId is 0', async () => {
-      const { wrapper } = createTestHarness();
-      renderHook(
-        () => useSeasonEpisodes({ showId: 0, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
-
-      await new Promise((r) => setTimeout(r, 50));
-
-      expect(mockGetSeasonEpisodes).not.toHaveBeenCalled();
-    });
-
-    it('does not fetch when showId is negative', async () => {
-      const { wrapper } = createTestHarness();
-      renderHook(
-        () => useSeasonEpisodes({ showId: -1, seasonNumber: SEASON_NUMBER }),
-        { wrapper }
-      );
+    it.each([
+      { label: 'enabled is false', opts: { enabled: false } },
+      { label: 'showId is 0', opts: { showId: 0 } },
+      { label: 'showId is negative', opts: { showId: -1 } },
+    ])('does not fetch when $label', async ({ opts }) => {
+      renderSeasonEpisodesNoWait(opts);
 
       await new Promise((r) => setTimeout(r, 50));
 
@@ -295,15 +251,7 @@ describe('useSeasonEpisodes', () => {
     it('fetches for season number 0 (specials)', async () => {
       mockGetSeasonEpisodes.mockResolvedValue(makeSeasonDetail({ seasonNumber: 0 }));
 
-      const { wrapper } = createTestHarness();
-      const { result } = renderHook(
-        () => useSeasonEpisodes({ showId: SHOW_ID, seasonNumber: 0 }),
-        { wrapper }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      await renderSeasonEpisodes({ seasonNumber: 0 });
 
       expect(mockGetSeasonEpisodes).toHaveBeenCalledWith(SHOW_ID, 0);
     });
