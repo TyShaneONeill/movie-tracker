@@ -820,6 +820,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     overflow: 'hidden',
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
+    zIndex: 1,
   },
   heroImage: {
     width: '100%',

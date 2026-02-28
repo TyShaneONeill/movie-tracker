@@ -428,6 +428,7 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
   heroSection: {
     height: 350,
     position: 'relative',
+    zIndex: 1,
   },
   heroImage: {
     width: '100%',
