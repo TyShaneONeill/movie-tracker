@@ -22,10 +22,12 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useHomeMovieLists } from '@/hooks/use-home-movie-lists';
 import { useHomeTvShowLists } from '@/hooks/use-home-tv-show-lists';
+import { useContinueWatching } from '@/hooks/use-continue-watching';
 import { useAuth } from '@/hooks/use-auth';
 import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
 import { formatRelativeTime, type FeedListItem } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
+import { ContinueWatchingCard } from '@/components/cards/continue-watching-card';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { NativeFeedAd } from '@/components/ads/native-feed-ad';
 import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
@@ -81,6 +83,9 @@ export default function HomeScreen() {
     refetch: refetchTvShows,
   } = useHomeTvShowLists();
 
+  // Fetch continue watching shows
+  const continueWatching = useContinueWatching();
+
   // Fetch prioritized activity feed (following first, then community)
   const {
     feedItems,
@@ -96,9 +101,9 @@ export default function HomeScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
-    await Promise.all([refetchMovies(), refetchTvShows(), refetchActivity()]);
+    await Promise.all([refetchMovies(), refetchTvShows(), refetchActivity(), continueWatching.refetch()]);
     setRefreshing(false);
-  }, [refetchMovies, refetchTvShows, refetchActivity, queryClient]);
+  }, [refetchMovies, refetchTvShows, refetchActivity, continueWatching, queryClient]);
 
   // Handle infinite scroll
   const handleEndReached = useCallback(() => {
@@ -200,6 +205,33 @@ export default function HomeScreen() {
             />
           </View>
         </View>
+
+        {/* Continue Watching Section */}
+        {user && continueWatching.shows.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader title="Continue Watching" />
+            <FlatList
+              horizontal
+              data={continueWatching.shows}
+              keyExtractor={(item) => String(item.tmdb_id)}
+              renderItem={({ item }) => (
+                <ContinueWatchingCard
+                  showId={item.tmdb_id}
+                  name={item.name}
+                  posterPath={item.poster_path}
+                  currentSeason={item.current_season}
+                  currentEpisode={item.current_episode}
+                  episodesWatched={item.episodes_watched}
+                  totalEpisodes={item.number_of_episodes}
+                  onPress={() => handleTvShowPress(item.tmdb_id)}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.trendingList}
+              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+            />
+          </View>
+        )}
 
         {/* Trending Section */}
         <View style={styles.section}>
@@ -399,6 +431,8 @@ export default function HomeScreen() {
       upcomingMovies,
       trendingShows,
       airingTodayShows,
+      user,
+      continueWatching.shows,
       handleThemeToggle,
       handleSearchPress,
       handleTrendingPress,
