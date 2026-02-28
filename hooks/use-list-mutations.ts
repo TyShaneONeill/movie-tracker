@@ -53,9 +53,9 @@ export function useListMutations(listId?: string) {
 
   // Mutation: add movie to list
   const addMovieMutation = useMutation({
-    mutationFn: async (params: { tmdbId: number; title: string; posterPath: string | null; notes?: string }) => {
+    mutationFn: async (params: { tmdbId: number; title: string; posterPath: string | null; notes?: string; mediaType?: 'movie' | 'tv_show' }) => {
       if (!listId) throw new Error('No list ID');
-      return addMovieToList(listId, params.tmdbId, params.title, params.posterPath, params.notes);
+      return addMovieToList(listId, params.tmdbId, params.title, params.posterPath, params.notes, params.mediaType);
     },
     onSuccess: () => invalidateLists(),
   });
