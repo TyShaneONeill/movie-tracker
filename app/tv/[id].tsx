@@ -110,7 +110,12 @@ function SeasonAccordionItem({
     unmarkWatched,
     markAllWatched,
     isMarkingAllWatched,
+    unmarkAllWatched,
+    isUnmarkingAllWatched,
+    allWatched,
   } = useEpisodeActions(userTvShowId, showId, season.season_number);
+
+  const isAllWatched = allWatched(episodes.length);
 
   const seasonYear = season.air_date?.split('-')[0] ?? '';
   const posterUrl = getTMDBImageUrl(season.poster_path, 'w185');
@@ -152,17 +157,19 @@ function SeasonAccordionItem({
               {/* Mark All Watched button - only if show is in library */}
               {isSaved && userTvShowId && episodes.length > 0 && (
                 <Pressable
-                  onPress={() => markAllWatched(episodes)}
-                  disabled={isMarkingAllWatched}
+                  onPress={() => isAllWatched ? unmarkAllWatched() : markAllWatched(episodes)}
+                  disabled={isMarkingAllWatched || isUnmarkingAllWatched}
                   style={({ pressed }) => [
                     dynamicStyles.markAllButton,
                     pressed && { opacity: 0.7 },
                   ]}
                 >
-                  {isMarkingAllWatched ? (
+                  {(isMarkingAllWatched || isUnmarkingAllWatched) ? (
                     <ActivityIndicator size="small" color={colors.tint} />
                   ) : (
-                    <Text style={dynamicStyles.markAllText}>Mark All Watched</Text>
+                    <Text style={dynamicStyles.markAllText}>
+                      {isAllWatched ? 'Unmark All Watched' : 'Mark All Watched'}
+                    </Text>
                   )}
                 </Pressable>
               )}

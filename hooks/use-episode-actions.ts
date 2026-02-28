@@ -6,6 +6,7 @@ import {
   markEpisodeWatched,
   unmarkEpisodeWatched,
   markSeasonWatched,
+  unmarkSeasonWatched,
 } from '@/lib/tv-show-service';
 import type { UserEpisodeWatch } from '@/lib/database.types';
 import type { TMDBEpisode } from '@/lib/tmdb.types';
@@ -23,6 +24,10 @@ interface UseEpisodeActionsResult {
   markAllWatched: (episodes: TMDBEpisode[]) => Promise<void>;
   isMarkingAllWatched: boolean;
 
+  unmarkAllWatched: () => Promise<void>;
+  isUnmarkingAllWatched: boolean;
+
+  allWatched: (episodeCount: number) => boolean;
   isEpisodeWatched: (episodeNumber: number) => boolean;
 }
 
@@ -73,6 +78,18 @@ export function useEpisodeActions(
     onSuccess: invalidateRelated,
   });
 
+  const unmarkAllWatchedMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      return unmarkSeasonWatched(user.id, userTvShowId, seasonNumber);
+    },
+    onSuccess: invalidateRelated,
+  });
+
+  const allWatched = (episodeCount: number): boolean => {
+    return watchedEpisodes.length >= episodeCount && episodeCount > 0;
+  };
+
   const isEpisodeWatched = (episodeNumber: number): boolean => {
     return watchedEpisodes.some((ep) => ep.episode_number === episodeNumber);
   };
@@ -96,6 +113,12 @@ export function useEpisodeActions(
     },
     isMarkingAllWatched: markAllWatchedMutation.isPending,
 
+    unmarkAllWatched: async () => {
+      await unmarkAllWatchedMutation.mutateAsync();
+    },
+    isUnmarkingAllWatched: unmarkAllWatchedMutation.isPending,
+
+    allWatched,
     isEpisodeWatched,
   };
 }
