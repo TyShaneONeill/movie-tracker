@@ -146,7 +146,40 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete user movies: ${userMoviesError.message}`);
     }
 
-    // 6. Delete theater_visits
+    // 6. Delete user_episode_watches (references user_tv_shows, so delete first)
+    const { error: episodeWatchesError } = await supabaseAdmin
+      .from('user_episode_watches')
+      .delete()
+      .eq('user_id', userId);
+
+    if (episodeWatchesError) {
+      console.error('[delete-account] Failed to delete episode watches:', episodeWatchesError);
+      throw new Error(`Failed to delete episode watches: ${episodeWatchesError.message}`);
+    }
+
+    // 7. Delete user_tv_show_likes
+    const { error: tvShowLikesError } = await supabaseAdmin
+      .from('user_tv_show_likes')
+      .delete()
+      .eq('user_id', userId);
+
+    if (tvShowLikesError) {
+      console.error('[delete-account] Failed to delete TV show likes:', tvShowLikesError);
+      throw new Error(`Failed to delete TV show likes: ${tvShowLikesError.message}`);
+    }
+
+    // 8. Delete user_tv_shows
+    const { error: userTvShowsError } = await supabaseAdmin
+      .from('user_tv_shows')
+      .delete()
+      .eq('user_id', userId);
+
+    if (userTvShowsError) {
+      console.error('[delete-account] Failed to delete TV shows:', userTvShowsError);
+      throw new Error(`Failed to delete TV shows: ${userTvShowsError.message}`);
+    }
+
+    // 9. Delete theater_visits
     const { error: theaterVisitsError } = await supabaseAdmin
       .from('theater_visits')
       .delete()
@@ -157,7 +190,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete theater visits: ${theaterVisitsError.message}`);
     }
 
-    // 7. Delete rate_limits
+    // 10. Delete rate_limits
     const { error: rateLimitsError } = await supabaseAdmin
       .from('rate_limits')
       .delete()
@@ -168,7 +201,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete rate limits: ${rateLimitsError.message}`);
     }
 
-    // 8. Delete scan_usage
+    // 11. Delete scan_usage
     const { error: scanUsageError } = await supabaseAdmin
       .from('scan_usage')
       .delete()
@@ -179,7 +212,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete scan usage: ${scanUsageError.message}`);
     }
 
-    // 9. Delete profiles
+    // 12. Delete profiles
     const { error: profilesError } = await supabaseAdmin
       .from('profiles')
       .delete()
@@ -190,7 +223,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete profile: ${profilesError.message}`);
     }
 
-    // 10. Finally, delete the auth user
+    // 13. Finally, delete the auth user
     const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (authDeleteError) {
