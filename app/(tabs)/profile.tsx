@@ -656,7 +656,7 @@ export default function ProfileScreen() {
                                 rating={take.rating}
                                 createdAt={take.created_at ?? ''}
                                 isLatest={index === 0}
-                                onPress={() => router.push(`/movie/${take.tmdb_id}`)}
+                                onPress={() => router.push(take.media_type === 'tv_show' ? `/tv/${take.tmdb_id}` : `/movie/${take.tmdb_id}`)}
                             />
                         </View>
                     ))}
