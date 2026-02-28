@@ -319,6 +319,7 @@ export interface TvShowDetailResponse {
   trailer: TMDBVideo | null;
   watchProviders: Record<string, TMDBWatchProviders>;
   seasons: TMDBSeason[];
+  recommendations: TMDBTvRecommendation[];
 }
 
 export interface TvShowListResponse {
@@ -334,6 +335,18 @@ export interface SeasonDetailResponse {
   name: string;
   overview: string;
   posterPath: string | null;
+}
+
+// TV show recommendation from TMDB
+export interface TMDBTvRecommendation {
+  id: number;
+  name: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  first_air_date: string;
+  vote_average: number;
+  overview: string;
+  genre_ids: number[];
 }
 
 // Person TV credits (parallels TMDBPersonMovieCredit)

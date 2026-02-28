@@ -173,6 +173,7 @@ export async function getTvShowDetailsWithCache(
         trailer: cachedTrailer,
         watchProviders: {},
         seasons: cachedSeasons,
+        recommendations: [],
       },
       fromCache: true,
     };

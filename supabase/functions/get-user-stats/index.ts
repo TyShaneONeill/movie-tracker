@@ -23,6 +23,8 @@ interface UserStatsResponse {
   summary: {
     totalWatched: number;
     totalTvWatched: number;
+    totalEpisodesWatched: number;
+    totalWatchTimeMinutes: number;
     totalFirstTakes: number;
     averageRating: number | null;
   };
@@ -118,6 +120,8 @@ Deno.serve(async (req: Request) => {
     let summary = {
       totalWatched: 0,
       totalTvWatched: 0,
+      totalEpisodesWatched: 0,
+      totalWatchTimeMinutes: 0,
       totalFirstTakes: 0,
       averageRating: null as number | null,
     };
@@ -127,6 +131,8 @@ Deno.serve(async (req: Request) => {
       summary = {
         totalWatched: row.total_watched || 0,
         totalTvWatched: row.total_tv_watched || 0,
+        totalEpisodesWatched: row.total_episodes_watched || 0,
+        totalWatchTimeMinutes: row.total_watch_time_minutes || 0,
         totalFirstTakes: row.total_first_takes || 0,
         averageRating: row.avg_rating ? parseFloat(row.avg_rating.toFixed(1)) : null,
       };
