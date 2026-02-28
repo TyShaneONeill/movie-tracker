@@ -173,7 +173,7 @@ export default function AnalyticsScreen() {
                 ? `${Math.floor(stats.summary.totalWatchTimeMinutes / 60)}h ${stats.summary.totalWatchTimeMinutes % 60}m`
                 : '--'}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Watch Time</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>TV Watch Time</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
