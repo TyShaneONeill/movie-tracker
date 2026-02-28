@@ -1344,6 +1344,7 @@ export type Database = {
         Returns: {
           avg_rating: number
           total_first_takes: number
+          total_tv_watched: number
           total_watched: number
         }[]
       }
@@ -1583,6 +1584,7 @@ export type UserTvShowLikeInsert = Database['public']['Tables']['user_tv_show_li
 export interface UserStatsResponse {
   summary: {
     totalWatched: number;
+    totalTvWatched: number;
     totalFirstTakes: number;
     averageRating: number | null;
   };

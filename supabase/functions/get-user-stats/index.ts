@@ -22,6 +22,7 @@ interface MonthlyCount {
 interface UserStatsResponse {
   summary: {
     totalWatched: number;
+    totalTvWatched: number;
     totalFirstTakes: number;
     averageRating: number | null;
   };
@@ -91,12 +92,19 @@ Deno.serve(async (req: Request) => {
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Run all queries in parallel
-    const [summaryResult, genresResult, monthlyResult] = await Promise.all([
-      // Summary stats query
+    const [summaryResult, genresResult, tvGenresResult, monthlyResult] = await Promise.all([
+      // Summary stats query (now includes total_tv_watched)
       supabaseClient.rpc('get_user_stats_summary', { p_user_id: user.id }),
 
-      // Genre distribution query - using raw SQL since we need unnest
+      // Genre distribution query - movie genres
       supabaseClient.from('user_movies')
+        .select('genre_ids')
+        .eq('user_id', user.id)
+        .eq('status', 'watched')
+        .not('genre_ids', 'is', null),
+
+      // Genre distribution query - TV show genres
+      supabaseClient.from('user_tv_shows')
         .select('genre_ids')
         .eq('user_id', user.id)
         .eq('status', 'watched')
@@ -109,6 +117,7 @@ Deno.serve(async (req: Request) => {
     // Process summary
     let summary = {
       totalWatched: 0,
+      totalTvWatched: 0,
       totalFirstTakes: 0,
       averageRating: null as number | null,
     };
@@ -117,19 +126,33 @@ Deno.serve(async (req: Request) => {
       const row = summaryResult.data[0];
       summary = {
         totalWatched: row.total_watched || 0,
+        totalTvWatched: row.total_tv_watched || 0,
         totalFirstTakes: row.total_first_takes || 0,
         averageRating: row.avg_rating ? parseFloat(row.avg_rating.toFixed(1)) : null,
       };
     }
 
-    // Process genres - aggregate from movies manually
+    // Process genres - aggregate from both movies and TV shows
     const genreCounts: Record<number, number> = {};
     let totalGenreCounts = 0;
 
+    // Movie genres
     if (genresResult.data) {
       for (const movie of genresResult.data) {
         if (movie.genre_ids && Array.isArray(movie.genre_ids)) {
           for (const genreId of movie.genre_ids) {
+            genreCounts[genreId] = (genreCounts[genreId] || 0) + 1;
+            totalGenreCounts++;
+          }
+        }
+      }
+    }
+
+    // TV show genres (merged into the same counts)
+    if (tvGenresResult.data) {
+      for (const show of tvGenresResult.data) {
+        if (show.genre_ids && Array.isArray(show.genre_ids)) {
+          for (const genreId of show.genre_ids) {
             genreCounts[genreId] = (genreCounts[genreId] || 0) + 1;
             totalGenreCounts++;
           }

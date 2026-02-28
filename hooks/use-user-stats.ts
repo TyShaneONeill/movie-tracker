@@ -23,6 +23,7 @@ interface MonthlyActivity {
 interface UserStats {
   summary: {
     totalWatched: number;
+    totalTvWatched: number;
     totalFirstTakes: number;
     averageRating: number | null;
   };
@@ -33,6 +34,7 @@ interface UserStats {
 interface EdgeFunctionResponse {
   summary: {
     totalWatched: number;
+    totalTvWatched: number;
     totalFirstTakes: number;
     averageRating: number | null;
   };

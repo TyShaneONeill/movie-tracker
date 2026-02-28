@@ -76,7 +76,7 @@ export default function AnalyticsScreen() {
   }
 
   // Empty state
-  const isEmpty = !stats || stats.summary.totalWatched === 0;
+  const isEmpty = !stats || (stats.summary.totalWatched === 0 && stats.summary.totalTvWatched === 0);
 
   if (isEmpty) {
     return (
@@ -104,7 +104,7 @@ export default function AnalyticsScreen() {
               No stats yet
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: Spacing.sm, textAlign: 'center' }]}>
-              Start watching movies to see your viewing statistics here
+              Start watching movies and TV shows to see your viewing statistics here
             </Text>
           </View>
           <BannerAdComponent placement="stats" />
@@ -152,16 +152,16 @@ export default function AnalyticsScreen() {
             <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Movies</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.display.h3, { color: colors.accentSecondary, marginBottom: Spacing.xs }]}>
+              {stats.summary.totalTvWatched}
+            </Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>TV Shows</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
               {stats.summary.totalFirstTakes}
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>First Takes</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-            <Text style={[Typography.display.h3, { color: colors.accentSecondary, marginBottom: Spacing.xs }]}>
-              {stats.summary.averageRating !== null ? stats.summary.averageRating.toFixed(1) : '--'}
-            </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Avg Rating</Text>
           </View>
         </View>
 
