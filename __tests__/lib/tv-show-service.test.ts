@@ -134,11 +134,81 @@ function makeUserEpisodeWatch(overrides: Partial<UserEpisodeWatch> = {}): UserEp
   };
 }
 
+function makeTvShowDetailResponse(): TvShowDetailResponse {
+  return {
+    show: {
+      id: TMDB_ID, name: 'Breaking Bad', overview: 'A tale',
+      poster_path: '/poster.jpg', backdrop_path: '/backdrop.jpg',
+      first_air_date: '2008-01-20', last_air_date: '2013-09-29',
+      vote_average: 8.9, vote_count: 12000,
+      genre_ids: [18], genres: [{ id: 18, name: 'Drama' }],
+      tagline: 'All Hail the King', status: 'Ended', type: 'Scripted',
+      in_production: false, number_of_seasons: 5, number_of_episodes: 62,
+      episode_run_time: [45, 47],
+      networks: [{ id: 174, name: 'AMC', logo_path: '/amc.png' }],
+      created_by: [{ id: 66633, name: 'Vince Gilligan', profile_path: '/vg.jpg' }],
+      seasons: [], original_language: 'en', origin_country: ['US'],
+    },
+    cast: [], crew: [], trailer: null,
+    watchProviders: {}, seasons: [], recommendations: [],
+  };
+}
+
 /** Set up mockFrom to return a Supabase query chain with the given result. */
 function setupQueryChain(result: { data: unknown; error: unknown }) {
   const chain = mockSupabaseQuery(result);
   mockFrom.mockReturnValue(chain);
   return chain;
+}
+
+/** Assert that sync_tv_show_progress RPC was called for the user TV show. */
+function expectSyncProgressRpc() {
+  expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', {
+    p_user_tv_show_id: USER_TV_SHOW_ID,
+  });
+}
+
+/**
+ * Shared error-handling tests for edge function wrappers.
+ * Each edge function follows the same pattern: error.message -> fallback -> null data.
+ */
+function describeEdgeFunctionErrors(
+  callFn: () => Promise<unknown>,
+  fallbackMessage: string,
+  nullDataMessage: string,
+) {
+  it('throws on invoke error', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Network fail' } });
+    await expect(callFn()).rejects.toThrow('Network fail');
+  });
+
+  it('throws fallback message when error has no message', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: {} });
+    await expect(callFn()).rejects.toThrow(fallbackMessage);
+  });
+
+  it('throws when data is null', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: null });
+    await expect(callFn()).rejects.toThrow(nullDataMessage);
+  });
+}
+
+/**
+ * Shared error-handling tests for database operations (supabase.from() pattern).
+ */
+function describeDbErrors(
+  callFn: () => Promise<unknown>,
+  fallbackMessage: string,
+) {
+  it('throws on error', async () => {
+    setupQueryChain({ data: null, error: { message: 'DB error' } });
+    await expect(callFn()).rejects.toThrow('DB error');
+  });
+
+  it('throws fallback message when error has no message', async () => {
+    setupQueryChain({ data: null, error: {} });
+    await expect(callFn()).rejects.toThrow(fallbackMessage);
+  });
 }
 
 // ============================================================================
@@ -155,8 +225,7 @@ beforeEach(() => {
 // ----------------------------------------------------------------------------
 
 describe('searchTvShows', () => {
-  const shows = [makeTMDBTvShow(), makeTMDBTvShow({ id: 1400, name: 'Better Call Saul' })];
-  const response = { shows, page: 1, totalPages: 5, totalResults: 100 };
+  const response = { shows: [makeTMDBTvShow()], page: 1, totalPages: 5, totalResults: 100 };
 
   it('returns search results on success', async () => {
     mockInvoke.mockResolvedValue({ data: response, error: null });
@@ -171,31 +240,17 @@ describe('searchTvShows', () => {
 
   it('uses default page=1', async () => {
     mockInvoke.mockResolvedValue({ data: response, error: null });
-
     await searchTvShows('breaking');
-
     expect(mockInvoke).toHaveBeenCalledWith('search-tv-shows', {
       body: { query: 'breaking', page: 1 },
     });
   });
 
-  it('throws on invoke error', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Network fail' } });
-
-    await expect(searchTvShows('breaking')).rejects.toThrow('Network fail');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: {} });
-
-    await expect(searchTvShows('breaking')).rejects.toThrow('Failed to search TV shows');
-  });
-
-  it('throws when data is null', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: null });
-
-    await expect(searchTvShows('breaking')).rejects.toThrow('No data returned from search');
-  });
+  describeEdgeFunctionErrors(
+    () => searchTvShows('breaking'),
+    'Failed to search TV shows',
+    'No data returned from search',
+  );
 });
 
 describe('discoverTvShowsByGenre', () => {
@@ -214,31 +269,17 @@ describe('discoverTvShowsByGenre', () => {
 
   it('defaults page to 1', async () => {
     mockInvoke.mockResolvedValue({ data: response, error: null });
-
     await discoverTvShowsByGenre(18);
-
     expect(mockInvoke).toHaveBeenCalledWith('discover-tv-shows', {
       body: { genreId: 18, page: 1 },
     });
   });
 
-  it('throws on invoke error', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Timeout' } });
-
-    await expect(discoverTvShowsByGenre(18)).rejects.toThrow('Timeout');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: {} });
-
-    await expect(discoverTvShowsByGenre(18)).rejects.toThrow('Failed to discover TV shows');
-  });
-
-  it('throws when data is null', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: null });
-
-    await expect(discoverTvShowsByGenre(18)).rejects.toThrow('No data returned from discover');
-  });
+  describeEdgeFunctionErrors(
+    () => discoverTvShowsByGenre(18),
+    'Failed to discover TV shows',
+    'No data returned from discover',
+  );
 });
 
 describe('getTvShowList', () => {
@@ -257,69 +298,35 @@ describe('getTvShowList', () => {
 
   it('defaults page to 1', async () => {
     mockInvoke.mockResolvedValue({ data: response, error: null });
-
     await getTvShowList('airing_today');
-
     expect(mockInvoke).toHaveBeenCalledWith('get-tv-show-lists', {
       body: { type: 'airing_today', page: 1 },
     });
   });
 
-  it('throws with type in error message', async () => {
+  test.each([
+    ['trending', 'Failed to fetch trending TV shows'],
+    ['top_rated', 'Failed to fetch top_rated TV shows'],
+    ['airing_today', 'Failed to fetch airing_today TV shows'],
+  ] as const)('throws fallback with type "%s" in message', async (type, expected) => {
     mockInvoke.mockResolvedValue({ data: null, error: {} });
-
-    await expect(getTvShowList('top_rated')).rejects.toThrow('Failed to fetch top_rated TV shows');
+    await expect(getTvShowList(type)).rejects.toThrow(expected);
   });
 
   it('throws on invoke error', async () => {
     mockInvoke.mockResolvedValue({ data: null, error: { message: 'Server error' } });
-
     await expect(getTvShowList('trending')).rejects.toThrow('Server error');
   });
 
   it('throws when data is null', async () => {
     mockInvoke.mockResolvedValue({ data: null, error: null });
-
     await expect(getTvShowList('trending')).rejects.toThrow('No data returned from TV show list');
   });
 });
 
 describe('getTvShowDetails', () => {
-  const tvShowDetail: TvShowDetailResponse = {
-    show: {
-      id: TMDB_ID,
-      name: 'Breaking Bad',
-      overview: 'A tale',
-      poster_path: '/poster.jpg',
-      backdrop_path: '/backdrop.jpg',
-      first_air_date: '2008-01-20',
-      last_air_date: '2013-09-29',
-      vote_average: 8.9,
-      vote_count: 12000,
-      genre_ids: [18],
-      genres: [{ id: 18, name: 'Drama' }],
-      tagline: 'All Hail the King',
-      status: 'Ended',
-      type: 'Scripted',
-      in_production: false,
-      number_of_seasons: 5,
-      number_of_episodes: 62,
-      episode_run_time: [45, 47],
-      networks: [{ id: 174, name: 'AMC', logo_path: '/amc.png' }],
-      created_by: [{ id: 66633, name: 'Vince Gilligan', profile_path: '/vg.jpg' }],
-      seasons: [],
-      original_language: 'en',
-      origin_country: ['US'],
-    },
-    cast: [],
-    crew: [],
-    trailer: null,
-    watchProviders: {},
-    seasons: [],
-    recommendations: [],
-  };
-
   it('delegates to getTvShowDetailsWithCache and returns data', async () => {
+    const tvShowDetail = makeTvShowDetailResponse();
     (getTvShowDetailsWithCache as jest.Mock).mockResolvedValue({ data: tvShowDetail });
 
     const result = await getTvShowDetails(TMDB_ID);
@@ -349,23 +356,11 @@ describe('getSeasonEpisodes', () => {
     expect(result).toEqual(response);
   });
 
-  it('throws on invoke error', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Not found' } });
-
-    await expect(getSeasonEpisodes(TMDB_ID, 1)).rejects.toThrow('Not found');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: {} });
-
-    await expect(getSeasonEpisodes(TMDB_ID, 1)).rejects.toThrow('Failed to fetch season episodes');
-  });
-
-  it('throws when data is null', async () => {
-    mockInvoke.mockResolvedValue({ data: null, error: null });
-
-    await expect(getSeasonEpisodes(TMDB_ID, 1)).rejects.toThrow('No data returned from season episodes');
-  });
+  describeEdgeFunctionErrors(
+    () => getSeasonEpisodes(TMDB_ID, 1),
+    'Failed to fetch season episodes',
+    'No data returned from season episodes',
+  );
 });
 
 // ----------------------------------------------------------------------------
@@ -386,34 +381,24 @@ describe('fetchUserTvShows', () => {
     expect(result).toEqual(shows);
   });
 
-  it('filters by status when provided', async () => {
-    const chain = setupQueryChain({ data: [], error: null });
-
-    await fetchUserTvShows(USER_ID, 'watching');
-
-    expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
-    expect(chain.eq).toHaveBeenCalledWith('status', 'watching');
-  });
+  test.each(['watching', 'watched', 'watchlist'] as const)(
+    'filters by status "%s" when provided',
+    async (status) => {
+      const chain = setupQueryChain({ data: [], error: null });
+      await fetchUserTvShows(USER_ID, status);
+      expect(chain.eq).toHaveBeenCalledWith('status', status);
+    }
+  );
 
   it('returns empty array when data is null', async () => {
     setupQueryChain({ data: null, error: null });
-
-    const result = await fetchUserTvShows(USER_ID);
-
-    expect(result).toEqual([]);
+    expect(await fetchUserTvShows(USER_ID)).toEqual([]);
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'DB error' } });
-
-    await expect(fetchUserTvShows(USER_ID)).rejects.toThrow('DB error');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(fetchUserTvShows(USER_ID)).rejects.toThrow('Failed to fetch TV shows');
-  });
+  describeDbErrors(
+    () => fetchUserTvShows(USER_ID),
+    'Failed to fetch TV shows',
+  );
 });
 
 describe('addTvShowToLibrary', () => {
@@ -439,45 +424,28 @@ describe('addTvShowToLibrary', () => {
     expect(result).toEqual(upserted);
   });
 
-  it('defaults status to watchlist', async () => {
+  test.each([
+    [undefined, 'watchlist'],
+    ['watching' as const, 'watching'],
+    ['watched' as const, 'watched'],
+  ])('uses status %s (resolves to "%s")', async (input, expected) => {
     const chain = setupQueryChain({ data: upserted, error: null });
-
-    await addTvShowToLibrary(USER_ID, show);
-
+    await addTvShowToLibrary(USER_ID, show, input as any);
     expect(chain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'watchlist' }),
+      expect.objectContaining({ status: expected }),
       expect.any(Object)
     );
   });
 
-  it('passes custom status', async () => {
-    const chain = setupQueryChain({ data: upserted, error: null });
-
-    await addTvShowToLibrary(USER_ID, show, 'watching');
-
-    expect(chain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'watching' }),
-      expect.any(Object)
-    );
-  });
-
-  it('throws error message on failure', async () => {
-    setupQueryChain({ data: null, error: { message: 'Insert failed' } });
-
-    await expect(addTvShowToLibrary(USER_ID, show)).rejects.toThrow('Insert failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: { code: 'OTHER' } });
-
-    await expect(addTvShowToLibrary(USER_ID, show)).rejects.toThrow('Failed to add TV show');
-  });
+  describeDbErrors(
+    () => addTvShowToLibrary(USER_ID, show),
+    'Failed to add TV show',
+  );
 });
 
 describe('updateTvShowStatus', () => {
-  const updated = makeUserTvShow({ status: 'watching' });
-
   it('updates status by user_id and tmdb_id and returns updated show', async () => {
+    const updated = makeUserTvShow({ status: 'watching' });
     const chain = setupQueryChain({ data: updated, error: null });
 
     const result = await updateTvShowStatus(USER_ID, TMDB_ID, 'watching');
@@ -490,17 +458,10 @@ describe('updateTvShowStatus', () => {
     expect(result).toEqual(updated);
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Update failed' } });
-
-    await expect(updateTvShowStatus(USER_ID, TMDB_ID, 'watching')).rejects.toThrow('Update failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(updateTvShowStatus(USER_ID, TMDB_ID, 'watching')).rejects.toThrow('Failed to update TV show');
-  });
+  describeDbErrors(
+    () => updateTvShowStatus(USER_ID, TMDB_ID, 'watching'),
+    'Failed to update TV show',
+  );
 });
 
 describe('removeTvShowFromLibrary', () => {
@@ -517,21 +478,13 @@ describe('removeTvShowFromLibrary', () => {
 
   it('does not throw when no row exists', async () => {
     setupQueryChain({ data: null, error: null });
-
     await expect(removeTvShowFromLibrary(USER_ID, TMDB_ID)).resolves.toBeUndefined();
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Delete failed' } });
-
-    await expect(removeTvShowFromLibrary(USER_ID, TMDB_ID)).rejects.toThrow('Delete failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(removeTvShowFromLibrary(USER_ID, TMDB_ID)).rejects.toThrow('Failed to remove TV show');
-  });
+  describeDbErrors(
+    () => removeTvShowFromLibrary(USER_ID, TMDB_ID),
+    'Failed to remove TV show',
+  );
 });
 
 describe('getTvShowByTmdbId', () => {
@@ -551,23 +504,13 @@ describe('getTvShowByTmdbId', () => {
 
   it('returns null when TV show not found', async () => {
     setupQueryChain({ data: null, error: null });
-
-    const result = await getTvShowByTmdbId(USER_ID, 999);
-
-    expect(result).toBeNull();
+    expect(await getTvShowByTmdbId(USER_ID, 999)).toBeNull();
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Query failed' } });
-
-    await expect(getTvShowByTmdbId(USER_ID, TMDB_ID)).rejects.toThrow('Query failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(getTvShowByTmdbId(USER_ID, TMDB_ID)).rejects.toThrow('Failed to check TV show');
-  });
+  describeDbErrors(
+    () => getTvShowByTmdbId(USER_ID, TMDB_ID),
+    'Failed to check TV show',
+  );
 });
 
 // ----------------------------------------------------------------------------
@@ -575,15 +518,12 @@ describe('getTvShowByTmdbId', () => {
 // ----------------------------------------------------------------------------
 
 describe('getTvShowLike', () => {
+  const like: UserTvShowLike = {
+    id: 'like-1', user_id: USER_ID, tmdb_id: TMDB_ID,
+    name: 'Breaking Bad', poster_path: '/poster.jpg', created_at: '2024-01-01',
+  };
+
   it('returns like record when found', async () => {
-    const like: UserTvShowLike = {
-      id: 'like-1',
-      user_id: USER_ID,
-      tmdb_id: TMDB_ID,
-      name: 'Breaking Bad',
-      poster_path: '/poster.jpg',
-      created_at: '2024-01-01',
-    };
     const chain = setupQueryChain({ data: like, error: null });
 
     const result = await getTvShowLike(USER_ID, TMDB_ID);
@@ -597,37 +537,23 @@ describe('getTvShowLike', () => {
 
   it('returns null when not liked', async () => {
     setupQueryChain({ data: null, error: null });
-
-    const result = await getTvShowLike(USER_ID, 999);
-
-    expect(result).toBeNull();
+    expect(await getTvShowLike(USER_ID, 999)).toBeNull();
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Failed' } });
-
-    await expect(getTvShowLike(USER_ID, TMDB_ID)).rejects.toThrow('Failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(getTvShowLike(USER_ID, TMDB_ID)).rejects.toThrow('Failed to check like status');
-  });
+  describeDbErrors(
+    () => getTvShowLike(USER_ID, TMDB_ID),
+    'Failed to check like status',
+  );
 });
 
 describe('likeTvShow', () => {
   const show = makeTMDBTvShow();
-  const likeRecord: UserTvShowLike = {
-    id: 'like-1',
-    user_id: USER_ID,
-    tmdb_id: TMDB_ID,
-    name: 'Breaking Bad',
-    poster_path: '/ggFHVNu6YYI5L9pCfOacjizRGt.jpg',
-    created_at: '2024-01-01',
-  };
 
   it('inserts a like and returns the record', async () => {
+    const likeRecord: UserTvShowLike = {
+      id: 'like-1', user_id: USER_ID, tmdb_id: TMDB_ID,
+      name: 'Breaking Bad', poster_path: show.poster_path, created_at: '2024-01-01',
+    };
     const chain = setupQueryChain({ data: likeRecord, error: null });
 
     const result = await likeTvShow(USER_ID, show);
@@ -635,10 +561,8 @@ describe('likeTvShow', () => {
     expect(mockFrom).toHaveBeenCalledWith('user_tv_show_likes');
     expect(chain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        user_id: USER_ID,
-        tmdb_id: show.id,
-        name: show.name,
-        poster_path: show.poster_path,
+        user_id: USER_ID, tmdb_id: show.id,
+        name: show.name, poster_path: show.poster_path,
       })
     );
     expect(result).toEqual(likeRecord);
@@ -646,19 +570,16 @@ describe('likeTvShow', () => {
 
   it('throws ALREADY_LIKED on duplicate (23505)', async () => {
     setupQueryChain({ data: null, error: { code: '23505', message: 'duplicate' } });
-
     await expect(likeTvShow(USER_ID, show)).rejects.toThrow('ALREADY_LIKED');
   });
 
   it('throws error message for other errors', async () => {
     setupQueryChain({ data: null, error: { message: 'Insert error' } });
-
     await expect(likeTvShow(USER_ID, show)).rejects.toThrow('Insert error');
   });
 
   it('throws fallback message when error has no message', async () => {
     setupQueryChain({ data: null, error: { code: 'OTHER' } });
-
     await expect(likeTvShow(USER_ID, show)).rejects.toThrow('Failed to like TV show');
   });
 });
@@ -675,17 +596,10 @@ describe('unlikeTvShow', () => {
     expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Unlike failed' } });
-
-    await expect(unlikeTvShow(USER_ID, TMDB_ID)).rejects.toThrow('Unlike failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(unlikeTvShow(USER_ID, TMDB_ID)).rejects.toThrow('Failed to unlike TV show');
-  });
+  describeDbErrors(
+    () => unlikeTvShow(USER_ID, TMDB_ID),
+    'Failed to unlike TV show',
+  );
 });
 
 // ----------------------------------------------------------------------------
@@ -717,33 +631,13 @@ describe('markEpisodeWatched', () => {
     );
     expect(chain.select).toHaveBeenCalled();
     expect(result).toEqual(watchRecord);
+    expectSyncProgressRpc();
   });
 
-  it('calls sync_tv_show_progress RPC after insert', async () => {
-    setupQueryChain({ data: watchRecord, error: null });
-
-    await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
-
-    expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', {
-      p_user_tv_show_id: USER_TV_SHOW_ID,
-    });
-  });
-
-  it('throws on insert error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Insert failed' } });
-
-    await expect(
-      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode)
-    ).rejects.toThrow('Insert failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(
-      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode)
-    ).rejects.toThrow('Failed to mark episode as watched');
-  });
+  describeDbErrors(
+    () => markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode),
+    'Failed to mark episode as watched',
+  );
 });
 
 describe('unmarkEpisodeWatched', () => {
@@ -758,91 +652,47 @@ describe('unmarkEpisodeWatched', () => {
     expect(chain.eq).toHaveBeenCalledWith('user_tv_show_id', USER_TV_SHOW_ID);
     expect(chain.eq).toHaveBeenCalledWith('season_number', 1);
     expect(chain.eq).toHaveBeenCalledWith('episode_number', 1);
+    expectSyncProgressRpc();
   });
 
-  it('calls sync_tv_show_progress RPC after delete', async () => {
-    setupQueryChain({ data: null, error: null });
-
-    await unmarkEpisodeWatched(USER_ID, USER_TV_SHOW_ID, 1, 1);
-
-    expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', {
-      p_user_tv_show_id: USER_TV_SHOW_ID,
-    });
-  });
-
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Delete failed' } });
-
-    await expect(
-      unmarkEpisodeWatched(USER_ID, USER_TV_SHOW_ID, 1, 1)
-    ).rejects.toThrow('Delete failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(
-      unmarkEpisodeWatched(USER_ID, USER_TV_SHOW_ID, 1, 1)
-    ).rejects.toThrow('Failed to unmark episode');
-  });
+  describeDbErrors(
+    () => unmarkEpisodeWatched(USER_ID, USER_TV_SHOW_ID, 1, 1),
+    'Failed to unmark episode',
+  );
 });
 
 describe('markSeasonWatched', () => {
   const episodes = [
     makeTMDBEpisode({ episode_number: 1 }),
-    makeTMDBEpisode({ episode_number: 2, id: 62086, name: 'Cat\'s in the Bag...' }),
-    makeTMDBEpisode({ episode_number: 3, id: 62087, name: '...And the Bag\'s in the River' }),
+    makeTMDBEpisode({ episode_number: 2, id: 62086, name: "Cat's in the Bag..." }),
+    makeTMDBEpisode({ episode_number: 3, id: 62087, name: "...And the Bag's in the River" }),
   ];
 
-  it('inserts all episodes for the season', async () => {
+  it('inserts all episodes for the season and syncs progress', async () => {
     const chain = setupQueryChain({ data: null, error: null });
 
     await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
 
     expect(mockFrom).toHaveBeenCalledWith('user_episode_watches');
     expect(chain.insert).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          user_id: USER_ID,
-          user_tv_show_id: USER_TV_SHOW_ID,
-          tmdb_show_id: TMDB_ID,
-          episode_number: 1,
-        }),
-        expect.objectContaining({
-          episode_number: 2,
-        }),
-        expect.objectContaining({
-          episode_number: 3,
-        }),
-      ])
+      expect.arrayContaining(
+        episodes.map((ep) =>
+          expect.objectContaining({
+            user_id: USER_ID,
+            user_tv_show_id: USER_TV_SHOW_ID,
+            tmdb_show_id: TMDB_ID,
+            episode_number: ep.episode_number,
+          })
+        )
+      )
     );
+    expectSyncProgressRpc();
   });
 
-  it('calls sync_tv_show_progress RPC after insert', async () => {
-    setupQueryChain({ data: null, error: null });
-
-    await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
-
-    expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', {
-      p_user_tv_show_id: USER_TV_SHOW_ID,
-    });
-  });
-
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Batch insert failed' } });
-
-    await expect(
-      markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes)
-    ).rejects.toThrow('Batch insert failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(
-      markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes)
-    ).rejects.toThrow('Failed to mark season as watched');
-  });
+  describeDbErrors(
+    () => markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes),
+    'Failed to mark season as watched',
+  );
 });
 
 describe('getWatchedEpisodes', () => {
@@ -862,25 +712,11 @@ describe('getWatchedEpisodes', () => {
 
   it('returns empty array when data is null', async () => {
     setupQueryChain({ data: null, error: null });
-
-    const result = await getWatchedEpisodes(USER_ID, USER_TV_SHOW_ID, 1);
-
-    expect(result).toEqual([]);
+    expect(await getWatchedEpisodes(USER_ID, USER_TV_SHOW_ID, 1)).toEqual([]);
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Fetch failed' } });
-
-    await expect(
-      getWatchedEpisodes(USER_ID, USER_TV_SHOW_ID, 1)
-    ).rejects.toThrow('Fetch failed');
-  });
-
-  it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
-
-    await expect(
-      getWatchedEpisodes(USER_ID, USER_TV_SHOW_ID, 1)
-    ).rejects.toThrow('Failed to fetch watched episodes');
-  });
+  describeDbErrors(
+    () => getWatchedEpisodes(USER_ID, USER_TV_SHOW_ID, 1),
+    'Failed to fetch watched episodes',
+  );
 });
