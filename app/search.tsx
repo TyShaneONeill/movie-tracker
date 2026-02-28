@@ -75,8 +75,8 @@ const XIcon = ({ color = '#a1a1aa' }: { color?: string }) => (
 );
 
 // Category filter options
-const MOVIE_CATEGORIES = ['Top Results', 'Movies', 'People', 'Lists', 'Users'];
-const TV_CATEGORIES = ['Top Results', 'TV Shows', 'Users'];
+const MOVIE_CATEGORIES = ['Top Results', 'People', 'Lists', 'Users'];
+const TV_CATEGORIES = ['Top Results', 'Users'];
 
 // Genre data with curated poster images (no API calls needed)
 // Each genre has multiple posters that rotate
