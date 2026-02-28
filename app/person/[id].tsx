@@ -47,23 +47,47 @@ export default function PersonDetailScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const insets = useSafeAreaInsets();
-  const { person, movieCredits, isLoading, isError, error } = usePersonDetail({ personId: id ?? '' });
+  const { person, movieCredits, tvCredits, isLoading, isError, error } = usePersonDetail({ personId: id ?? '' });
 
   const [biographyExpanded, setBiographyExpanded] = useState(false);
 
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
   const knownFor = useMemo(() => {
-    if (!movieCredits.length) return [];
-    return [...movieCredits].sort((a, b) => b.popularity - a.popularity).slice(0, 5);
-  }, [movieCredits]);
+    const normalizedTv = tvCredits.map(c => ({
+      id: c.id,
+      title: c.name,
+      poster_path: c.poster_path,
+      popularity: c.popularity,
+      credit_id: c.credit_id,
+      release_date: c.first_air_date,
+      isTv: true as const,
+    }));
+    const normalizedMovies = movieCredits.map(c => ({
+      id: c.id,
+      title: c.title,
+      poster_path: c.poster_path,
+      popularity: c.popularity,
+      credit_id: c.credit_id,
+      release_date: c.release_date,
+      isTv: false as const,
+    }));
+    const merged = [...normalizedMovies, ...normalizedTv]
+      .sort((a, b) => b.popularity - a.popularity)
+      .slice(0, 5);
+    return merged;
+  }, [movieCredits, tvCredits]);
 
   const avgRating = useMemo(() => {
-    const rated = movieCredits.filter((c) => c.vote_average > 0);
+    const allCredits = [
+      ...movieCredits.map(c => c.vote_average),
+      ...tvCredits.map(c => c.vote_average),
+    ];
+    const rated = allCredits.filter(v => v > 0);
     if (!rated.length) return null;
-    const sum = rated.reduce((acc, c) => acc + c.vote_average, 0);
+    const sum = rated.reduce((acc, v) => acc + v, 0);
     return (sum / rated.length).toFixed(1);
-  }, [movieCredits]);
+  }, [movieCredits, tvCredits]);
 
   const handleGoBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -162,7 +186,7 @@ export default function PersonDetailScreen() {
           <View style={dynamicStyles.statsRow}>
             <View style={dynamicStyles.statBubble}>
               <Text style={dynamicStyles.statText}>
-                {movieCredits.length} Credits
+                {movieCredits.length + tvCredits.length} Credits
               </Text>
             </View>
             {avgRating && (
@@ -216,7 +240,7 @@ export default function PersonDetailScreen() {
                 return (
                   <Pressable
                     key={credit.credit_id}
-                    onPress={() => router.push(`/movie/${credit.id}`)}
+                    onPress={() => router.push(credit.isTv ? `/tv/${credit.id}` : `/movie/${credit.id}`)}
                     style={dynamicStyles.knownForCard}
                   >
                     {posterUrl ? (
@@ -284,6 +308,64 @@ export default function PersonDetailScreen() {
                   {year ? (
                     <Text style={dynamicStyles.filmographyYear}>{year}</Text>
                   ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {/* TV Shows Section */}
+        {tvCredits.length > 0 && (
+          <View style={dynamicStyles.section}>
+            <View style={dynamicStyles.filmographyHeader}>
+              <Text style={dynamicStyles.sectionTitle}>TV Shows</Text>
+              <View style={dynamicStyles.countBadge}>
+                <Text style={dynamicStyles.countBadgeText}>{tvCredits.length}</Text>
+              </View>
+            </View>
+            {tvCredits.map((credit) => {
+              const thumbUrl = getTMDBImageUrl(credit.poster_path, 'w154');
+              const year = credit.first_air_date?.split('-')[0];
+              return (
+                <Pressable
+                  key={credit.credit_id}
+                  onPress={() => router.push(`/tv/${credit.id}`)}
+                  style={dynamicStyles.filmographyRow}
+                >
+                  {thumbUrl ? (
+                    <Image
+                      source={{ uri: thumbUrl }}
+                      style={dynamicStyles.filmographyPoster}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={[dynamicStyles.filmographyPoster, dynamicStyles.posterPlaceholder]}>
+                      <Ionicons name="tv-outline" size={20} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <View style={dynamicStyles.filmographyInfo}>
+                    <Text style={dynamicStyles.filmographyTitle} numberOfLines={1}>
+                      {credit.name}
+                    </Text>
+                    {credit.character ? (
+                      <Text style={dynamicStyles.filmographyCharacter} numberOfLines={1}>
+                        as {credit.character}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {credit.episode_count > 0 && (
+                      <View style={dynamicStyles.episodeBadge}>
+                        <Text style={dynamicStyles.episodeBadgeText}>
+                          {credit.episode_count} ep{credit.episode_count !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    )}
+                    {year ? (
+                      <Text style={dynamicStyles.filmographyYear}>{year}</Text>
+                    ) : null}
+                  </View>
                 </Pressable>
               );
             })}
@@ -510,6 +592,18 @@ const createStyles = (colors: ThemeColors) =>
     },
     filmographyYear: {
       ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+
+    // Episode Badge
+    episodeBadge: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: BorderRadius.full,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 2,
+    },
+    episodeBadgeText: {
+      ...Typography.body.xs,
       color: colors.textSecondary,
     },
   });
