@@ -93,131 +93,91 @@ Full-featured detail screen at `app/tv/[id].tsx`:
 
 ---
 
-## Phase 2: App Integration (Not Started)
-
-TV shows work in isolation (search → detail → track) but aren't integrated into the rest of the app.
+## Phase 2: App Integration (Complete)
 
 ### 2.1 Home Screen TV Sections
-**Priority:** High
-**Status:** Not Started
+**PR:** #156 | **Status:** Complete
 
-The home screen only shows movie sections. Add TV show sections.
-
-**Requirements:**
-- [ ] "Trending TV Shows" horizontal scroll section
-- [ ] "Airing Today" or "New Episodes" section
-- [ ] Reuse existing `useTvShowList` hook with different list types
-- [ ] TV show cards navigate to `/tv/{id}`
-- [ ] Consider a media type toggle on home screen, or interleave TV sections with movie sections
-
-**Files:** `app/(tabs)/index.tsx`
+- [x] "Trending TV Shows" horizontal scroll section
+- [x] "Airing Today" section
+- [x] TV show cards navigate to `/tv/{id}`
+- [x] Category page support for TV list types (`tv_trending`, `tv_airing_today`, etc.)
 
 ### 2.2 Profile / Library TV Collection
-**Priority:** High
-**Status:** Not Started
+**PR:** #157 | **Status:** Complete
 
-The profile screen only shows watched movies. Users need to see their TV library.
-
-**Requirements:**
-- [ ] Add TV Shows tab or section to profile collection view
-- [ ] Show TV shows grouped by status (Watching, Watchlist, Watched, On Hold, Dropped)
-- [ ] Display progress (e.g., "S2 E5 / 8 seasons")
-- [ ] Tap navigates to `/tv/{id}`
-- [ ] Consider a combined "Library" view with Movies/TV toggle
-
-**Files:** `app/(tabs)/profile.tsx`
-**Hooks available:** `useUserTvShows` (already supports status filtering)
+- [x] Movies/TV toggle in Settings (default collection view preference)
+- [x] TV shows displayed in Collection tab with poster grid
+- [x] Tap navigates to `/tv/{id}`
+- [x] "Watched" stat count includes both movies and TV shows
 
 ### 2.3 Analytics / Stats
-**Priority:** Medium
-**Status:** Not Started
+**PRs:** #159, #165 | **Status:** Complete
 
-Analytics screen only tracks movie stats. TV data should be included.
-
-**Requirements:**
-- [ ] TV shows watched count
-- [ ] Episodes watched count
-- [ ] Total TV watch time (requires episode runtimes)
-- [ ] TV genre breakdown
-- [ ] Combined or tabbed Movies/TV stats view
-- [ ] Update `get-user-stats` edge function to query TV tables
-
-**Files:** `app/(tabs)/analytics.tsx`, edge function `get-user-stats`
+- [x] TV shows watched count
+- [x] Episodes watched count
+- [x] Total watch time (formatted as hours/minutes)
+- [x] TV genre breakdown merged into genre donut
+- [x] Two rows of stat cards: Movies/TV Shows/Episodes + Watch Time/First Takes/Avg Rating
+- [x] Updated `get_user_stats_summary` RPC and `get-user-stats` edge function
 
 ### 2.4 Activity Feed
-**Priority:** Medium
-**Status:** Not Started
+**PR:** #158 | **Status:** Complete
 
-Feed doesn't distinguish TV First Takes from movie First Takes.
-
-**Requirements:**
-- [ ] Display TV First Takes with proper metadata (show name, poster)
-- [ ] Navigate to `/tv/{id}` when tapping a TV First Take
-- [ ] Show media type indicator (Movie vs TV) on feed items
-- [ ] The `first_takes` table already has `media_type` column — feed service needs to use it
-
-**Files:** `lib/feed-service.ts`, feed components
+- [x] TV First Takes display with proper metadata
+- [x] Navigate to `/tv/{id}` when tapping a TV First Take
+- [x] "TV" badge pill on feed items for TV shows
+- [x] Feed service uses `media_type` column
 
 ### 2.5 Person Screen TV Credits
-**Priority:** Medium
-**Status:** Not Started
+**PR:** #160 | **Status:** Complete
 
-Person detail screen only shows movie credits. The `get-person-details` edge function already returns TV credits.
-
-**Requirements:**
-- [ ] Display TV credits alongside or separate from movie credits
-- [ ] Show series name, role, episode count
-- [ ] Navigate to `/tv/{id}` when tapping a TV credit
-- [ ] "Known For" section should include TV work
-
-**Files:** `app/person/[id].tsx`, `hooks/use-person-detail.ts`
+- [x] TV credits displayed alongside movie credits
+- [x] "Known For" section includes TV work (merged + sorted by popularity)
+- [x] TV Shows filmography section with show name, character, episode count
+- [x] Navigate to `/tv/{id}` when tapping a TV credit
 
 ### 2.6 Lists Support
-**Priority:** Low
-**Status:** Not Started
+**PR:** #162 | **Status:** Complete
 
-Users can't add TV shows to lists. This requires new DB tables and UI.
-
-**Requirements:**
-- [ ] Create `list_tv_shows` table (or extend `list_movies` to support both)
-- [ ] Add TV show to list from detail screen action grid
-- [ ] Display TV shows in list detail view
-- [ ] Mixed lists (movies + TV shows)
-
-**Files:** List-related screens and services
+- [x] TV shows can be added to lists from detail screen
+- [x] TV shows displayed in list detail view
+- [x] Mixed lists (movies + TV shows)
 
 ---
 
-## Phase 3: Polish (Not Started)
+## Phase 3: Polish (Mostly Complete)
 
 ### 3.1 "Continue Watching" Section
-- [ ] Smart section on home screen showing shows with unwatched episodes
-- [ ] Based on `user_tv_shows` with status = 'watching' and incomplete episode tracking
-- [ ] Deep link to next unwatched episode's season accordion
+**PRs:** #163, #164 | **Status:** Complete
+
+- [x] Smart section on home screen showing shows with status = 'watching'
+- [x] Shows current progress (season/episode)
+- [x] Tap navigates to `/tv/{id}`
+- [x] Settings toggle to show/hide Continue Watching section (`show_continue_watching` profile preference)
 
 ### 3.2 Episode Notifications
+**Status:** Deferred
+
 - [ ] Notify when a tracked show has new episodes airing
-- [ ] Requires checking TMDB air dates against user's library
+- [ ] Requires push notification infrastructure (Expo push notifications, scheduled TMDB air date checks)
 
 ### 3.3 TV Show Recommendations
-- [ ] "Because you watched X" recommendations
-- [ ] Based on genre overlap and TMDB similar shows API
+**PR:** #166 | **Status:** Complete
+
+- [x] "You Might Also Like" section on TV show detail screen
+- [x] Horizontal scroll of up to 10 recommended shows (poster, name, rating)
+- [x] Powered by TMDB `/tv/{id}/recommendations` endpoint
+- [x] Tap navigates to recommended show's detail page
 
 ---
 
-## Implementation Priority
+## Bug Fixes
 
-| # | Item | Priority | Effort | Dependencies |
-|---|------|----------|--------|--------------|
-| 1 | Home screen TV sections | High | Small | None |
-| 2 | Profile TV collection | High | Medium | None |
-| 3 | Analytics TV stats | Medium | Medium | Edge function update |
-| 4 | Activity feed TV support | Medium | Small | None |
-| 5 | Person TV credits | Medium | Small | None |
-| 6 | Lists TV support | Low | Medium | DB migration |
-| 7 | Continue Watching | Low | Medium | Items 1-2 |
-
-Items 1-2 are the highest priority — without them, users have no way to access their TV library outside of search.
+| PR | Issue | Fix |
+|---|---|---|
+| #161 | TV First Takes routed to movie detail screen and never loaded | Fixed routing in profile.tsx + passed `mediaType` through `useFirstTakeActions` hook; corrected existing DB records |
+| — | Stats page 401 Unauthorized | Redeployed `get-user-stats` with `verify_jwt: false` |
 
 ---
 
@@ -226,3 +186,4 @@ Items 1-2 are the highest priority — without them, users have no way to access
 | Date | Changes |
 |------|---------|
 | 2025-02-27 | Initial PRD created. Phase 1 complete (PRs #149-152). |
+| 2026-02-28 | Phase 2 complete (PRs #156-160, #162, #165). Phase 3 mostly complete (#163-164, #166). Episode notifications deferred. |
