@@ -1,7 +1,7 @@
 import '../setup';
 import { renderHook, waitFor } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
+import { makeTMDBTvShow, makeTvShowListResponse, createQueryWrapper } from './tv-show-test-helpers';
+import type { TvShowListResponse } from '@/lib/tmdb.types';
 
 // ============================================================================
 // Mocks
@@ -13,7 +13,6 @@ jest.mock('@/lib/tv-show-service', () => ({
 
 import { useHomeTvShowLists } from '@/hooks/use-home-tv-show-lists';
 import { getTvShowList } from '@/lib/tv-show-service';
-import type { TMDBTvShow, TvShowListResponse } from '@/lib/tmdb.types';
 
 const mockGetTvShowList = getTvShowList as jest.Mock;
 
@@ -21,47 +20,29 @@ const mockGetTvShowList = getTvShowList as jest.Mock;
 // Helpers
 // ============================================================================
 
-function makeTvShow(overrides: Partial<TMDBTvShow> = {}): TMDBTvShow {
-  return {
-    id: 1,
-    name: 'Breaking Bad',
-    overview: 'A chemistry teacher turned meth maker.',
-    poster_path: '/poster.jpg',
-    backdrop_path: '/backdrop.jpg',
-    first_air_date: '2008-01-20',
-    vote_average: 9.5,
-    vote_count: 10000,
-    genre_ids: [18, 80],
-    origin_country: ['US'],
-    original_language: 'en',
-    popularity: 100,
-    ...overrides,
-  };
-}
-
-function makeListResponse(
-  overrides: Partial<TvShowListResponse> = {}
-): TvShowListResponse {
-  return {
-    shows: [makeTvShow()],
-    page: 1,
-    totalPages: 1,
-    totalResults: 1,
-    ...overrides,
-  };
-}
-
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+/** Sets up mockGetTvShowList to return different shows per list type. */
+function mockListsByType(lists: {
+  trending?: ReturnType<typeof makeTMDBTvShow>[];
+  airing_today?: ReturnType<typeof makeTMDBTvShow>[];
+}) {
+  mockGetTvShowList.mockImplementation((type: string) => {
+    const shows = lists[type as keyof typeof lists] ?? [];
+    return Promise.resolve(makeTvShowListResponse({ shows }));
   });
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      children
-    );
-  };
+}
+
+function renderHomeLists() {
+  return renderHook(() => useHomeTvShowLists(), {
+    wrapper: createQueryWrapper(),
+  });
+}
+
+async function renderHomeListsAndWait() {
+  const hook = renderHomeLists();
+  await waitFor(() => {
+    expect(hook.result.current.isLoading).toBe(false);
+  });
+  return hook;
 }
 
 // ============================================================================
@@ -74,92 +55,43 @@ describe('useHomeTvShowLists', () => {
   });
 
   it('returns trending and airing today shows', async () => {
-    const trendingShow = makeTvShow({ id: 1, name: 'Trending Show' });
-    const airingShow = makeTvShow({ id: 2, name: 'Airing Today Show' });
+    const trendingShow = makeTMDBTvShow({ id: 1, name: 'Trending Show' });
+    const airingShow = makeTMDBTvShow({ id: 2, name: 'Airing Today Show' });
+    mockListsByType({ trending: [trendingShow], airing_today: [airingShow] });
 
-    mockGetTvShowList.mockImplementation((type: string) => {
-      if (type === 'trending') {
-        return Promise.resolve(makeListResponse({ shows: [trendingShow] }));
-      }
-      if (type === 'airing_today') {
-        return Promise.resolve(makeListResponse({ shows: [airingShow] }));
-      }
-      return Promise.resolve(makeListResponse({ shows: [] }));
-    });
-
-    const { result } = renderHook(() => useHomeTvShowLists(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
+    const { result } = await renderHomeListsAndWait();
 
     expect(result.current.trendingShows).toEqual([trendingShow]);
     expect(result.current.airingTodayShows).toEqual([airingShow]);
   });
 
   it('deduplicates shows across sections with airing today priority', async () => {
-    const sharedShow = makeTvShow({ id: 1, name: 'Shared Show' });
-    const trendingOnly = makeTvShow({ id: 2, name: 'Trending Only' });
-
-    mockGetTvShowList.mockImplementation((type: string) => {
-      if (type === 'trending') {
-        return Promise.resolve(
-          makeListResponse({ shows: [sharedShow, trendingOnly] })
-        );
-      }
-      if (type === 'airing_today') {
-        return Promise.resolve(makeListResponse({ shows: [sharedShow] }));
-      }
-      return Promise.resolve(makeListResponse({ shows: [] }));
+    const sharedShow = makeTMDBTvShow({ id: 1, name: 'Shared Show' });
+    const trendingOnly = makeTMDBTvShow({ id: 2, name: 'Trending Only' });
+    mockListsByType({
+      trending: [sharedShow, trendingOnly],
+      airing_today: [sharedShow],
     });
 
-    const { result } = renderHook(() => useHomeTvShowLists(), {
-      wrapper: createWrapper(),
-    });
+    const { result } = await renderHomeListsAndWait();
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    // Shared show appears in airing today (priority)
     expect(result.current.airingTodayShows).toEqual([sharedShow]);
-    // Trending should NOT contain the shared show
     expect(result.current.trendingShows).toEqual([trendingOnly]);
   });
 
   it('deduplicates within airing today itself', async () => {
-    const show = makeTvShow({ id: 1 });
+    const show = makeTMDBTvShow({ id: 1 });
+    mockListsByType({ trending: [], airing_today: [show, show] });
 
-    mockGetTvShowList.mockImplementation((type: string) => {
-      if (type === 'trending') {
-        return Promise.resolve(makeListResponse({ shows: [] }));
-      }
-      if (type === 'airing_today') {
-        return Promise.resolve(makeListResponse({ shows: [show, show] }));
-      }
-      return Promise.resolve(makeListResponse({ shows: [] }));
-    });
-
-    const { result } = renderHook(() => useHomeTvShowLists(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
+    const { result } = await renderHomeListsAndWait();
 
     expect(result.current.airingTodayShows).toHaveLength(1);
   });
 
   it('shows loading state while fetching', () => {
-    // Make the promises hang to observe loading state
     mockGetTvShowList.mockReturnValue(new Promise(() => {}));
 
-    const { result } = renderHook(() => useHomeTvShowLists(), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHomeLists();
 
     expect(result.current.isLoading).toBe(true);
     expect(result.current.trendingShows).toEqual([]);
@@ -174,24 +106,16 @@ describe('useHomeTvShowLists', () => {
 
     mockGetTvShowList.mockImplementation((type: string) => {
       if (type === 'trending') return trendingPromise;
-      if (type === 'airing_today') {
-        return Promise.resolve(makeListResponse({ shows: [] }));
-      }
-      return Promise.resolve(makeListResponse({ shows: [] }));
+      return Promise.resolve(makeTvShowListResponse({ shows: [] }));
     });
 
-    const { result } = renderHook(() => useHomeTvShowLists(), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHomeLists();
 
-    // Airing today resolves but trending is still pending
     await waitFor(() => {
-      // At minimum one query is still loading
       expect(result.current.isLoading).toBe(true);
     });
 
-    // Now resolve trending
-    resolveTrending!(makeListResponse({ shows: [] }));
+    resolveTrending!(makeTvShowListResponse({ shows: [] }));
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -199,15 +123,9 @@ describe('useHomeTvShowLists', () => {
   });
 
   it('returns empty arrays when both lists return empty', async () => {
-    mockGetTvShowList.mockResolvedValue(makeListResponse({ shows: [] }));
+    mockListsByType({ trending: [], airing_today: [] });
 
-    const { result } = renderHook(() => useHomeTvShowLists(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
+    const { result } = await renderHomeListsAndWait();
 
     expect(result.current.trendingShows).toEqual([]);
     expect(result.current.airingTodayShows).toEqual([]);
@@ -216,15 +134,8 @@ describe('useHomeTvShowLists', () => {
   it('handles service errors gracefully', async () => {
     mockGetTvShowList.mockRejectedValue(new Error('Network error'));
 
-    const { result } = renderHook(() => useHomeTvShowLists(), {
-      wrapper: createWrapper(),
-    });
+    const { result } = await renderHomeListsAndWait();
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    // Even with errors, arrays should be empty not undefined
     expect(result.current.trendingShows).toEqual([]);
     expect(result.current.airingTodayShows).toEqual([]);
   });
