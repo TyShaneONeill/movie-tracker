@@ -56,7 +56,61 @@ export default function Root({ children }: PropsWithChildren) {
 
         <ScrollViewStyleReset />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <noscript>
+          <div
+            style={{
+              maxWidth: 800,
+              margin: '0 auto',
+              padding: '40px 20px',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              color: '#e4e4e7',
+              backgroundColor: '#09090b',
+              minHeight: '100vh',
+            }}
+          >
+            <h1>CineTrak - Track Your Movie Journey</h1>
+            <p>
+              Your personal movie tracker. Discover trending films, log what
+              you&apos;ve watched, rate and review movies, and track your
+              cinematic journey over time.
+            </p>
+            <h2>Discover Movies</h2>
+            <p>
+              Browse trending movies, now playing in theaters, and upcoming
+              releases. Explore detailed movie pages with cast information,
+              trailers, ratings, and reviews from the community.
+            </p>
+            <h2>Track Your Watchlist</h2>
+            <p>
+              Build your personal movie collection. Mark films as watched, add
+              them to your watchlist, and never forget a recommendation again.
+              See your stats and viewing habits at a glance.
+            </p>
+            <h2>Movie Journeys</h2>
+            <p>
+              Create themed movie journeys — curated lists of films tied
+              together by genre, director, era, or any theme you choose. Share
+              your journeys with friends and discover new ones from the
+              community.
+            </p>
+            <h2>Connect with Friends</h2>
+            <p>
+              Follow other movie lovers, see what they&apos;re watching, and
+              share your reviews. CineTrak is a social platform for film
+              enthusiasts who love discovering and discussing movies together.
+            </p>
+            <p>
+              <a href="https://cinetrak.app" style={{ color: '#6d28d9' }}>
+                Visit CineTrak
+              </a>{' '}
+              to start tracking your movie journey today. Available on iOS,
+              Android, and web.
+            </p>
+          </div>
+        </noscript>
+      </body>
     </html>
   );
 }
