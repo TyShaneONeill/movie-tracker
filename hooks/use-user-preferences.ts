@@ -8,6 +8,7 @@ export interface UserPreferences {
   firstTakePromptEnabled: boolean;
   reviewVisibility: ReviewVisibility;
   defaultCollectionView: 'movies' | 'tv';
+  showContinueWatching: boolean;
 }
 
 export interface UseUserPreferencesResult {
@@ -24,6 +25,7 @@ const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
   firstTakePromptEnabled: 'first_take_prompt_enabled',
   reviewVisibility: 'review_visibility',
   defaultCollectionView: 'default_collection_view',
+  showContinueWatching: 'show_continue_watching',
 };
 
 /**
@@ -32,7 +34,7 @@ const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
 async function fetchUserPreferences(userId: string): Promise<UserPreferences | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('first_take_prompt_enabled, review_visibility, default_collection_view')
+    .select('first_take_prompt_enabled, review_visibility, default_collection_view, show_continue_watching')
     .eq('id', userId)
     .single();
 
@@ -45,7 +47,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     throw error;
   }
 
-  const profileData = data as { first_take_prompt_enabled: boolean | null; review_visibility: ReviewVisibility | null; default_collection_view: string | null } | null;
+  const profileData = data as { first_take_prompt_enabled: boolean | null; review_visibility: ReviewVisibility | null; default_collection_view: string | null; show_continue_watching: boolean | null } | null;
 
   return {
     // Default to true for backwards compatibility (existing users without preference set)
@@ -53,6 +55,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     // Default to 'public' for backwards compatibility
     reviewVisibility: profileData?.review_visibility ?? 'public',
     defaultCollectionView: profileData?.default_collection_view === 'tv' ? 'tv' : 'movies',
+    showContinueWatching: profileData?.show_continue_watching ?? true,
   };
 }
 
@@ -75,6 +78,8 @@ async function updateUserPreference(
     updateData.review_visibility = value as ReviewVisibility;
   } else if (key === 'defaultCollectionView') {
     updateData.default_collection_view = value as string;
+  } else if (key === 'showContinueWatching') {
+    updateData.show_continue_watching = value as boolean;
   }
 
   // Use type assertion to work around Supabase client generic inference issue

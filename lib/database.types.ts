@@ -422,6 +422,7 @@ export type Database = {
           created_at: string
           default_collection_view: string
           feed_last_seen_at: string | null
+          show_continue_watching: boolean
           first_take_prompt_enabled: boolean | null
           followers_count: number | null
           following_count: number | null
@@ -447,6 +448,7 @@ export type Database = {
           following_count?: number | null
           full_name?: string | null
           id: string
+          show_continue_watching?: boolean
           onboarding_completed?: boolean | null
           review_visibility?: string
           theme_preference?: string | null
@@ -467,6 +469,7 @@ export type Database = {
           following_count?: number | null
           full_name?: string | null
           id?: string
+          show_continue_watching?: boolean
           onboarding_completed?: boolean | null
           review_visibility?: string
           theme_preference?: string | null

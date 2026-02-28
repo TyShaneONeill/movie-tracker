@@ -24,6 +24,7 @@ import { useHomeMovieLists } from '@/hooks/use-home-movie-lists';
 import { useHomeTvShowLists } from '@/hooks/use-home-tv-show-lists';
 import { useContinueWatching } from '@/hooks/use-continue-watching';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
 import { formatRelativeTime, type FeedListItem } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
@@ -85,6 +86,8 @@ export default function HomeScreen() {
 
   // Fetch continue watching shows
   const continueWatching = useContinueWatching();
+  const { preferences } = useUserPreferences();
+  const showContinueWatching = preferences?.showContinueWatching ?? true;
 
   // Fetch prioritized activity feed (following first, then community)
   const {
@@ -207,7 +210,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Continue Watching Section */}
-        {user && continueWatching.shows.length > 0 && (
+        {user && showContinueWatching && continueWatching.shows.length > 0 && (
           <View style={styles.section}>
             <SectionHeader title="Continue Watching" />
             <FlatList
