@@ -21,6 +21,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useHomeMovieLists } from '@/hooks/use-home-movie-lists';
+import { useHomeTvShowLists } from '@/hooks/use-home-tv-show-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
 import { formatRelativeTime, type FeedListItem } from '@/hooks/use-activity-feed';
@@ -72,6 +73,14 @@ export default function HomeScreen() {
     refetch: refetchMovies,
   } = useHomeMovieLists();
 
+  // Fetch TV show lists with deduplication
+  const {
+    trendingShows,
+    airingTodayShows,
+    isLoading: tvLoading,
+    refetch: refetchTvShows,
+  } = useHomeTvShowLists();
+
   // Fetch prioritized activity feed (following first, then community)
   const {
     feedItems,
@@ -87,9 +96,9 @@ export default function HomeScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
-    await Promise.all([refetchMovies(), refetchActivity()]);
+    await Promise.all([refetchMovies(), refetchTvShows(), refetchActivity()]);
     setRefreshing(false);
-  }, [refetchMovies, refetchActivity, queryClient]);
+  }, [refetchMovies, refetchTvShows, refetchActivity, queryClient]);
 
   // Handle infinite scroll
   const handleEndReached = useCallback(() => {
@@ -108,6 +117,10 @@ export default function HomeScreen() {
 
   const handleTrendingPress = useCallback((movieId: number) => {
     router.push(`/movie/${movieId}`);
+  }, []);
+
+  const handleTvShowPress = useCallback((showId: number) => {
+    router.push(`/tv/${showId}`);
   }, []);
 
   const handleActivityMoviePress = (movieId: number) => {
@@ -287,6 +300,74 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* Trending TV Section */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Trending TV"
+            actionText="See All"
+            onActionPress={() => router.push('/category/tv_trending')}
+          />
+          {tvLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.tint} />
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              data={trendingShows}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TrendingCard
+                  title={item.name}
+                  genre={getPrimaryGenre(item.genre_ids)}
+                  rating={item.vote_average.toFixed(1)}
+                  posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
+                  onPress={() => handleTvShowPress(item.id)}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.trendingList}
+              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              // 160px card + 16px separator
+              getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
+            />
+          )}
+        </View>
+
+        {/* Airing Today Section */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Airing Today"
+            actionText="See All"
+            onActionPress={() => router.push('/category/tv_airing_today')}
+          />
+          {tvLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.tint} />
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              data={airingTodayShows}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TrendingCard
+                  title={item.name}
+                  genre={getPrimaryGenre(item.genre_ids)}
+                  rating={item.vote_average.toFixed(1)}
+                  posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
+                  onPress={() => handleTvShowPress(item.id)}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.trendingList}
+              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              // 160px card + 16px separator
+              getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
+            />
+          )}
+        </View>
+
         {/* Ad Banner */}
         <BannerAdComponent placement="home" />
 
@@ -308,13 +389,17 @@ export default function HomeScreen() {
       colors.textSecondary,
       colors.tint,
       moviesLoading,
+      tvLoading,
       activityLoading,
       trendingMovies,
       nowPlayingMovies,
       upcomingMovies,
+      trendingShows,
+      airingTodayShows,
       handleThemeToggle,
       handleSearchPress,
       handleTrendingPress,
+      handleTvShowPress,
     ]
   );
 

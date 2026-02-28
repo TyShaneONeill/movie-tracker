@@ -14,9 +14,10 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useTheme } from '@/lib/theme-context';
 import { useMovieList } from '@/hooks/use-movie-lists';
+import { useTvShowList } from '@/hooks/use-tv-show-lists';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { getTMDBImageUrl, type TMDBMovie, type MovieListType } from '@/lib/tmdb.types';
+import { getTMDBImageUrl, type TMDBMovie, type TMDBTvShow, type MovieListType, type TvShowListType } from '@/lib/tmdb.types';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -26,10 +27,14 @@ function ChevronLeftIcon({ color }: { color: string }) {
   );
 }
 
-const CATEGORY_TITLES: Record<MovieListType, string> = {
+const CATEGORY_TITLES: Record<string, string> = {
   trending: 'Trending Now',
   now_playing: 'Now Playing',
   upcoming: 'Coming Soon',
+  tv_trending: 'Trending TV',
+  tv_airing_today: 'Airing Today',
+  tv_on_the_air: 'On The Air',
+  tv_top_rated: 'Top Rated TV',
 };
 
 const NUM_COLUMNS = 3;
@@ -41,32 +46,62 @@ export default function CategoryScreen() {
 
   const [page, setPage] = useState(1);
   const [allMovies, setAllMovies] = useState<TMDBMovie[]>([]);
+  const [allTvShows, setAllTvShows] = useState<TMDBTvShow[]>([]);
 
+  const isTv = type?.startsWith('tv_');
   const categoryType = (type as MovieListType) || 'trending';
-  const title = CATEGORY_TITLES[categoryType] || 'Movies';
+  const tvListType = (type?.replace('tv_', '') as TvShowListType) || 'trending';
+  const title = CATEGORY_TITLES[type || 'trending'] || (isTv ? 'TV Shows' : 'Movies');
 
   const {
     movies,
-    totalPages,
-    isLoading,
-    isFetching,
-  } = useMovieList({ type: categoryType, page });
+    totalPages: movieTotalPages,
+    isLoading: movieIsLoading,
+    isFetching: movieIsFetching,
+  } = useMovieList({ type: categoryType, page, enabled: !isTv });
+
+  const {
+    shows,
+    totalPages: tvTotalPages,
+    isLoading: tvIsLoading,
+    isFetching: tvIsFetching,
+  } = useTvShowList({ type: tvListType, page, enabled: !!isTv });
+
+  const totalPages = isTv ? tvTotalPages : movieTotalPages;
+  const isLoading = isTv ? tvIsLoading : movieIsLoading;
+  const isFetching = isTv ? tvIsFetching : movieIsFetching;
 
   // Append new movies when page changes
   React.useEffect(() => {
-    if (movies.length > 0) {
+    if (!isTv && movies.length > 0) {
       if (page === 1) {
         setAllMovies(movies);
       } else {
         setAllMovies((prev) => {
-          // Deduplicate by movie id
           const existingIds = new Set(prev.map((m) => m.id));
           const newMovies = movies.filter((m) => !existingIds.has(m.id));
           return [...prev, ...newMovies];
         });
       }
     }
-  }, [movies, page]);
+  }, [movies, page, isTv]);
+
+  // Append new TV shows when page changes
+  React.useEffect(() => {
+    if (isTv && shows.length > 0) {
+      if (page === 1) {
+        setAllTvShows(shows);
+      } else {
+        setAllTvShows((prev) => {
+          const existingIds = new Set(prev.map((s) => s.id));
+          const newShows = shows.filter((s) => !existingIds.has(s.id));
+          return [...prev, ...newShows];
+        });
+      }
+    }
+  }, [shows, page, isTv]);
+
+  const allItems = isTv ? allTvShows : allMovies;
 
   const handleLoadMore = useCallback(() => {
     if (!isFetching && page < totalPages) {
@@ -74,18 +109,22 @@ export default function CategoryScreen() {
     }
   }, [isFetching, page, totalPages]);
 
-  const handleMoviePress = useCallback((movieId: number) => {
-    router.push(`/movie/${movieId}`);
-  }, []);
+  const handleItemPress = useCallback((itemId: number) => {
+    if (isTv) {
+      router.push(`/tv/${itemId}`);
+    } else {
+      router.push(`/movie/${itemId}`);
+    }
+  }, [isTv]);
 
-  const renderMovie = useCallback(
-    ({ item }: { item: TMDBMovie }) => (
+  const renderItem = useCallback(
+    ({ item }: { item: TMDBMovie | TMDBTvShow }) => (
       <Pressable
         style={({ pressed }) => [
           styles.movieCard,
           { opacity: pressed ? 0.8 : 1 },
         ]}
-        onPress={() => handleMoviePress(item.id)}
+        onPress={() => handleItemPress(item.id)}
       >
         <Image
           source={{ uri: getTMDBImageUrl(item.poster_path, 'w342') || undefined }}
@@ -95,7 +134,7 @@ export default function CategoryScreen() {
         />
       </Pressable>
     ),
-    [colors.card, handleMoviePress]
+    [colors.card, handleItemPress]
   );
 
   const renderFooter = useCallback(() => {
@@ -118,11 +157,11 @@ export default function CategoryScreen() {
     return (
       <View style={styles.emptyContainer}>
         <Text style={[Typography.body.base, { color: colors.textSecondary }]}>
-          No movies found
+          No {isTv ? 'TV shows' : 'movies'} found
         </Text>
       </View>
     );
-  }, [isLoading, colors]);
+  }, [isLoading, isTv, colors]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -141,11 +180,11 @@ export default function CategoryScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Movie Grid */}
+      {/* Content Grid */}
       <FlatList
-        data={allMovies}
+        data={allItems}
         keyExtractor={(item) => String(item.id)}
-        renderItem={renderMovie}
+        renderItem={renderItem}
         numColumns={NUM_COLUMNS}
         contentContainerStyle={styles.gridContent}
         columnWrapperStyle={styles.row}
