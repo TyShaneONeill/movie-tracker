@@ -68,6 +68,11 @@ interface FeedItemCardProps {
   isCurrentUser?: boolean;
 
   /**
+   * Media type ('movie' or 'tv_show')
+   */
+  mediaType?: string;
+
+  /**
    * Callback when movie poster/info is pressed
    */
   onMoviePress?: () => void;
@@ -113,6 +118,7 @@ export function FeedItemCard({
   reviewText,
   isSpoiler = false,
   isCurrentUser = false,
+  mediaType,
   onMoviePress,
   style,
 }: FeedItemCardProps) {
@@ -258,13 +264,20 @@ export function FeedItemCard({
           transition={200}
         />
         <View style={styles.reviewBody}>
-          {/* Movie Title */}
-          <Text
-            style={[styles.movieTitle, { color: colors.text }]}
-            numberOfLines={2}
-          >
-            {movieTitle}
-          </Text>
+          {/* Movie/TV Title Row */}
+          <View style={styles.titleRow}>
+            <Text
+              style={[styles.movieTitle, { color: colors.text, flexShrink: 1 }]}
+              numberOfLines={2}
+            >
+              {movieTitle}
+            </Text>
+            {mediaType === 'tv_show' && (
+              <View style={[styles.tvBadge, { backgroundColor: colors.tint }]}>
+                <Text style={styles.tvBadgeText}>TV</Text>
+              </View>
+            )}
+          </View>
 
           {/* Rating Row */}
           {formattedRating && (
@@ -322,10 +335,27 @@ const styles = StyleSheet.create({
   reviewBody: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   movieTitle: {
     fontWeight: '700',
     fontSize: 16,
     lineHeight: 19,
+  },
+  tvBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  tvBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   ratingText: {
     fontSize: 12,

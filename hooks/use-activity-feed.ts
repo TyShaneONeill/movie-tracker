@@ -26,6 +26,7 @@ export interface ActivityFeedItem {
   isSpoiler: boolean | null;
   visibility: ReviewVisibility;
   createdAt: string | null;
+  mediaType: string;
   // Profile information
   userDisplayName: string | null;
   userAvatarUrl: string | null;
@@ -43,6 +44,7 @@ export interface FirstTakeWithProfile {
   is_spoiler: boolean | null;
   visibility: ReviewVisibility;
   created_at: string | null;
+  media_type: string | null;
   profiles: {
     full_name: string | null;
     username: string | null;
@@ -52,7 +54,7 @@ export interface FirstTakeWithProfile {
 
 /** The JOINed select string used by both hooks */
 export const ACTIVITY_FEED_SELECT =
-  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, profiles(full_name, username, avatar_url)';
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, profiles(full_name, username, avatar_url)';
 
 /** Map a JOINed row to an ActivityFeedItem */
 export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
@@ -67,6 +69,7 @@ export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
     isSpoiler: row.is_spoiler,
     visibility: row.visibility ?? 'public',
     createdAt: row.created_at,
+    mediaType: row.media_type || 'movie',
     userDisplayName:
       row.profiles?.full_name || row.profiles?.username || 'Anonymous',
     userAvatarUrl: row.profiles?.avatar_url ?? null,
