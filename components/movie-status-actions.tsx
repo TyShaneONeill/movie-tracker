@@ -74,6 +74,9 @@ function StatusButton({
     <Pressable
       onPress={onPress}
       disabled={isLoading || disabled}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, ${isActive ? 'selected' : 'not selected'}`}
+      accessibilityState={{ selected: isActive }}
       style={({ pressed }) => [
         styles.statusButtonContainer,
         pressed && styles.statusButtonPressed,

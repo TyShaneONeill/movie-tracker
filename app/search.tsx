@@ -382,6 +382,8 @@ export default function SearchScreen() {
         <View style={styles.topRow}>
           <Pressable
             onPress={handleBack}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
             style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }]}
           >
             <BackIcon color={colors.text} />
@@ -393,6 +395,7 @@ export default function SearchScreen() {
               style={[styles.searchInput, { color: colors.text }]}
               placeholder={mediaType === 'movies' ? "Movies, people, lists..." : "Search TV shows..."}
               placeholderTextColor={colors.textTertiary}
+              accessibilityLabel={mediaType === 'movies' ? "Search movies, people, lists" : "Search TV shows"}
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
@@ -409,6 +412,8 @@ export default function SearchScreen() {
                   setSearchQuery('');
                   setSelectedGenre(null);
                 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
                 style={({ pressed }) => [styles.clearInputButton, { opacity: pressed ? 0.5 : 1 }]}
               >
                 <XIcon color={colors.textSecondary} />
@@ -454,6 +459,8 @@ export default function SearchScreen() {
               <Pressable
                 onPress={handleClearGenre}
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Clear ${selectedGenre.name} genre filter`}
                 style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
               >
                 <XIcon color="white" />
@@ -683,6 +690,8 @@ export default function SearchScreen() {
                       <Pressable
                         key={movie.id}
                         onPress={() => handleMoviePress(movie)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${movie.title}, trending movie`}
                         style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
                       >
                         <Image
@@ -722,6 +731,8 @@ export default function SearchScreen() {
                       <Pressable
                         key={show.id}
                         onPress={() => handleTvShowPress(show)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${show.name}, trending TV show`}
                         style={({ pressed }) => [styles.trendingCard, { opacity: pressed ? 0.8 : 1 }]}
                       >
                         <Image
@@ -750,6 +761,8 @@ export default function SearchScreen() {
                 </Text>
                 <Pressable
                   onPress={handleClearRecent}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear recent searches"
                   style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
                 >
                   <Text style={[styles.clearButton, { color: colors.textSecondary }]}>
@@ -762,6 +775,8 @@ export default function SearchScreen() {
                 <Pressable
                   key={search.id}
                   onPress={() => handleRecentSearchPress(search)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${search.title}, ${search.subtitle}`}
                   style={({ pressed }) => [
                     styles.recentItem,
                     { backgroundColor: pressed ? colors.backgroundSecondary : 'transparent' },
@@ -790,6 +805,8 @@ export default function SearchScreen() {
 
                   <Pressable
                     onPress={() => handleRemoveRecentSearch(search.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${search.title} from recent searches`}
                     style={({ pressed }) => [styles.removeButton, { opacity: pressed ? 0.5 : 1 }]}
                     hitSlop={12}
                   >
@@ -819,6 +836,8 @@ export default function SearchScreen() {
                 <Pressable
                   key={genre.id}
                   onPress={() => handleGenrePress(genre.id, genre.name)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Browse ${genre.name}`}
                   style={({ pressed }) => [styles.genreCard, { width: genreCardWidth, opacity: pressed ? 0.8 : 1 }]}
                 >
                   <Image

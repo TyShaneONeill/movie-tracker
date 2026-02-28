@@ -199,12 +199,14 @@ export default function HomeScreen() {
               size={40}
               icon={(color) => <SunIcon color={color} />}
               onPress={handleThemeToggle}
+              accessibilityLabel={`Toggle theme, currently ${effectiveTheme} mode`}
             />
             <IconButton
               variant="card"
               size={40}
               icon={(color) => <SearchIcon color={color} />}
               onPress={handleSearchPress}
+              accessibilityLabel="Search"
             />
           </View>
         </View>

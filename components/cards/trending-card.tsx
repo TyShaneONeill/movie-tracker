@@ -75,6 +75,8 @@ export function TrendingCard({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${genre}, rated ${rating}`}
       style={({ pressed }) => [
         styles.container,
         Shadows.md,

@@ -21,6 +21,9 @@ export function MediaTypeToggle({ value, onChange }: MediaTypeToggleProps) {
       <TouchableOpacity
         style={[styles.option, value === 'movies' && { backgroundColor: colors.tint }]}
         onPress={() => onChange('movies')}
+        accessibilityRole="tab"
+        accessibilityLabel="Movies"
+        accessibilityState={{ selected: value === 'movies' }}
       >
         <Text style={[styles.optionText, { color: value === 'movies' ? '#fff' : colors.textSecondary }]}>
           Movies
@@ -29,6 +32,9 @@ export function MediaTypeToggle({ value, onChange }: MediaTypeToggleProps) {
       <TouchableOpacity
         style={[styles.option, value === 'tv' && { backgroundColor: colors.tint }]}
         onPress={() => onChange('tv')}
+        accessibilityRole="tab"
+        accessibilityLabel="TV Shows"
+        accessibilityState={{ selected: value === 'tv' }}
       >
         <Text style={[styles.optionText, { color: value === 'tv' ? '#fff' : colors.textSecondary }]}>
           TV Shows

@@ -31,6 +31,8 @@ interface IconButtonProps {
   disabled?: boolean;
   /** Additional styles */
   style?: ViewStyle;
+  /** Accessibility label for screen readers */
+  accessibilityLabel?: string;
 }
 
 /**
@@ -59,6 +61,7 @@ export default function IconButton({
   onPress,
   disabled = false,
   style,
+  accessibilityLabel,
 }: IconButtonProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -77,6 +80,8 @@ export default function IconButton({
       <Pressable
         onPress={onPress}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
         style={({ pressed }) => [
           baseButtonStyle,
           styles.glassContainer,
@@ -100,6 +105,8 @@ export default function IconButton({
       <Pressable
         onPress={onPress}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
         style={({ pressed }) => [
           baseButtonStyle,
           styles.primaryContainer,
@@ -123,6 +130,8 @@ export default function IconButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         baseButtonStyle,
         styles.cardContainer,

@@ -498,6 +498,9 @@ export default function ProfileScreen() {
                     <Pressable
                         key={key}
                         onPress={() => handleTabChange(key)}
+                        accessibilityRole="tab"
+                        accessibilityLabel={`${label}, ${count}`}
+                        accessibilityState={{ selected: isActive }}
                         style={({ pressed }) => [
                             styles.statTabItem,
                             isActive && styles.statTabItemActive,
@@ -574,6 +577,8 @@ export default function ProfileScreen() {
                 <View style={styles.followStats}>
                     <Pressable
                         onPress={() => user && router.push(`/followers/${user.id}`)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${profile?.followers_count ?? 0} Followers`}
                         style={({ pressed }) => [
                             styles.followStatItem,
                             { opacity: pressed ? 0.7 : 1 },
@@ -589,6 +594,8 @@ export default function ProfileScreen() {
                     <View style={[styles.followStatDivider, { backgroundColor: colors.border }]} />
                     <Pressable
                         onPress={() => user && router.push(`/following/${user.id}`)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${profile?.following_count ?? 0} Following`}
                         style={({ pressed }) => [
                             styles.followStatItem,
                             { opacity: pressed ? 0.7 : 1 },
@@ -719,6 +726,8 @@ export default function ProfileScreen() {
                             { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
                         ]}
                         onPress={() => setShowCreateModal(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Create a list"
                     >
                         <Ionicons name="add-circle-outline" size={28} color={colors.tint} />
                         <ThemedText style={[styles.createListText, { color: colors.tint }]}>
@@ -734,6 +743,8 @@ export default function ProfileScreen() {
                                 { opacity: pressed ? 0.7 : 1 },
                             ]}
                             onPress={() => router.push('/lists')}
+                            accessibilityRole="button"
+                            accessibilityLabel="See all lists"
                         >
                             <ThemedText style={[styles.seeAllListsText, { color: colors.tint }]}>
                                 See All Lists
@@ -764,6 +775,8 @@ export default function ProfileScreen() {
                 {/* Notification Icon */}
                 <Pressable
                     onPress={() => router.push('/notifications')}
+                    accessibilityRole="button"
+                    accessibilityLabel={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
                     style={({ pressed }) => [styles.headerIconButton, { opacity: pressed ? 0.7 : 1 }]}
                 >
                     <Ionicons name="notifications-outline" size={24} color={colors.text} />
@@ -779,6 +792,8 @@ export default function ProfileScreen() {
                 {/* Settings Icon */}
                 <Pressable
                     onPress={() => router.push('/settings')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Settings"
                     style={({ pressed }) => [styles.headerIconButton, { opacity: pressed ? 0.7 : 1 }]}
                 >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
