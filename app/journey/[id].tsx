@@ -22,18 +22,14 @@ import {
   Pressable,
   ActivityIndicator,
   useWindowDimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Image as ExpoImage } from 'expo-image';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
-import Toast from 'react-native-toast-message';
-import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
@@ -43,22 +39,11 @@ import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { getGenreNamesByIds } from '@/lib/genre-service';
 import { useAuth } from '@/lib/auth-context';
 import { buildAvatarUrl } from '@/lib/avatar-service';
-import { PerforatedEdge } from '@/components/ui/perforated-edge';
+import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
-
-// Helper to format date nicely
-function formatDate(dateString: string | null): string {
-  if (!dateString) return 'Not set';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 // Helper to get location type badge text
 function getLocationBadgeText(locationType: string | null): string {
@@ -76,54 +61,6 @@ function getLocationBadgeText(locationType: string | null): string {
   }
 }
 
-// Helper to format time nicely
-function formatTime(timeString: string | null): string {
-  if (!timeString) return 'Not set';
-  // Time string is in HH:MM format
-  const [hours, minutes] = timeString.split(':').map(Number);
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const displayHours = hours % 12 || 12;
-  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-}
-
-// Helper to format watch format nicely
-function formatWatchFormat(format: string | null): string {
-  if (!format) return 'Not set';
-  // Capitalize first letter of each word
-  return format.toUpperCase();
-}
-
-// Helper to format price
-function formatPrice(price: number | null): string {
-  if (price === null || price === undefined) return 'Not set';
-  return `$${price.toFixed(2)}`;
-}
-
-// Barcode component
-function BarcodeVisual({ colors }: { colors: ThemeColors }) {
-  const barWidths = [2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1];
-
-  return (
-    <Svg height={40} width={120} viewBox="0 0 120 40">
-      {barWidths.map((width, index) => {
-        const x = barWidths.slice(0, index).reduce((sum, w) => sum + w + 2, 0);
-        return (
-          <Rect
-            key={index}
-            x={x}
-            y={0}
-            width={width}
-            height={40}
-            fill={colors.textSecondary}
-          />
-        );
-      })}
-    </Svg>
-  );
-}
-
-// PerforatedEdge imported from shared component
-
 // Header height constant
 const HEADER_HEIGHT = 100; // paddingTop (60) + content (~40)
 const MAX_JOURNEY_WIDTH = 480;
@@ -136,9 +73,6 @@ export default function JourneyCardScreen() {
   const { height: screenHeight, width: windowWidth } = useWindowDimensions();
   const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
   const insets = useSafeAreaInsets();
-
-  // Info carousel state
-  const [infoPageIndex, setInfoPageIndex] = useState(0);
 
   // Poster inspection modal state
   const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
@@ -176,14 +110,7 @@ export default function JourneyCardScreen() {
   const isDark = effectiveTheme === 'dark';
 
   // Dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors, ticketHeight, infoPageWidth, isDark, insets.top), [colors, ticketHeight, infoPageWidth, isDark, insets.top]);
-
-  // Handle info carousel scroll
-  const handleInfoScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const pageIndex = Math.round(offsetX / infoPageWidth);
-    setInfoPageIndex(pageIndex);
-  }, [infoPageWidth]);
+  const styles = useMemo(() => createStyles(colors, ticketHeight, insets.top), [colors, ticketHeight, insets.top]);
 
   // Handle poster modal close
   const handlePosterModalClose = useCallback(() => {
@@ -372,135 +299,15 @@ export default function JourneyCardScreen() {
             </View>
           )}
 
-          {/* Perforated Edge */}
-          <PerforatedEdge colors={colors} />
-
-          {/* Movie Title & Rating */}
-          <View style={styles.titleSection}>
-            <Text style={styles.movieTitle}>{journey.title}</Text>
-
-            {/* First Take Rating (read-only) */}
-            {firstTake?.rating && (
-              <View style={styles.ratingRow}>
-                <Text style={styles.ratingText}>
-                  <Text style={styles.ratingStar}>★</Text> {firstTake.rating.toFixed(1)}
-                </Text>
-                {journey.journey_tagline && (
-                  <Text style={styles.taglineText}>
-                    {' '}• {journey.journey_tagline}
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Info Carousel */}
-          <View style={styles.infoCarouselContainer}>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onScroll={handleInfoScroll}
-              scrollEventThrottle={16}
-              decelerationRate="fast"
-              snapToInterval={infoPageWidth}
-              snapToAlignment="start"
-              contentContainerStyle={styles.infoCarouselContent}
-            >
-              {/* Page 1: Core Info */}
-              <View style={[styles.infoPage, { width: infoPageWidth }]}>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>DATE</Text>
-                    <Text style={styles.infoValue}>{formatDate(journey.watched_at)}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>CINEMA</Text>
-                    <Text style={styles.infoValue}>{journey.location_name || 'Not set'}</Text>
-                  </View>
-                </View>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>SEAT</Text>
-                    <Text style={styles.infoValue}>{journey.seat_location || 'Not set'}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>WITH</Text>
-                    {journey.watched_with?.length ? (
-                      <View style={styles.companionList}>
-                        {journey.watched_with.map((name, i) => {
-                          const avatarUrl = companionAvatarMap.get(name.toLowerCase());
-                          return (
-                            <View key={i} style={styles.companionItem}>
-                              {avatarUrl ? (
-                                <ExpoImage
-                                  source={{ uri: avatarUrl }}
-                                  style={styles.companionAvatar}
-                                  contentFit="cover"
-                                  transition={200}
-                                />
-                              ) : null}
-                              <Text style={styles.infoValue}>{name}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    ) : (
-                      <Text style={styles.infoValue}>Solo</Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              {/* Page 2: Extended Details */}
-              <View style={[styles.infoPage, { width: infoPageWidth }]}>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>TIME</Text>
-                    <Text style={styles.infoValue}>{formatTime(journey.watch_time)}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>FORMAT</Text>
-                    <Text style={styles.infoValue}>{formatWatchFormat(journey.watch_format)}</Text>
-                  </View>
-                </View>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>AUDITORIUM</Text>
-                    <Text style={styles.infoValue}>{journey.auditorium || 'Not set'}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>PRICE</Text>
-                    <Text style={styles.infoValue}>{formatPrice(journey.ticket_price)}</Text>
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Dot Indicators */}
-            <View style={styles.dotsContainer}>
-              <View style={[styles.dot, infoPageIndex === 0 && styles.dotActive]} />
-              <View style={[styles.dot, infoPageIndex === 1 && styles.dotActive]} />
-            </View>
-          </View>
-
-          {/* Notes Section */}
-          {journey.journey_notes && (
-            <View style={styles.notesSection}>
-              <Text style={styles.notesText}>&ldquo;{journey.journey_notes}&rdquo;</Text>
-            </View>
-          )}
-
-          {/* Perforated Edge */}
-          <PerforatedEdge colors={colors} />
-
-          {/* Footer with Barcode */}
-          <View style={styles.footer}>
-            <Text style={styles.ticketIdText}>
-              ID: {journey.ticket_id || 'CNTK-' + journey.id.slice(0, 8).toUpperCase()}
-            </Text>
-            <BarcodeVisual colors={colors} />
-          </View>
+          {/* Flip card: perforated edge + front/back faces */}
+          <TicketFlipCard
+            journey={journey}
+            firstTake={firstTake ?? null}
+            colors={colors}
+            isDark={isDark}
+            infoPageWidth={infoPageWidth}
+            companionAvatarMap={companionAvatarMap}
+          />
         </View>
 
       </ScrollView>
@@ -518,7 +325,7 @@ export default function JourneyCardScreen() {
 }
 
 // Create styles function that takes theme colors, ticket height, info page width, and theme
-const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: number, isDark: boolean, topInset: number) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: number) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -633,130 +440,6 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, infoPageWidth: 
   generateArtButtonText: {
     ...Typography.button.primary,
     color: colors.text,
-  },
-
-  // Title Section
-  titleSection: {
-    paddingHorizontal: Spacing.lg,
-  },
-  movieTitle: {
-    ...Typography.display.h3,
-    color: colors.text,
-    marginBottom: Spacing.xs,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  ratingText: {
-    ...Typography.body.lg,
-    color: colors.gold,
-    fontFamily: Fonts.outfit.bold,
-  },
-  ratingStar: {
-    color: colors.gold,
-  },
-  taglineText: {
-    ...Typography.body.base,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  // Info Carousel
-  infoCarouselContainer: {
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
-    borderRadius: BorderRadius.md,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    overflow: 'hidden',
-  },
-  infoCarouselContent: {
-    // Content container for horizontal scroll
-  },
-  infoPage: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: Spacing.md,
-  },
-  infoItem: {
-    flex: 1,
-  },
-  infoLabel: {
-    ...Typography.caption.medium,
-    color: colors.textTertiary,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  infoValue: {
-    ...Typography.body.baseMedium,
-    color: colors.text,
-  },
-  companionList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
-    alignItems: 'center',
-  },
-  companionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  companionAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-  },
-  dotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: Spacing.sm,
-    gap: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.border,
-  },
-  dotActive: {
-    backgroundColor: colors.text,
-  },
-
-  // Notes Section
-  notesSection: {
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
-    borderRadius: BorderRadius.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.tint,
-  },
-  notesText: {
-    ...Typography.body.base,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    lineHeight: 24,
-  },
-
-  // Footer
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
-  },
-  ticketIdText: {
-    ...Typography.caption.medium,
-    color: colors.textTertiary,
-    letterSpacing: 1,
   },
 
   // Loading state styles

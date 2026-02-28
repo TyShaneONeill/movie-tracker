@@ -28,8 +28,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Svg, { Path, Rect } from 'react-native-svg';
-import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
+import Svg, { Path } from 'react-native-svg';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
@@ -37,7 +37,7 @@ import { useJourneysByMovie, useCreateJourney, useJourneyMutations } from '@/hoo
 import { useGenerateArt } from '@/hooks/use-generate-art';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { getGenreNamesByIds } from '@/lib/genre-service';
-import { PerforatedEdge } from '@/components/ui/perforated-edge';
+import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
@@ -45,17 +45,6 @@ import type { UserMovie, FirstTake } from '@/lib/database.types';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
-
-// Helper to format date nicely
-function formatDate(dateString: string | null): string {
-  if (!dateString) return 'Not set';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 // Helper to get location type badge text
 function getLocationBadgeText(locationType: string | null): string {
@@ -71,50 +60,6 @@ function getLocationBadgeText(locationType: string | null): string {
     default:
       return 'VIEWING';
   }
-}
-
-// Helper to format time nicely
-function formatTime(timeString: string | null): string {
-  if (!timeString) return 'Not set';
-  const [hours, minutes] = timeString.split(':').map(Number);
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const displayHours = hours % 12 || 12;
-  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-}
-
-// Helper to format watch format nicely
-function formatWatchFormat(format: string | null): string {
-  if (!format) return 'Not set';
-  return format.toUpperCase();
-}
-
-// Helper to format price
-function formatPrice(price: number | null): string {
-  if (price === null || price === undefined) return 'Not set';
-  return `$${price.toFixed(2)}`;
-}
-
-// Barcode component
-function BarcodeVisual({ colors }: { colors: ThemeColors }) {
-  const barWidths = [2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1];
-
-  return (
-    <Svg height={40} width={120} viewBox="0 0 120 40">
-      {barWidths.map((width, index) => {
-        const x = barWidths.slice(0, index).reduce((sum, w) => sum + w + 2, 0);
-        return (
-          <Rect
-            key={index}
-            x={x}
-            y={0}
-            width={width}
-            height={40}
-            fill={colors.textSecondary}
-          />
-        );
-      })}
-    </Svg>
-  );
 }
 
 // Poster Toggle Component
@@ -229,8 +174,6 @@ const posterToggleStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.
   },
 });
 
-// PerforatedEdge imported from shared component
-
 // Single Journey Ticket Card Component
 interface JourneyTicketProps {
   journey: UserMovie;
@@ -259,14 +202,6 @@ function JourneyTicket({
   isGenerating,
   onPosterTap,
 }: JourneyTicketProps) {
-  const [infoPageIndex, setInfoPageIndex] = useState(0);
-
-  const handleInfoScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const pageIndex = Math.round(offsetX / infoPageWidth);
-    setInfoPageIndex(pageIndex);
-  }, [infoPageWidth]);
-
   // Determine which poster to show
   const showAiPoster = journey.display_poster === 'ai_generated' && journey.ai_poster_url;
   const heroImageUrl = showAiPoster
@@ -377,116 +312,14 @@ function JourneyTicket({
         </View>
       )}
 
-      {/* Perforated Edge */}
-      <PerforatedEdge colors={colors} />
-
-      {/* Movie Title & Rating */}
-      <View style={styles.titleSection}>
-        <Text style={styles.movieTitle}>{journey.title}</Text>
-
-        {/* First Take Rating (read-only) */}
-        {firstTake?.rating && (
-          <View style={styles.ratingRow}>
-            <Text style={styles.ratingText}>
-              <Text style={styles.ratingStar}>★</Text> {firstTake.rating.toFixed(1)}
-            </Text>
-            {journey.journey_tagline && (
-              <Text style={styles.taglineText}>
-                {' '}• {journey.journey_tagline}
-              </Text>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* Info Carousel */}
-      <View style={styles.infoCarouselContainer}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleInfoScroll}
-          scrollEventThrottle={16}
-          decelerationRate="fast"
-          snapToInterval={infoPageWidth}
-          snapToAlignment="start"
-          contentContainerStyle={styles.infoCarouselContent}
-        >
-          {/* Page 1: Core Info */}
-          <View style={[styles.infoPage, { width: infoPageWidth }]}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>DATE</Text>
-                <Text style={styles.infoValue}>{formatDate(journey.watched_at)}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>CINEMA</Text>
-                <Text style={styles.infoValue}>{journey.location_name || 'Not set'}</Text>
-              </View>
-            </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>SEAT</Text>
-                <Text style={styles.infoValue}>{journey.seat_location || 'Not set'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>WITH</Text>
-                <Text style={styles.infoValue}>
-                  {journey.watched_with?.join(', ') || 'Solo'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Page 2: Extended Details */}
-          <View style={[styles.infoPage, { width: infoPageWidth }]}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>TIME</Text>
-                <Text style={styles.infoValue}>{formatTime(journey.watch_time)}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>FORMAT</Text>
-                <Text style={styles.infoValue}>{formatWatchFormat(journey.watch_format)}</Text>
-              </View>
-            </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>AUDITORIUM</Text>
-                <Text style={styles.infoValue}>{journey.auditorium || 'Not set'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>PRICE</Text>
-                <Text style={styles.infoValue}>{formatPrice(journey.ticket_price)}</Text>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Dot Indicators */}
-        <View style={styles.dotsContainer}>
-          <View style={[styles.dot, infoPageIndex === 0 && styles.dotActive]} />
-          <View style={[styles.dot, infoPageIndex === 1 && styles.dotActive]} />
-        </View>
-      </View>
-
-      {/* Notes Section */}
-      {journey.journey_notes && (
-        <View style={styles.notesSection}>
-          <Text style={styles.notesText}>&ldquo;{journey.journey_notes}&rdquo;</Text>
-        </View>
-      )}
-
-      {/* Perforated Edge */}
-      <PerforatedEdge colors={colors} />
-
-      {/* Footer with Barcode */}
-      <View style={styles.footer}>
-        <Text style={styles.ticketIdText}>
-          ID: {journey.ticket_id || 'CNTK-' + journey.id.slice(0, 8).toUpperCase()}
-        </Text>
-        <BarcodeVisual colors={colors} />
-      </View>
+      {/* Flip card: perforated edge + front/back faces */}
+      <TicketFlipCard
+        journey={journey}
+        firstTake={firstTake}
+        colors={colors}
+        isDark={isDark}
+        infoPageWidth={infoPageWidth}
+      />
     </View>
   );
 }
@@ -558,7 +391,7 @@ export default function JourneyCarouselScreen() {
   const { createJourney, isCreating } = useCreateJourney();
 
   // AI art generation
-  const { generateArt, isGenerating } = useGenerateArt();
+  const { generateArt } = useGenerateArt();
   const { updateJourney } = useJourneyMutations(parsedTmdbId);
 
   // Track which journey is currently generating
@@ -1037,104 +870,6 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     fontWeight: '800',
     letterSpacing: 1,
     fontSize: 10,
-  },
-  titleSection: {
-    paddingHorizontal: Spacing.lg,
-  },
-  movieTitle: {
-    ...Typography.display.h3,
-    color: colors.text,
-    marginBottom: Spacing.xs,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  ratingText: {
-    ...Typography.body.lg,
-    color: colors.gold,
-    fontFamily: Fonts.outfit.bold,
-  },
-  ratingStar: {
-    color: colors.gold,
-  },
-  taglineText: {
-    ...Typography.body.base,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  infoCarouselContainer: {
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
-    borderRadius: BorderRadius.md,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    overflow: 'hidden',
-  },
-  infoCarouselContent: {},
-  infoPage: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: Spacing.md,
-  },
-  infoItem: {
-    flex: 1,
-  },
-  infoLabel: {
-    ...Typography.caption.medium,
-    color: colors.textTertiary,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  infoValue: {
-    ...Typography.body.baseMedium,
-    color: colors.text,
-  },
-  dotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: Spacing.sm,
-    gap: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.border,
-  },
-  dotActive: {
-    backgroundColor: colors.text,
-  },
-  notesSection: {
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)',
-    borderRadius: BorderRadius.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.tint,
-  },
-  notesText: {
-    ...Typography.body.base,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    lineHeight: 24,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
-  },
-  ticketIdText: {
-    ...Typography.caption.medium,
-    color: colors.textTertiary,
-    letterSpacing: 1,
   },
 });
 
