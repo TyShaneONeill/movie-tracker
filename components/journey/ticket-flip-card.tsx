@@ -7,13 +7,12 @@
  * Uses Reanimated rotateY with backfaceVisibility: hidden for the flip.
  */
 
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -129,6 +128,12 @@ export interface TicketFlipCardProps {
   companionAvatarMap?: Map<string, string | null>;
 }
 
+// --- Tap detection ---
+// A touch is considered a "tap" (not a swipe) when the finger moves
+// less than this threshold and the duration is short.
+const TAP_MOVE_THRESHOLD = 10;
+const TAP_DURATION_MS = 300;
+
 // --- Component ---
 
 export function TicketFlipCard({
@@ -144,6 +149,9 @@ export function TicketFlipCard({
   const [infoPageIndex, setInfoPageIndex] = useState(0);
   const showHint = useFlipHint();
 
+  // Track touch start to distinguish taps from swipes
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
   const styles = useMemo(
     () => createFlipCardStyles(colors, isDark, infoPageWidth),
     [colors, isDark, infoPageWidth],
@@ -157,6 +165,32 @@ export function TicketFlipCard({
     });
     setIsFlipped(!isFlipped);
   }, [isFlipped, rotation]);
+
+  const handleTouchStart = useCallback((e: { nativeEvent: { pageX: number; pageY: number } }) => {
+    touchStartRef.current = {
+      x: e.nativeEvent.pageX,
+      y: e.nativeEvent.pageY,
+      time: Date.now(),
+    };
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: { nativeEvent: { pageX: number; pageY: number } }) => {
+      const start = touchStartRef.current;
+      if (!start) return;
+
+      const dx = Math.abs(e.nativeEvent.pageX - start.x);
+      const dy = Math.abs(e.nativeEvent.pageY - start.y);
+      const elapsed = Date.now() - start.time;
+
+      if (dx < TAP_MOVE_THRESHOLD && dy < TAP_MOVE_THRESHOLD && elapsed < TAP_DURATION_MS) {
+        handleFlip();
+      }
+
+      touchStartRef.current = null;
+    },
+    [handleFlip],
+  );
 
   const handleInfoScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -187,10 +221,13 @@ export function TicketFlipCard({
 
   return (
     <View>
-      {/* Flip wrapper */}
-      <Pressable
-        onPress={handleFlip}
+      {/* Flip wrapper — uses manual tap detection instead of Pressable
+          so the nested ScrollView can handle horizontal swipes freely. */}
+      <View
         style={styles.flipWrapper}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        accessible
         accessibilityRole="button"
         accessibilityLabel={isFlipped ? 'Flip ticket to front' : 'Flip ticket to see barcode'}
       >
@@ -214,20 +251,7 @@ export function TicketFlipCard({
           </View>
 
           {/* Info Carousel */}
-          <View
-            style={[
-              styles.infoCarouselContainer,
-              Platform.OS === 'web' && { touchAction: 'pan-x' as any },
-            ]}
-            {...(Platform.OS === 'web' ? {
-              onTouchStart: (e: any) => e.stopPropagation(),
-              onTouchMove: (e: any) => e.stopPropagation(),
-              onTouchEnd: (e: any) => e.stopPropagation(),
-              onPointerDown: (e: any) => e.stopPropagation(),
-              onPointerMove: (e: any) => e.stopPropagation(),
-              onPointerUp: (e: any) => e.stopPropagation(),
-            } : {})}
-          >
+          <View style={styles.infoCarouselContainer}>
             <ScrollView
               horizontal
               pagingEnabled
@@ -343,7 +367,7 @@ export function TicketFlipCard({
             <BarcodeVisual colors={colors} />
           </View>
         </Animated.View>
-      </Pressable>
+      </View>
 
       {/* Tap-to-flip hint — outside the flip so it's always visible */}
       <View style={styles.hintRow}>
