@@ -214,7 +214,13 @@ export function TicketFlipCard({
           </View>
 
           {/* Info Carousel */}
-          <View style={styles.infoCarouselContainer}>
+          <View
+            style={styles.infoCarouselContainer}
+            {...(Platform.OS === 'web' ? {
+              onTouchStart: (e: any) => e.stopPropagation(),
+              onTouchMove: (e: any) => e.stopPropagation(),
+            } : {})}
+          >
             <ScrollView
               horizontal
               pagingEnabled
@@ -347,12 +353,11 @@ export function TicketFlipCard({
 const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidth: number) =>
   StyleSheet.create({
     flipWrapper: {
-      minHeight: 260,
     },
 
     // Shared face styles
     face: {
-      paddingBottom: Spacing.md,
+      paddingBottom: Spacing.xs,
     },
     backFace: {
       position: 'absolute',
@@ -476,8 +481,8 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     // Hint
     hintRow: {
       alignItems: 'center',
-      paddingTop: Spacing.sm,
-      paddingBottom: Spacing.md,
+      paddingTop: Spacing.xs,
+      paddingBottom: Spacing.sm,
     },
     hintPill: {
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',

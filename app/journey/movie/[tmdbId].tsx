@@ -221,29 +221,7 @@ function JourneyTicket({
 
   return (
     <View style={styles.ticketCard}>
-      {/* Frosted poster background — covers entire card below hero */}
-      {blurPosterUrl && (
-        <>
-          <ExpoImage
-            source={{ uri: blurPosterUrl }}
-            style={[StyleSheet.absoluteFill, styles.blurredPosterImage]}
-            contentFit="cover"
-            transition={200}
-          />
-          {Platform.OS === 'web' ? (
-            <View style={[StyleSheet.absoluteFill, styles.posterOverlay]} />
-          ) : (
-            <BlurView
-              intensity={80}
-              tint={isDark ? 'dark' : 'light'}
-              experimentalBlurMethod="dimezisBlurView"
-              style={[StyleSheet.absoluteFill, styles.posterOverlay]}
-            />
-          )}
-        </>
-      )}
-
-      {/* Hero Image Area */}
+      {/* Hero Image Area — top 50% */}
       <Pressable
         onPress={onPosterTap}
         style={({ pressed }) => [
@@ -304,50 +282,75 @@ function JourneyTicket({
         )}
       </Pressable>
 
-      {/* Perforated edge between hero and bottom section */}
-      <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+      {/* Bottom half — frosted glass background + perforation + content */}
+      <View style={styles.bottomSection}>
+        {/* Frosted poster background — only on bottom half */}
+        {blurPosterUrl && (
+          <>
+            <ExpoImage
+              source={{ uri: blurPosterUrl }}
+              style={[StyleSheet.absoluteFill, styles.blurredPosterImage]}
+              contentFit="cover"
+              transition={200}
+            />
+            {Platform.OS === 'web' ? (
+              <View style={[StyleSheet.absoluteFill, styles.posterOverlay]} />
+            ) : (
+              <BlurView
+                intensity={80}
+                tint={isDark ? 'dark' : 'light'}
+                experimentalBlurMethod="dimezisBlurView"
+                style={[StyleSheet.absoluteFill, styles.posterOverlay]}
+              />
+            )}
+          </>
+        )}
 
-      {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
-      {hasAiPoster ? (
-        <PosterToggle
-          isAiSelected={!!showAiPoster}
-          isHolographic={isHolographic}
-          onToggle={onTogglePoster}
+        {/* Perforated edge at top of bottom section */}
+        <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+
+        {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
+        {hasAiPoster ? (
+          <PosterToggle
+            isAiSelected={!!showAiPoster}
+            isHolographic={isHolographic}
+            onToggle={onTogglePoster}
+            colors={colors}
+            isDark={isDark}
+          />
+        ) : (
+          <View style={styles.generateArtSection}>
+            <Pressable
+              style={styles.generateArtButton}
+              onPress={onGenerateArt}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.text} />
+                  <Text style={styles.generateArtButtonText}>Generating...</Text>
+                </>
+              ) : (
+                <>
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                    <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                  </Svg>
+                  <Text style={styles.generateArtButtonText}>Generate AI Art</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+
+        {/* Flip card: front/back faces */}
+        <TicketFlipCard
+          journey={journey}
+          firstTake={firstTake}
           colors={colors}
           isDark={isDark}
+          infoPageWidth={infoPageWidth}
         />
-      ) : (
-        <View style={styles.generateArtSection}>
-          <Pressable
-            style={styles.generateArtButton}
-            onPress={onGenerateArt}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <ActivityIndicator size="small" color={colors.text} />
-                <Text style={styles.generateArtButtonText}>Generating...</Text>
-              </>
-            ) : (
-              <>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                  <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                </Svg>
-                <Text style={styles.generateArtButtonText}>Generate AI Art</Text>
-              </>
-            )}
-          </Pressable>
-        </View>
-      )}
-
-      {/* Flip card: front/back faces (no perforated edge — rendered above) */}
-      <TicketFlipCard
-        journey={journey}
-        firstTake={firstTake}
-        colors={colors}
-        isDark={isDark}
-        infoPageWidth={infoPageWidth}
-      />
+      </View>
     </View>
   );
 }
@@ -864,6 +867,12 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     marginTop: Spacing.md,
     ...(Platform.OS === 'web' ? { height: ticketHeight } : { minHeight: ticketHeight }),
   },
+  bottomSection: {
+    flex: 1,
+    overflow: 'hidden',
+    borderBottomLeftRadius: BorderRadius.lg,
+    borderBottomRightRadius: BorderRadius.lg,
+  },
   posterOverlay: {
     backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
   },
@@ -875,7 +884,6 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
   },
   heroSection: {
     flex: 1,
-    minHeight: 200,
     position: 'relative',
     overflow: 'hidden',
     borderTopLeftRadius: BorderRadius.lg,
