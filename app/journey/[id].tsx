@@ -243,28 +243,6 @@ export default function JourneyCardScreen() {
       >
         {/* Ticket Card */}
         <View style={styles.ticketCard}>
-          {/* Frosted poster background — covers entire card below hero */}
-          {blurPosterUrl && (
-            <>
-              <ExpoImage
-                source={{ uri: blurPosterUrl }}
-                style={[StyleSheet.absoluteFill, styles.blurredPosterImage]}
-                contentFit="cover"
-                transition={200}
-              />
-              {Platform.OS === 'web' ? (
-                <View style={[StyleSheet.absoluteFill, styles.posterOverlay]} />
-              ) : (
-                <BlurView
-                  intensity={80}
-                  tint={isDark ? 'dark' : 'light'}
-                  experimentalBlurMethod="dimezisBlurView"
-                  style={[StyleSheet.absoluteFill, styles.posterOverlay]}
-                />
-              )}
-            </>
-          )}
-
           {/* Hero Image Area */}
           <Pressable
             onPress={handlePosterTap}
@@ -301,8 +279,32 @@ export default function JourneyCardScreen() {
               </View>
           </Pressable>
 
-          {/* Perforated edge between hero and bottom section */}
-          <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+          {/* Bottom half — frosted glass starts here */}
+          <View style={styles.bottomSection}>
+            {/* Frosted poster background — only on bottom half */}
+            {blurPosterUrl && (
+              <>
+                <ExpoImage
+                  source={{ uri: blurPosterUrl }}
+                  style={[StyleSheet.absoluteFill, styles.blurredPosterImage]}
+                  contentFit="cover"
+                  transition={200}
+                />
+                {Platform.OS === 'web' ? (
+                  <View style={[StyleSheet.absoluteFill, styles.posterOverlay]} />
+                ) : (
+                  <BlurView
+                    intensity={80}
+                    tint={isDark ? 'dark' : 'light'}
+                    experimentalBlurMethod="dimezisBlurView"
+                    style={[StyleSheet.absoluteFill, styles.posterOverlay]}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Perforated edge at top of bottom section */}
+            <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
 
           {/* Generate AI Art Button - only show if no AI art exists */}
           {!hasAiPoster && (
@@ -338,6 +340,7 @@ export default function JourneyCardScreen() {
             infoPageWidth={infoPageWidth}
             companionAvatarMap={companionAvatarMap}
           />
+          </View>
         </View>
 
       </ScrollView>
@@ -417,6 +420,11 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
     overflow: 'hidden',
     marginTop: Spacing.md,
     minHeight: ticketHeight,
+  },
+  bottomSection: {
+    overflow: 'hidden',
+    borderBottomLeftRadius: BorderRadius.lg,
+    borderBottomRightRadius: BorderRadius.lg,
   },
   posterOverlay: {
     backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
