@@ -225,9 +225,6 @@ export function TicketFlipCard({
               showsHorizontalScrollIndicator={false}
               onScroll={handleInfoScroll}
               scrollEventThrottle={16}
-              decelerationRate="fast"
-              snapToInterval={infoPageWidth}
-              snapToAlignment="start"
             >
               {/* Page 1: Core Info */}
               <View style={[styles.infoPage, { width: infoPageWidth }]}>
