@@ -482,7 +482,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     hintRow: {
       alignItems: 'center',
       paddingTop: Spacing.xs,
-      paddingBottom: Spacing.sm,
+      paddingBottom: Spacing.xs,
     },
     hintPill: {
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
