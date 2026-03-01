@@ -215,10 +215,17 @@ export function TicketFlipCard({
 
           {/* Info Carousel */}
           <View
-            style={styles.infoCarouselContainer}
+            style={[
+              styles.infoCarouselContainer,
+              Platform.OS === 'web' && { touchAction: 'pan-x' as any },
+            ]}
             {...(Platform.OS === 'web' ? {
               onTouchStart: (e: any) => e.stopPropagation(),
               onTouchMove: (e: any) => e.stopPropagation(),
+              onTouchEnd: (e: any) => e.stopPropagation(),
+              onPointerDown: (e: any) => e.stopPropagation(),
+              onPointerMove: (e: any) => e.stopPropagation(),
+              onPointerUp: (e: any) => e.stopPropagation(),
             } : {})}
           >
             <ScrollView
