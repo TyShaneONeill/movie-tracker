@@ -15,13 +15,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   Image,
   Platform,
   Pressable,
   ActivityIndicator,
   useWindowDimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  ViewToken,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -385,7 +385,9 @@ function AddJourneyCard({ colors, ticketHeight, ticketWidth, onPress, isCreating
 const HEADER_HEIGHT = 100;
 const MAX_JOURNEY_WIDTH = 480;
 const CAROUSEL_HORIZONTAL_PADDING = Spacing.md;
-const CARD_GAP = Spacing.md; // Gap between carousel cards
+type CarouselItem =
+  | { type: 'journey'; journey: UserMovie }
+  | { type: 'add' };
 
 export default function JourneyCarouselScreen() {
   const router = useRouter();
@@ -401,14 +403,14 @@ export default function JourneyCarouselScreen() {
 
   // Journey carousel state
   const [currentJourneyIndex, setCurrentJourneyIndex] = useState(0);
-  const carouselRef = useRef<ScrollView>(null);
+  const carouselRef = useRef<FlatList<CarouselItem>>(null);
 
   // Parse tmdbId once for all hooks
   const parsedTmdbId = tmdbId ? parseInt(tmdbId, 10) : undefined;
 
   // Fetch all journeys for this movie
   const { data: journeyData, isLoading, isError } = useJourneysByMovie(parsedTmdbId);
-  const journeys = journeyData?.journeys ?? [];
+  const journeys = useMemo(() => journeyData?.journeys ?? [], [journeyData?.journeys]);
   const firstTake = journeyData?.firstTake ?? null;
 
   // Create journey mutation
@@ -433,6 +435,7 @@ export default function JourneyCarouselScreen() {
   }, []);
 
   // Calculate dimensions
+  const pageWidth = screenWidth;
   const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
   const ticketWidth = screenWidth - (CAROUSEL_HORIZONTAL_PADDING * 2);
   // Info page width = container width (ticket width minus container's horizontal margins)
@@ -443,12 +446,37 @@ export default function JourneyCarouselScreen() {
 
   const styles = useMemo(() => createStyles(colors, ticketHeight, ticketWidth, insets.top), [colors, ticketHeight, ticketWidth, insets.top]);
 
-  // Handle carousel scroll
-  const handleCarouselScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const pageIndex = Math.round(offsetX / (ticketWidth + CARD_GAP));
-    setCurrentJourneyIndex(pageIndex);
-  }, [ticketWidth]);
+  // Carousel data for FlatList
+  const carouselData: CarouselItem[] = useMemo(() => {
+    const items: CarouselItem[] = journeys.map((journey) => ({
+      type: 'journey' as const,
+      journey,
+    }));
+    items.push({ type: 'add' as const });
+    return items;
+  }, [journeys]);
+
+  // FlatList viewability callbacks (matches onboarding pattern)
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        setCurrentJourneyIndex(viewableItems[0].index);
+      }
+    },
+  ).current;
+
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+  }).current;
+
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({
+      length: pageWidth,
+      offset: pageWidth * index,
+      index,
+    }),
+    [pageWidth],
+  );
 
   // Handle go back
   const handleGoBack = () => {
@@ -460,7 +488,7 @@ export default function JourneyCarouselScreen() {
   };
 
   // Handle create new journey
-  const handleCreateJourney = async () => {
+  const handleCreateJourney = useCallback(async () => {
     requireAuth(async () => {
       if (journeys.length === 0) return;
       try {
@@ -471,7 +499,7 @@ export default function JourneyCarouselScreen() {
         console.error('Failed to create new journey:', error);
       }
     }, 'Sign in to log another viewing');
-  };
+  }, [requireAuth, journeys, createJourney, router]);
 
   // Handle generate AI art for a journey
   const handleGenerateArt = useCallback(async (journey: UserMovie) => {
@@ -522,6 +550,55 @@ export default function JourneyCarouselScreen() {
 
   // Get movie title from first journey
   const movieTitle = journeys[0]?.title ?? 'Movie';
+
+  // Render a carousel item (journey ticket or add card)
+  const renderCarouselItem = useCallback(
+    ({ item }: { item: CarouselItem }) => {
+      const CardWrapper = Platform.OS === 'web' ? ScrollView : View;
+      const wrapperProps = Platform.OS === 'web'
+        ? { showsVerticalScrollIndicator: false }
+        : {};
+
+      if (item.type === 'add') {
+        return (
+          <CardWrapper style={{ width: pageWidth }} {...wrapperProps}>
+            <View style={{ paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING }}>
+              <AddJourneyCard
+                colors={colors}
+                ticketHeight={ticketHeight}
+                ticketWidth={ticketWidth}
+                onPress={handleCreateJourney}
+                isCreating={isCreating}
+              />
+            </View>
+          </CardWrapper>
+        );
+      }
+
+      return (
+        <CardWrapper style={{ width: pageWidth }} {...wrapperProps}>
+          <View style={{ paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING }}>
+            <JourneyTicket
+              journey={item.journey}
+              firstTake={firstTake}
+              colors={colors}
+              effectiveTheme={effectiveTheme}
+              ticketHeight={ticketHeight}
+              ticketWidth={ticketWidth}
+              infoPageWidth={infoPageWidth}
+              onGenerateArt={() => handleGenerateArt(item.journey)}
+              onTogglePoster={() => handleTogglePoster(item.journey)}
+              isGenerating={generatingJourneyId === item.journey.id}
+              onPosterTap={() => handlePosterTap(item.journey)}
+            />
+          </View>
+        </CardWrapper>
+      );
+    },
+    [colors, effectiveTheme, ticketHeight, ticketWidth, infoPageWidth, pageWidth,
+     firstTake, generatingJourneyId, handleGenerateArt, handleTogglePoster,
+     handlePosterTap, handleCreateJourney, isCreating],
+  );
 
   // Show loading state
   if (isLoading) {
@@ -589,64 +666,38 @@ export default function JourneyCarouselScreen() {
         <View style={styles.iconButtonPlaceholder} />
       </View>
 
-      {/* Journey Carousel — wrapped in vertical ScrollView on web for overflow */}
-      <ScrollView
+      {/* Journey Carousel */}
+      <FlatList
+        ref={carouselRef}
+        data={carouselData}
+        renderItem={renderCarouselItem}
+        keyExtractor={(item, index) =>
+          item.type === 'journey' ? item.journey.id : `add-${index}`
+        }
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={getItemLayout}
+        bounces={false}
         style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={Platform.OS === 'web'}
-      >
-        <ScrollView
-          ref={carouselRef}
-          horizontal
-          pagingEnabled={false}
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleCarouselScroll}
-          scrollEventThrottle={16}
-          decelerationRate="fast"
-          snapToInterval={ticketWidth + CARD_GAP}
-          snapToAlignment="start"
-          contentContainerStyle={styles.carouselContent}
-        >
-          {journeys.map((journey) => (
-            <JourneyTicket
-              key={journey.id}
-              journey={journey}
-              firstTake={firstTake}
-              colors={colors}
-              effectiveTheme={effectiveTheme}
-              ticketHeight={ticketHeight}
-              ticketWidth={ticketWidth}
-              infoPageWidth={infoPageWidth}
-              onGenerateArt={() => handleGenerateArt(journey)}
-              onTogglePoster={() => handleTogglePoster(journey)}
-              isGenerating={generatingJourneyId === journey.id}
-              onPosterTap={() => handlePosterTap(journey)}
-            />
-          ))}
-          {/* Add New Journey Card */}
-          <AddJourneyCard
-            colors={colors}
-            ticketHeight={ticketHeight}
-            ticketWidth={ticketWidth}
-            onPress={handleCreateJourney}
-            isCreating={isCreating}
-          />
-        </ScrollView>
+        initialNumToRender={totalPages}
+      />
 
-        {/* Dot Indicators for Journey Carousel */}
-        <View style={styles.carouselDotsContainer}>
-          {Array.from({ length: totalPages }).map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.carouselDot,
-                currentJourneyIndex === index && styles.carouselDotActive,
-                index === totalPages - 1 && styles.addDot,
-              ]}
-            />
-          ))}
-        </View>
-      </ScrollView>
+      {/* Dot Indicators for Journey Carousel */}
+      <View style={styles.carouselDotsContainer}>
+        {Array.from({ length: totalPages }).map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.carouselDot,
+              currentJourneyIndex === index && styles.carouselDotActive,
+              index === totalPages - 1 && styles.addDot,
+            ]}
+          />
+        ))}
+      </View>
 
       {/* Poster Inspection Modal */}
       <PosterInspectionModal
@@ -676,10 +727,6 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: nu
     flex: 1,
     backgroundColor: colors.background,
   },
-  carouselContent: {
-    paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING,
-  },
-
   // Header
   header: {
     flexDirection: 'row',
@@ -802,7 +849,6 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     marginTop: Spacing.md,
-    marginRight: CARD_GAP,
     minHeight: Platform.OS === 'web' ? undefined : ticketHeight,
   },
   posterOverlay: {
@@ -914,7 +960,6 @@ const createAddCardStyles = (colors: ThemeColors, ticketHeight: number, ticketWi
     backgroundColor: colors.card,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.md,
-    marginRight: CARD_GAP,
     minHeight: Platform.OS === 'web' ? undefined : ticketHeight,
     borderWidth: 2,
     borderColor: colors.border,
