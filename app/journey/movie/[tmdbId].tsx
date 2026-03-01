@@ -872,6 +872,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     overflow: 'hidden',
     borderBottomLeftRadius: BorderRadius.lg,
     borderBottomRightRadius: BorderRadius.lg,
+    paddingBottom: Spacing.sm,
   },
   posterOverlay: {
     backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
@@ -927,7 +928,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
   generateArtSection: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
+    marginTop: 'auto',
   },
   generateArtButton: {
     flexDirection: 'row',
