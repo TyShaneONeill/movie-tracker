@@ -868,6 +868,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     ...(Platform.OS === 'web' ? { height: ticketHeight } : { minHeight: ticketHeight }),
   },
   bottomSection: {
+    flex: 1,
     overflow: 'hidden',
     borderBottomLeftRadius: BorderRadius.lg,
     borderBottomRightRadius: BorderRadius.lg,
