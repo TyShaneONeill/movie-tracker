@@ -800,7 +800,7 @@ describe('markSeasonWatched', () => {
     await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
 
     expect(mockFrom).toHaveBeenCalledWith('user_episode_watches');
-    expect(chain.insert).toHaveBeenCalledWith(
+    expect(chain.upsert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           user_id: USER_ID,
@@ -814,7 +814,8 @@ describe('markSeasonWatched', () => {
         expect.objectContaining({
           episode_number: 3,
         }),
-      ])
+      ]),
+      { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true }
     );
   });
 

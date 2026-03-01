@@ -285,6 +285,7 @@ describe('addMovieToList', () => {
       poster_path: '/poster.jpg',
       position: 3,
       notes: 'Great film',
+      media_type: 'movie',
     });
     expect(insertChain.select).toHaveBeenCalled();
     expect(insertChain.single).toHaveBeenCalled();
