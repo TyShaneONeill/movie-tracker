@@ -374,7 +374,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     // Title Section
     titleSection: {
       paddingHorizontal: Spacing.lg,
-      paddingTop: Spacing.sm,
+      paddingTop: Spacing.md,
     },
     movieTitle: {
       ...Typography.display.h3,
