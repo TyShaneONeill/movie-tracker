@@ -497,6 +497,11 @@ export default function JourneyCarouselScreen() {
         router.push(`/journey/edit/${newJourney.id}` as never);
       } catch (error) {
         console.error('Failed to create new journey:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to create journey',
+          text2: error instanceof Error ? error.message : 'Please try again',
+        });
       }
     }, 'Sign in to log another viewing');
   }, [requireAuth, journeys, createJourney, router]);
@@ -554,26 +559,27 @@ export default function JourneyCarouselScreen() {
   // Render a carousel item (journey ticket or add card)
   const renderCarouselItem = useCallback(
     ({ item }: { item: CarouselItem }) => {
+      // AddJourneyCard uses a plain View wrapper — ScrollView can
+      // intercept press events on web and prevent the button from firing.
+      if (item.type === 'add') {
+        return (
+          <View style={{ width: pageWidth, paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING }}>
+            <AddJourneyCard
+              colors={colors}
+              ticketHeight={ticketHeight}
+              ticketWidth={ticketWidth}
+              onPress={handleCreateJourney}
+              isCreating={isCreating}
+            />
+          </View>
+        );
+      }
+
+      // Journey tickets may overflow vertically on web, so wrap in ScrollView
       const CardWrapper = Platform.OS === 'web' ? ScrollView : View;
       const wrapperProps = Platform.OS === 'web'
         ? { showsVerticalScrollIndicator: false }
         : {};
-
-      if (item.type === 'add') {
-        return (
-          <CardWrapper style={{ width: pageWidth }} {...wrapperProps}>
-            <View style={{ paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING }}>
-              <AddJourneyCard
-                colors={colors}
-                ticketHeight={ticketHeight}
-                ticketWidth={ticketWidth}
-                onPress={handleCreateJourney}
-                isCreating={isCreating}
-              />
-            </View>
-          </CardWrapper>
-        );
-      }
 
       return (
         <CardWrapper style={{ width: pageWidth }} {...wrapperProps}>
