@@ -247,12 +247,12 @@ export default function JourneyCardScreen() {
             <>
               <ExpoImage
                 source={{ uri: blurPosterUrl }}
-                style={StyleSheet.absoluteFill}
+                style={[StyleSheet.absoluteFill, styles.blurredPosterImage]}
                 contentFit="cover"
                 transition={200}
               />
               {Platform.OS === 'web' ? (
-                <View style={[StyleSheet.absoluteFill, styles.posterOverlay, styles.webBlurFallback]} />
+                <View style={[StyleSheet.absoluteFill, styles.posterOverlay]} />
               ) : (
                 <BlurView
                   intensity={80}
@@ -417,9 +417,9 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
   posterOverlay: {
     backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
   },
-  webBlurFallback: {
+  blurredPosterImage: {
     ...Platform.select({
-      web: { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any,
+      web: { filter: 'blur(20px)', transform: 'scale(1.1)' } as any,
       default: {},
     }),
   },
