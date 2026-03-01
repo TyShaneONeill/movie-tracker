@@ -367,7 +367,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: colors.card,
+      backgroundColor: 'transparent',
       borderBottomLeftRadius: BorderRadius.lg,
       borderBottomRightRadius: BorderRadius.lg,
       overflow: 'hidden',
