@@ -282,9 +282,12 @@ function JourneyTicket({
         )}
       </Pressable>
 
-      {/* Bottom half — frosted glass background + perforation + content */}
+      {/* Perforated edge — between hero and bottom section so blur starts below it */}
+      <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+
+      {/* Bottom half — frosted glass background + content */}
       <View style={styles.bottomSection}>
-        {/* Frosted poster background — only on bottom half */}
+        {/* Frosted poster background — only on bottom half, below perforation */}
         {blurPosterUrl && (
           <>
             <ExpoImage
@@ -305,9 +308,6 @@ function JourneyTicket({
             )}
           </>
         )}
-
-        {/* Perforated edge at top of bottom section */}
-        <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
 
         {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
         {hasAiPoster ? (
