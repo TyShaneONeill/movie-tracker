@@ -306,7 +306,17 @@ export default function JourneyCardScreen() {
               </>
             )}
 
-          {/* Generate AI Art Button - only show if no AI art exists */}
+          {/* Flip card: front/back faces (no perforated edge — rendered above) */}
+          <TicketFlipCard
+            journey={journey}
+            firstTake={firstTake ?? null}
+            colors={colors}
+            isDark={isDark}
+            infoPageWidth={infoPageWidth}
+            companionAvatarMap={companionAvatarMap}
+          />
+
+          {/* Generate AI Art Button - below flip card */}
           {!hasAiPoster && (
             <View style={styles.posterOptionsSection}>
               <Pressable
@@ -330,16 +340,6 @@ export default function JourneyCardScreen() {
               </Pressable>
             </View>
           )}
-
-          {/* Flip card: front/back faces (no perforated edge — rendered above) */}
-          <TicketFlipCard
-            journey={journey}
-            firstTake={firstTake ?? null}
-            colors={colors}
-            isDark={isDark}
-            infoPageWidth={infoPageWidth}
-            companionAvatarMap={companionAvatarMap}
-          />
           </View>
         </View>
 

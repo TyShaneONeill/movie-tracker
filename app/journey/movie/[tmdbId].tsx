@@ -309,7 +309,16 @@ function JourneyTicket({
           </>
         )}
 
-        {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
+        {/* Flip card: front/back faces */}
+        <TicketFlipCard
+          journey={journey}
+          firstTake={firstTake}
+          colors={colors}
+          isDark={isDark}
+          infoPageWidth={infoPageWidth}
+        />
+
+        {/* Poster Options - below flip card */}
         {hasAiPoster ? (
           <PosterToggle
             isAiSelected={!!showAiPoster}
@@ -341,15 +350,6 @@ function JourneyTicket({
             </Pressable>
           </View>
         )}
-
-        {/* Flip card: front/back faces */}
-        <TicketFlipCard
-          journey={journey}
-          firstTake={firstTake}
-          colors={colors}
-          isDark={isDark}
-          infoPageWidth={infoPageWidth}
-        />
       </View>
     </View>
   );
@@ -868,7 +868,6 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     ...(Platform.OS === 'web' ? { height: ticketHeight } : { minHeight: ticketHeight }),
   },
   bottomSection: {
-    flex: 1,
     overflow: 'hidden',
     borderBottomLeftRadius: BorderRadius.lg,
     borderBottomRightRadius: BorderRadius.lg,
@@ -926,8 +925,8 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
   },
   generateArtSection: {
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xs,
-    paddingBottom: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   generateArtButton: {
     flexDirection: 'row',
