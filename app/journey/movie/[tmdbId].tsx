@@ -14,7 +14,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   FlatList,
   Image,
   Platform,
@@ -22,6 +21,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   ViewToken,
+  LayoutChangeEvent,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -434,11 +434,19 @@ export default function JourneyCarouselScreen() {
     hapticImpact(ImpactFeedbackStyle.Medium);
   }, []);
 
+  // Measure FlatList area height on web for precise card sizing
+  const [carouselAreaHeight, setCarouselAreaHeight] = useState(0);
+  const handleCarouselLayout = useCallback((e: LayoutChangeEvent) => {
+    setCarouselAreaHeight(e.nativeEvent.layout.height);
+  }, []);
+
   // Calculate dimensions
   const pageWidth = screenWidth;
-  const DOT_AREA_HEIGHT = 40; // dots container (paddingVertical + dot size)
-  const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2)
-    - (Platform.OS === 'web' ? DOT_AREA_HEIGHT + Spacing.md : 0); // account for dots + card marginTop on web
+  const nativeTicketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
+  // On web: use measured FlatList height minus card marginTop; fallback to native calc
+  const ticketHeight = Platform.OS === 'web' && carouselAreaHeight > 0
+    ? carouselAreaHeight - Spacing.md
+    : nativeTicketHeight;
   const ticketWidth = screenWidth - (CAROUSEL_HORIZONTAL_PADDING * 2);
   // Info page width = container width (ticket width minus container's horizontal margins)
   const infoPageWidth = ticketWidth - (Spacing.md * 2);
@@ -577,30 +585,22 @@ export default function JourneyCarouselScreen() {
         );
       }
 
-      // Journey tickets may overflow vertically on web, so wrap in ScrollView
-      const CardWrapper = Platform.OS === 'web' ? ScrollView : View;
-      const wrapperProps = Platform.OS === 'web'
-        ? { showsVerticalScrollIndicator: false }
-        : {};
-
       return (
-        <CardWrapper style={{ width: pageWidth }} {...wrapperProps}>
-          <View style={{ paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING }}>
-            <JourneyTicket
-              journey={item.journey}
-              firstTake={firstTake}
-              colors={colors}
-              effectiveTheme={effectiveTheme}
-              ticketHeight={ticketHeight}
-              ticketWidth={ticketWidth}
-              infoPageWidth={infoPageWidth}
-              onGenerateArt={() => handleGenerateArt(item.journey)}
-              onTogglePoster={() => handleTogglePoster(item.journey)}
-              isGenerating={generatingJourneyId === item.journey.id}
-              onPosterTap={() => handlePosterTap(item.journey)}
-            />
-          </View>
-        </CardWrapper>
+        <View style={{ width: pageWidth, paddingHorizontal: CAROUSEL_HORIZONTAL_PADDING }}>
+          <JourneyTicket
+            journey={item.journey}
+            firstTake={firstTake}
+            colors={colors}
+            effectiveTheme={effectiveTheme}
+            ticketHeight={ticketHeight}
+            ticketWidth={ticketWidth}
+            infoPageWidth={infoPageWidth}
+            onGenerateArt={() => handleGenerateArt(item.journey)}
+            onTogglePoster={() => handleTogglePoster(item.journey)}
+            isGenerating={generatingJourneyId === item.journey.id}
+            onPosterTap={() => handlePosterTap(item.journey)}
+          />
+        </View>
       );
     },
     [colors, effectiveTheme, ticketHeight, ticketWidth, infoPageWidth, pageWidth,
@@ -690,6 +690,7 @@ export default function JourneyCarouselScreen() {
         getItemLayout={getItemLayout}
         bounces={false}
         style={{ flex: 1 }}
+        onLayout={handleCarouselLayout}
         initialNumToRender={totalPages}
       />
 
