@@ -49,7 +49,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.md,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   notch: {
     width: NOTCH_SIZE,
