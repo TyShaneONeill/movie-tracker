@@ -282,9 +282,12 @@ function JourneyTicket({
         )}
       </Pressable>
 
-      {/* Bottom half — frosted glass background + perforation + content */}
+      {/* Perforated edge — between hero and bottom section so blur starts below it */}
+      <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+
+      {/* Bottom half — frosted glass background + content */}
       <View style={styles.bottomSection}>
-        {/* Frosted poster background — only on bottom half */}
+        {/* Frosted poster background — only on bottom half, below perforation */}
         {blurPosterUrl && (
           <>
             <ExpoImage
@@ -306,10 +309,16 @@ function JourneyTicket({
           </>
         )}
 
-        {/* Perforated edge at top of bottom section */}
-        <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+        {/* Flip card: front/back faces */}
+        <TicketFlipCard
+          journey={journey}
+          firstTake={firstTake}
+          colors={colors}
+          isDark={isDark}
+          infoPageWidth={infoPageWidth}
+        />
 
-        {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
+        {/* Poster Options - below flip card */}
         {hasAiPoster ? (
           <PosterToggle
             isAiSelected={!!showAiPoster}
@@ -341,15 +350,6 @@ function JourneyTicket({
             </Pressable>
           </View>
         )}
-
-        {/* Flip card: front/back faces */}
-        <TicketFlipCard
-          journey={journey}
-          firstTake={firstTake}
-          colors={colors}
-          isDark={isDark}
-          infoPageWidth={infoPageWidth}
-        />
       </View>
     </View>
   );
@@ -872,6 +872,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     overflow: 'hidden',
     borderBottomLeftRadius: BorderRadius.lg,
     borderBottomRightRadius: BorderRadius.lg,
+    paddingBottom: Spacing.sm,
   },
   posterOverlay: {
     backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
@@ -926,7 +927,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
   },
   generateArtSection: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   generateArtButton: {
     flexDirection: 'row',

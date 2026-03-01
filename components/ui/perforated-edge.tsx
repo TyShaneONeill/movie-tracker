@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 
 type ThemeColors = typeof Colors.dark;
 
@@ -49,7 +49,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.md,
+    marginTop: -NOTCH_RADIUS,
+    marginBottom: -NOTCH_RADIUS,
+    zIndex: 2,
   },
   notch: {
     width: NOTCH_SIZE,

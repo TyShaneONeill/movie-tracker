@@ -279,9 +279,12 @@ export default function JourneyCardScreen() {
               </View>
           </Pressable>
 
-          {/* Bottom half — frosted glass starts here */}
+          {/* Perforated edge — between hero and bottom section so blur starts below it */}
+          <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+
+          {/* Bottom half — frosted glass starts below perforation */}
           <View style={styles.bottomSection}>
-            {/* Frosted poster background — only on bottom half */}
+            {/* Frosted poster background — only below perforation */}
             {blurPosterUrl && (
               <>
                 <ExpoImage
@@ -303,10 +306,17 @@ export default function JourneyCardScreen() {
               </>
             )}
 
-            {/* Perforated edge at top of bottom section */}
-            <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+          {/* Flip card: front/back faces (no perforated edge — rendered above) */}
+          <TicketFlipCard
+            journey={journey}
+            firstTake={firstTake ?? null}
+            colors={colors}
+            isDark={isDark}
+            infoPageWidth={infoPageWidth}
+            companionAvatarMap={companionAvatarMap}
+          />
 
-          {/* Generate AI Art Button - only show if no AI art exists */}
+          {/* Generate AI Art Button - below flip card */}
           {!hasAiPoster && (
             <View style={styles.posterOptionsSection}>
               <Pressable
@@ -330,16 +340,6 @@ export default function JourneyCardScreen() {
               </Pressable>
             </View>
           )}
-
-          {/* Flip card: front/back faces (no perforated edge — rendered above) */}
-          <TicketFlipCard
-            journey={journey}
-            firstTake={firstTake ?? null}
-            colors={colors}
-            isDark={isDark}
-            infoPageWidth={infoPageWidth}
-            companionAvatarMap={companionAvatarMap}
-          />
           </View>
         </View>
 
@@ -473,7 +473,8 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
   // Poster Options Section
   posterOptionsSection: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
   },
   generateArtButton: {
     flexDirection: 'row',

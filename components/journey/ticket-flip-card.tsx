@@ -374,6 +374,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     // Title Section
     titleSection: {
       paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.sm,
     },
     movieTitle: {
       ...Typography.display.h3,
@@ -404,7 +405,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.35)',
       borderRadius: BorderRadius.md,
       marginHorizontal: Spacing.md,
-      marginTop: Spacing.md,
+      marginTop: Spacing.sm,
       overflow: 'hidden',
     },
     infoPage: {
@@ -482,7 +483,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     hintRow: {
       alignItems: 'center',
       paddingTop: Spacing.xs,
-      paddingBottom: Spacing.sm,
+      paddingBottom: Spacing.xs,
     },
     hintPill: {
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
