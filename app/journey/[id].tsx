@@ -41,6 +41,7 @@ import { getGenreNamesByIds } from '@/lib/genre-service';
 import { useAuth } from '@/lib/auth-context';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
+import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 
 // Type for the colors object
@@ -300,6 +301,9 @@ export default function JourneyCardScreen() {
               </View>
           </Pressable>
 
+          {/* Perforated edge between hero and bottom section */}
+          <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+
           {/* Generate AI Art Button - only show if no AI art exists */}
           {!hasAiPoster && (
             <View style={styles.posterOptionsSection}>
@@ -325,7 +329,7 @@ export default function JourneyCardScreen() {
             </View>
           )}
 
-          {/* Flip card: perforated edge + front/back faces */}
+          {/* Flip card: front/back faces (no perforated edge — rendered above) */}
           <TicketFlipCard
             journey={journey}
             firstTake={firstTake ?? null}
