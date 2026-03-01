@@ -29,7 +29,6 @@ import Svg, { Rect } from 'react-native-svg';
 import { Image as ExpoImage } from 'expo-image';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 
 type ThemeColors = typeof Colors.dark;
@@ -188,9 +187,6 @@ export function TicketFlipCard({
 
   return (
     <View>
-      {/* Perforated edge stays fixed — does NOT flip */}
-      <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
-
       {/* Flip wrapper */}
       <Pressable
         onPress={handleFlip}

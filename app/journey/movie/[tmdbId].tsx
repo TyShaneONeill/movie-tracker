@@ -39,6 +39,7 @@ import { useGenerateArt } from '@/hooks/use-generate-art';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { getGenreNamesByIds } from '@/lib/genre-service';
 import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
+import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
@@ -303,6 +304,9 @@ function JourneyTicket({
         )}
       </Pressable>
 
+      {/* Perforated edge between hero and bottom section */}
+      <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
+
       {/* Poster Options - Toggle when AI art exists, Generate button when it doesn't */}
       {hasAiPoster ? (
         <PosterToggle
@@ -336,7 +340,7 @@ function JourneyTicket({
         </View>
       )}
 
-      {/* Flip card: perforated edge + front/back faces */}
+      {/* Flip card: front/back faces (no perforated edge — rendered above) */}
       <TicketFlipCard
         journey={journey}
         firstTake={firstTake}
