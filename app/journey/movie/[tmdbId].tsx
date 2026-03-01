@@ -927,7 +927,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
   },
   generateArtSection: {
     paddingHorizontal: Spacing.md,
-    marginTop: 'auto',
+    marginTop: Spacing.xs,
   },
   generateArtButton: {
     flexDirection: 'row',
