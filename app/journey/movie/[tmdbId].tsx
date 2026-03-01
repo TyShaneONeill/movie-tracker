@@ -436,7 +436,9 @@ export default function JourneyCarouselScreen() {
 
   // Calculate dimensions
   const pageWidth = screenWidth;
-  const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
+  const DOT_AREA_HEIGHT = 40; // dots container (paddingVertical + dot size)
+  const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2)
+    - (Platform.OS === 'web' ? DOT_AREA_HEIGHT + Spacing.md : 0); // account for dots + card marginTop on web
   const ticketWidth = screenWidth - (CAROUSEL_HORIZONTAL_PADDING * 2);
   // Info page width = container width (ticket width minus container's horizontal margins)
   const infoPageWidth = ticketWidth - (Spacing.md * 2);
@@ -855,7 +857,7 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     marginTop: Spacing.md,
-    minHeight: Platform.OS === 'web' ? undefined : ticketHeight,
+    ...(Platform.OS === 'web' ? { height: ticketHeight } : { minHeight: ticketHeight }),
   },
   posterOverlay: {
     backgroundColor: isDark ? 'rgba(9, 9, 11, 0.55)' : 'rgba(255, 255, 255, 0.55)',
@@ -867,7 +869,8 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     }),
   },
   heroSection: {
-    ...(Platform.OS === 'web' ? { height: 350 } : { flex: 1, minHeight: 250 }),
+    flex: 1,
+    minHeight: 200,
     position: 'relative',
     overflow: 'hidden',
     borderTopLeftRadius: BorderRadius.lg,
