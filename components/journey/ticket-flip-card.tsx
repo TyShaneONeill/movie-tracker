@@ -413,7 +413,6 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
 
     // Shared face styles
     face: {
-      paddingBottom: Spacing.xs,
     },
     backFace: {
       position: 'absolute',
@@ -505,7 +504,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      paddingBottom: Spacing.sm,
+      paddingBottom: Spacing.xs,
       gap: 6,
     },
     dot: {
