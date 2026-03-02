@@ -25,7 +25,6 @@ export function NativeFeedAd({ index }: NativeFeedAdProps) {
     try {
       ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
       pushed.current = true;
-      console.log('[AdSense] Feed ad pushed');
       // Mark as loaded after a short delay (AdSense fills asynchronously)
       setTimeout(() => setLoaded(true), 500);
     } catch (e) {

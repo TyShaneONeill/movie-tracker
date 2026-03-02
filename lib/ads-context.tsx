@@ -37,7 +37,6 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
       try {
         await mobileAds!().initialize();
         setAdsInitialized(true);
-        console.log('[AdMob] SDK initialized successfully');
       } catch (error) {
         console.warn('[AdMob] SDK initialization failed:', error);
         captureException(error instanceof Error ? error : new Error(String(error)), {

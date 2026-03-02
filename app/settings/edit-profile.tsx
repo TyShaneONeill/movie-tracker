@@ -261,7 +261,7 @@ export default function EditProfileScreen() {
                     {
                       backgroundColor: colors.card,
                       color: colors.text,
-                      borderColor: (usernameValidation.status === 'invalid' || usernameValidation.status === 'taken') ? '#ef4444' : 'transparent',
+                      borderColor: (usernameValidation.status === 'invalid' || usernameValidation.status === 'taken') ? colors.error : 'transparent',
                     }
                   ]}
                   value={formData.username}
@@ -280,8 +280,8 @@ export default function EditProfileScreen() {
               )}
               {usernameValidation.status === 'invalid' && (
                 <View style={styles.usernameStatusRow}>
-                  <Ionicons name="close-circle" size={14} color="#ef4444" />
-                  <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                  <Ionicons name="close-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>
                     {usernameValidation.error}
                   </Text>
                 </View>
@@ -304,8 +304,8 @@ export default function EditProfileScreen() {
               )}
               {usernameValidation.status === 'taken' && (
                 <View style={styles.usernameStatusRow}>
-                  <Ionicons name="close-circle" size={14} color="#ef4444" />
-                  <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                  <Ionicons name="close-circle" size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>
                     Username taken
                   </Text>
                 </View>

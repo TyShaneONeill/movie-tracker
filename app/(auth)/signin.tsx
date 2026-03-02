@@ -123,8 +123,8 @@ export default function SignInScreen() {
 
           {/* Error Message */}
           {error && (
-            <View style={styles.errorContainer}>
-              <ThemedText style={styles.errorText}>{error}</ThemedText>
+            <View style={[styles.errorContainer, { backgroundColor: `${colors.error}1A` }]}>
+              <ThemedText style={[styles.errorText, { color: colors.error }]}>{error}</ThemedText>
             </View>
           )}
 
@@ -313,13 +313,11 @@ const styles = StyleSheet.create({
     ...Typography.body.base,
   },
   errorContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
   },
   errorText: {
-    color: '#ef4444',
     textAlign: 'center',
     ...Typography.body.sm,
   },

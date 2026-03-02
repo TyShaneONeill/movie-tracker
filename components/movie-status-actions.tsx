@@ -56,6 +56,7 @@ interface StatusButtonProps {
   activeColor: string;
   inactiveColor: string;
   borderColor: string;
+  circleBackgroundColor: string;
 }
 
 function StatusButton({
@@ -69,6 +70,7 @@ function StatusButton({
   activeColor,
   inactiveColor,
   borderColor,
+  circleBackgroundColor,
 }: StatusButtonProps) {
   return (
     <Pressable
@@ -86,7 +88,7 @@ function StatusButton({
       <View
         style={[
           styles.statusCircle,
-          { borderColor: isActive ? activeColor : borderColor },
+          { backgroundColor: circleBackgroundColor, borderColor: isActive ? activeColor : borderColor },
           isActive && { backgroundColor: `${activeColor}15` },
         ]}
       >
@@ -123,7 +125,8 @@ export function MovieStatusActions({
   const isWatched = currentStatus === 'watched';
 
   const inactiveColor = colors.textSecondary;
-  const borderColor = 'rgba(255, 255, 255, 0.1)';
+  const borderColor = colors.border;
+  const circleBackground = effectiveTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
 
   // Status colors
   const watchlistColor = colors.gold;
@@ -173,7 +176,7 @@ export function MovieStatusActions({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { borderBottomColor: colors.border }]}>
       <StatusButton
         label="WATCHLIST"
         icon={<BookmarkIcon color={inactiveColor} />}
@@ -185,6 +188,7 @@ export function MovieStatusActions({
         activeColor={watchlistColor}
         inactiveColor={inactiveColor}
         borderColor={borderColor}
+        circleBackgroundColor={circleBackground}
       />
       <StatusButton
         label="WATCHING"
@@ -197,6 +201,7 @@ export function MovieStatusActions({
         activeColor={watchingColor}
         inactiveColor={inactiveColor}
         borderColor={borderColor}
+        circleBackgroundColor={circleBackground}
       />
       <StatusButton
         label="WATCHED"
@@ -209,6 +214,7 @@ export function MovieStatusActions({
         activeColor={watchedColor}
         inactiveColor={inactiveColor}
         borderColor={borderColor}
+        circleBackgroundColor={circleBackground}
       />
     </View>
   );
@@ -223,7 +229,6 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.md,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   statusButtonContainer: {
     alignItems: 'center',
@@ -237,7 +242,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',

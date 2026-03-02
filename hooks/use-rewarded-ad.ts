@@ -42,7 +42,6 @@ export function useRewardedAd() {
     });
 
     const unsubLoaded = ad.addAdEventListener(AdModule.RewardedAdEventType.LOADED, () => {
-      console.log('[AdMob] Rewarded ad loaded');
       setLoaded(true);
     });
 

@@ -27,7 +27,7 @@ export function RewardedAdButton({ onRewardEarned }: RewardedAdButtonProps) {
         reloadAd();
       }
     } catch (error) {
-      console.log('Rewarded ad error:', error);
+      console.error('Rewarded ad error:', error);
     } finally {
       setShowing(false);
     }

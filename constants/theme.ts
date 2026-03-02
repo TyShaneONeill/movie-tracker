@@ -25,6 +25,7 @@ export const Colors = {
     accentSecondary: '#10b981',    // Emerald 500 - Success/positive
     gold: '#fbbf24',               // Amber 400 - Premium/highlights
     blue: '#00BFFF',               // Deep sky blue - Watching status
+    error: '#ef4444',               // Red 500 - Error states
 
     // UI Elements
     border: 'rgba(255, 255, 255, 0.08)',
@@ -50,6 +51,7 @@ export const Colors = {
     accentSecondary: '#10b981',    // Emerald 500
     gold: '#fbbf24',               // Amber 400
     blue: '#00BFFF',               // Deep sky blue - Watching status
+    error: '#dc2626',               // Red 600 - Error states (darker for light bg)
 
     // UI Elements
     border: 'rgba(0, 0, 0, 0.08)',
