@@ -1,7 +1,7 @@
 /**
  * TicketFlipCard Component
  * Flippable bottom half of the journey ticket.
- * Front: title, rating, info carousel, notes, "tap to flip" hint.
+ * Front: title, rating, info carousel, "tap to flip" hint.
  * Back: "ADMIT ONE" disclaimer, ticket ID, barcode visual.
  *
  * Uses Reanimated rotateY with backfaceVisibility: hidden for the flip.
@@ -328,13 +328,6 @@ export function TicketFlipCard({
           </View>
         </View>
 
-        {/* Notes */}
-        {journey.journey_notes && (
-          <View style={styles.notesSection}>
-            <Text style={styles.notesText}>&ldquo;{journey.journey_notes}&rdquo;</Text>
-          </View>
-        )}
-
       </Animated.View>
 
       {/* Back face — absolutely positioned to fill */}
@@ -512,23 +505,6 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     },
     dotActive: {
       backgroundColor: colors.text,
-    },
-
-    // Notes
-    notesSection: {
-      marginHorizontal: Spacing.lg,
-      marginTop: Spacing.md,
-      padding: Spacing.md,
-      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.35)',
-      borderRadius: BorderRadius.md,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.tint,
-    },
-    notesText: {
-      ...Typography.body.base,
-      color: colors.textSecondary,
-      fontStyle: 'italic',
-      lineHeight: 24,
     },
 
     // Hint

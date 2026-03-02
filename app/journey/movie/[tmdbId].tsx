@@ -504,6 +504,15 @@ export default function JourneyCarouselScreen() {
     }
   };
 
+  // Handle next journey (or wrap to first)
+  const handleNextJourney = useCallback(() => {
+    const nextIndex = currentJourneyIndex + 1 >= journeys.length
+      ? 0
+      : currentJourneyIndex + 1;
+    carouselRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    hapticImpact(ImpactFeedbackStyle.Light);
+  }, [currentJourneyIndex, journeys.length]);
+
   // Handle create new journey
   const handleCreateJourney = useCallback(async () => {
     requireAuth(async () => {
@@ -677,8 +686,26 @@ export default function JourneyCarouselScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>{movieTitle}</Text>
         </View>
 
-        {/* Placeholder for symmetry */}
-        <View style={styles.iconButtonPlaceholder} />
+        {/* Next / Rewind button (hidden on "Add New Journey" card) */}
+        {currentJourneyIndex < journeys.length ? (
+          <Pressable onPress={handleNextJourney} style={styles.iconButton}>
+            <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
+              {currentJourneyIndex < journeys.length - 1 ? (
+                // Forward arrow → next journey
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                  <Path d="M5 12h14M12 5l7 7-7 7" />
+                </Svg>
+              ) : (
+                // Rewind icon ⟪ wrap to first
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                  <Path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+                </Svg>
+              )}
+            </BlurView>
+          </Pressable>
+        ) : (
+          <View style={styles.iconButtonPlaceholder} />
+        )}
       </View>
 
       {/* Journey Carousel */}
