@@ -44,7 +44,7 @@ export async function fetchFollowingFeed(
     .select(ACTIVITY_FEED_SELECT)
     .in('user_id', followingIds)
     .in('visibility', ['public', 'followers_only'])
-    .neq('quote_text', '')
+    .like('quote_text', '_%')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -68,7 +68,7 @@ export async function fetchCommunityFeedPage(
     .select(ACTIVITY_FEED_SELECT)
     .not('user_id', 'in', '(' + excludedIds.join(',') + ')')
     .eq('visibility', 'public')
-    .neq('quote_text', '')
+    .like('quote_text', '_%')
     .order('created_at', { ascending: false })
     .limit(PAGE_SIZE);
 
