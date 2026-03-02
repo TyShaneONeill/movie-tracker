@@ -381,33 +381,17 @@ export async function createNewJourney(
   userId: string,
   existingJourney: UserMovie
 ): Promise<UserMovie> {
-  // First, get all existing journeys to determine the next journey number
-  const existingJourneys = await fetchJourneysByTmdbId(userId, existingJourney.tmdb_id);
-  const maxJourneyNumber = existingJourneys.reduce(
-    (max, j) => Math.max(max, j.journey_number || 1),
-    0
-  );
-
-  const insertData: UserMovieInsert = {
-    user_id: userId,
-    tmdb_id: existingJourney.tmdb_id,
-    status: 'watched',
-    title: existingJourney.title,
-    overview: existingJourney.overview,
-    poster_path: existingJourney.poster_path,
-    backdrop_path: existingJourney.backdrop_path,
-    release_date: existingJourney.release_date,
-    vote_average: existingJourney.vote_average,
-    genre_ids: existingJourney.genre_ids,
-    journey_number: maxJourneyNumber + 1,
-    journey_created_at: new Date().toISOString(),
-  };
-
-  const { data, error } = (await (supabase
-    .from('user_movies') as any)
-    .insert(insertData)
-    .select()
-    .single()) as { data: UserMovie; error: any };
+  const { data, error } = (await (supabase.rpc as any)('create_journey_with_next_number', {
+    p_user_id: userId,
+    p_tmdb_id: existingJourney.tmdb_id,
+    p_title: existingJourney.title,
+    p_overview: existingJourney.overview ?? null,
+    p_poster_path: existingJourney.poster_path ?? null,
+    p_backdrop_path: existingJourney.backdrop_path ?? null,
+    p_release_date: existingJourney.release_date ?? null,
+    p_vote_average: existingJourney.vote_average ?? null,
+    p_genre_ids: existingJourney.genre_ids ?? [],
+  }).single()) as { data: UserMovie; error: any };
 
   if (error) {
     throw new Error(error.message || 'Failed to create new journey');

@@ -1,6 +1,7 @@
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
+    rpc: jest.fn(),
   },
 }));
 
@@ -387,32 +388,27 @@ describe('updateListItemNotes', () => {
 // ============================================================================
 
 describe('reorderListMovies', () => {
-  it('updates positions for all movies', async () => {
-    // One chain per tmdbId + one for touchListUpdatedAt
-    const chains = [100, 200, 300].map(() =>
-      mockSupabaseQuery({ data: null, error: null })
-    );
-    const touchChain = mockSupabaseQuery({ data: null, error: null });
+  const mockRpc = supabase.rpc as jest.Mock;
 
-    (supabase.from as jest.Mock)
-      .mockReturnValueOnce(chains[0])
-      .mockReturnValueOnce(chains[1])
-      .mockReturnValueOnce(chains[2])
-      .mockReturnValueOnce(touchChain);
+  beforeEach(() => {
+    mockRpc.mockReset();
+  });
+
+  it('calls RPC with correct parameters', async () => {
+    mockRpc.mockResolvedValue({ error: null });
 
     await reorderListMovies('list-1', [100, 200, 300]);
 
-    // Verify each movie got its position updated
-    expect(supabase.from).toHaveBeenCalledTimes(4); // 3 updates + 1 touch
+    expect(mockRpc).toHaveBeenCalledWith('reorder_list_movies', {
+      p_list_id: 'list-1',
+      p_ordered_tmdb_ids: [100, 200, 300],
+    });
+  });
 
-    for (let i = 0; i < 3; i++) {
-      expect((supabase.from as jest.Mock).mock.calls[i][0]).toBe('list_movies');
-      expect(chains[i].update).toHaveBeenCalledWith({ position: i });
-      expect(chains[i].eq).toHaveBeenCalledWith('list_id', 'list-1');
-      expect(chains[i].eq).toHaveBeenCalledWith('tmdb_id', [100, 200, 300][i]);
-    }
+  it('throws on RPC error', async () => {
+    const error = { message: 'Reorder failed', code: 'PGRST' };
+    mockRpc.mockResolvedValue({ error });
 
-    // Verify touchListUpdatedAt
-    expect((supabase.from as jest.Mock).mock.calls[3][0]).toBe('user_lists');
+    await expect(reorderListMovies('list-1', [100])).rejects.toEqual(error);
   });
 });

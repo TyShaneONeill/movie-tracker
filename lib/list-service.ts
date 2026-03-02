@@ -235,20 +235,15 @@ export async function updateListItemNotes(
   if (error) throw error;
 }
 
-/** Reorder movies in a list (batch update positions). */
+/** Reorder movies in a list (single batch RPC call). */
 export async function reorderListMovies(
   listId: string,
   orderedTmdbIds: number[]
 ): Promise<void> {
-  await Promise.all(
-    orderedTmdbIds.map((tmdbId, index) =>
-      supabase
-        .from('list_movies')
-        .update({ position: index })
-        .eq('list_id', listId)
-        .eq('tmdb_id', tmdbId)
-    )
-  );
+  const { error } = await (supabase.rpc as any)('reorder_list_movies', {
+    p_list_id: listId,
+    p_ordered_tmdb_ids: orderedTmdbIds,
+  });
 
-  await touchListUpdatedAt(listId);
+  if (error) throw error;
 }
