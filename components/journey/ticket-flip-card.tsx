@@ -14,6 +14,7 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  Pressable,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -219,162 +220,186 @@ export function TicketFlipCard({
 
   const ticketId = journey.ticket_id || 'CNTK-' + journey.id.slice(0, 8).toUpperCase();
 
-  return (
-    <View>
-      {/* Flip wrapper — uses manual tap detection instead of Pressable
-          so the nested ScrollView can handle horizontal swipes freely. */}
-      <View
-        style={styles.flipWrapper}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={isFlipped ? 'Flip ticket to front' : 'Flip ticket to see barcode'}
-      >
-        {/* Front face */}
-        <Animated.View style={[styles.face, frontAnimatedStyle]}>
-          {/* Title & Rating */}
-          <View style={styles.titleSection}>
-            <Text style={styles.movieTitle}>{journey.title}</Text>
-            {firstTake?.rating && (
-              <View style={styles.ratingRow}>
-                <Text style={styles.ratingText}>
-                  <Text style={styles.ratingStar}>★</Text> {firstTake.rating.toFixed(1)}
+  // Shared content for both faces + hint (rendered inside the flip wrapper)
+  const flipContent = (
+    <>
+      {/* Front face */}
+      <Animated.View style={[styles.face, frontAnimatedStyle]}>
+        {/* Title & Rating */}
+        <View style={styles.titleSection}>
+          <Text style={styles.movieTitle}>{journey.title}</Text>
+          {firstTake?.rating && (
+            <View style={styles.ratingRow}>
+              <Text style={styles.ratingText}>
+                {firstTake.rating.toFixed(1)}
+              </Text>
+              {journey.journey_tagline && (
+                <Text style={styles.taglineText}>
+                  {' '}• {journey.journey_tagline}
                 </Text>
-                {journey.journey_tagline && (
-                  <Text style={styles.taglineText}>
-                    {' '}• {journey.journey_tagline}
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Info Carousel */}
-          <View style={styles.infoCarouselContainer}>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onScroll={handleInfoScroll}
-              scrollEventThrottle={16}
-            >
-              {/* Page 1: Core Info */}
-              <View style={[styles.infoPage, { width: infoPageWidth }]}>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>DATE</Text>
-                    <Text style={styles.infoValue}>{formatDate(journey.watched_at)}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>CINEMA</Text>
-                    <Text style={styles.infoValue}>{journey.location_name || 'Not set'}</Text>
-                  </View>
-                </View>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>SEAT</Text>
-                    <Text style={styles.infoValue}>{journey.seat_location || 'Not set'}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>WITH</Text>
-                    {journey.watched_with?.length ? (
-                      <View style={styles.companionList}>
-                        {journey.watched_with.map((name, i) => {
-                          const avatarUrl = companionAvatarMap?.get(name.toLowerCase());
-                          return (
-                            <View key={i} style={styles.companionItem}>
-                              {avatarUrl ? (
-                                <ExpoImage
-                                  source={{ uri: avatarUrl }}
-                                  style={styles.companionAvatar}
-                                  contentFit="cover"
-                                  transition={200}
-                                />
-                              ) : null}
-                              <Text style={styles.infoValue}>{name}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    ) : (
-                      <Text style={styles.infoValue}>Solo</Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              {/* Page 2: Extended Details */}
-              <View style={[styles.infoPage, { width: infoPageWidth }]}>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>TIME</Text>
-                    <Text style={styles.infoValue}>{formatTime(journey.watch_time)}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>FORMAT</Text>
-                    <Text style={styles.infoValue}>{formatWatchFormat(journey.watch_format)}</Text>
-                  </View>
-                </View>
-                <View style={styles.infoRow}>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>AUDITORIUM</Text>
-                    <Text style={styles.infoValue}>{journey.auditorium || 'Not set'}</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>PRICE</Text>
-                    <Text style={styles.infoValue}>{formatPrice(journey.ticket_price)}</Text>
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Dot Indicators */}
-            <View style={styles.dotsContainer}>
-              <View style={[styles.dot, infoPageIndex === 0 && styles.dotActive]} />
-              <View style={[styles.dot, infoPageIndex === 1 && styles.dotActive]} />
-            </View>
-          </View>
-
-          {/* Notes */}
-          {journey.journey_notes && (
-            <View style={styles.notesSection}>
-              <Text style={styles.notesText}>&ldquo;{journey.journey_notes}&rdquo;</Text>
+              )}
             </View>
           )}
-
-        </Animated.View>
-
-        {/* Back face — absolutely positioned to fill */}
-        <Animated.View style={[styles.face, styles.backFace, backAnimatedStyle]}>
-          {/* Large rotated ticket number on the left edge */}
-          <View style={styles.backIdRotatedContainer}>
-            <Text style={styles.backIdRotatedText}>
-              #{journey.id.slice(0, 6).toUpperCase()}
-            </Text>
-          </View>
-
-          {/* Disclaimer text — upper right */}
-          <Text style={styles.admitOneText}>
-            {'ADMIT ONE\nNON-TRANSFERABLE\nSUBJECT TO TERMS'}
-          </Text>
-
-          {/* Monospace ticket ID — middle right */}
-          <Text style={styles.backIdText}>{ticketId}</Text>
-
-          {/* Wide barcode — bottom right */}
-          <View style={styles.barcodeContainer}>
-            <BarcodeVisual colors={colors} />
-          </View>
-        </Animated.View>
-      </View>
-
-      {/* Tap-to-flip hint — outside the flip so it's always visible */}
-      <View style={styles.hintRow}>
-        <View style={styles.hintPill}>
-          <Text style={styles.hintText}>Tap to flip</Text>
         </View>
-      </View>
+
+        {/* Info Carousel */}
+        <View style={styles.infoCarouselContainer}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleInfoScroll}
+            scrollEventThrottle={16}
+          >
+            {/* Page 1: Core Info */}
+            <View style={[styles.infoPage, { width: infoPageWidth }]}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>DATE</Text>
+                  <Text style={styles.infoValue}>{formatDate(journey.watched_at)}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>CINEMA</Text>
+                  <Text style={styles.infoValue}>{journey.location_name || 'Not set'}</Text>
+                </View>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>SEAT</Text>
+                  <Text style={styles.infoValue}>{journey.seat_location || 'Not set'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>WITH</Text>
+                  {journey.watched_with?.length ? (
+                    <View style={styles.companionList}>
+                      {journey.watched_with.map((name, i) => {
+                        const avatarUrl = companionAvatarMap?.get(name.toLowerCase());
+                        return (
+                          <View key={i} style={styles.companionItem}>
+                            {avatarUrl ? (
+                              <ExpoImage
+                                source={{ uri: avatarUrl }}
+                                style={styles.companionAvatar}
+                                contentFit="cover"
+                                transition={200}
+                              />
+                            ) : null}
+                            <Text style={styles.infoValue}>{name}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <Text style={styles.infoValue}>Solo</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Page 2: Extended Details */}
+            <View style={[styles.infoPage, { width: infoPageWidth }]}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>TIME</Text>
+                  <Text style={styles.infoValue}>{formatTime(journey.watch_time)}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>FORMAT</Text>
+                  <Text style={styles.infoValue}>{formatWatchFormat(journey.watch_format)}</Text>
+                </View>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>AUDITORIUM</Text>
+                  <Text style={styles.infoValue}>{journey.auditorium || 'Not set'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>PRICE</Text>
+                  <Text style={styles.infoValue}>{formatPrice(journey.ticket_price)}</Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Dot Indicators */}
+          <View style={styles.dotsContainer}>
+            <View style={[styles.dot, infoPageIndex === 0 && styles.dotActive]} />
+            <View style={[styles.dot, infoPageIndex === 1 && styles.dotActive]} />
+          </View>
+        </View>
+
+        {/* Notes */}
+        {journey.journey_notes && (
+          <View style={styles.notesSection}>
+            <Text style={styles.notesText}>&ldquo;{journey.journey_notes}&rdquo;</Text>
+          </View>
+        )}
+
+      </Animated.View>
+
+      {/* Back face — absolutely positioned to fill */}
+      <Animated.View style={[styles.face, styles.backFace, backAnimatedStyle]}>
+        {/* Large rotated ticket number on the left edge */}
+        <View style={styles.backIdRotatedContainer}>
+          <Text style={styles.backIdRotatedText}>
+            #{journey.id.slice(0, 6).toUpperCase()}
+          </Text>
+        </View>
+
+        {/* Disclaimer text — upper right */}
+        <Text style={styles.admitOneText}>
+          {'ADMIT ONE\nNON-TRANSFERABLE\nSUBJECT TO TERMS'}
+        </Text>
+
+        {/* Monospace ticket ID — middle right */}
+        <Text style={styles.backIdText}>{ticketId}</Text>
+
+        {/* Wide barcode — bottom right */}
+        <View style={styles.barcodeContainer}>
+          <BarcodeVisual colors={colors} />
+        </View>
+      </Animated.View>
+
+      {/* Tap-to-flip hint — inside the flip wrapper so tapping it flips */}
+      {showHint && (
+        <View style={styles.hintRow}>
+          <View style={styles.hintPill}>
+            <Text style={styles.hintText}>Tap to flip</Text>
+          </View>
+        </View>
+      )}
+    </>
+  );
+
+  const a11yLabel = isFlipped ? 'Flip ticket to front' : 'Flip ticket to see barcode';
+
+  return (
+    <View>
+      {/* Web: Pressable with onPress — doesn't interfere with nested ScrollView scrolling.
+          Native: View with manual touch detection (onTouchStart/onTouchEnd) — preserves
+          the responder-based swipe discrimination that Pressable can break on native. */}
+      {Platform.OS === 'web' ? (
+        <Pressable
+          style={styles.flipWrapper}
+          onPress={handleFlip}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={a11yLabel}
+        >
+          {flipContent}
+        </Pressable>
+      ) : (
+        <View
+          style={styles.flipWrapper}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={a11yLabel}
+        >
+          {flipContent}
+        </View>
+      )}
     </View>
   );
 }
@@ -388,7 +413,6 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
 
     // Shared face styles
     face: {
-      paddingBottom: Spacing.xs,
     },
     backFace: {
       position: 'absolute',
@@ -421,9 +445,6 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       ...Typography.body.lg,
       color: colors.gold,
       fontFamily: Fonts.outfit.bold,
-    },
-    ratingStar: {
-      color: colors.gold,
     },
     taglineText: {
       ...Typography.body.base,
@@ -480,7 +501,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      paddingBottom: Spacing.sm,
+      paddingBottom: Spacing.xs,
       gap: 6,
     },
     dot: {

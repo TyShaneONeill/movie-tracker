@@ -3,39 +3,14 @@ import { test, expect, type Page } from '@playwright/test';
 /**
  * Helper: trigger a flip on the journey ticket card.
  *
- * The TicketFlipCard uses React Native's onTouchStart/onTouchEnd (not onClick),
- * which RN Web maps to touch events. Desktop Chrome (without touch emulation)
- * won't fire native touch events from Playwright's click(), so we call the
- * React props directly to simulate a quick tap.
+ * The TicketFlipCard uses Pressable with onPress on web, so a standard
+ * click() works. We wait for the flip animation (500ms) to complete.
  */
 async function flipTicketCard(page: Page) {
-  await page.evaluate(async () => {
-    const selectors = [
-      '[aria-label="Flip ticket to see barcode"]',
-      '[aria-label="Flip ticket to front"]',
-    ];
-    let flipBtn: Element | null = null;
-    for (const sel of selectors) {
-      flipBtn = document.querySelector(sel);
-      if (flipBtn) break;
-    }
-    if (!flipBtn) throw new Error('Flip card button not found');
-
-    const propsKey = Object.keys(flipBtn).find((k) => k.startsWith('__reactProps'));
-    if (!propsKey) throw new Error('React props not found on flip card element');
-
-    const props = (flipBtn as any)[propsKey];
-    const rect = flipBtn.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    const fakeEvent = { nativeEvent: { pageX: x, pageY: y } };
-
-    props.onTouchStart(fakeEvent);
-    await new Promise((r) => setTimeout(r, 50));
-    props.onTouchEnd(fakeEvent);
-    // Wait for flip animation (500ms)
-    await new Promise((r) => setTimeout(r, 600));
-  });
+  const flipBtn = page.getByRole('button', { name: /Flip ticket/ });
+  await flipBtn.click();
+  // Wait for flip animation (500ms)
+  await page.waitForTimeout(600);
 }
 
 /**
@@ -165,8 +140,8 @@ test.describe('Journey Card (Authenticated)', () => {
     // Verify the perforated edge is rendered between hero and ticket.
     // The PerforatedEdge component creates dashes that separate the two sections.
     // We check that the hero and ticket are distinct visual sections by verifying
-    // both are present and the card has the "Tap to flip" hint below.
-    await expect(page.getByText('Tap to flip').last()).toBeVisible({ timeout: 10_000 });
+    // both are present and the card has movie detail fields.
+    await expect(page.getByText('DATE').last()).toBeVisible({ timeout: 10_000 });
   });
 
   test('info carousel swipes between two pages', async ({ page }) => {
@@ -193,9 +168,6 @@ test.describe('Journey Card (Authenticated)', () => {
     // Front side should be visible initially
     const flipCardFront = page.getByRole('button', { name: 'Flip ticket to see barcode' });
     await expect(flipCardFront).toBeVisible({ timeout: 10_000 });
-
-    // "Tap to flip" hint should be visible
-    await expect(page.getByText('Tap to flip').last()).toBeVisible({ timeout: 10_000 });
 
     // Flip the card
     await flipTicketCard(page);
