@@ -19,7 +19,8 @@ interface SpendCheckResult {
 
 /**
  * Check if the platform-wide daily AI spend limit has been reached.
- * Fails open on errors (doesn't block users if tracking is down).
+ * Fails closed on errors — denies requests if tracking is down to prevent
+ * unmetered spend on cost-sensitive endpoints (OpenAI, Gemini).
  */
 export async function checkDailyAiSpend(
   supabaseAdmin: ReturnType<typeof createClient>,
@@ -32,13 +33,13 @@ export async function checkDailyAiSpend(
 
     if (error) {
       console.error('[cost-tracking] Failed to check spend limit:', error);
-      return { allowed: true, total_today_usd: 0, daily_limit_usd: dailyLimit };
+      return { allowed: false, total_today_usd: 0, daily_limit_usd: dailyLimit };
     }
 
     return data as SpendCheckResult;
   } catch {
     console.error('[cost-tracking] Unexpected error checking spend limit');
-    return { allowed: true, total_today_usd: 0, daily_limit_usd: dailyLimit };
+    return { allowed: false, total_today_usd: 0, daily_limit_usd: dailyLimit };
   }
 }
 

@@ -220,7 +220,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Rate limit: 10 AI generations per day (dev-tier users are unlimited via RPC)
-    const rateLimited = await enforceRateLimit(user.id, 'generate_journey_art', 10, 86400, req);
+    // Fail closed: deny if DB is down to prevent unmetered OpenAI spend
+    const rateLimited = await enforceRateLimit(user.id, 'generate_journey_art', 10, 86400, req, { failClosed: true });
     if (rateLimited) return rateLimited;
 
     // Create admin client for database operations

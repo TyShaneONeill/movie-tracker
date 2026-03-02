@@ -8,6 +8,12 @@ interface RateLimitResult {
   reset_at: string;
 }
 
+interface RateLimitOptions {
+  /** When true, return 503 on DB errors instead of allowing the request through.
+   *  Use for cost-sensitive endpoints (OpenAI, Gemini) where failing open risks money. */
+  failClosed?: boolean;
+}
+
 /**
  * Check rate limit for a user action. Returns a 429 Response if exceeded, or null if allowed.
  *
@@ -19,6 +25,7 @@ interface RateLimitResult {
  * @param maxRequests - Maximum requests allowed per window
  * @param windowSeconds - Window duration in seconds (e.g. 86400 for daily)
  * @param req - Original request (for CORS headers)
+ * @param options - Optional config (e.g. failClosed for cost-sensitive endpoints)
  */
 export async function enforceRateLimit(
   userId: string,
@@ -26,6 +33,7 @@ export async function enforceRateLimit(
   maxRequests: number,
   windowSeconds: number,
   req: Request,
+  options?: RateLimitOptions,
 ): Promise<Response | null> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -40,7 +48,15 @@ export async function enforceRateLimit(
 
   if (error) {
     console.error(`Rate limit check failed for ${action}:`, error);
-    // Fail open — don't block users due to infrastructure issues
+    if (options?.failClosed) {
+      return new Response(
+        JSON.stringify({ error: 'Service temporarily unavailable' }),
+        {
+          status: 503,
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        },
+      );
+    }
     return null;
   }
 
