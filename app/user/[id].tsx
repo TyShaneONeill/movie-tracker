@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  FlatList,
   ActivityIndicator,
   TextInput,
   useWindowDimensions,
@@ -194,44 +195,38 @@ export default function UserProfileScreen() {
     </View>
   );
 
-  // Render collection grid
-  const renderCollectionGrid = () => {
-    if (groupedMovies.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="film-outline" size={48} color={colors.textSecondary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No movies yet</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            This user has not added any movies to their collection
-          </Text>
-        </View>
-      );
-    }
+  // Render collection empty state (used by FlatList's ListEmptyComponent)
+  const renderCollectionEmpty = useCallback(() => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="film-outline" size={48} color={colors.textSecondary} />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>No movies yet</Text>
+      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+        This user has not added any movies to their collection
+      </Text>
+    </View>
+  ), [colors]);
 
+  // Render a single collection grid item
+  const renderCollectionItem = useCallback(({ item: movie }: { item: GroupedUserMovie }) => {
+    const isAiPoster =
+      movie.display_poster === 'ai_generated' && !!movie.ai_poster_url;
     return (
-      <View style={styles.gridContainer}>
-        {groupedMovies.map((movie) => {
-          const isAiPoster =
-            movie.display_poster === 'ai_generated' && !!movie.ai_poster_url;
-          return (
-            <CollectionGridCard
-              key={movie.id}
-              posterUrl={
-                isAiPoster
-                  ? movie.ai_poster_url!
-                  : movie.poster_path
-                    ? getTMDBImageUrl(movie.poster_path, 'w342') ?? ''
-                    : ''
-              }
-              isAiPoster={isAiPoster}
-              journeyCount={movie.journeyCount}
-              style={{ width: cardWidth }}
-            />
-          );
-        })}
-      </View>
+      <CollectionGridCard
+        posterUrl={
+          isAiPoster
+            ? movie.ai_poster_url!
+            : movie.poster_path
+              ? getTMDBImageUrl(movie.poster_path, 'w342') ?? ''
+              : ''
+        }
+        isAiPoster={isAiPoster}
+        journeyCount={movie.journeyCount}
+        style={{ width: cardWidth }}
+      />
     );
-  };
+  }, [cardWidth]);
+
+  const collectionKeyExtractor = useCallback((item: GroupedUserMovie) => String(item.id), []);
 
   // Render first takes list
   const renderFirstTakes = () => {
@@ -445,11 +440,9 @@ export default function UserProfileScreen() {
     );
   };
 
-  // Render tab content
-  const renderTabContent = () => {
+  // Render non-collection tab content (collection is handled by FlatList)
+  const renderScrollTabContent = () => {
     switch (activeTab) {
-      case 'collection':
-        return renderCollectionGrid();
       case 'first-takes':
         return renderFirstTakes();
       case 'watchlist':
@@ -457,6 +450,95 @@ export default function UserProfileScreen() {
       default:
         return null;
     }
+  };
+
+  // Shared header for both FlatList and ScrollView modes
+  // Only called after the isError/!profile guard returns early, so profile is guaranteed non-null
+  const renderListHeader = () => {
+    if (!profile) return null;
+    return (
+    <>
+      {/* Profile Header */}
+      <View style={styles.profileHeader}>
+        {/* Avatar */}
+        {profile.avatar_url ? (
+          <Image
+            source={{ uri: buildAvatarUrl(profile.avatar_url, profile.updated_at)! }}
+            style={[styles.avatar, { borderColor: colors.tint }]}
+            contentFit="cover"
+          />
+        ) : (
+          <View
+            style={[
+              styles.avatar,
+              styles.avatarPlaceholder,
+              { backgroundColor: colors.card, borderColor: colors.tint },
+            ]}
+          >
+            <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>
+              {(profile.full_name || profile.username || '?')[0].toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        {/* Name */}
+        <Text style={[styles.name, { color: colors.text }]}>
+          {profile.full_name || profile.username || 'Unknown User'}
+        </Text>
+
+        {/* Username */}
+        {profile.username && (
+          <Text style={[styles.username, { color: colors.textSecondary }]}>
+            @{profile.username}
+          </Text>
+        )}
+
+        {/* Bio */}
+        {profile.bio && (
+          <Text style={[styles.bio, { color: colors.textSecondary }]}>{profile.bio}</Text>
+        )}
+
+        {/* Follower/Following Stats */}
+        <View style={styles.followStats}>
+          <Pressable
+            onPress={() => router.push(`/followers/${id}`)}
+            style={({ pressed }) => [
+              styles.followStatItem,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Text style={[styles.followStatValue, { color: colors.text }]}>
+              {profile.followers_count ?? 0}
+            </Text>
+            <Text style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+              Followers
+            </Text>
+          </Pressable>
+          <View style={styles.followStatDivider} />
+          <Pressable
+            onPress={() => router.push(`/following/${id}`)}
+            style={({ pressed }) => [
+              styles.followStatItem,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Text style={[styles.followStatValue, { color: colors.text }]}>
+              {profile.following_count ?? 0}
+            </Text>
+            <Text style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+              Following
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Follow Button */}
+        <FollowButton userId={id!} username={profile.username} style={styles.followButton} />
+      </View>
+
+      {/* Tab Bar */}
+      {renderTabBar()}
+    </>
+  );
   };
 
   // Loading state
@@ -519,93 +601,30 @@ export default function UserProfileScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          {/* Avatar */}
-          {profile.avatar_url ? (
-            <Image
-              source={{ uri: buildAvatarUrl(profile.avatar_url, profile.updated_at)! }}
-              style={[styles.avatar, { borderColor: colors.tint }]}
-              contentFit="cover"
-            />
-          ) : (
-            <View
-              style={[
-                styles.avatar,
-                styles.avatarPlaceholder,
-                { backgroundColor: colors.card, borderColor: colors.tint },
-              ]}
-            >
-              <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>
-                {(profile.full_name || profile.username || '?')[0].toUpperCase()}
-              </Text>
-            </View>
-          )}
-
-          {/* Name */}
-          <Text style={[styles.name, { color: colors.text }]}>
-            {profile.full_name || profile.username || 'Unknown User'}
-          </Text>
-
-          {/* Username */}
-          {profile.username && (
-            <Text style={[styles.username, { color: colors.textSecondary }]}>
-              @{profile.username}
-            </Text>
-          )}
-
-          {/* Bio */}
-          {profile.bio && (
-            <Text style={[styles.bio, { color: colors.textSecondary }]}>{profile.bio}</Text>
-          )}
-
-          {/* Follower/Following Stats */}
-          <View style={styles.followStats}>
-            <Pressable
-              onPress={() => router.push(`/followers/${id}`)}
-              style={({ pressed }) => [
-                styles.followStatItem,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Text style={[styles.followStatValue, { color: colors.text }]}>
-                {profile.followers_count ?? 0}
-              </Text>
-              <Text style={[styles.followStatLabel, { color: colors.textSecondary }]}>
-                Followers
-              </Text>
-            </Pressable>
-            <View style={styles.followStatDivider} />
-            <Pressable
-              onPress={() => router.push(`/following/${id}`)}
-              style={({ pressed }) => [
-                styles.followStatItem,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Text style={[styles.followStatValue, { color: colors.text }]}>
-                {profile.following_count ?? 0}
-              </Text>
-              <Text style={[styles.followStatLabel, { color: colors.textSecondary }]}>
-                Following
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Follow Button */}
-          <FollowButton userId={id!} username={profile.username} style={styles.followButton} />
-        </View>
-
-        {/* Tab Bar */}
-        {renderTabBar()}
-
-        {/* Tab Content */}
-        <View style={styles.content}>{renderTabContent()}</View>
-      </ScrollView>
+      {activeTab === 'collection' ? (
+        <FlatList
+          data={groupedMovies}
+          renderItem={renderCollectionItem}
+          keyExtractor={collectionKeyExtractor}
+          numColumns={COLUMN_COUNT}
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={renderCollectionEmpty}
+          contentContainerStyle={styles.scrollContent}
+          columnWrapperStyle={styles.columnWrapper}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={15}
+          windowSize={5}
+        />
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {renderListHeader()}
+          <View style={styles.content}>{renderScrollTabContent()}</View>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -742,6 +761,11 @@ const styles = StyleSheet.create({
     minHeight: 400,
   },
   // Grid Styles
+  columnWrapper: {
+    paddingHorizontal: Spacing.lg,
+    gap: GRID_GAP,
+    marginBottom: GRID_GAP,
+  },
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',

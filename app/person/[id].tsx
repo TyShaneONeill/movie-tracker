@@ -15,6 +15,7 @@ import {
   View,
   Text,
   ScrollView,
+  FlatList,
   Pressable,
   ActivityIndicator,
   StyleSheet,
@@ -30,6 +31,12 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+
+type FilmographyItem =
+  | { type: 'movie-header'; count: number }
+  | { type: 'tv-header'; count: number }
+  | { type: 'movie'; credit: import('@/lib/tmdb.types').TMDBPersonMovieCredit }
+  | { type: 'tv'; credit: import('@/lib/tmdb.types').TMDBPersonTvCredit };
 
 const getAge = (birthday: string | null, deathday: string | null): number | null => {
   if (!birthday) return null;
@@ -97,6 +104,134 @@ export default function PersonDetailScreen() {
     }
   }, [router]);
 
+  const filmographyData = useMemo((): FilmographyItem[] => {
+    const items: FilmographyItem[] = [];
+    if (movieCredits.length > 0) {
+      items.push({ type: 'movie-header', count: movieCredits.length });
+      for (const credit of movieCredits) {
+        items.push({ type: 'movie', credit });
+      }
+    }
+    if (tvCredits.length > 0) {
+      items.push({ type: 'tv-header', count: tvCredits.length });
+      for (const credit of tvCredits) {
+        items.push({ type: 'tv', credit });
+      }
+    }
+    return items;
+  }, [movieCredits, tvCredits]);
+
+  const renderFilmographyItem = useCallback(({ item }: { item: FilmographyItem }) => {
+    if (item.type === 'movie-header') {
+      return (
+        <View style={[dynamicStyles.filmographyHeader, dynamicStyles.filmographyHeaderInList]}>
+          <Text style={dynamicStyles.sectionTitleNoMargin}>Filmography</Text>
+          <View style={dynamicStyles.countBadge}>
+            <Text style={dynamicStyles.countBadgeText}>{item.count}</Text>
+          </View>
+        </View>
+      );
+    }
+    if (item.type === 'tv-header') {
+      return (
+        <View style={[dynamicStyles.filmographyHeader, dynamicStyles.filmographyHeaderInList]}>
+          <Text style={dynamicStyles.sectionTitleNoMargin}>TV Shows</Text>
+          <View style={dynamicStyles.countBadge}>
+            <Text style={dynamicStyles.countBadgeText}>{item.count}</Text>
+          </View>
+        </View>
+      );
+    }
+    if (item.type === 'movie') {
+      const { credit } = item;
+      const thumbUrl = getTMDBImageUrl(credit.poster_path, 'w154');
+      const year = credit.release_date?.split('-')[0];
+      return (
+        <Pressable
+          onPress={() => router.push(`/movie/${credit.id}`)}
+          style={dynamicStyles.filmographyRowInList}
+        >
+          {thumbUrl ? (
+            <Image
+              source={{ uri: thumbUrl }}
+              style={dynamicStyles.filmographyPoster}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : (
+            <View style={[dynamicStyles.filmographyPoster, dynamicStyles.posterPlaceholder]}>
+              <Ionicons name="film-outline" size={20} color={colors.textSecondary} />
+            </View>
+          )}
+          <View style={dynamicStyles.filmographyInfo}>
+            <Text style={dynamicStyles.filmographyTitle} numberOfLines={1}>
+              {credit.title}
+            </Text>
+            {credit.character ? (
+              <Text style={dynamicStyles.filmographyCharacter} numberOfLines={1}>
+                as {credit.character}
+              </Text>
+            ) : null}
+          </View>
+          {year ? (
+            <Text style={dynamicStyles.filmographyYear}>{year}</Text>
+          ) : null}
+        </Pressable>
+      );
+    }
+    // item.type === 'tv'
+    const { credit } = item;
+    const thumbUrl = getTMDBImageUrl(credit.poster_path, 'w154');
+    const year = credit.first_air_date?.split('-')[0];
+    return (
+      <Pressable
+        onPress={() => router.push(`/tv/${credit.id}`)}
+        style={dynamicStyles.filmographyRowInList}
+      >
+        {thumbUrl ? (
+          <Image
+            source={{ uri: thumbUrl }}
+            style={dynamicStyles.filmographyPoster}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <View style={[dynamicStyles.filmographyPoster, dynamicStyles.posterPlaceholder]}>
+            <Ionicons name="tv-outline" size={20} color={colors.textSecondary} />
+          </View>
+        )}
+        <View style={dynamicStyles.filmographyInfo}>
+          <Text style={dynamicStyles.filmographyTitle} numberOfLines={1}>
+            {credit.name}
+          </Text>
+          {credit.character ? (
+            <Text style={dynamicStyles.filmographyCharacter} numberOfLines={1}>
+              as {credit.character}
+            </Text>
+          ) : null}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {credit.episode_count > 0 && (
+            <View style={dynamicStyles.episodeBadge}>
+              <Text style={dynamicStyles.episodeBadgeText}>
+                {credit.episode_count} ep{credit.episode_count !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
+          {year ? (
+            <Text style={dynamicStyles.filmographyYear}>{year}</Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  }, [dynamicStyles, colors.textSecondary, router]);
+
+  const getItemKey = useCallback((item: FilmographyItem): string => {
+    if (item.type === 'movie-header') return 'header-movie';
+    if (item.type === 'tv-header') return 'header-tv';
+    return item.credit.credit_id;
+  }, []);
+
   if (isLoading) {
     return (
       <View style={dynamicStyles.container}>
@@ -143,6 +278,117 @@ export default function PersonDetailScreen() {
   if (age !== null) metaParts.push(person.deathday ? `Died at ${age}` : `${age} years old`);
   if (person.place_of_birth) metaParts.push(person.place_of_birth);
 
+  const listHeader = (
+    <>
+      {/* Profile Header */}
+      <LinearGradient
+        colors={[colors.card, colors.background]}
+        style={dynamicStyles.profileHeader}
+      >
+        {profileUrl ? (
+          <Image
+            source={{ uri: profileUrl }}
+            style={dynamicStyles.avatar}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <View style={[dynamicStyles.avatar, dynamicStyles.avatarPlaceholder]}>
+            <Ionicons name="person" size={48} color={colors.textSecondary} />
+          </View>
+        )}
+        <Text style={dynamicStyles.personName}>{person.name}</Text>
+        {metaParts.length > 0 && (
+          <Text style={dynamicStyles.personMeta}>
+            {metaParts.join(' \u2022 ')}
+          </Text>
+        )}
+
+        {/* Stats Row */}
+        <View style={dynamicStyles.statsRow}>
+          <View style={dynamicStyles.statBubble}>
+            <Text style={dynamicStyles.statText}>
+              {movieCredits.length + tvCredits.length} Credits
+            </Text>
+          </View>
+          {avgRating && (
+            <View style={dynamicStyles.statBubble}>
+              <Text style={dynamicStyles.statText}>
+                {avgRating} Avg Rating
+              </Text>
+            </View>
+          )}
+        </View>
+      </LinearGradient>
+
+      {/* Biography Section */}
+      {hasBio && (
+        <View style={dynamicStyles.section}>
+          <Text style={dynamicStyles.sectionTitle}>Biography</Text>
+          <Text style={dynamicStyles.bioText}>
+            {displayBio}
+            {bioNeedsTruncation && !biographyExpanded && (
+              <Text
+                onPress={() => setBiographyExpanded(true)}
+                style={dynamicStyles.readMoreText}
+              >
+                {' '}Read more
+              </Text>
+            )}
+            {bioNeedsTruncation && biographyExpanded && (
+              <Text
+                onPress={() => setBiographyExpanded(false)}
+                style={dynamicStyles.readMoreText}
+              >
+                {' '}Read less
+              </Text>
+            )}
+          </Text>
+        </View>
+      )}
+
+      {/* Known For Section */}
+      {knownFor.length > 0 && (
+        <View style={dynamicStyles.section}>
+          <Text style={dynamicStyles.sectionTitle}>Known For</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={dynamicStyles.knownForScroll}
+            contentContainerStyle={dynamicStyles.knownForScrollContent}
+          >
+            {knownFor.map((credit) => {
+              const posterUrl = getTMDBImageUrl(credit.poster_path, 'w342');
+              return (
+                <Pressable
+                  key={credit.credit_id}
+                  onPress={() => router.push(credit.isTv ? `/tv/${credit.id}` : `/movie/${credit.id}`)}
+                  style={dynamicStyles.knownForCard}
+                >
+                  {posterUrl ? (
+                    <Image
+                      source={{ uri: posterUrl }}
+                      style={dynamicStyles.knownForPoster}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={[dynamicStyles.knownForPoster, dynamicStyles.posterPlaceholder]}>
+                      <Ionicons name="film-outline" size={32} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <Text style={dynamicStyles.knownForTitle} numberOfLines={2}>
+                    {credit.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+    </>
+  );
+
   return (
     <View style={dynamicStyles.container}>
       {/* Back button */}
@@ -154,227 +400,18 @@ export default function PersonDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
+      <FlatList<FilmographyItem>
+        data={filmographyData}
+        keyExtractor={getItemKey}
+        renderItem={renderFilmographyItem}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={<View style={{ height: 90 }} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={dynamicStyles.scrollContent}
-      >
-        {/* Profile Header */}
-        <LinearGradient
-          colors={[colors.card, colors.background]}
-          style={dynamicStyles.profileHeader}
-        >
-          {profileUrl ? (
-            <Image
-              source={{ uri: profileUrl }}
-              style={dynamicStyles.avatar}
-              contentFit="cover"
-              transition={200}
-            />
-          ) : (
-            <View style={[dynamicStyles.avatar, dynamicStyles.avatarPlaceholder]}>
-              <Ionicons name="person" size={48} color={colors.textSecondary} />
-            </View>
-          )}
-          <Text style={dynamicStyles.personName}>{person.name}</Text>
-          {metaParts.length > 0 && (
-            <Text style={dynamicStyles.personMeta}>
-              {metaParts.join(' \u2022 ')}
-            </Text>
-          )}
-
-          {/* Stats Row */}
-          <View style={dynamicStyles.statsRow}>
-            <View style={dynamicStyles.statBubble}>
-              <Text style={dynamicStyles.statText}>
-                {movieCredits.length + tvCredits.length} Credits
-              </Text>
-            </View>
-            {avgRating && (
-              <View style={dynamicStyles.statBubble}>
-                <Text style={dynamicStyles.statText}>
-                  {avgRating} Avg Rating
-                </Text>
-              </View>
-            )}
-          </View>
-        </LinearGradient>
-
-        {/* Biography Section */}
-        {hasBio && (
-          <View style={dynamicStyles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Biography</Text>
-            <Text style={dynamicStyles.bioText}>
-              {displayBio}
-              {bioNeedsTruncation && !biographyExpanded && (
-                <Text
-                  onPress={() => setBiographyExpanded(true)}
-                  style={dynamicStyles.readMoreText}
-                >
-                  {' '}Read more
-                </Text>
-              )}
-              {bioNeedsTruncation && biographyExpanded && (
-                <Text
-                  onPress={() => setBiographyExpanded(false)}
-                  style={dynamicStyles.readMoreText}
-                >
-                  {' '}Read less
-                </Text>
-              )}
-            </Text>
-          </View>
-        )}
-
-        {/* Known For Section */}
-        {knownFor.length > 0 && (
-          <View style={dynamicStyles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Known For</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={dynamicStyles.knownForScroll}
-              contentContainerStyle={dynamicStyles.knownForScrollContent}
-            >
-              {knownFor.map((credit) => {
-                const posterUrl = getTMDBImageUrl(credit.poster_path, 'w342');
-                return (
-                  <Pressable
-                    key={credit.credit_id}
-                    onPress={() => router.push(credit.isTv ? `/tv/${credit.id}` : `/movie/${credit.id}`)}
-                    style={dynamicStyles.knownForCard}
-                  >
-                    {posterUrl ? (
-                      <Image
-                        source={{ uri: posterUrl }}
-                        style={dynamicStyles.knownForPoster}
-                        contentFit="cover"
-                        transition={200}
-                      />
-                    ) : (
-                      <View style={[dynamicStyles.knownForPoster, dynamicStyles.posterPlaceholder]}>
-                        <Ionicons name="film-outline" size={32} color={colors.textSecondary} />
-                      </View>
-                    )}
-                    <Text style={dynamicStyles.knownForTitle} numberOfLines={2}>
-                      {credit.title}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Filmography Section */}
-        {movieCredits.length > 0 && (
-          <View style={dynamicStyles.section}>
-            <View style={dynamicStyles.filmographyHeader}>
-              <Text style={dynamicStyles.sectionTitle}>Filmography</Text>
-              <View style={dynamicStyles.countBadge}>
-                <Text style={dynamicStyles.countBadgeText}>{movieCredits.length}</Text>
-              </View>
-            </View>
-            {movieCredits.map((credit) => {
-              const thumbUrl = getTMDBImageUrl(credit.poster_path, 'w154');
-              const year = credit.release_date?.split('-')[0];
-              return (
-                <Pressable
-                  key={credit.credit_id}
-                  onPress={() => router.push(`/movie/${credit.id}`)}
-                  style={dynamicStyles.filmographyRow}
-                >
-                  {thumbUrl ? (
-                    <Image
-                      source={{ uri: thumbUrl }}
-                      style={dynamicStyles.filmographyPoster}
-                      contentFit="cover"
-                      transition={200}
-                    />
-                  ) : (
-                    <View style={[dynamicStyles.filmographyPoster, dynamicStyles.posterPlaceholder]}>
-                      <Ionicons name="film-outline" size={20} color={colors.textSecondary} />
-                    </View>
-                  )}
-                  <View style={dynamicStyles.filmographyInfo}>
-                    <Text style={dynamicStyles.filmographyTitle} numberOfLines={1}>
-                      {credit.title}
-                    </Text>
-                    {credit.character ? (
-                      <Text style={dynamicStyles.filmographyCharacter} numberOfLines={1}>
-                        as {credit.character}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {year ? (
-                    <Text style={dynamicStyles.filmographyYear}>{year}</Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-
-        {/* TV Shows Section */}
-        {tvCredits.length > 0 && (
-          <View style={dynamicStyles.section}>
-            <View style={dynamicStyles.filmographyHeader}>
-              <Text style={dynamicStyles.sectionTitle}>TV Shows</Text>
-              <View style={dynamicStyles.countBadge}>
-                <Text style={dynamicStyles.countBadgeText}>{tvCredits.length}</Text>
-              </View>
-            </View>
-            {tvCredits.map((credit) => {
-              const thumbUrl = getTMDBImageUrl(credit.poster_path, 'w154');
-              const year = credit.first_air_date?.split('-')[0];
-              return (
-                <Pressable
-                  key={credit.credit_id}
-                  onPress={() => router.push(`/tv/${credit.id}`)}
-                  style={dynamicStyles.filmographyRow}
-                >
-                  {thumbUrl ? (
-                    <Image
-                      source={{ uri: thumbUrl }}
-                      style={dynamicStyles.filmographyPoster}
-                      contentFit="cover"
-                      transition={200}
-                    />
-                  ) : (
-                    <View style={[dynamicStyles.filmographyPoster, dynamicStyles.posterPlaceholder]}>
-                      <Ionicons name="tv-outline" size={20} color={colors.textSecondary} />
-                    </View>
-                  )}
-                  <View style={dynamicStyles.filmographyInfo}>
-                    <Text style={dynamicStyles.filmographyTitle} numberOfLines={1}>
-                      {credit.name}
-                    </Text>
-                    {credit.character ? (
-                      <Text style={dynamicStyles.filmographyCharacter} numberOfLines={1}>
-                        as {credit.character}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {credit.episode_count > 0 && (
-                      <View style={dynamicStyles.episodeBadge}>
-                        <Text style={dynamicStyles.episodeBadgeText}>
-                          {credit.episode_count} ep{credit.episode_count !== 1 ? 's' : ''}
-                        </Text>
-                      </View>
-                    )}
-                    {year ? (
-                      <Text style={dynamicStyles.filmographyYear}>{year}</Text>
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Bottom padding for safe area */}
-        <View style={{ height: 90 }} />
-      </ScrollView>
+        initialNumToRender={15}
+        maxToRenderPerBatch={20}
+        windowSize={5}
+      />
     </View>
   );
 }
@@ -554,6 +591,13 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: Spacing.lg,
       marginBottom: Spacing.md,
     },
+    filmographyHeaderInList: {
+      paddingHorizontal: Spacing.md,
+    },
+    sectionTitleNoMargin: {
+      ...Typography.display.h4,
+      color: colors.text,
+    },
     countBadge: {
       backgroundColor: colors.backgroundSecondary,
       borderRadius: BorderRadius.full,
@@ -568,6 +612,15 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: Spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: Spacing.md,
+    },
+    filmographyRowInList: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
       gap: Spacing.md,

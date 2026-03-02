@@ -383,7 +383,21 @@ async function searchTMDB(
       searchUrl.searchParams.set('year', year);
     }
 
-    const response = await fetch(searchUrl.toString());
+    // TMDB search (10s timeout)
+    const tmdbController = new AbortController();
+    const tmdbTimeoutId = setTimeout(() => tmdbController.abort(), 10_000);
+    let response: Response;
+    try {
+      response = await fetch(searchUrl.toString(), { signal: tmdbController.signal });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.error('[scan-ticket] TMDB search timed out after 10 seconds');
+        return null;
+      }
+      throw error;
+    } finally {
+      clearTimeout(tmdbTimeoutId);
+    }
     if (!response.ok) {
       console.error('[scan-ticket] TMDB search failed:', response.status, response.statusText);
       return null;
@@ -522,84 +536,98 @@ async function extractWithGemini(
   mimeType: string,
   apiKey: string
 ): Promise<GeminiExtraction> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: EXTRACTION_PROMPT },
-            { inline_data: { mime_type: mimeType, data: base64Image } }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 4096,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              chain_identified: {
-                type: "string",
-                description: "Theater chain identified from visual cues",
-                enum: ["AMC", "Cinemark", "Showcase Cinema de Lux", "Regal", "CW Theatres", "Alamo Drafthouse", "Drive-In", "Unknown"]
-              },
-              chain_confidence: {
-                type: "number",
-                description: "Confidence in chain identification (0.0-1.0)"
-              },
-              tickets: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    movie_title: { type: "string" },
-                    theater_name: { type: "string" },
-                    theater_chain: { type: "string" },
-                    date: { type: "string" },
-                    showtime: { type: "string" },
-                    seat: {
-                      type: "object",
-                      properties: {
-                        row: { type: "string" },
-                        number: { type: "string" }
+  // Gemini extraction (30s timeout)
+  const geminiController = new AbortController();
+  const geminiTimeoutId = setTimeout(() => geminiController.abort(), 30_000);
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: geminiController.signal,
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: EXTRACTION_PROMPT },
+              { inline_data: { mime_type: mimeType, data: base64Image } }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                chain_identified: {
+                  type: "string",
+                  description: "Theater chain identified from visual cues",
+                  enum: ["AMC", "Cinemark", "Showcase Cinema de Lux", "Regal", "CW Theatres", "Alamo Drafthouse", "Drive-In", "Unknown"]
+                },
+                chain_confidence: {
+                  type: "number",
+                  description: "Confidence in chain identification (0.0-1.0)"
+                },
+                tickets: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      movie_title: { type: "string" },
+                      theater_name: { type: "string" },
+                      theater_chain: { type: "string" },
+                      date: { type: "string" },
+                      showtime: { type: "string" },
+                      seat: {
+                        type: "object",
+                        properties: {
+                          row: { type: "string" },
+                          number: { type: "string" }
+                        },
+                        propertyOrdering: ["row", "number"]
                       },
-                      propertyOrdering: ["row", "number"]
-                    },
-                    auditorium: { type: "string" },
-                    format: { type: "string" },
-                    price: {
-                      type: "object",
-                      properties: {
-                        amount: { type: "number" },
-                        currency: { type: "string" }
+                      auditorium: { type: "string" },
+                      format: { type: "string" },
+                      price: {
+                        type: "object",
+                        properties: {
+                          amount: { type: "number" },
+                          currency: { type: "string" }
+                        },
+                        propertyOrdering: ["amount", "currency"]
                       },
-                      propertyOrdering: ["amount", "currency"]
+                      ticket_type: { type: "string" },
+                      confirmation_number: { type: "string" },
+                      barcode_visible: { type: "boolean" }
                     },
-                    ticket_type: { type: "string" },
-                    confirmation_number: { type: "string" },
-                    barcode_visible: { type: "boolean" }
-                  },
-                  required: ["movie_title"],
-                  propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "confirmation_number", "barcode_visible"]
-                }
+                    required: ["movie_title"],
+                    propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "confirmation_number", "barcode_visible"]
+                  }
+                },
+                image_quality: {
+                  type: "string",
+                  enum: ["good", "fair", "poor"]
+                },
+                confidence_score: { type: "number" },
+                notes: { type: "string" }
               },
-              image_quality: {
-                type: "string",
-                enum: ["good", "fair", "poor"]
-              },
-              confidence_score: { type: "number" },
-              notes: { type: "string" }
-            },
-            required: ["chain_identified", "chain_confidence", "tickets", "confidence_score"],
-            propertyOrdering: ["chain_identified", "chain_confidence", "tickets", "image_quality", "confidence_score", "notes"]
+              required: ["chain_identified", "chain_confidence", "tickets", "confidence_score"],
+              propertyOrdering: ["chain_identified", "chain_confidence", "tickets", "image_quality", "confidence_score", "notes"]
+            }
           }
-        }
-      })
+        })
+      }
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Gemini API timed out after 30 seconds');
     }
-  );
+    throw error;
+  } finally {
+    clearTimeout(geminiTimeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

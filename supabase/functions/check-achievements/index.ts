@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { enforceRateLimit } from '../_shared/rate-limit.ts';
 
 interface Achievement {
   id: string;
@@ -48,6 +49,10 @@ Deno.serve(async (req: Request) => {
         { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
+
+    // Rate limit: 30 requests per hour per user
+    const rateLimited = await enforceRateLimit(user.id, 'check_achievements', 30, 3600, req);
+    if (rateLimited) return rateLimited;
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false }
