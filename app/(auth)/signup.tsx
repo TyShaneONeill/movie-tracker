@@ -165,7 +165,7 @@ export default function SignUpScreen() {
             <ThemedText style={styles.subtitle}>Start tracking your cinema journey</ThemedText>
           </View>
 
-          {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
+          {error && <ThemedText style={[styles.errorText, { color: colors.error, backgroundColor: `${colors.error}1A` }]}>{error}</ThemedText>}
 
           <View style={styles.form}>
             <View style={styles.inputGroup}>
@@ -431,10 +431,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: '#ef4444',
     textAlign: 'center',
     marginBottom: Spacing.lg,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',

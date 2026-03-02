@@ -170,8 +170,8 @@ export default function ProfileSetupScreen() {
           {/* Form */}
           <View style={styles.form}>
             {error && (
-              <View style={styles.errorContainer}>
-                <ThemedText style={styles.errorText}>{error}</ThemedText>
+              <View style={[styles.errorContainer, { backgroundColor: `${colors.error}1A` }]}>
+                <ThemedText style={[styles.errorText, { color: colors.error }]}>{error}</ThemedText>
               </View>
             )}
 
@@ -227,7 +227,7 @@ export default function ProfileSetupScreen() {
                 </ThemedText>
               )}
               {usernameValidation.status === 'invalid' && (
-                <ThemedText style={[styles.hint, { color: '#ef4444' }]}>
+                <ThemedText style={[styles.hint, { color: colors.error }]}>
                   {usernameValidation.error}
                 </ThemedText>
               )}
@@ -249,8 +249,8 @@ export default function ProfileSetupScreen() {
               )}
               {usernameValidation.status === 'taken' && (
                 <View style={styles.usernameStatusRow}>
-                  <Ionicons name="close-circle" size={16} color="#ef4444" />
-                  <ThemedText style={[styles.hint, { color: '#ef4444' }]}>
+                  <Ionicons name="close-circle" size={16} color={colors.error} />
+                  <ThemedText style={[styles.hint, { color: colors.error }]}>
                     Username taken
                   </ThemedText>
                 </View>
@@ -320,13 +320,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
   },
   errorText: {
-    color: '#ef4444',
     textAlign: 'center',
     ...Typography.body.sm,
   },
