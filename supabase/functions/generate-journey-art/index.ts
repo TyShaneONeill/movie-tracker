@@ -64,8 +64,20 @@ async function generateStyleTransfer(
 ): Promise<string> {
   console.log(`Fetching poster from: ${posterUrl}`);
 
-  // Fetch the poster image
-  const imageResponse = await fetch(posterUrl);
+  // Fetch the poster image (15s timeout)
+  const posterController = new AbortController();
+  const posterTimeoutId = setTimeout(() => posterController.abort(), 15_000);
+  let imageResponse: Response;
+  try {
+    imageResponse = await fetch(posterUrl, { signal: posterController.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Poster image fetch timed out after 15 seconds');
+    }
+    throw error;
+  } finally {
+    clearTimeout(posterTimeoutId);
+  }
   if (!imageResponse.ok) {
     throw new Error(`Failed to fetch poster image: ${imageResponse.status}`);
   }
@@ -82,27 +94,40 @@ async function generateStyleTransfer(
   formData.append('size', '1024x1536');
   formData.append('n', '1');
 
-  const response = await fetch('https://api.openai.com/v1/images/edits', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-    body: formData,
-  });
+  // OpenAI image generation (60s timeout)
+  const openaiController = new AbortController();
+  const openaiTimeoutId = setTimeout(() => openaiController.abort(), 60_000);
+  try {
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      body: formData,
+      signal: openaiController.signal,
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData?.error?.message || '';
-    console.error('OpenAI style transfer error:', errorData);
-    if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
-      throw new SafetyRejectionError();
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData?.error?.message || '';
+      console.error('OpenAI style transfer error:', errorData);
+      if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
+        throw new SafetyRejectionError();
+      }
+      throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
     }
-    throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
-  }
 
-  const result = await response.json();
-  if (result.data?.[0]?.b64_json) {
-    return `data:image/png;base64,${result.data[0].b64_json}`;
+    const result = await response.json();
+    if (result.data?.[0]?.b64_json) {
+      return `data:image/png;base64,${result.data[0].b64_json}`;
+    }
+    throw new Error('No image returned from OpenAI');
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('OpenAI image generation timed out after 60 seconds');
+    }
+    throw error;
+  } finally {
+    clearTimeout(openaiTimeoutId);
   }
-  throw new Error('No image returned from OpenAI');
 }
 
 // Apply holographic effect to an already-generated cartoon image
@@ -128,27 +153,40 @@ async function applyHolographicEffect(
   formData.append('size', '1024x1536');
   formData.append('n', '1');
 
-  const response = await fetch('https://api.openai.com/v1/images/edits', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-    body: formData,
-  });
+  // OpenAI holographic effect (60s timeout)
+  const holoController = new AbortController();
+  const holoTimeoutId = setTimeout(() => holoController.abort(), 60_000);
+  try {
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      body: formData,
+      signal: holoController.signal,
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData?.error?.message || '';
-    console.error('OpenAI holographic effect error:', errorData);
-    if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
-      throw new SafetyRejectionError();
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData?.error?.message || '';
+      console.error('OpenAI holographic effect error:', errorData);
+      if (errorMessage.toLowerCase().includes('safety') || errorMessage.toLowerCase().includes('rejected')) {
+        throw new SafetyRejectionError();
+      }
+      throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
     }
-    throw new Error(errorMessage || `OpenAI API error: ${response.status}`);
-  }
 
-  const result = await response.json();
-  if (result.data?.[0]?.b64_json) {
-    return `data:image/png;base64,${result.data[0].b64_json}`;
+    const result = await response.json();
+    if (result.data?.[0]?.b64_json) {
+      return `data:image/png;base64,${result.data[0].b64_json}`;
+    }
+    throw new Error('No image returned from OpenAI');
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('OpenAI holographic effect timed out after 60 seconds');
+    }
+    throw error;
+  } finally {
+    clearTimeout(holoTimeoutId);
   }
-  throw new Error('No image returned from OpenAI');
 }
 
 
