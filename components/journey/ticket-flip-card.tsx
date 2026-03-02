@@ -12,11 +12,8 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Platform,
   Pressable,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -25,7 +22,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Rect, Path } from 'react-native-svg';
 import { Image as ExpoImage } from 'expo-image';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -88,6 +85,17 @@ function BarcodeVisual({ colors }: { colors: ThemeColors }) {
           />
         );
       })}
+    </Svg>
+  );
+}
+
+// --- Chevron icon ---
+
+function ChevronIcon({ direction, color }: { direction: 'left' | 'right'; color: string }) {
+  const d = direction === 'left' ? 'M15 4l-8 8 8 8' : 'M9 4l8 8-8 8';
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d={d} stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -193,15 +201,6 @@ export function TicketFlipCard({
     [handleFlip],
   );
 
-  const handleInfoScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      const pageIndex = Math.round(offsetX / infoPageWidth);
-      setInfoPageIndex(pageIndex);
-    },
-    [infoPageWidth],
-  );
-
   const frontAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
       { perspective: 1200 },
@@ -244,15 +243,9 @@ export function TicketFlipCard({
 
         {/* Info Carousel */}
         <View style={styles.infoCarouselContainer}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleInfoScroll}
-            scrollEventThrottle={16}
-          >
-            {/* Page 1: Core Info */}
-            <View style={[styles.infoPage, { width: infoPageWidth }]}>
+          {infoPageIndex === 0 ? (
+            /* Page 1: Core Info */
+            <View style={styles.infoPage}>
               <View style={styles.infoRow}>
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>DATE</Text>
@@ -295,9 +288,9 @@ export function TicketFlipCard({
                 </View>
               </View>
             </View>
-
-            {/* Page 2: Extended Details */}
-            <View style={[styles.infoPage, { width: infoPageWidth }]}>
+          ) : (
+            /* Page 2: Extended Details */
+            <View style={styles.infoPage}>
               <View style={styles.infoRow}>
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>TIME</Text>
@@ -319,12 +312,34 @@ export function TicketFlipCard({
                 </View>
               </View>
             </View>
-          </ScrollView>
+          )}
 
-          {/* Dot Indicators */}
+          {/* Arrow + Dot Navigation */}
           <View style={styles.dotsContainer}>
-            <View style={[styles.dot, infoPageIndex === 0 && styles.dotActive]} />
-            <View style={[styles.dot, infoPageIndex === 1 && styles.dotActive]} />
+            <Pressable
+              onPress={() => setInfoPageIndex(0)}
+              style={[styles.arrowButton, infoPageIndex === 0 && styles.arrowDisabled]}
+              disabled={infoPageIndex === 0}
+              accessibilityLabel="Previous info page"
+              accessibilityRole="button"
+            >
+              <ChevronIcon direction="left" color={colors.text} />
+            </Pressable>
+            <Pressable onPress={() => setInfoPageIndex(0)}>
+              <View style={[styles.dot, infoPageIndex === 0 && styles.dotActive]} />
+            </Pressable>
+            <Pressable onPress={() => setInfoPageIndex(1)}>
+              <View style={[styles.dot, infoPageIndex === 1 && styles.dotActive]} />
+            </Pressable>
+            <Pressable
+              onPress={() => setInfoPageIndex(1)}
+              style={[styles.arrowButton, infoPageIndex === 1 && styles.arrowDisabled]}
+              disabled={infoPageIndex === 1}
+              accessibilityLabel="Next info page"
+              accessibilityRole="button"
+            >
+              <ChevronIcon direction="right" color={colors.text} />
+            </Pressable>
           </View>
         </View>
 
@@ -368,7 +383,7 @@ export function TicketFlipCard({
 
   return (
     <View>
-      {/* Web: Pressable with onPress — doesn't interfere with nested ScrollView scrolling.
+      {/* Web: Pressable with onPress for flip.
           Native: View with manual touch detection (onTouchStart/onTouchEnd) — preserves
           the responder-based swipe discrimination that Pressable can break on native. */}
       {Platform.OS === 'web' ? (
@@ -495,7 +510,7 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       justifyContent: 'center',
       alignItems: 'center',
       paddingBottom: Spacing.xs,
-      gap: 6,
+      gap: 8,
     },
     dot: {
       width: 6,
@@ -505,6 +520,17 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     },
     dotActive: {
       backgroundColor: colors.text,
+    },
+    arrowButton: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    arrowDisabled: {
+      opacity: 0.3,
     },
 
     // Hint
