@@ -102,9 +102,9 @@ export default function UserProfileScreen() {
     return (availableWidth - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
   }, [screenWidth]);
 
-  // Fetch user profile data using the hook
+  // Fetch user profile data — lazy-loads per active tab
   const { profile, watchedMovies, firstTakes, watchlist, isLoading, isError, stats } =
-    useUserProfile(id!);
+    useUserProfile(id!, activeTab);
 
   const { user } = useAuth();
   const {
