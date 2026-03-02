@@ -18,7 +18,7 @@ async function fetchActivityPage(cursor?: string): Promise<ActivityFeedPage> {
   let query = supabase
     .from('first_takes')
     .select(ACTIVITY_FEED_SELECT)
-    .neq('quote_text', '')
+    .like('quote_text', '_%')
     .order('created_at', { ascending: false })
     .limit(PAGE_SIZE);
 

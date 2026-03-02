@@ -87,7 +87,7 @@ export function useActivityFeed(limit: number = 20) {
       const { data, error } = await supabase
         .from('first_takes')
         .select(ACTIVITY_FEED_SELECT)
-        .neq('quote_text', '')
+        .like('quote_text', '_%')
         .order('created_at', { ascending: false })
         .limit(limit);
 

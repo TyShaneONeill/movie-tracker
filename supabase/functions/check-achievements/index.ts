@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
         .from('first_takes')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .neq('quote_text', ''),
+        .like('quote_text', '_%'),
       supabaseAdmin
         .from('user_movies')
         .select('genre_ids')
