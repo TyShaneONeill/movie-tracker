@@ -473,7 +473,7 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
   // Poster Options Section
   posterOptionsSection: {
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xs,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
   },
   generateArtButton: {
