@@ -205,7 +205,7 @@ Deno.serve(async (req: Request) => {
     console.error('Migration error:', error);
 
     return new Response(
-      JSON.stringify({ error: error.message || 'Migration failed' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }

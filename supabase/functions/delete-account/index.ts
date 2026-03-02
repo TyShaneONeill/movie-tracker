@@ -212,7 +212,62 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete scan usage: ${scanUsageError.message}`);
     }
 
-    // 12. Delete profiles
+    // 12. Delete watchlist_comments (has FK to profiles via both user_id AND owner_id)
+    const { error: watchlistCommentsError } = await supabaseAdmin
+      .from('watchlist_comments')
+      .delete()
+      .or(`user_id.eq.${userId},owner_id.eq.${userId}`);
+
+    if (watchlistCommentsError) {
+      console.error('[delete-account] Failed to delete watchlist comments:', watchlistCommentsError);
+      throw new Error(`Failed to delete watchlist comments: ${watchlistCommentsError.message}`);
+    }
+
+    // 13. Delete watchlist_likes (has FK to profiles via both user_id AND owner_id)
+    const { error: watchlistLikesError } = await supabaseAdmin
+      .from('watchlist_likes')
+      .delete()
+      .or(`user_id.eq.${userId},owner_id.eq.${userId}`);
+
+    if (watchlistLikesError) {
+      console.error('[delete-account] Failed to delete watchlist likes:', watchlistLikesError);
+      throw new Error(`Failed to delete watchlist likes: ${watchlistLikesError.message}`);
+    }
+
+    // 14. Delete notifications (has FK to profiles via both user_id AND actor_id)
+    const { error: notificationsError } = await supabaseAdmin
+      .from('notifications')
+      .delete()
+      .or(`user_id.eq.${userId},actor_id.eq.${userId}`);
+
+    if (notificationsError) {
+      console.error('[delete-account] Failed to delete notifications:', notificationsError);
+      throw new Error(`Failed to delete notifications: ${notificationsError.message}`);
+    }
+
+    // 15. Delete follows (has FK to profiles via both follower_id AND following_id)
+    const { error: followsError } = await supabaseAdmin
+      .from('follows')
+      .delete()
+      .or(`follower_id.eq.${userId},following_id.eq.${userId}`);
+
+    if (followsError) {
+      console.error('[delete-account] Failed to delete follows:', followsError);
+      throw new Error(`Failed to delete follows: ${followsError.message}`);
+    }
+
+    // 16. Delete user_achievements (has FK to profiles via user_id)
+    const { error: userAchievementsError } = await supabaseAdmin
+      .from('user_achievements')
+      .delete()
+      .eq('user_id', userId);
+
+    if (userAchievementsError) {
+      console.error('[delete-account] Failed to delete user achievements:', userAchievementsError);
+      throw new Error(`Failed to delete user achievements: ${userAchievementsError.message}`);
+    }
+
+    // 17. Delete profiles
     const { error: profilesError } = await supabaseAdmin
       .from('profiles')
       .delete()
@@ -223,7 +278,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to delete profile: ${profilesError.message}`);
     }
 
-    // 13. Finally, delete the auth user
+    // 18. Finally, delete the auth user
     const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (authDeleteError) {
@@ -244,7 +299,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('[delete-account] Unhandled error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }

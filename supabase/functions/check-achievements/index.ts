@@ -188,7 +188,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('[check-achievements] Error:', error);
     return new Response(
-      JSON.stringify({ error: (error as Error).message || 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       {
         status: 500,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },

@@ -8,6 +8,7 @@ jest.mock('@/lib/supabase', () => ({
   supabase: {
     functions: { invoke: jest.fn() },
     from: jest.fn(),
+    rpc: jest.fn(),
   },
 }));
 
@@ -791,74 +792,51 @@ describe('fetchJourneysByTmdbId', () => {
 });
 
 describe('createNewJourney', () => {
+  const mockRpc = supabase.rpc as jest.Mock;
   const existingJourney = makeUserMovie({
     status: 'watched',
     journey_number: 1,
   });
 
-  it('creates a new journey with incremented journey_number', async () => {
-    const existingJourneys = [
-      makeUserMovie({ journey_number: 1 }),
-      makeUserMovie({ id: 'movie-uuid-2', journey_number: 2 }),
-    ];
-    const fetchChain = mockSupabaseQuery({ data: existingJourneys, error: null });
+  beforeEach(() => {
+    mockRpc.mockReset();
+  });
 
+  it('calls RPC with correct parameters and returns the new journey', async () => {
     const newJourney = makeUserMovie({ id: 'movie-uuid-3', journey_number: 3, status: 'watched' });
-    const insertChain = mockSupabaseQuery({ data: newJourney, error: null });
-
-    mockFrom
-      .mockReturnValueOnce(fetchChain)
-      .mockReturnValueOnce(insertChain);
+    mockRpc.mockReturnValue({
+      single: jest.fn().mockResolvedValue({ data: newJourney, error: null }),
+    });
 
     const result = await createNewJourney(USER_ID, existingJourney);
 
-    expect(insertChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: USER_ID,
-        tmdb_id: existingJourney.tmdb_id,
-        status: 'watched',
-        journey_number: 3,
-        journey_created_at: expect.any(String),
-      })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('create_journey_with_next_number', {
+      p_user_id: USER_ID,
+      p_tmdb_id: existingJourney.tmdb_id,
+      p_title: existingJourney.title,
+      p_overview: existingJourney.overview ?? null,
+      p_poster_path: existingJourney.poster_path ?? null,
+      p_backdrop_path: existingJourney.backdrop_path ?? null,
+      p_release_date: existingJourney.release_date ?? null,
+      p_vote_average: existingJourney.vote_average ?? null,
+      p_genre_ids: existingJourney.genre_ids ?? [],
+    });
     expect(result).toEqual(newJourney);
   });
 
-  it('throws on insert error', async () => {
-    const fetchChain = mockSupabaseQuery({ data: [], error: null });
-    const insertChain = mockSupabaseQuery({ data: null, error: { message: 'Insert failed' } });
-
-    mockFrom
-      .mockReturnValueOnce(fetchChain)
-      .mockReturnValueOnce(insertChain);
+  it('throws on RPC error', async () => {
+    mockRpc.mockReturnValue({
+      single: jest.fn().mockResolvedValue({ data: null, error: { message: 'Insert failed' } }),
+    });
 
     await expect(createNewJourney(USER_ID, existingJourney)).rejects.toThrow('Insert failed');
   });
 
-  it('throws fallback message when insert error has no message', async () => {
-    const fetchChain = mockSupabaseQuery({ data: [], error: null });
-    const insertChain = mockSupabaseQuery({ data: null, error: {} });
-
-    mockFrom
-      .mockReturnValueOnce(fetchChain)
-      .mockReturnValueOnce(insertChain);
+  it('throws fallback message when error has no message', async () => {
+    mockRpc.mockReturnValue({
+      single: jest.fn().mockResolvedValue({ data: null, error: {} }),
+    });
 
     await expect(createNewJourney(USER_ID, existingJourney)).rejects.toThrow('Failed to create new journey');
-  });
-
-  it('starts journey_number at 1 when no existing journeys', async () => {
-    const fetchChain = mockSupabaseQuery({ data: [], error: null });
-    const newJourney = makeUserMovie({ id: 'movie-uuid-3', journey_number: 1 });
-    const insertChain = mockSupabaseQuery({ data: newJourney, error: null });
-
-    mockFrom
-      .mockReturnValueOnce(fetchChain)
-      .mockReturnValueOnce(insertChain);
-
-    await createNewJourney(USER_ID, existingJourney);
-
-    expect(insertChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ journey_number: 1 })
-    );
   });
 });

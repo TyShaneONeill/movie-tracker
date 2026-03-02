@@ -369,14 +369,22 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Error generating journey art:', error);
 
-    const status = error instanceof SafetyRejectionError ? 422 : 500;
+    if (error instanceof SafetyRejectionError) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error.message
+        }),
+        { status: 422, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Failed to generate art'
+        error: 'Internal server error'
       }),
-      { status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
