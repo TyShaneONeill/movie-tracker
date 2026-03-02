@@ -69,7 +69,6 @@ export function NativeFeedAd() {
             requestNonPersonalizedAdsOnly: true,
           }}
           onAdLoaded={() => {
-            console.log('[AdMob] Feed ad loaded');
             setLoaded(true);
           }}
           onAdFailedToLoad={(error: Error) => {

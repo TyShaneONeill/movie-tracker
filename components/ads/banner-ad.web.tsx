@@ -27,7 +27,6 @@ export function BannerAdComponent({ placement }: BannerAdProps) {
     try {
       ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
       pushed.current = true;
-      console.log(`[AdSense] Banner pushed (${placement})`);
     } catch (e) {
       console.warn(`[AdSense] Banner push failed (${placement}):`, e);
     }

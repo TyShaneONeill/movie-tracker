@@ -52,9 +52,7 @@ export function BannerAdComponent({ placement }: BannerAdProps) {
         requestOptions={{
           requestNonPersonalizedAdsOnly: true,
         }}
-        onAdLoaded={() => {
-          console.log(`[AdMob] Banner loaded (${placement})`);
-        }}
+        onAdLoaded={() => {}}
         onAdFailedToLoad={(error: Error) => {
           console.warn(`[AdMob] Banner failed (${placement}):`, error.message);
           captureMessage(`AdMob banner failed: ${placement}`, {

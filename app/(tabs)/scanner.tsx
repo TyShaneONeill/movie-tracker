@@ -253,7 +253,7 @@ export default function ScannerScreen() {
       p_user_id: user.id,
     });
     if (rpcError) {
-      console.log('Failed to increment bonus scans:', rpcError);
+      console.error('Failed to increment bonus scans:', rpcError);
       return;
     }
     // Re-fetch scan status to update UI

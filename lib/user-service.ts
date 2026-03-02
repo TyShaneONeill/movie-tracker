@@ -50,24 +50,27 @@ export async function searchUsers(
     return [];
   }
 
-  // Get movie counts for all matching users in a single query
+  // Get movie counts for all matching users using HEAD count queries (no row data transferred)
   const userIds = profiles.map((p) => p.id);
 
-  const { data: movieCounts, error: countError } = await supabase
-    .from('user_movies')
-    .select('user_id')
-    .in('user_id', userIds)
-    .eq('status', 'watched');
-
-  if (countError) {
-    throw new Error(countError.message || 'Failed to fetch movie counts');
-  }
+  const countResults = await Promise.all(
+    userIds.map((userId) =>
+      supabase
+        .from('user_movies')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'watched')
+    )
+  );
 
   // Build a map of user_id to movie count
   const countMap = new Map<string, number>();
-  (movieCounts ?? []).forEach((row) => {
-    const currentCount = countMap.get(row.user_id) || 0;
-    countMap.set(row.user_id, currentCount + 1);
+  userIds.forEach((userId, i) => {
+    const { count, error: countError } = countResults[i];
+    if (countError) {
+      throw new Error(countError.message || 'Failed to fetch movie counts');
+    }
+    countMap.set(userId, count ?? 0);
   });
 
   // Combine profiles with movie counts

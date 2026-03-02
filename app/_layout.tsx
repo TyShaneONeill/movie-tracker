@@ -231,8 +231,7 @@ export default function RootLayout() {
     (async () => {
       if (Platform.OS === 'ios') {
         const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
-        const { status } = await requestTrackingPermissionsAsync();
-        console.log(`[ATT] Tracking permission status: ${status}`);
+        await requestTrackingPermissionsAsync();
       }
     })();
   }, []);
