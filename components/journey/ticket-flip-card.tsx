@@ -231,7 +231,7 @@ export function TicketFlipCard({
           {firstTake?.rating && (
             <View style={styles.ratingRow}>
               <Text style={styles.ratingText}>
-                <Text style={styles.ratingStar}>★</Text> {firstTake.rating.toFixed(1)}
+                {firstTake.rating.toFixed(1)}
               </Text>
               {journey.journey_tagline && (
                 <Text style={styles.taglineText}>
@@ -445,9 +445,6 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
       ...Typography.body.lg,
       color: colors.gold,
       fontFamily: Fonts.outfit.bold,
-    },
-    ratingStar: {
-      color: colors.gold,
     },
     taglineText: {
       ...Typography.body.base,
