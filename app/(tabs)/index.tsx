@@ -61,6 +61,15 @@ function SearchIcon({ color }: { color: string }) {
 // Default avatar for users without one
 const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
 
+// Stable separator components extracted to module level to avoid re-creating on every render
+function HorizontalSeparator() {
+  return <View style={{ width: Spacing.md }} />;
+}
+
+function VerticalSeparator() {
+  return <View style={{ height: Spacing.md }} />;
+}
+
 export default function HomeScreen() {
   const { effectiveTheme, setThemePreference } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -233,7 +242,7 @@ export default function HomeScreen() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
-              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              ItemSeparatorComponent={HorizontalSeparator}
             />
           </View>
         )}
@@ -265,7 +274,7 @@ export default function HomeScreen() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
-              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              ItemSeparatorComponent={HorizontalSeparator}
               // 160px card + 16px separator
               getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
@@ -299,7 +308,7 @@ export default function HomeScreen() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
-              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              ItemSeparatorComponent={HorizontalSeparator}
               // 160px card + 16px separator
               getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
@@ -333,7 +342,7 @@ export default function HomeScreen() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
-              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              ItemSeparatorComponent={HorizontalSeparator}
               // 160px card + 16px separator
               getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
@@ -367,7 +376,7 @@ export default function HomeScreen() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
-              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              ItemSeparatorComponent={HorizontalSeparator}
               // 160px card + 16px separator
               getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
@@ -401,7 +410,7 @@ export default function HomeScreen() {
               )}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.trendingList}
-              ItemSeparatorComponent={() => <View style={{ width: Spacing.md }} />}
+              ItemSeparatorComponent={HorizontalSeparator}
               // 160px card + 16px separator
               getItemLayout={(_, index) => ({ length: 160, offset: 176 * index, index })}
             />
@@ -485,7 +494,7 @@ export default function HomeScreen() {
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
         ListEmptyComponent={ListEmpty}
-        ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
+        ItemSeparatorComponent={VerticalSeparator}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         onEndReached={handleEndReached}

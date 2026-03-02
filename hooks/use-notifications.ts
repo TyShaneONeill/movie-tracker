@@ -32,6 +32,7 @@ export function useNotifications(): UseNotificationsResult {
     queryKey: ['notifications', user?.id],
     queryFn: () => getNotifications(user!.id),
     enabled: !!user,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   // Query to fetch unread count
@@ -43,6 +44,7 @@ export function useNotifications(): UseNotificationsResult {
     queryKey: ['notificationCount', user?.id],
     queryFn: () => getUnreadCount(user!.id),
     enabled: !!user,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   // Mutation to mark a single notification as read

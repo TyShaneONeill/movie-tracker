@@ -4,6 +4,8 @@ import type { Profile, UserMovie, FirstTake } from '@/lib/database.types';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
+type ActiveTab = 'collection' | 'first-takes' | 'watchlist';
+
 /**
  * Fetch another user's profile from Supabase
  */
@@ -23,6 +25,35 @@ async function fetchOtherUserProfile(userId: string): Promise<Profile | null> {
   }
 
   return data;
+}
+
+/**
+ * Fetch counts for all tabs in a single parallel batch (HEAD queries, no data transferred)
+ */
+async function fetchOtherUserCounts(userId: string) {
+  const [watchedResult, firstTakesResult, watchlistResult] = await Promise.all([
+    supabase
+      .from('user_movies')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'watched'),
+    supabase
+      .from('first_takes')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .like('quote_text', '_%'),
+    supabase
+      .from('user_movies')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'watchlist'),
+  ]);
+
+  return {
+    watched: watchedResult.count ?? 0,
+    firstTakes: firstTakesResult.count ?? 0,
+    watchlist: watchlistResult.count ?? 0,
+  };
 }
 
 /**
@@ -72,14 +103,12 @@ export interface UseUserProfileResult {
 /**
  * Hook to fetch another user's profile data (READ-ONLY)
  *
- * Fetches:
- * - Profile data
- * - Watched movies (user_movies where status='watched')
- * - First Takes
- * - Watchlist (user_movies where status='watchlist')
+ * Lazy-loads tab data: only the active tab's full dataset is fetched.
+ * Tab counts are fetched eagerly via lightweight HEAD queries for the tab bar.
+ * Once fetched, data stays cached across tab switches via React Query.
  */
-export function useUserProfile(userId: string): UseUserProfileResult {
-  // Fetch profile
+export function useUserProfile(userId: string, activeTab: ActiveTab = 'collection'): UseUserProfileResult {
+  // Always fetch profile
   const profileQuery = useQuery({
     queryKey: ['otherUserProfile', userId],
     queryFn: () => fetchOtherUserProfile(userId),
@@ -87,53 +116,48 @@ export function useUserProfile(userId: string): UseUserProfileResult {
     staleTime: FIVE_MINUTES,
   });
 
-  // Fetch watched movies
+  // Always fetch lightweight counts for tab bar stats
+  const countsQuery = useQuery({
+    queryKey: ['otherUserCounts', userId],
+    queryFn: () => fetchOtherUserCounts(userId),
+    enabled: !!userId,
+    staleTime: FIVE_MINUTES,
+  });
+
+  // Lazy-load: only fetch full data for the active tab
   const watchedMoviesQuery = useQuery({
     queryKey: ['otherUserMovies', userId, 'watched'],
     queryFn: () => fetchOtherUserMovies(userId, 'watched'),
-    enabled: !!userId,
+    enabled: !!userId && activeTab === 'collection',
     staleTime: FIVE_MINUTES,
   });
 
-  // Fetch First Takes
   const firstTakesQuery = useQuery({
     queryKey: ['otherUserFirstTakes', userId],
     queryFn: () => fetchOtherUserFirstTakes(userId),
-    enabled: !!userId,
+    enabled: !!userId && activeTab === 'first-takes',
     staleTime: FIVE_MINUTES,
   });
 
-  // Fetch watchlist
   const watchlistQuery = useQuery({
     queryKey: ['otherUserMovies', userId, 'watchlist'],
     queryFn: () => fetchOtherUserMovies(userId, 'watchlist'),
-    enabled: !!userId,
+    enabled: !!userId && activeTab === 'watchlist',
     staleTime: FIVE_MINUTES,
   });
 
   const watchedMovies = watchedMoviesQuery.data ?? [];
   const firstTakes = firstTakesQuery.data ?? [];
   const watchlist = watchlistQuery.data ?? [];
+  const counts = countsQuery.data ?? { watched: 0, firstTakes: 0, watchlist: 0 };
 
   return {
     profile: profileQuery.data ?? null,
     watchedMovies,
     firstTakes,
     watchlist,
-    isLoading:
-      profileQuery.isLoading ||
-      watchedMoviesQuery.isLoading ||
-      firstTakesQuery.isLoading ||
-      watchlistQuery.isLoading,
-    isError:
-      profileQuery.isError ||
-      watchedMoviesQuery.isError ||
-      firstTakesQuery.isError ||
-      watchlistQuery.isError,
-    stats: {
-      watched: watchedMovies.length,
-      firstTakes: firstTakes.length,
-      watchlist: watchlist.length,
-    },
+    isLoading: profileQuery.isLoading || countsQuery.isLoading,
+    isError: profileQuery.isError || countsQuery.isError,
+    stats: counts,
   };
 }
