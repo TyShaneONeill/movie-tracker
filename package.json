@@ -11,7 +11,11 @@
     "lint": "expo lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "e2e": "npx playwright test",
+    "e2e:ui": "npx playwright test --ui",
+    "e2e:headed": "npx playwright test --headed",
+    "e2e:report": "npx playwright show-report"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -80,6 +84,7 @@
     "eslint-config-expo": "~10.0.0",
     "jest-expo": "^54.0.17",
     "react-test-renderer": "^19.1.0",
+    "@playwright/test": "^1.50.0",
     "typescript": "~5.9.2"
   },
   "private": true
