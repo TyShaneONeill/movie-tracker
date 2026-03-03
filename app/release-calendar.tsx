@@ -12,11 +12,11 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import CalendarGrid from '@/components/calendar/calendar-grid';
 import { ReleaseDayList } from '@/components/calendar/release-day-list';
@@ -24,6 +24,9 @@ import { useReleaseCalendar, useWatchlistIds } from '@/hooks/use-release-calenda
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { useAuth } from '@/hooks/use-auth';
+import { addMovieToLibrary, removeMovieFromLibrary } from '@/lib/movie-service';
+import type { TMDBMovie } from '@/lib/tmdb.types';
 
 /** Filter chip configuration */
 interface FilterChip {
@@ -54,9 +57,46 @@ export default function ReleaseCalendarScreen() {
   const [filterTypes, setFilterTypes] = useState<Set<number>>(new Set([1, 2, 3, 4, 5, 6]));
   const [showFilters, setShowFilters] = useState(false);
 
+  // Auth & query client
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   // Data fetching
   const { data, isLoading } = useReleaseCalendar({ month, year });
   const { data: watchlistIds } = useWatchlistIds();
+
+  // Watchlist toggle mutation
+  const watchlistMutation = useMutation({
+    mutationFn: async ({ tmdbId, isOnWatchlist }: { tmdbId: number; isOnWatchlist: boolean }) => {
+      if (!user) throw new Error('Not authenticated');
+      if (isOnWatchlist) {
+        await removeMovieFromLibrary(user.id, tmdbId);
+      } else {
+        // Find the CalendarRelease from current data to construct a TMDBMovie
+        const release = data?.days
+          .flatMap(d => d.releases)
+          .find(r => r.tmdb_id === tmdbId);
+        if (!release) throw new Error('Release not found');
+
+        const movie: TMDBMovie = {
+          id: release.tmdb_id,
+          title: release.title,
+          overview: '',
+          poster_path: release.poster_path,
+          backdrop_path: release.backdrop_path,
+          genre_ids: release.genre_ids,
+          vote_average: release.vote_average,
+          vote_count: 0,
+          release_date: release.release_date,
+        };
+        await addMovieToLibrary(user.id, movie, 'watchlist');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['watchlist-tmdb-ids'] });
+      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+    },
+  });
 
   // Get releases for selected date, filtered by type
   const selectedDayReleases = useMemo(() => {
@@ -85,6 +125,12 @@ export default function ReleaseCalendarScreen() {
     setMonth(newMonth);
     setSelectedDate(null);
   }, []);
+
+  // Toggle watchlist for a release
+  const handleToggleWatchlist = useCallback((tmdbId: number) => {
+    const isOnWatchlist = watchlistIds?.has(tmdbId) ?? false;
+    watchlistMutation.mutate({ tmdbId, isOnWatchlist });
+  }, [watchlistIds, watchlistMutation]);
 
   // Toggle a filter chip (add/remove its types from the active set)
   const toggleFilterChip = useCallback((chip: FilterChip) => {
@@ -157,6 +203,7 @@ export default function ReleaseCalendarScreen() {
           releases={selectedDayReleases}
           watchlistIds={watchlistIds ?? new Set()}
           onMoviePress={handleMoviePress}
+          onToggleWatchlist={handleToggleWatchlist}
           isLoading={isLoading}
         />
       </ScrollView>

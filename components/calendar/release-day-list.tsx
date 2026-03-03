@@ -5,13 +5,14 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CalendarRelease } from '@/lib/tmdb.types';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { ReleaseCard } from './release-card';
+import { ReleaseDayListSkeleton } from './calendar-skeleton';
 
 interface ReleaseDayListProps {
   date: string; // YYYY-MM-DD
@@ -97,9 +98,10 @@ export function ReleaseDayList({
   // Loading state
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.tint} />
-      </View>
+      <ReleaseDayListSkeleton
+        cardColor={colors.card}
+        shimmerColor={colors.backgroundSecondary}
+      />
     );
   }
 

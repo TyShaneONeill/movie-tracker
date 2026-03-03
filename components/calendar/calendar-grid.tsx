@@ -5,7 +5,7 @@
  * selected-day ring, and dot indicators for release dates.
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -130,6 +130,43 @@ export default function CalendarGrid({
     }
   }, [year, month, onMonthChange]);
 
+  // Swipe detection for month navigation (same pattern as ticket-flip-card.tsx)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleSwipeTouchStart = useCallback(
+    (e: { nativeEvent: { pageX: number; pageY: number } }) => {
+      touchStartRef.current = {
+        x: e.nativeEvent.pageX,
+        y: e.nativeEvent.pageY,
+        time: Date.now(),
+      };
+    },
+    [],
+  );
+
+  const handleSwipeTouchEnd = useCallback(
+    (e: { nativeEvent: { pageX: number; pageY: number } }) => {
+      const start = touchStartRef.current;
+      if (!start) return;
+
+      const dx = e.nativeEvent.pageX - start.x;
+      const dy = e.nativeEvent.pageY - start.y;
+      const elapsed = Date.now() - start.time;
+
+      touchStartRef.current = null;
+
+      // Valid swipe: far enough horizontally, more horizontal than vertical, quick enough
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && elapsed < 500) {
+        if (dx < 0) {
+          handleNextMonth();
+        } else {
+          handlePrevMonth();
+        }
+      }
+    },
+    [handleNextMonth, handlePrevMonth],
+  );
+
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
 
   return (
@@ -196,23 +233,29 @@ export default function CalendarGrid({
         ))}
       </View>
 
-      {/* Day grid */}
-      <View style={styles.dayGrid}>
-        {dayCells.map((cell, index) => {
-          if (cell.day === 0) {
-            // Empty padding cell
-            return <View key={`empty-${index}`} style={styles.dayCell} />;
-          }
+      {/* Day grid — wrapped with swipe detection for month navigation */}
+      <View
+        onTouchStart={handleSwipeTouchStart}
+        onTouchEnd={handleSwipeTouchEnd}
+        accessibilityLabel="Swipe left or right to change months"
+      >
+        <View style={styles.dayGrid}>
+          {dayCells.map((cell, index) => {
+            if (cell.day === 0) {
+              // Empty padding cell
+              return <View key={`empty-${index}`} style={styles.dayCell} />;
+            }
 
-          return (
-            <DayCellView
-              key={cell.dateString}
-              cell={cell}
-              colors={colors}
-              onPress={onSelectDate}
-            />
-          );
-        })}
+            return (
+              <DayCellView
+                key={cell.dateString}
+                cell={cell}
+                colors={colors}
+                onPress={onSelectDate}
+              />
+            );
+          })}
+        </View>
       </View>
     </View>
   );
