@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Allow: /support
 
 Sitemap: https://cinetrak.app/sitemap.xml
