@@ -10,7 +10,7 @@ import {
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Line } from 'react-native-svg';
+import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
 
 import { SectionHeader } from '@/components/ui/section-header';
@@ -54,6 +54,20 @@ function SearchIcon({ color }: { color: string }) {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <Circle cx={11} cy={11} r={8} />
       <Line x1={21} y1={21} x2={16.65} y2={16.65} />
+    </Svg>
+  );
+}
+
+function CalendarIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      {/* Calendar body */}
+      <Rect x={3} y={4} width={18} height={18} rx={2} ry={2} />
+      {/* Top pegs */}
+      <Line x1={16} y1={2} x2={16} y2={6} />
+      <Line x1={8} y1={2} x2={8} y2={6} />
+      {/* Divider line */}
+      <Line x1={3} y1={10} x2={21} y2={10} />
     </Svg>
   );
 }
@@ -130,6 +144,10 @@ export default function HomeScreen() {
 
   const handleSearchPress = useCallback(() => {
     router.push('/search');
+  }, []);
+
+  const handleCalendarPress = useCallback(() => {
+    router.push('/release-calendar');
   }, []);
 
   const handleTrendingPress = useCallback((movieId: number) => {
@@ -209,6 +227,13 @@ export default function HomeScreen() {
               icon={(color) => <SunIcon color={color} />}
               onPress={handleThemeToggle}
               accessibilityLabel={`Toggle theme, currently ${effectiveTheme} mode`}
+            />
+            <IconButton
+              variant="card"
+              size={40}
+              icon={(color) => <CalendarIcon color={color} />}
+              onPress={handleCalendarPress}
+              accessibilityLabel="Release calendar"
             />
             <IconButton
               variant="card"
@@ -448,6 +473,7 @@ export default function HomeScreen() {
       user,
       continueWatching.shows,
       handleThemeToggle,
+      handleCalendarPress,
       handleSearchPress,
       handleTrendingPress,
       handleTvShowPress,
