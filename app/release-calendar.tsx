@@ -11,8 +11,8 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Modal,
   StyleSheet,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -161,19 +161,15 @@ export default function ReleaseCalendarScreen() {
         />
       </ScrollView>
 
-      {/* Filter Bottom Sheet Modal */}
-      <Modal
-        visible={showFilters}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowFilters(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowFilters(false)}>
+      {/* Filter Bottom Sheet — positioned within page layout, not a Modal */}
+      {showFilters && (
+        <>
           <Pressable
-            style={[styles.modalPanel, { backgroundColor: colors.card }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
+            style={styles.modalOverlay}
+            onPress={() => setShowFilters(false)}
+          />
+          <View style={[styles.modalPanel, { backgroundColor: colors.card }]}>
+            {/* Panel Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 Filters
@@ -234,9 +230,9 @@ export default function ReleaseCalendarScreen() {
             >
               <Text style={styles.applyButtonText}>Apply Filters</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -279,21 +275,23 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
 
-  // Modal
+  // Filter sheet (absolutely positioned within the page)
   modalOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    zIndex: 100,
   },
   modalPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xxl,
-    width: '100%',
-    maxWidth: 1024,
+    zIndex: 101,
   },
   modalHeader: {
     flexDirection: 'row',
