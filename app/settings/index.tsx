@@ -236,6 +236,21 @@ export default function SettingsScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.settingsItem,
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => router.push('/streaming-services')}
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>My Streaming Services</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Select your subscriptions</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
               styles.lastItem,
               { backgroundColor: colors.card },
               pressed && { backgroundColor: colors.backgroundSecondary }

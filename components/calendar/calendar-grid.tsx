@@ -18,6 +18,7 @@ interface CalendarGridProps {
   selectedDate: string | null; // YYYY-MM-DD or null
   datesWithReleases: string[]; // YYYY-MM-DD strings from API
   watchlistDates?: string[]; // dates where user has watchlist items releasing
+  personalizedDates?: string[]; // dates with taste-matched releases
   onSelectDate: (date: string) => void; // YYYY-MM-DD
   onMonthChange: (year: number, month: number) => void;
   isLoading?: boolean;
@@ -30,6 +31,7 @@ interface DayCell {
   isSelected: boolean;
   hasRelease: boolean;
   hasWatchlistRelease: boolean;
+  hasPersonalizedRelease: boolean;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -58,6 +60,7 @@ export default function CalendarGrid({
   selectedDate,
   datesWithReleases,
   watchlistDates = [],
+  personalizedDates = [],
   onSelectDate,
   onMonthChange,
   isLoading = false,
@@ -75,6 +78,10 @@ export default function CalendarGrid({
   const watchlistDateSet = useMemo(
     () => new Set(watchlistDates),
     [watchlistDates],
+  );
+  const personalizedDateSet = useMemo(
+    () => new Set(personalizedDates),
+    [personalizedDates],
   );
 
   // Compute the grid of day cells for the current month
@@ -95,6 +102,7 @@ export default function CalendarGrid({
         isSelected: false,
         hasRelease: false,
         hasWatchlistRelease: false,
+        hasPersonalizedRelease: false,
       });
     }
 
@@ -108,11 +116,12 @@ export default function CalendarGrid({
         isSelected: dateString === selectedDate,
         hasRelease: releaseDateSet.has(dateString),
         hasWatchlistRelease: watchlistDateSet.has(dateString),
+        hasPersonalizedRelease: personalizedDateSet.has(dateString),
       });
     }
 
     return cells;
-  }, [year, month, todayString, selectedDate, releaseDateSet, watchlistDateSet]);
+  }, [year, month, todayString, selectedDate, releaseDateSet, watchlistDateSet, personalizedDateSet]);
 
   const handlePrevMonth = useCallback(() => {
     if (month === 1) {
@@ -309,14 +318,19 @@ const DayCellView = React.memo(function DayCellView({
       </View>
 
       {/* Dot indicators */}
-      {(cell.hasRelease || cell.hasWatchlistRelease) && (
+      {(cell.hasRelease || cell.hasWatchlistRelease || cell.hasPersonalizedRelease) && (
         <View style={styles.dotRow}>
           {cell.hasWatchlistRelease && (
             <View
               style={[styles.dot, { backgroundColor: colors.tint }]}
             />
           )}
-          {cell.hasRelease && !cell.hasWatchlistRelease && (
+          {cell.hasPersonalizedRelease && !cell.hasWatchlistRelease && (
+            <View
+              style={[styles.dot, { backgroundColor: '#F59E0B' }]}
+            />
+          )}
+          {cell.hasRelease && !cell.hasWatchlistRelease && !cell.hasPersonalizedRelease && (
             <View
               style={[
                 styles.dot,
@@ -324,7 +338,7 @@ const DayCellView = React.memo(function DayCellView({
               ]}
             />
           )}
-          {cell.hasRelease && cell.hasWatchlistRelease && (
+          {cell.hasRelease && (cell.hasWatchlistRelease || cell.hasPersonalizedRelease) && (
             <View
               style={[
                 styles.dot,
