@@ -17,6 +17,7 @@ import { useTheme } from '@/lib/theme-context';
 interface ReleaseCardProps {
   release: CalendarRelease;
   isOnWatchlist?: boolean;
+  tasteLabel?: string | null;
   onPress: (tmdbId: number) => void;
   onToggleWatchlist?: (tmdbId: number) => void;
 }
@@ -24,6 +25,7 @@ interface ReleaseCardProps {
 export function ReleaseCard({
   release,
   isOnWatchlist = false,
+  tasteLabel,
   onPress,
   onToggleWatchlist,
 }: ReleaseCardProps) {
@@ -130,6 +132,16 @@ export function ReleaseCard({
           </View>
         )}
 
+        {/* Taste Match Indicator */}
+        {tasteLabel && !isOnWatchlist && (
+          <View style={styles.tasteRow}>
+            <Ionicons name="sparkles" size={12} color={colors.tint} />
+            <Text style={[styles.tasteText, { color: colors.tint }]}>
+              {tasteLabel}
+            </Text>
+          </View>
+        )}
+
         {/* Watchlist Button */}
         {onToggleWatchlist && (
           <Pressable
@@ -199,6 +211,15 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 12,
     lineHeight: 16,
+  },
+  tasteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  tasteText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   watchlistButton: {
     position: 'absolute',

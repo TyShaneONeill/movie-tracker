@@ -439,6 +439,7 @@ export type Database = {
           account_tier: string
           avatar_url: string | null
           bio: string | null
+          calendar_default_filters: Json | null
           content_mode: string
           created_at: string
           default_collection_view: string
@@ -460,6 +461,7 @@ export type Database = {
           account_tier?: string
           avatar_url?: string | null
           bio?: string | null
+          calendar_default_filters?: Json | null
           content_mode?: string
           created_at?: string
           default_collection_view?: string
@@ -481,6 +483,7 @@ export type Database = {
           account_tier?: string
           avatar_url?: string | null
           bio?: string | null
+          calendar_default_filters?: Json | null
           content_mode?: string
           created_at?: string
           default_collection_view?: string
@@ -1078,6 +1081,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_streaming_services: {
+        Row: {
+          created_at: string | null
+          id: string
+          provider_id: number
+          provider_logo_path: string | null
+          provider_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          provider_id: number
+          provider_logo_path?: string | null
+          provider_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          provider_id?: number
+          provider_logo_path?: string | null
+          provider_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_tv_show_likes: {
         Row: {
           created_at: string | null
@@ -1613,10 +1643,6 @@ export const Constants = {
   },
 } as const
 
-// ============================================
-// Custom Helper Types
-// ============================================
-
 export type MovieStatus = 'watchlist' | 'watching' | 'watched';
 export type TvShowStatus = 'watchlist' | 'watching' | 'watched' | 'dropped' | 'on_hold';
 export type ContentMode = 'movies' | 'tv_shows' | 'both';
@@ -1776,3 +1802,7 @@ export interface WatchlistCommentWithProfile extends WatchlistComment {
     avatar_url: string | null;
   } | null;
 }
+
+// Helper types for user streaming services
+export type UserStreamingService = Database['public']['Tables']['user_streaming_services']['Row'];
+export type UserStreamingServiceInsert = Database['public']['Tables']['user_streaming_services']['Insert'];

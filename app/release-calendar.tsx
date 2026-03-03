@@ -5,7 +5,7 @@
  * and tap movies to view details.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,10 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { useTasteProfile } from '@/hooks/use-taste-profile';
 import { addMovieToLibrary, removeMovieFromLibrary } from '@/lib/movie-service';
+import { scoreRelease } from '@/lib/taste-profile-service';
+import { supabase } from '@/lib/supabase';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 
 /** Filter chip configuration */
@@ -64,6 +67,25 @@ export default function ReleaseCalendarScreen() {
   // Data fetching
   const { data, isLoading } = useReleaseCalendar({ month, year });
   const { data: watchlistIds } = useWatchlistIds();
+  const { data: tasteProfile } = useTasteProfile();
+
+  // Load saved filter preferences
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('calendar_default_filters')
+      .eq('id', user.id)
+      .single()
+      .then(({ data: profile }) => {
+        if (profile?.calendar_default_filters) {
+          const saved = profile.calendar_default_filters as { release_types?: number[] };
+          if (saved.release_types) {
+            setFilterTypes(new Set(saved.release_types));
+          }
+        }
+      });
+  }, [user]);
 
   // Watchlist toggle mutation
   const watchlistMutation = useMutation({
@@ -113,6 +135,28 @@ export default function ReleaseCalendarScreen() {
       .filter(d => d.releases.some(r => watchlistIds.has(r.tmdb_id)))
       .map(d => d.date);
   }, [data, watchlistIds]);
+
+  // Taste scores for the selected day's releases
+  const tasteScores = useMemo(() => {
+    if (!tasteProfile || !selectedDayReleases.length) return new Map<number, string | null>();
+    const scores = new Map<number, string | null>();
+    for (const release of selectedDayReleases) {
+      const result = scoreRelease(release.genre_ids, release.tmdb_id, tasteProfile);
+      scores.set(release.tmdb_id, result.label);
+    }
+    return scores;
+  }, [tasteProfile, selectedDayReleases]);
+
+  // Dates with taste-matched releases (for golden dots on calendar)
+  const personalizedDates = useMemo(() => {
+    if (!data || !tasteProfile) return [];
+    return data.days
+      .filter(d => d.releases.some(r => {
+        const result = scoreRelease(r.genre_ids, r.tmdb_id, tasteProfile);
+        return result.score >= 50;
+      }))
+      .map(d => d.date);
+  }, [data, tasteProfile]);
 
   // Navigate to movie detail
   const handleMoviePress = useCallback((tmdbId: number) => {
@@ -188,6 +232,7 @@ export default function ReleaseCalendarScreen() {
         selectedDate={selectedDate}
         datesWithReleases={data?.dates_with_releases ?? []}
         watchlistDates={watchlistDates}
+        personalizedDates={personalizedDates}
         onSelectDate={setSelectedDate}
         onMonthChange={handleMonthChange}
         isLoading={isLoading}
@@ -204,6 +249,7 @@ export default function ReleaseCalendarScreen() {
           watchlistIds={watchlistIds ?? new Set()}
           onMoviePress={handleMoviePress}
           onToggleWatchlist={handleToggleWatchlist}
+          tasteScores={tasteScores}
           isLoading={isLoading}
         />
       </ScrollView>
@@ -270,7 +316,16 @@ export default function ReleaseCalendarScreen() {
 
             {/* Apply Button */}
             <Pressable
-              onPress={() => setShowFilters(false)}
+              onPress={() => {
+                setShowFilters(false);
+                // Persist filter preferences
+                if (user) {
+                  supabase
+                    .from('profiles')
+                    .update({ calendar_default_filters: { release_types: [...filterTypes] } })
+                    .eq('id', user.id);
+                }
+              }}
               style={[styles.applyButton, { backgroundColor: colors.tint }]}
               accessibilityRole="button"
               accessibilityLabel="Apply filters"

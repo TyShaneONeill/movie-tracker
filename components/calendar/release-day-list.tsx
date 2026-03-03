@@ -20,6 +20,7 @@ interface ReleaseDayListProps {
   watchlistIds: Set<number>;
   onMoviePress: (tmdbId: number) => void;
   onToggleWatchlist?: (tmdbId: number) => void;
+  tasteScores?: Map<number, string | null>;
   isLoading?: boolean;
 }
 
@@ -71,6 +72,7 @@ export function ReleaseDayList({
   watchlistIds,
   onMoviePress,
   onToggleWatchlist,
+  tasteScores,
   isLoading = false,
 }: ReleaseDayListProps) {
   const { effectiveTheme } = useTheme();
@@ -150,6 +152,7 @@ export function ReleaseDayList({
               key={`${release.tmdb_id}-${release.release_type}`}
               release={release}
               isOnWatchlist={watchlistIds.has(release.tmdb_id)}
+              tasteLabel={tasteScores?.get(release.tmdb_id)}
               onPress={onMoviePress}
               onToggleWatchlist={onToggleWatchlist}
             />
