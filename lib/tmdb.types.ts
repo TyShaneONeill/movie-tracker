@@ -366,3 +366,51 @@ export interface TMDBPersonTvCredit {
   credit_id: string;
   episode_count: number;
 }
+
+// ============================================
+// Release Calendar Types
+// ============================================
+
+// TMDB /movie/{id}/release_dates response
+export interface TMDBReleaseDateEntry {
+  certification: string;
+  descriptors: string[];
+  iso_639_1: string;
+  note: string;
+  release_date: string; // ISO datetime
+  type: number; // 1-6 release type code
+}
+
+export interface TMDBReleaseDateCountry {
+  iso_3166_1: string; // Country code
+  release_dates: TMDBReleaseDateEntry[];
+}
+
+export interface TMDBReleaseDatesResponse {
+  id: number;
+  results: TMDBReleaseDateCountry[];
+}
+
+// Calendar-specific types
+export interface CalendarRelease {
+  tmdb_id: number;
+  title: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_type: number; // 1-6
+  release_type_label: string; // "Theatrical", "Digital", etc.
+  genre_ids: number[];
+  vote_average: number;
+  release_date: string; // YYYY-MM-DD
+}
+
+export interface CalendarDay {
+  date: string; // YYYY-MM-DD
+  releases: CalendarRelease[];
+}
+
+export interface ReleaseCalendarResponse {
+  days: CalendarDay[];
+  dates_with_releases: string[]; // For dot indicators on calendar grid
+  total_results: number;
+}

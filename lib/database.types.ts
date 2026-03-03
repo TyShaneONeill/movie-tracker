@@ -234,6 +234,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ip_rate_limits: {
+        Row: {
+          action: string
+          ip_address: string
+          window_count: number
+          window_start: string
+        }
+        Insert: {
+          action: string
+          ip_address: string
+          window_count?: number
+          window_start?: string
+        }
+        Update: {
+          action?: string
+          ip_address?: string
+          window_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       list_movies: {
         Row: {
           added_at: string | null
@@ -422,7 +443,6 @@ export type Database = {
           created_at: string
           default_collection_view: string
           feed_last_seen_at: string | null
-          show_continue_watching: boolean
           first_take_prompt_enabled: boolean | null
           followers_count: number | null
           following_count: number | null
@@ -430,6 +450,7 @@ export type Database = {
           id: string
           onboarding_completed: boolean | null
           review_visibility: string
+          show_continue_watching: boolean
           theme_preference: string | null
           tier_expires_at: string | null
           updated_at: string
@@ -448,9 +469,9 @@ export type Database = {
           following_count?: number | null
           full_name?: string | null
           id: string
-          show_continue_watching?: boolean
           onboarding_completed?: boolean | null
           review_visibility?: string
+          show_continue_watching?: boolean
           theme_preference?: string | null
           tier_expires_at?: string | null
           updated_at?: string
@@ -469,9 +490,9 @@ export type Database = {
           following_count?: number | null
           full_name?: string | null
           id?: string
-          show_continue_watching?: boolean
           onboarding_completed?: boolean | null
           review_visibility?: string
+          show_continue_watching?: boolean
           theme_preference?: string | null
           tier_expires_at?: string | null
           updated_at?: string
@@ -497,6 +518,39 @@ export type Database = {
           user_id?: string
           window_count?: number
           window_start?: string
+        }
+        Relationships: []
+      }
+      release_date_cache: {
+        Row: {
+          certification: string | null
+          fetched_at: string | null
+          id: string
+          note: string | null
+          region: string
+          release_date: string
+          release_type: number
+          tmdb_id: number
+        }
+        Insert: {
+          certification?: string | null
+          fetched_at?: string | null
+          id?: string
+          note?: string | null
+          region?: string
+          release_date: string
+          release_type: number
+          tmdb_id: number
+        }
+        Update: {
+          certification?: string | null
+          fetched_at?: string | null
+          id?: string
+          note?: string | null
+          region?: string
+          release_date?: string
+          release_type?: number
+          tmdb_id?: number
         }
         Relationships: []
       }
@@ -1211,6 +1265,15 @@ export type Database = {
         Args: { p_daily_limit_usd?: number }
         Returns: Json
       }
+      check_ip_rate_limit: {
+        Args: {
+          p_action: string
+          p_ip_address: string
+          p_max_requests: number
+          p_window_seconds: number
+        }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: {
           p_action: string
@@ -1222,6 +1285,61 @@ export type Database = {
       }
       cleanup_stale_movie_cache: { Args: never; Returns: number }
       cleanup_stale_tv_cache: { Args: never; Returns: undefined }
+      create_journey_with_next_number: {
+        Args: {
+          p_backdrop_path?: string
+          p_genre_ids?: number[]
+          p_overview?: string
+          p_poster_path?: string
+          p_release_date?: string
+          p_title: string
+          p_tmdb_id: number
+          p_user_id: string
+          p_vote_average?: number
+        }
+        Returns: {
+          added_at: string
+          ai_poster_rarity: string | null
+          ai_poster_url: string | null
+          auditorium: string | null
+          backdrop_path: string | null
+          cover_photo_index: number | null
+          display_poster: string | null
+          genre_ids: number[] | null
+          id: string
+          is_liked: boolean | null
+          journey_created_at: string | null
+          journey_notes: string | null
+          journey_number: number | null
+          journey_photos: string[] | null
+          journey_tagline: string | null
+          journey_updated_at: string | null
+          location_name: string | null
+          location_type: string | null
+          overview: string | null
+          poster_path: string | null
+          release_date: string | null
+          seat_location: string | null
+          status: string
+          ticket_id: string | null
+          ticket_price: number | null
+          title: string
+          tmdb_id: number
+          updated_at: string
+          user_id: string
+          vote_average: number | null
+          watch_format: string | null
+          watch_time: string | null
+          watched_at: string | null
+          watched_with: string[] | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "user_movies"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_journey_for_movie: {
         Args: { p_tmdb_id: number }
         Returns: {
@@ -1354,6 +1472,10 @@ export type Database = {
         }[]
       }
       increment_bonus_scans: { Args: { p_user_id: string }; Returns: Json }
+      reorder_list_movies: {
+        Args: { p_list_id: string; p_ordered_tmdb_ids: number[] }
+        Returns: undefined
+      }
       sync_tv_show_progress: {
         Args: { p_user_tv_show_id: string }
         Returns: undefined
