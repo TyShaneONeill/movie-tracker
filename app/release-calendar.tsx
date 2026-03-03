@@ -284,6 +284,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   modalPanel: {
     borderTopLeftRadius: 24,
@@ -291,6 +292,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xxl,
+    width: '100%',
+    maxWidth: 1024,
   },
   modalHeader: {
     flexDirection: 'row',
