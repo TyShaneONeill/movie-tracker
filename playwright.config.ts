@@ -24,7 +24,7 @@ export default defineConfig({
     { name: 'setup', testMatch: /global-setup\.ts/ },
     {
       name: 'unauthenticated',
-      testMatch: /\/(home|search|movie-detail)\.spec\.ts$/,
+      testMatch: /\/(home|search|movie-detail|multi-source-ratings)\.spec\.ts$/,
     },
     {
       name: 'authenticated',

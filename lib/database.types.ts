@@ -328,6 +328,11 @@ export type Database = {
           trailer_name: string | null
           trailer_youtube_key: string | null
           updated_at: string | null
+          imdb_rating: number | null
+          imdb_votes: number | null
+          rotten_tomatoes_score: number | null
+          metacritic_score: number | null
+          external_ratings_fetched_at: string | null
         }
         Insert: {
           adult?: boolean | null
@@ -357,6 +362,11 @@ export type Database = {
           trailer_name?: string | null
           trailer_youtube_key?: string | null
           updated_at?: string | null
+          imdb_rating?: number | null
+          imdb_votes?: number | null
+          rotten_tomatoes_score?: number | null
+          metacritic_score?: number | null
+          external_ratings_fetched_at?: string | null
         }
         Update: {
           adult?: boolean | null
@@ -386,6 +396,11 @@ export type Database = {
           trailer_name?: string | null
           trailer_youtube_key?: string | null
           updated_at?: string | null
+          imdb_rating?: number | null
+          imdb_votes?: number | null
+          rotten_tomatoes_score?: number | null
+          metacritic_score?: number | null
+          external_ratings_fetched_at?: string | null
         }
         Relationships: []
       }
