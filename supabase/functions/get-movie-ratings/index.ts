@@ -198,26 +198,45 @@ Deno.serve(async (req: Request) => {
       throw new Error('Failed to look up movie');
     }
 
-    // Step 2: If movie not in cache at all, return unavailable
-    if (!movie) {
-      const response: ExternalRatingsResponse = { ratings: null, source: 'unavailable' };
-      return new Response(JSON.stringify(response), {
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-        status: 200,
-      });
-    }
+    // Step 2 & 3: Resolve imdb_id (from cache or TMDB fallback)
+    let imdbId = movie?.imdb_id ?? null;
 
-    // Step 3: If no imdb_id, we can't fetch from OMDb
-    if (!movie.imdb_id) {
-      const response: ExternalRatingsResponse = { ratings: null, source: 'unavailable' };
-      return new Response(JSON.stringify(response), {
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-        status: 200,
-      });
+    if (!imdbId) {
+      const TMDB_API_KEY = Deno.env.get('TMDB_API_KEY');
+      if (TMDB_API_KEY) {
+        try {
+          const tmdbResp = await fetch(
+            `https://api.themoviedb.org/3/movie/${tmdb_id}/external_ids?api_key=${TMDB_API_KEY}`
+          );
+          if (tmdbResp.ok) {
+            const externalIds = await tmdbResp.json();
+            if (externalIds.imdb_id) {
+              imdbId = externalIds.imdb_id;
+              // Store it in the cache for next time (only if movie row exists)
+              if (movie) {
+                await supabaseClient
+                  .from('movies')
+                  .update({ imdb_id: imdbId })
+                  .eq('tmdb_id', tmdb_id);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[get-movie-ratings] Failed to fetch TMDB external IDs:', e);
+        }
+      }
+
+      if (!imdbId) {
+        const response: ExternalRatingsResponse = { ratings: null, source: 'unavailable' };
+        return new Response(JSON.stringify(response), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
     }
 
     // Step 4: Check if cached ratings are still fresh
-    if (isCacheFresh(movie.external_ratings_fetched_at)) {
+    if (movie && isCacheFresh(movie.external_ratings_fetched_at)) {
       const ratings = buildRatingsFromCache(movie as CachedMovie);
       const response: ExternalRatingsResponse = { ratings, source: 'cache' };
       return new Response(JSON.stringify(response), {
@@ -227,7 +246,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 5: Fetch from OMDb API
-    const omdbUrl = `https://www.omdbapi.com/?i=${encodeURIComponent(movie.imdb_id)}&apikey=${OMDB_API_KEY}`;
+    const omdbUrl = `https://www.omdbapi.com/?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_API_KEY}`;
 
     const omdbController = new AbortController();
     const omdbTimeoutId = setTimeout(() => omdbController.abort(), 10_000);
@@ -245,7 +264,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Return cached data if available, otherwise unavailable
-      const ratings = buildRatingsFromCache(movie as CachedMovie);
+      const ratings = movie ? buildRatingsFromCache(movie as CachedMovie) : null;
       const response: ExternalRatingsResponse = {
         ratings,
         source: ratings ? 'cache' : 'unavailable',
@@ -262,7 +281,7 @@ Deno.serve(async (req: Request) => {
       console.error('[get-movie-ratings] OMDb API error:', omdbResponse.status, omdbResponse.statusText);
 
       // Return cached data if available
-      const ratings = buildRatingsFromCache(movie as CachedMovie);
+      const ratings = movie ? buildRatingsFromCache(movie as CachedMovie) : null;
       const response: ExternalRatingsResponse = {
         ratings,
         source: ratings ? 'cache' : 'unavailable',

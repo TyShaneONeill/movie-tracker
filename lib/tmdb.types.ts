@@ -85,6 +85,7 @@ export interface TMDBMovieDetail {
   runtime: number | null;
   genres: { id: number; name: string }[];
   tagline: string | null;
+  imdb_id?: string | null;
 }
 
 // Cast member in movie credits

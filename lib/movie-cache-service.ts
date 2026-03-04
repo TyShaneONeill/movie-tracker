@@ -77,6 +77,7 @@ export async function cacheMovieData(
     genre_ids: movieDetail.genre_ids,
     poster_path: movieDetail.poster_path,
     backdrop_path: movieDetail.backdrop_path,
+    imdb_id: movieDetail.imdb_id ?? null,
     trailer_youtube_key: trailer?.key ?? null,
     trailer_name: trailer?.name ?? null,
     cached_cast: cast ? JSON.parse(JSON.stringify(cast)) : null,
