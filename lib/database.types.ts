@@ -117,6 +117,7 @@ export type Database = {
           created_at: string | null
           episode_number: number | null
           id: string
+          is_rewatch: boolean
           is_spoiler: boolean | null
           media_type: string
           movie_title: string
@@ -126,6 +127,7 @@ export type Database = {
           reaction_emoji: string
           season_number: number | null
           show_name: string | null
+          title: string | null
           tmdb_id: number
           updated_at: string | null
           user_id: string
@@ -135,6 +137,7 @@ export type Database = {
           created_at?: string | null
           episode_number?: number | null
           id?: string
+          is_rewatch?: boolean
           is_spoiler?: boolean | null
           media_type?: string
           movie_title: string
@@ -144,6 +147,7 @@ export type Database = {
           reaction_emoji?: string
           season_number?: number | null
           show_name?: string | null
+          title?: string | null
           tmdb_id: number
           updated_at?: string | null
           user_id: string
@@ -153,6 +157,7 @@ export type Database = {
           created_at?: string | null
           episode_number?: number | null
           id?: string
+          is_rewatch?: boolean
           is_spoiler?: boolean | null
           media_type?: string
           movie_title?: string
@@ -162,6 +167,7 @@ export type Database = {
           reaction_emoji?: string
           season_number?: number | null
           show_name?: string | null
+          title?: string | null
           tmdb_id?: number
           updated_at?: string | null
           user_id?: string

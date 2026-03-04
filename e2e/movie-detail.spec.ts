@@ -13,8 +13,8 @@ test.describe('Movie Detail', () => {
     // Star rating e.g. "★ 8.4"
     await expect(page.getByText(/★\s*\d+\.\d/).last()).toBeVisible({ timeout: 15_000 });
 
-    // At least one genre
-    await expect(page.getByText('Action').last()).toBeVisible({ timeout: 15_000 });
+    // At least one genre — use exact match to avoid picking up text like "Action • 0.0"
+    await expect(page.getByText('Action', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
 
     // Synopsis — try both known phrases
     await expect(

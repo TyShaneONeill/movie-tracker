@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { CachedMovie, CachedMovieInsert } from './database.types';
+import { getGenreNameSync } from './genre-service';
 import type { MovieDetailResponse, TMDBCastMember, TMDBCrewMember, TMDBMovieDetail, TMDBVideo } from './tmdb.types';
 
 // Cache staleness threshold (30 days in milliseconds)
@@ -114,7 +115,10 @@ export function cachedMovieToTMDBDetail(cached: CachedMovie): TMDBMovieDetail {
     vote_count: cached.tmdb_vote_count ?? 0,
     genre_ids: cached.genre_ids ?? [],
     runtime: cached.runtime_minutes,
-    genres: [], // Will be populated from genres table if needed
+    genres: (cached.genre_ids ?? []).map(id => ({
+      id,
+      name: getGenreNameSync(id),
+    })),
     tagline: cached.tagline,
   };
 }

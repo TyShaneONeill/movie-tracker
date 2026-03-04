@@ -28,6 +28,8 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     quote_text:
       'The ending completely rewired my brain. I need to watch this again immediately.',
     is_spoiler: false,
+    is_rewatch: false,
+    title: null,
     rating: 9,
     visibility: 'public',
     created_at: minutesAgo(5),
@@ -47,6 +49,8 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     quote_text:
       'Pure cinema. Every scene is iconic. Tarantino at his absolute best.',
     is_spoiler: false,
+    is_rewatch: false,
+    title: null,
     rating: 10,
     visibility: 'public',
     created_at: hoursAgo(3),
@@ -66,6 +70,8 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     quote_text:
       'Heath Ledger deserved every award. This transcends the superhero genre.',
     is_spoiler: false,
+    is_rewatch: false,
+    title: null,
     rating: 10,
     visibility: 'public',
     created_at: daysAgo(1),
@@ -85,6 +91,8 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     quote_text:
       'My mind is still spinning. Nolan created a masterpiece of layered storytelling.',
     is_spoiler: false,
+    is_rewatch: false,
+    title: null,
     rating: 9,
     visibility: 'public',
     created_at: daysAgo(3),
@@ -104,6 +112,8 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     quote_text:
       'Hope is a beautiful thing. This movie restored my faith in storytelling.',
     is_spoiler: false,
+    is_rewatch: false,
+    title: null,
     rating: 10,
     visibility: 'public',
     created_at: daysAgo(7),

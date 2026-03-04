@@ -8,7 +8,7 @@ import {
   deleteFirstTake,
   type CreateFirstTakeData,
 } from '@/lib/first-take-service';
-import type { FirstTake, FirstTakeMediaType } from '@/lib/database.types';
+import type { FirstTake, FirstTakeMediaType, ReviewVisibility } from '@/lib/database.types';
 
 interface UseFirstTakeActionsResult {
   // State
@@ -23,7 +23,7 @@ interface UseFirstTakeActionsResult {
 
   // Actions
   createTake: (data: Omit<CreateFirstTakeData, 'tmdbId'> & { tmdbId?: number }) => Promise<FirstTake>;
-  updateTake: (updates: { reactionEmoji?: string; quoteText?: string; isSpoiler?: boolean }) => Promise<FirstTake>;
+  updateTake: (updates: { reactionEmoji?: string; quoteText?: string; isSpoiler?: boolean; title?: string; isRewatch?: boolean; rating?: number | null; visibility?: ReviewVisibility }) => Promise<FirstTake>;
   deleteTake: () => Promise<void>;
 }
 
@@ -61,7 +61,7 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
 
   // Mutation to update an existing First Take
   const updateMutation = useMutation({
-    mutationFn: async (updates: { reactionEmoji?: string; quoteText?: string; isSpoiler?: boolean }) => {
+    mutationFn: async (updates: { reactionEmoji?: string; quoteText?: string; isSpoiler?: boolean; title?: string; isRewatch?: boolean; rating?: number | null; visibility?: ReviewVisibility }) => {
       if (!existingTake) throw new Error('No First Take to update');
       return updateFirstTake(existingTake.id, updates);
     },
@@ -98,6 +98,10 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
     reactionEmoji?: string;
     quoteText?: string;
     isSpoiler?: boolean;
+    title?: string;
+    isRewatch?: boolean;
+    rating?: number | null;
+    visibility?: ReviewVisibility;
   }): Promise<FirstTake> => {
     return updateMutation.mutateAsync(updates);
   };
