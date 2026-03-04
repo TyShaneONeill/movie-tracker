@@ -146,6 +146,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.sm,
     flexWrap: 'wrap',
+    marginTop: Spacing.sm,
   },
   pill: {
     flexDirection: 'row',
