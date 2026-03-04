@@ -14,29 +14,16 @@ async function flipTicketCard(page: Page) {
 }
 
 /**
- * Helper: scroll the info carousel inside the flip card to a given page index.
+ * Helper: navigate the info carousel to a given page index using the arrow buttons.
  */
-async function scrollInfoCarousel(page: Page, pageIndex: number) {
-  await page.evaluate((targetPage) => {
-    const flipBtn =
-      document.querySelector('[aria-label="Flip ticket to see barcode"]') ||
-      document.querySelector('[aria-label="Flip ticket to front"]');
-    if (!flipBtn) throw new Error('Flip card not found');
-
-    const allDivs = flipBtn.querySelectorAll('div');
-    let scrollContainer: HTMLElement | null = null;
-    for (const div of allDivs) {
-      const style = window.getComputedStyle(div);
-      if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
-        scrollContainer = div;
-        break;
-      }
-    }
-    if (!scrollContainer) throw new Error('Info carousel scroll container not found');
-
-    scrollContainer.scrollLeft = scrollContainer.clientWidth * targetPage;
-    scrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
-  }, pageIndex);
+async function navigateInfoCarousel(page: Page, pageIndex: number) {
+  if (pageIndex === 1) {
+    const nextBtn = page.getByRole('button', { name: 'Next info page' });
+    await nextBtn.click();
+  } else {
+    const prevBtn = page.getByRole('button', { name: 'Previous info page' });
+    await prevBtn.click();
+  }
 }
 
 /**
@@ -151,8 +138,8 @@ test.describe('Journey Card (Authenticated)', () => {
     await expect(page.getByText('DATE').last()).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('CINEMA').last()).toBeVisible({ timeout: 10_000 });
 
-    // Scroll info carousel to page 2
-    await scrollInfoCarousel(page, 1);
+    // Navigate info carousel to page 2 via arrow button
+    await navigateInfoCarousel(page, 1);
     await page.waitForTimeout(500);
 
     // Page 2: TIME, FORMAT, AUDITORIUM, PRICE
