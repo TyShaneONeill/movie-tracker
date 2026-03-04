@@ -50,6 +50,7 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
+import { ExternalRatings } from '@/components/movie-detail/external-ratings';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { addMovieToList, createList } from '@/lib/list-service';
@@ -421,6 +422,9 @@ export default function MovieDetailScreen() {
               </View>
             </View>
           </View>
+
+          {/* External Ratings (IMDb, RT, Metacritic) */}
+          <ExternalRatings tmdbId={movie.id} />
 
           {/* Synopsis */}
           <Text style={dynamicStyles.synopsis}>{movie.overview || 'No synopsis available.'}</Text>
