@@ -48,3 +48,6 @@ app-example
 /blob-report/
 /playwright/.cache/
 e2e/.auth/
+
+# Generated movie pages (built at deploy time)
+public/movie/

@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export --platform web",
+  "buildCommand": "node scripts/generate-movie-pages.js && npx expo export --platform web",
   "outputDirectory": "dist",
   "framework": null,
   "cleanUrls": true,
@@ -8,6 +8,7 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/support", "destination": "/support.html" },
+    { "source": "/movie/:path", "destination": "/movie/:path.html" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }
