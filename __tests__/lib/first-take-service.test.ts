@@ -43,16 +43,14 @@ const makeCreateData = (overrides?: Record<string, unknown>) => ({
 });
 
 describe('createFirstTake', () => {
-  it('rejects empty quote text', async () => {
-    await expect(createFirstTake('user-1', makeCreateData({ quoteText: '' }))).rejects.toThrow(
-      'Quote text cannot be empty'
-    );
+  it('accepts empty quote text (rating-only review)', async () => {
+    const result = await createFirstTake('user-1', makeCreateData({ quoteText: '' }));
+    expect(result).toBeDefined();
   });
 
-  it('rejects whitespace-only quote text', async () => {
-    await expect(createFirstTake('user-1', makeCreateData({ quoteText: '   ' }))).rejects.toThrow(
-      'Quote text cannot be empty'
-    );
+  it('accepts whitespace-only quote text (treated as empty)', async () => {
+    const result = await createFirstTake('user-1', makeCreateData({ quoteText: '   ' }));
+    expect(result).toBeDefined();
   });
 
   it('trims quote text before inserting', async () => {

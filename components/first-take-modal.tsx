@@ -23,7 +23,7 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import type { ReviewVisibility } from '@/lib/database.types';
 
-const MAX_QUOTE_LENGTH = 140;
+const MAX_QUOTE_LENGTH = 500;
 
 const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
   { value: 'public', label: 'Public' },
@@ -34,7 +34,7 @@ const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
 interface FirstTakeModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { rating: number; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility }) => Promise<void>;
+  onSubmit: (data: { rating: number; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility; title: string; isRewatch: boolean }) => Promise<void>;
   movieTitle: string;
   moviePosterUrl?: string;
   isSubmitting?: boolean;
@@ -55,6 +55,8 @@ export function FirstTakeModal({
   const [rating, setRating] = useState<number>(5);
   const [quoteText, setQuoteText] = useState('');
   const [isSpoiler, setIsSpoiler] = useState(false);
+  const [title, setTitle] = useState('');
+  const [isRewatch, setIsRewatch] = useState(false);
   const [visibility, setVisibility] = useState<ReviewVisibility>(preferences?.reviewVisibility ?? 'public');
 
   // Sync visibility default when preferences load
@@ -64,9 +66,9 @@ export function FirstTakeModal({
     }
   }, [preferences?.reviewVisibility]);
 
-  const canSubmit = rating > 0 && quoteText.trim().length > 0 && !isSubmitting;
+  const canSubmit = (rating > 0 || quoteText.trim().length > 0) && !isSubmitting;
   const charCount = quoteText.length;
-  const isNearLimit = charCount > 120;
+  const isNearLimit = charCount > 450;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -77,6 +79,8 @@ export function FirstTakeModal({
       quoteText: quoteText.trim(),
       isSpoiler,
       visibility,
+      title: title.trim(),
+      isRewatch,
     });
 
     Toast.show({
@@ -89,6 +93,8 @@ export function FirstTakeModal({
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
+    setTitle('');
+    setIsRewatch(false);
     setVisibility(preferences?.reviewVisibility ?? 'public');
   };
 
@@ -98,6 +104,8 @@ export function FirstTakeModal({
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
+    setTitle('');
+    setIsRewatch(false);
     setVisibility(preferences?.reviewVisibility ?? 'public');
     onClose();
   };
@@ -187,6 +195,19 @@ export function FirstTakeModal({
                 </View>
               </View>
 
+              {/* Title (Optional) */}
+              <View style={styles.inputSection}>
+                <Text style={styles.sectionLabel}>Title (Optional)</Text>
+                <TextInput
+                  style={styles.titleInput}
+                  placeholder="Give your review a title..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={title}
+                  onChangeText={(text) => setTitle(text.slice(0, 100))}
+                  maxLength={100}
+                />
+              </View>
+
               {/* Text Input Section */}
               <View style={styles.inputSection}>
                 <Text style={styles.sectionLabel}>Your Thoughts</Text>
@@ -224,6 +245,20 @@ export function FirstTakeModal({
                   onValueChange={setIsSpoiler}
                   activeColor={colors.tint}
                 />
+              </View>
+
+              {/* Rewatch Toggle */}
+              <View style={styles.spoilerRow}>
+                <View style={styles.spoilerLeft}>
+                  <View style={styles.warningIcon}>
+                    <Text style={styles.warningIconText}>🔄</Text>
+                  </View>
+                  <View style={styles.spoilerTextContainer}>
+                    <Text style={styles.spoilerTitle}>Rewatch</Text>
+                    <Text style={styles.spoilerSubtitle}>I&apos;ve seen this before</Text>
+                  </View>
+                </View>
+                <ToggleSwitch value={isRewatch} onValueChange={setIsRewatch} activeColor={colors.tint} />
               </View>
 
               {/* Visibility Selector */}
@@ -416,6 +451,17 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     ratingLabelRight: {
       textAlign: 'right',
+    },
+
+    // Title Input
+    titleInput: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BorderRadius.md,
+      padding: Spacing.md,
+      color: colors.text,
+      ...Typography.body.sm,
     },
 
     // Text Input Section

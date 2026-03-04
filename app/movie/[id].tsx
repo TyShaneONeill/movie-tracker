@@ -51,6 +51,8 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { ExternalRatings } from '@/components/movie-detail/external-ratings';
+import { FriendsRatings } from '@/components/movie-detail/friends-ratings';
+import { CommunityReviews } from '@/components/movie-detail/community-reviews';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { addMovieToList, createList } from '@/lib/list-service';
@@ -262,6 +264,9 @@ export default function MovieDetailScreen() {
     rating: number;
     quoteText: string;
     isSpoiler: boolean;
+    visibility: import('@/lib/database.types').ReviewVisibility;
+    title: string;
+    isRewatch: boolean;
   }) => {
     if (!movie) return;
 
@@ -273,6 +278,9 @@ export default function MovieDetailScreen() {
         quoteText: data.quoteText,
         isSpoiler: data.isSpoiler,
         rating: data.rating,
+        visibility: data.visibility,
+        title: data.title || null,
+        isRewatch: data.isRewatch,
       });
       setShowFirstTakeModal(false);
     } catch {
@@ -426,6 +434,9 @@ export default function MovieDetailScreen() {
           {/* External Ratings (IMDb, RT, Metacritic) */}
           <ExternalRatings tmdbId={movie.id} />
 
+          {/* Friends' Ratings */}
+          <FriendsRatings tmdbId={movie.id} />
+
           {/* Synopsis */}
           <Text style={dynamicStyles.synopsis}>{movie.overview || 'No synopsis available.'}</Text>
 
@@ -528,6 +539,9 @@ export default function MovieDetailScreen() {
               <Text style={dynamicStyles.comingSoonText}>Soon</Text>
             </View>
           </View>
+
+          {/* Community Reviews */}
+          <CommunityReviews tmdbId={movie.id} />
 
           {/* Top Cast Section */}
           {cast.length > 0 && (
