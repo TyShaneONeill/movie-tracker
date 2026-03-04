@@ -1,6 +1,6 @@
 # PRD: Reviews — Full Feature Suite
 
-**Status**: Draft
+**Status**: Phase 1 Complete (2026-03-04)
 **Author**: CineTrak Team
 **Created**: 2026-03-03
 **Target Release**: Phased (v1.x → v2.x)
@@ -49,7 +49,7 @@ Transform CineTrak from a tracking app into a **social movie companion** where y
 
 ## 5. Phased Implementation
 
-### PHASE 1: Enhanced Reviews
+### PHASE 1: Enhanced Reviews ✅ COMPLETE (2026-03-04, PR #220)
 **Goal**: Make reviews worth writing and worth reading.
 
 #### 1.1 Features
@@ -120,6 +120,22 @@ ALTER TABLE first_takes
 | **Error states** | Empty states ("No reviews yet", "No friends have watched this"), network errors, and loading skeletons all render correctly | Manual QA: test with no data, with network off, during loading |
 
 **Why these gates**: Phase 1 must be production-grade before we layer social engagement on top. Likes on broken reviews create a broken experience squared.
+
+#### 1.4 What Was Built (Phase 1 Delivery)
+
+| Component | File(s) | Notes |
+|-----------|---------|-------|
+| DB migration | `extend_first_takes_for_reviews` | `quote_text` → VARCHAR(500), added `title` VARCHAR(100), `is_rewatch` BOOLEAN |
+| Edge function | `supabase/functions/get-movie-reviews/index.ts` | Paginated public reviews with profiles, IP rate limit 100/hr |
+| Edge function | `supabase/functions/get-friends-ratings/index.ts` | Auth required, returns followed users' ratings + average, user rate limit 200/hr |
+| Service layer | `lib/review-service.ts` | `fetchMovieReviews()`, `fetchFriendsRatings()` |
+| Hooks | `hooks/use-movie-reviews.ts`, `hooks/use-friends-ratings.ts` | React Query with 5min stale, auth-gated for friends |
+| FirstTakeModal | `components/first-take-modal.tsx` | 500-char text, title field, rewatch toggle, rating-only/text-only support |
+| FriendsRatings | `components/movie-detail/friends-ratings.tsx` | Horizontal avatars, color-coded ratings, average badge |
+| CommunityReviews | `components/movie-detail/community-reviews.tsx` | Review cards, spoiler blur, rewatch tags, pagination |
+| Integration | `app/movie/[id].tsx` | Both components wired below external ratings and action grid |
+| Types | `lib/database.types.ts` | Added `title`, `is_rewatch` to Row/Insert/Update |
+| Service updates | `lib/first-take-service.ts`, `hooks/use-first-take-actions.ts` | Support for new fields |
 
 ---
 
