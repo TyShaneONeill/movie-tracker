@@ -132,3 +132,19 @@ export function mockSupabaseQuery(result: { data: unknown; error: unknown }) {
 export function mockFunctionsInvoke(result: { data: unknown; error: unknown }) {
   return jest.fn().mockResolvedValue(result);
 }
+
+// ============================================================================
+// External Ratings Fixtures
+// ============================================================================
+
+export function makeRatingsResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    ratings: {
+      imdb: { rating: 8.8, votes: 2500000 },
+      rottenTomatoes: { score: 94 },
+      metacritic: { score: 84 },
+    },
+    source: 'omdb' as const,
+    ...overrides,
+  };
+}
