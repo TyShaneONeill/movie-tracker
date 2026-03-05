@@ -139,6 +139,112 @@ ALTER TABLE first_takes
 
 ---
 
+### PHASE 1.5: Profile Reviews & Review Detail
+**Goal**: Give reviews a home on the profile page and a dedicated reading experience. Reviews deserve their own spotlight — not buried in a mixed list with First Takes.
+
+#### 1.5.1 Features
+
+**New "Reviews" Tab on Profile Page**:
+- Add a 4th tab to the profile tab bar: `Watched | First Takes | Reviews | Lists`
+- Tab shows count badge (e.g., "6 Reviews")
+- **Reviews only** — no First Takes mixed in. First Takes stay on their own tab.
+- Each review card shows:
+  - Movie/TV show poster thumbnail (left, ~50x75px)
+  - Movie/show title (bold) + relative timestamp (e.g., "3d ago")
+  - Review title (medium weight)
+  - Rating badge (color-coded circle: green 8-10, yellow 6-7, red 1-5)
+  - Review body text **truncated to 100 characters** with "..." — tap card to see full review
+  - Visibility icon (globe for public, people for followers_only, lock for private)
+  - Spoiler overlay (blur + "Tap to reveal") for spoiler-flagged reviews
+- **Pill tags** at bottom of each review card:
+  - "Rewatch" pill (gold) if `is_rewatch` is true
+  - Space reserved for future "Like" and "Share" action pills (Phase 2+)
+- Cards separated by hairline border
+
+**Sort Options**:
+- Dropdown at top-right of the reviews list
+- Options: **Recent** (default), **Highest Rated**, **Lowest Rated**
+- Sort is client-side since review count per user is small (< 100 typically)
+
+**Media Type Filter**:
+- Toggle/segmented control: **All** | **Movies** | **TV Shows**
+- Filters the reviews list by `media_type` field ('movie' vs 'tv_show')
+- Filter persists within session, resets on tab switch
+
+**Review Detail Page** (`app/review/[id].tsx`):
+- Full-screen dedicated page for reading a single review
+- Layout similar to movie detail page but focused on the review:
+  - Movie/show poster + title + year at top
+  - Reviewer info (avatar, display name, timestamp)
+  - Full rating display (large, color-coded)
+  - Review title (if present)
+  - **Full review text** (no truncation — up to 2000 characters)
+  - Spoiler warning banner if flagged
+  - "Rewatch" indicator
+  - Visibility badge
+  - Navigation: back button returns to profile
+- Accessible via:
+  - Tapping any review card on the profile Reviews tab
+  - Tapping any review card in the CommunityReviews section on movie detail
+  - Deep link: `/review/{id}` (for future sharing, Phase 3)
+- Error states: 404 for deleted reviews, 403 for private reviews when not the author
+
+**Empty State**:
+- "No reviews yet — start sharing your thoughts!" with a subtle film icon
+- Optional CTA button linking to the user's watched movies (to encourage writing reviews)
+
+#### 1.5.2 Technical Scope
+
+**New hook**: `useUserReviews(userId)`
+- Fetches reviews from `reviews` table for a given user
+- Returns `{ reviews, isLoading, isError }`
+- Query key: `['user-reviews', userId]`
+- Sorted by `created_at DESC` by default
+- Filters by visibility (own profile: all; other user's profile: public + followers_only if following, public only otherwise)
+
+**New hook**: `useReviewDetail(reviewId)`
+- Fetches a single review by ID with reviewer profile info
+- Query key: `['review', reviewId]`
+- Returns full review data + movie info for display
+
+**New components**:
+- `components/cards/review-card.tsx` — Profile review card with truncation, tags, rating badge
+- `components/profile/reviews-tab.tsx` — Reviews tab content with sort + filter
+- `app/review/[id].tsx` — Review detail screen
+
+**Profile tab update**:
+- `app/(tabs)/profile.tsx` — Add 'reviews' to `TabType` and `TAB_CONFIG`
+- New stat query to count user's reviews
+
+**No new edge functions needed** — reviews are in the `reviews` table with RLS policies; client can query directly via Supabase for the user's own profile. For viewing other users' reviews, the existing `get-movie-reviews` pattern can be extended or a new `get-user-reviews` edge function added if needed.
+
+**No database changes needed** — the `reviews` table already has all required fields: `id`, `user_id`, `tmdb_id`, `media_type`, `movie_title`, `poster_path`, `title`, `review_text`, `rating`, `is_spoiler`, `is_rewatch`, `visibility`, `created_at`.
+
+#### 1.5.3 Phase Gate — Must achieve ALL before proceeding to Phase 2
+
+| Criteria | Requirement | Verification |
+|----------|-------------|--------------|
+| **Reviews tab renders correctly** | Profile shows 4 tabs; Reviews tab displays only reviews (no First Takes); count badge is accurate | Manual QA: user with 3 reviews and 5 First Takes should show "3" on Reviews tab |
+| **100-char truncation works** | Reviews with > 100 characters show truncated text with "..."; reviews with ≤ 100 characters show full text; tapping navigates to detail page | Test with reviews of varying lengths: 50, 100, 101, 500, 2000 chars |
+| **Review detail page loads** | `/review/{id}` loads full review with all metadata; handles missing review (404); handles private review (403 for non-author) | Navigate to valid, deleted, and private reviews |
+| **Sort works** | All 3 sort options (Recent, Highest, Lowest) reorder the list correctly | Write 5 reviews with different ratings and dates; verify each sort |
+| **Media type filter works** | Toggling Movies/TV Shows/All correctly filters the list; counts update | Write reviews for both movies and TV shows; verify filter |
+| **Visibility rules enforced** | Viewing another user's profile only shows public reviews (+ followers_only if following); private reviews never leak | Test from 3 perspectives: author, follower, stranger |
+| **Spoiler gating works** | Spoiler reviews are blurred on the Reviews tab; tap-to-reveal works; full review on detail page also has spoiler gate | Test with spoiler-flagged reviews on both tab and detail page |
+| **Dark/light mode** | Review cards, detail page, sort/filter controls all render correctly in both themes | Visual QA on iOS + web |
+| **Navigation works** | Back button from review detail returns to correct context (profile or movie detail); deep link `/review/{id}` resolves | Test navigation from both entry points |
+| **CI green** | Lint, TypeScript, unit tests all pass | CI pipeline |
+
+**Why these gates**: The profile Reviews tab and review detail page are the foundation for Phase 2's likes and Phase 3's comments. The detail page URL structure must be correct from day one since it becomes the permalink for sharing.
+
+#### 1.5.4 UI Reference
+
+- Mock: `ui-mocks/profile_reviews.html` (Gemini-generated, adapted for reviews-only)
+- Design system: Dark theme (`#121212` bg, `#1E1E1E` cards, `#E63946` accent), 768px max-width on web
+- Review card layout: poster left, content right, rating badge top-right, pill tags bottom
+
+---
+
 ### PHASE 2: Social Engagement
 **Goal**: Make reviews feel alive. Prove reviews drive return visits.
 
@@ -263,7 +369,7 @@ ALTER TABLE first_takes ADD COLUMN IF NOT EXISTS comment_count INTEGER DEFAULT 0
 
 **Edge functions**: `add-comment`, `get-comments`, `report-comment`
 **New service**: `lib/share-service.ts` (generate review card image)
-**New screen**: `app/review/[id].tsx` (full review + comments thread)
+**Extend screen**: `app/review/[id].tsx` (add comments thread — base screen built in Phase 1.5)
 
 #### 3.3 Phase Gate — Must achieve ALL before proceeding to Phase 4
 
@@ -434,8 +540,9 @@ TV reviews are woven throughout all phases, but deserve specific callout:
 
 | Phase | Effort | Earliest Start | Dependency |
 |-------|--------|----------------|------------|
-| Phase 1: Enhanced Reviews | 1-2 weeks | Immediately | None |
-| Phase 2: Social Engagement | 2-3 weeks | After Phase 1 gates met | Phase 1 gates |
+| Phase 1: Enhanced Reviews | 1-2 weeks | ~~Immediately~~ ✅ COMPLETE | None |
+| Phase 1.5: Profile Reviews & Review Detail | 1-2 weeks | Immediately | Phase 1 complete |
+| Phase 2: Social Engagement | 2-3 weeks | After Phase 1.5 gates met | Phase 1.5 gates |
 | Phase 3: Conversation | 2-3 weeks | After Phase 2 gates met | Phase 2 gates |
 | Phase 4: Profile & Taste | 2-3 weeks | After Phase 3 gates met | Phase 3 gates |
 | Phase 5: Discovery & Growth | 3-4 weeks | After Phase 4 gates met | Phase 4 gates |
@@ -476,7 +583,7 @@ TV reviews are woven throughout all phases, but deserve specific callout:
 | 1 | Should we rebrand "First Takes" → "Reviews"? | Naming consistency | Yes — Phase 1. "First Take" implies first viewing only; "Review" is universal |
 | 2 | Should rating scale change from 1-10 to 1-5 stars (half-star increments)? | Alignment with Letterboxd/industry standard | Keep 1-10 for now — it's our differentiator. More granularity = more interesting stats |
 | 3 | Should private reviews count toward community averages? | Data quality | No — only public reviews contribute to averages |
-| 4 | Max review length — 500 or 1000 chars? | Storage + UI | Start with 500. Increase to 1000 if Phase 1 data shows users hitting the limit frequently |
+| 4 | Max review length — 500 or 2000 chars? | Storage + UI | **Decided: 2000 chars** for full reviews (separate `reviews` table). First Takes remain 500 chars. Profile cards truncate at 100 chars with tap-to-expand. |
 | 5 | Should we allow reviews on movies the user hasn't marked as watched? | Data integrity | No — you must have the movie in your journal to review it. Prevents drive-by review bombing |
 
 ---
