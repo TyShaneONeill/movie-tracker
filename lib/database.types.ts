@@ -124,6 +124,7 @@ export type Database = {
           poster_path: string | null
           quote_text: string
           rating: number | null
+          like_count: number
           reaction_emoji: string
           season_number: number | null
           show_name: string | null
@@ -139,6 +140,7 @@ export type Database = {
           id?: string
           is_rewatch?: boolean | null
           is_spoiler?: boolean | null
+          like_count?: number
           media_type?: string
           movie_title: string
           poster_path?: string | null
@@ -159,6 +161,7 @@ export type Database = {
           id?: string
           is_rewatch?: boolean | null
           is_spoiler?: boolean | null
+          like_count?: number
           media_type?: string
           movie_title?: string
           poster_path?: string | null
@@ -578,12 +581,52 @@ export type Database = {
         }
         Relationships: []
       }
+      review_likes: {
+        Row: {
+          id: string
+          user_id: string
+          review_id: string | null
+          first_take_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          review_id?: string | null
+          first_take_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          review_id?: string | null
+          first_take_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_likes_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_likes_first_take_id_fkey"
+            columns: ["first_take_id"]
+            isOneToOne: false
+            referencedRelation: "first_takes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           created_at: string
           id: string
           is_rewatch: boolean
           is_spoiler: boolean
+          like_count: number
           media_type: string
           movie_title: string
           poster_path: string | null
@@ -600,6 +643,7 @@ export type Database = {
           id?: string
           is_rewatch?: boolean
           is_spoiler?: boolean
+          like_count?: number
           media_type?: string
           movie_title: string
           poster_path?: string | null
@@ -616,6 +660,7 @@ export type Database = {
           id?: string
           is_rewatch?: boolean
           is_spoiler?: boolean
+          like_count?: number
           media_type?: string
           movie_title?: string
           poster_path?: string | null
@@ -1892,3 +1937,7 @@ export type UserStreamingServiceInsert = Database['public']['Tables']['user_stre
 export type Review = Database['public']['Tables']['reviews']['Row'];
 export type ReviewInsert = Database['public']['Tables']['reviews']['Insert'];
 export type ReviewUpdate = Database['public']['Tables']['reviews']['Update'];
+
+// Helper types for review likes
+export type ReviewLike = Database['public']['Tables']['review_likes']['Row'];
+export type ReviewLikeInsert = Database['public']['Tables']['review_likes']['Insert'];

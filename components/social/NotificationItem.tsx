@@ -69,21 +69,36 @@ function getNotificationMessage(
   switch (type) {
     case 'follow':
       return `${actorName} followed you`;
-    case 'like_first_take':
+    case 'like_first_take': {
       const movieTitle = data.movie_title as string | undefined;
       return movieTitle
         ? `${actorName} liked your First Take on ${movieTitle}`
         : `${actorName} liked your First Take`;
-    case 'comment':
+    }
+    case 'like_review': {
+      const movieTitle = data.movie_title as string | undefined;
+      return movieTitle
+        ? `${actorName} liked your review of ${movieTitle}`
+        : `${actorName} liked your review`;
+    }
+    case 'friend_reviewed': {
+      const movieTitle = data.movie_title as string | undefined;
+      return movieTitle
+        ? `${actorName} reviewed ${movieTitle} — you also watched this`
+        : `${actorName} reviewed a movie you also watched`;
+    }
+    case 'comment': {
       const commentMovieTitle = data.movie_title as string | undefined;
       return commentMovieTitle
         ? `${actorName} commented on your review of ${commentMovieTitle}`
         : `${actorName} commented on your review`;
-    case 'list_follow':
+    }
+    case 'list_follow': {
       const listTitle = data.list_title as string | undefined;
       return listTitle
         ? `${actorName} followed your list "${listTitle}"`
         : `${actorName} followed your list`;
+    }
     case 'mention':
       return `${actorName} mentioned you`;
     default:

@@ -19,6 +19,8 @@ export interface ReviewerInfo {
   avatarUrl: string | null;
 }
 
+export type ReviewSortMode = 'recent' | 'popular';
+
 export interface ReviewItem {
   id: string;
   userId: string;
@@ -27,6 +29,7 @@ export interface ReviewItem {
   title: string | null;
   isSpoiler: boolean;
   isRewatch: boolean;
+  likeCount: number;
   createdAt: string;
   reviewer: ReviewerInfo;
   source: 'first_take' | 'review';
@@ -50,12 +53,13 @@ export interface FriendsRatingsResponse {
 export async function fetchMovieReviews(
   tmdbId: number,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
+  sort: ReviewSortMode = 'recent'
 ): Promise<MovieReviewsResponse> {
   const { data, error } = await supabase.functions.invoke<MovieReviewsResponse>(
     'get-movie-reviews',
     {
-      body: { tmdb_id: tmdbId, page, limit },
+      body: { tmdb_id: tmdbId, page, limit, sort },
     }
   );
 

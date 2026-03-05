@@ -144,6 +144,9 @@ export default function ProfileScreen() {
             list = list.filter(r => r.media_type === reviewFilter);
         }
         switch (reviewSort) {
+            case 'popular':
+                list.sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0));
+                break;
             case 'highest':
                 list.sort((a, b) => b.rating - a.rating);
                 break;
@@ -747,7 +750,7 @@ export default function ProfileScreen() {
                 <View style={styles.firstTakesContent}>
                     {/* Sort & Filter Controls — single row */}
                     <View style={styles.reviewControls}>
-                        {(['recent', 'highest', 'lowest'] as ReviewSortOption[]).map((option) => (
+                        {(['recent', 'popular', 'highest', 'lowest'] as ReviewSortOption[]).map((option) => (
                             <Pressable
                                 key={option}
                                 style={[
@@ -757,7 +760,7 @@ export default function ProfileScreen() {
                                 onPress={() => setReviewSort(option)}
                             >
                                 <ThemedText style={[styles.reviewPillText, { color: reviewSort === option ? '#ffffff' : colors.textSecondary }]}>
-                                    {option === 'recent' ? 'Recent' : option === 'highest' ? 'Highest' : 'Lowest'}
+                                    {option === 'recent' ? 'Recent' : option === 'popular' ? 'Popular' : option === 'highest' ? 'Highest' : 'Lowest'}
                                 </ThemedText>
                             </Pressable>
                         ))}

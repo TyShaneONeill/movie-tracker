@@ -8,6 +8,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
+import { LikeButton } from '@/components/like-button';
 
 export interface ReviewCardProps {
   id: string;
@@ -20,6 +21,8 @@ export interface ReviewCardProps {
   isRewatch: boolean;
   visibility?: string;
   createdAt: string;
+  likeCount?: number;
+  isLiked?: boolean;
   onPress: () => void;
   style?: ViewStyle;
 }
@@ -41,6 +44,7 @@ function getVisibilityIcon(visibility?: string): string {
 }
 
 export function ReviewCard({
+  id,
   movieTitle,
   posterPath,
   title,
@@ -50,6 +54,8 @@ export function ReviewCard({
   isRewatch,
   visibility,
   createdAt,
+  likeCount,
+  isLiked,
   onPress,
   style,
 }: ReviewCardProps) {
@@ -113,6 +119,16 @@ export function ReviewCard({
           <Text style={styles.spoilerText}>Contains Spoilers — Tap to reveal</Text>
         </Pressable>
       )}
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.sm }}>
+        <LikeButton
+          targetType="review"
+          targetId={id}
+          initialLiked={isLiked}
+          initialLikeCount={likeCount}
+          size="sm"
+        />
+      </View>
 
       {isRewatch && (
         <View style={styles.pillsRow}>
