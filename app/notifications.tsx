@@ -25,7 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useNotifications } from '@/hooks/use-notifications';
@@ -85,6 +85,9 @@ export default function NotificationsScreen() {
     error,
     markAllAsRead,
     isMarkingAllAsRead,
+    loadMore,
+    hasMore,
+    isLoadingMore,
   } = useNotifications();
 
   // Extract unique actor IDs from notifications
@@ -292,6 +295,23 @@ export default function NotificationsScreen() {
         renderItem={renderNotification}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={
+          hasMore ? (
+            <Pressable
+              style={[styles.loadMoreButton, { borderColor: colors.border }]}
+              onPress={loadMore}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Text style={[styles.loadMoreText, { color: colors.tint }]}>
+                  Load More
+                </Text>
+              )}
+            </Pressable>
+          ) : null
+        }
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
@@ -366,5 +386,18 @@ const styles = StyleSheet.create({
     ...Typography.body.sm,
     textAlign: 'center',
     paddingHorizontal: Spacing.xl,
+  },
+  loadMoreButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+  },
+  loadMoreText: {
+    ...Typography.body.sm,
+    fontWeight: '600',
   },
 });

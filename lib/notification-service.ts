@@ -1,16 +1,35 @@
 import { supabase } from './supabase';
 import type { Notification } from './database.types';
 
-// Fetch all notifications for a user
-export async function getNotifications(userId: string): Promise<Notification[]> {
+export interface PaginatedNotifications {
+  notifications: Notification[];
+  hasMore: boolean;
+}
+
+const PAGE_SIZE = 20;
+
+// Fetch paginated notifications for a user
+export async function getNotifications(
+  userId: string,
+  limit: number = PAGE_SIZE,
+  offset: number = 0
+): Promise<PaginatedNotifications> {
+  // Request one extra to determine if there are more
   const { data, error } = await (supabase.from('notifications') as any)
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(50);
+    .range(offset, offset + limit);
 
   if (error) throw new Error(error.message || 'Failed to fetch notifications');
-  return data ?? [];
+
+  const items = data ?? [];
+  const hasMore = items.length > limit;
+
+  return {
+    notifications: hasMore ? items.slice(0, limit) : items,
+    hasMore,
+  };
 }
 
 // Get unread count

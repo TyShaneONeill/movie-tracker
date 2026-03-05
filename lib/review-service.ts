@@ -19,7 +19,7 @@ export interface ReviewerInfo {
   avatarUrl: string | null;
 }
 
-export type ReviewSortMode = 'recent' | 'popular';
+export type ReviewSortMode = 'recent' | 'popular' | 'friends_first';
 
 export interface ReviewItem {
   id: string;
