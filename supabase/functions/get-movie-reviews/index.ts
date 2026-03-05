@@ -8,7 +8,7 @@ import { enforceIpRateLimit } from '../_shared/rate-limit.ts';
 // Types
 // ============================================================================
 
-type SortMode = 'recent' | 'popular';
+type SortMode = 'recent' | 'popular' | 'friends_first';
 
 interface GetMovieReviewsRequest {
   tmdb_id: number;
@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
 
     // Parse request body
     const { tmdb_id, page: rawPage, limit: rawLimit, sort: rawSort }: GetMovieReviewsRequest = await req.json();
-    const sort: SortMode = rawSort === 'popular' ? 'popular' : 'recent';
+    const sort: SortMode = rawSort === 'popular' ? 'popular' : rawSort === 'friends_first' ? 'friends_first' : 'recent';
 
     if (!tmdb_id || typeof tmdb_id !== 'number' || tmdb_id <= 0) {
       return new Response(
@@ -114,6 +114,23 @@ Deno.serve(async (req: Request) => {
     if (rateLimited) return rateLimited;
 
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // For friends_first sort, extract authenticated user's followed list
+    let followedUserIds: string[] = [];
+    if (sort === 'friends_first') {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await supabaseClient.auth.getUser(token);
+        if (user) {
+          const { data: follows } = await supabaseClient
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', user.id);
+          followedUserIds = (follows ?? []).map((f: { following_id: string }) => f.following_id);
+        }
+      }
+    }
 
     // Query both tables in parallel
     const [firstTakesResult, reviewsResult] = await Promise.all([
@@ -210,12 +227,16 @@ Deno.serve(async (req: Request) => {
 
     // Merge and sort
     const allItems = [...firstTakeItems, ...reviewItems].sort((a, b) => {
+      if (sort === 'friends_first' && followedUserIds.length > 0) {
+        const aIsFriend = followedUserIds.includes(a.userId) ? 1 : 0;
+        const bIsFriend = followedUserIds.includes(b.userId) ? 1 : 0;
+        if (aIsFriend !== bIsFriend) return bIsFriend - aIsFriend;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
       if (sort === 'popular') {
-        // Sort by like_count DESC, then created_at DESC as tiebreaker
         if (b.likeCount !== a.likeCount) return b.likeCount - a.likeCount;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
-      // Default: recent — sort by created_at DESC
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 

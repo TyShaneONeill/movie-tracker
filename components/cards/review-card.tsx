@@ -9,6 +9,7 @@ import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
 import { LikeButton } from '@/components/like-button';
+import { LikedByIndicator } from '@/components/liked-by-indicator';
 
 export interface ReviewCardProps {
   id: string;
@@ -129,6 +130,13 @@ export function ReviewCard({
           size="sm"
         />
       </View>
+      {likeCount != null && likeCount > 0 && (
+        <LikedByIndicator
+          targetType="review"
+          targetId={id}
+          likeCount={likeCount}
+        />
+      )}
 
       {isRewatch && (
         <View style={styles.pillsRow}>

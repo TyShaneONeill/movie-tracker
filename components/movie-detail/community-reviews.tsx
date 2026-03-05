@@ -8,6 +8,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import type { ReviewItem, ReviewSortMode } from '@/lib/review-service';
 import { LikeButton } from '@/components/like-button';
+import { LikedByIndicator } from '@/components/liked-by-indicator';
 
 interface CommunityReviewsProps {
   tmdbId: number;
@@ -231,6 +232,13 @@ function ReviewCard({
           size="sm"
         />
       </View>
+      {review.likeCount > 0 && (
+        <LikedByIndicator
+          targetType={review.source}
+          targetId={review.id}
+          likeCount={review.likeCount}
+        />
+      )}
     </View>
   );
 }
@@ -362,6 +370,7 @@ const createReviewCardStyles = (colors: typeof Colors.dark) =>
 const SORT_OPTIONS: { value: ReviewSortMode; label: string }[] = [
   { value: 'recent', label: 'Recent' },
   { value: 'popular', label: 'Popular' },
+  { value: 'friends_first', label: 'Friends' },
 ];
 
 export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
