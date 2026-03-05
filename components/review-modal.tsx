@@ -328,6 +328,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderTopColor: colors.border,
       paddingBottom: 34,
       maxHeight: '90%',
+      ...(Platform.OS === 'web' ? { maxWidth: 768, width: '100%', alignSelf: 'center' as const } : {}),
     },
     content: {
       padding: Spacing.lg,
