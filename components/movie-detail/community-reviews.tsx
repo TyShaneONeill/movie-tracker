@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useMovieReviews } from '@/hooks/use-movie-reviews';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -381,15 +382,31 @@ export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
   return (
     <View style={styles.container} accessibilityRole="summary" accessibilityLabel="Community reviews">
       <Text style={styles.sectionTitle}>Community Reviews</Text>
-      {displayedReviews.map((review) => (
-        <ReviewCard
-          key={review.id}
-          review={review}
-          colors={colors}
-          isRevealed={revealedSpoilers.has(review.id)}
-          onRevealSpoiler={() => revealSpoiler(review.id)}
-        />
-      ))}
+      {displayedReviews.map((review) =>
+        review.source === 'review' ? (
+          <Pressable
+            key={review.id}
+            onPress={() => router.push(`/review/${review.id}` as any)}
+            accessibilityRole="button"
+            accessibilityLabel={`View full review`}
+          >
+            <ReviewCard
+              review={review}
+              colors={colors}
+              isRevealed={revealedSpoilers.has(review.id)}
+              onRevealSpoiler={() => revealSpoiler(review.id)}
+            />
+          </Pressable>
+        ) : (
+          <ReviewCard
+            key={review.id}
+            review={review}
+            colors={colors}
+            isRevealed={revealedSpoilers.has(review.id)}
+            onRevealSpoiler={() => revealSpoiler(review.id)}
+          />
+        )
+      )}
       {totalCount > REVIEWS_LIMIT && (
         <Pressable
           style={styles.viewAllButton}

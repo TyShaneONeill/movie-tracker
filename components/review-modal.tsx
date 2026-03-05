@@ -186,9 +186,9 @@ export function ReviewModal({
                       style={styles.slider}
                       minimumValue={0}
                       maximumValue={10}
-                      step={0.1}
+                      step={1}
                       value={rating}
-                      onValueChange={(value) => setRating(Math.max(1, value))}
+                      onValueChange={(value) => setRating(Math.max(1, Math.round(value)))}
                       minimumTrackTintColor={colors.tint}
                       maximumTrackTintColor={colors.backgroundSecondary}
                       thumbTintColor="#ffffff"

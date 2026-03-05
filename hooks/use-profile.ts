@@ -86,6 +86,7 @@ export interface ProfileStats {
   watchlist: number;
   watching: number;
   firstTakes: number;
+  reviews: number;
   lists: number;
 }
 
@@ -94,7 +95,7 @@ export interface ProfileStats {
  */
 async function fetchProfileStats(userId: string): Promise<ProfileStats> {
   // Run all count queries in parallel
-  const [watchedResult, watchlistResult, watchingResult, firstTakesResult, listsResult] = await Promise.all([
+  const [watchedResult, watchlistResult, watchingResult, firstTakesResult, reviewsResult, listsResult] = await Promise.all([
     supabase
       .from('user_movies')
       .select('*', { count: 'exact', head: true })
@@ -116,6 +117,10 @@ async function fetchProfileStats(userId: string): Promise<ProfileStats> {
       .eq('user_id', userId)
       .like('quote_text', '_%'),
     supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
       .from('user_lists')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId),
@@ -132,6 +137,7 @@ async function fetchProfileStats(userId: string): Promise<ProfileStats> {
     watchlist: watchlistResult.count ?? 0,
     watching: watchingResult.count ?? 0,
     firstTakes: firstTakesResult.count ?? 0,
+    reviews: reviewsResult.count ?? 0,
     lists: totalLists,
   };
 }
@@ -285,7 +291,7 @@ export function useProfile() {
     refetch: profileQuery.refetch,
 
     // Profile stats
-    stats: statsQuery.data ?? { watched: 0, watchlist: 0, watching: 0, firstTakes: 0, lists: 0 },
+    stats: statsQuery.data ?? { watched: 0, watchlist: 0, watching: 0, firstTakes: 0, reviews: 0, lists: 0 },
     isLoadingStats: statsQuery.isLoading,
     refetchStats: statsQuery.refetch,
 
