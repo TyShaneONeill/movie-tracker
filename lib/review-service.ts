@@ -89,7 +89,7 @@ export async function createReview(
     poster_path: data.posterPath,
     title: data.title.trim(),
     review_text: data.reviewText.trim(),
-    rating: data.rating,
+    rating: Math.round(data.rating),
     is_spoiler: data.isSpoiler,
     is_rewatch: data.isRewatch,
     visibility: data.visibility,
@@ -144,7 +144,7 @@ export async function updateReview(
   const updateData: ReviewUpdate = {
     ...(updates.title !== undefined && { title: updates.title.trim() }),
     ...(updates.reviewText !== undefined && { review_text: updates.reviewText.trim() }),
-    ...(updates.rating !== undefined && { rating: updates.rating }),
+    ...(updates.rating !== undefined && { rating: Math.round(updates.rating) }),
     ...(updates.isSpoiler !== undefined && { is_spoiler: updates.isSpoiler }),
     ...(updates.isRewatch !== undefined && { is_rewatch: updates.isRewatch }),
     ...(updates.visibility !== undefined && { visibility: updates.visibility }),

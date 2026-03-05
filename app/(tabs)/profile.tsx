@@ -22,6 +22,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
+import { ReviewCard } from '@/components/cards/review-card';
 import { CreateListModal } from '@/components/modals/create-list-modal';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -30,6 +31,7 @@ import { useUserMovies } from '@/hooks/use-user-movies';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useListMutations } from '@/hooks/use-list-mutations';
 import { useFirstTakes } from '@/hooks/use-first-takes';
+import { useUserReviews, type ReviewSortOption, type ReviewMediaFilter } from '@/hooks/use-user-reviews';
 import { useProfile } from '@/hooks/use-profile';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
@@ -39,7 +41,7 @@ import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie, UserTvShow } from '@/lib/database.types';
 
-type TabType = 'collection' | 'first-takes' | 'lists';
+type TabType = 'collection' | 'first-takes' | 'reviews' | 'lists';
 
 // Constants for header animation
 const HEADER_MAX_HEIGHT = 350; // Full header height (avatar, name, bio, follower stats, achievements)
@@ -124,6 +126,37 @@ export default function ProfileScreen() {
         isError: takesError,
         refetch: refetchTakes,
     } = useFirstTakes();
+
+    // Fetch user's reviews
+    const {
+        reviews: userReviews,
+        isLoading: reviewsLoading,
+        isError: reviewsError,
+        refetch: refetchReviews,
+    } = useUserReviews({ userId: user?.id, viewerId: user?.id, enabled: !!user });
+    const [reviewSort, setReviewSort] = useState<ReviewSortOption>('recent');
+    const [reviewFilter, setReviewFilter] = useState<ReviewMediaFilter>('all');
+
+    // Apply sort/filter to reviews
+    const filteredReviews = useMemo(() => {
+        let list = [...userReviews];
+        if (reviewFilter !== 'all') {
+            list = list.filter(r => r.media_type === reviewFilter);
+        }
+        switch (reviewSort) {
+            case 'highest':
+                list.sort((a, b) => b.rating - a.rating);
+                break;
+            case 'lowest':
+                list.sort((a, b) => a.rating - b.rating);
+                break;
+            case 'recent':
+            default:
+                // Already sorted by created_at desc from the query
+                break;
+        }
+        return list;
+    }, [userReviews, reviewSort, reviewFilter]);
 
     // Scroll handler for tracking scroll position (native only needs the
     // sticky-bar visibility bridge; web uses CSS position:sticky instead).
@@ -211,10 +244,11 @@ export default function ProfileScreen() {
             refetchTvShows(),
             refetchLists(),
             refetchTakes(),
+            refetchReviews(),
             refetchAchievements(),
         ]);
         setIsRefreshing(false);
-    }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchTvShows, refetchLists, refetchTakes, refetchAchievements]);
+    }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchTvShows, refetchLists, refetchTakes, refetchReviews, refetchAchievements]);
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
         const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
@@ -482,9 +516,10 @@ export default function ProfileScreen() {
     );
 
     // Combined stat-tab configuration: each tab shows its count AND acts as navigation
-    const TAB_CONFIG: { key: TabType; label: string; statKey: 'watched' | 'firstTakes' | 'lists' }[] = [
+    const TAB_CONFIG: { key: TabType; label: string; statKey: 'watched' | 'firstTakes' | 'reviews' | 'lists' }[] = [
         { key: 'collection', label: 'Watched', statKey: 'watched' },
         { key: 'first-takes', label: 'First Takes', statKey: 'firstTakes' },
+        { key: 'reviews', label: 'Reviews', statKey: 'reviews' },
         { key: 'lists', label: 'Lists', statKey: 'lists' },
     ];
 
@@ -667,6 +702,106 @@ export default function ProfileScreen() {
                             />
                         </View>
                     ))}
+                </View>
+            );
+        } else if (activeTab === 'reviews') {
+            if (reviewsLoading) {
+                return renderFirstTakesSkeleton();
+            }
+
+            if (reviewsError) {
+                return (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="alert-circle-outline" size={48} color={colors.tint} />
+                        <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                            Something went wrong
+                        </ThemedText>
+                        <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                            We could not load your reviews
+                        </ThemedText>
+                        <Pressable
+                            style={[styles.retryButton, { backgroundColor: colors.tint }]}
+                            onPress={() => refetchReviews()}
+                        >
+                            <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
+                        </Pressable>
+                    </View>
+                );
+            }
+
+            if (!userReviews?.length) {
+                return (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
+                        <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                            No reviews yet
+                        </ThemedText>
+                        <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                            Write a review from any movie page
+                        </ThemedText>
+                    </View>
+                );
+            }
+
+            return (
+                <View style={styles.firstTakesContent}>
+                    {/* Sort & Filter Controls — single row */}
+                    <View style={styles.reviewControls}>
+                        {(['recent', 'highest', 'lowest'] as ReviewSortOption[]).map((option) => (
+                            <Pressable
+                                key={option}
+                                style={[
+                                    styles.reviewPill,
+                                    { backgroundColor: reviewSort === option ? colors.tint : colors.backgroundSecondary, borderColor: reviewSort === option ? colors.tint : colors.border },
+                                ]}
+                                onPress={() => setReviewSort(option)}
+                            >
+                                <ThemedText style={[styles.reviewPillText, { color: reviewSort === option ? '#ffffff' : colors.textSecondary }]}>
+                                    {option === 'recent' ? 'Recent' : option === 'highest' ? 'Highest' : 'Lowest'}
+                                </ThemedText>
+                            </Pressable>
+                        ))}
+                        <View style={[styles.reviewDivider, { backgroundColor: colors.border }]} />
+                        {(['all', 'movie', 'tv_show'] as ReviewMediaFilter[]).map((option) => (
+                            <Pressable
+                                key={option}
+                                style={[
+                                    styles.reviewPill,
+                                    { backgroundColor: reviewFilter === option ? colors.tint : colors.backgroundSecondary, borderColor: reviewFilter === option ? colors.tint : colors.border },
+                                ]}
+                                onPress={() => setReviewFilter(option)}
+                            >
+                                <ThemedText style={[styles.reviewPillText, { color: reviewFilter === option ? '#ffffff' : colors.textSecondary }]}>
+                                    {option === 'all' ? 'All' : option === 'movie' ? 'Movies' : 'TV Shows'}
+                                </ThemedText>
+                            </Pressable>
+                        ))}
+                    </View>
+
+                    {filteredReviews.length === 0 ? (
+                        <View style={styles.emptyContainer}>
+                            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                                No reviews match this filter
+                            </ThemedText>
+                        </View>
+                    ) : (
+                        filteredReviews.map((review) => (
+                            <ReviewCard
+                                key={review.id}
+                                id={review.id}
+                                movieTitle={review.movie_title}
+                                posterPath={review.poster_path}
+                                title={review.title}
+                                reviewText={review.review_text}
+                                rating={review.rating}
+                                isSpoiler={review.is_spoiler}
+                                isRewatch={review.is_rewatch}
+                                visibility={review.visibility}
+                                createdAt={review.created_at}
+                                onPress={() => router.push(`/review/${review.id}`)}
+                            />
+                        ))
+                    )}
                 </View>
             );
         } else {
@@ -1238,6 +1373,29 @@ const styles = StyleSheet.create({
     },
     // First Takes tab styles
     firstTakesContent: {
+    },
+    reviewControls: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        flexWrap: 'wrap' as const,
+        gap: Spacing.xs,
+        paddingTop: Spacing.md,
+        marginBottom: Spacing.md,
+    },
+    reviewPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+    reviewPillText: {
+        fontSize: 12,
+        fontWeight: '500' as const,
+    },
+    reviewDivider: {
+        width: 1,
+        height: 20,
+        marginHorizontal: 2,
     },
     firstTakesSkeleton: {
         gap: Spacing.md,
