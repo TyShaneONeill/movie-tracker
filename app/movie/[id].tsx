@@ -314,7 +314,6 @@ export default function MovieDetailScreen() {
     title: string;
     reviewText: string;
     isSpoiler: boolean;
-    isRewatch: boolean;
     visibility: import('@/lib/database.types').ReviewVisibility;
   }) => {
     if (!movie) return;
@@ -326,7 +325,7 @@ export default function MovieDetailScreen() {
           title: data.title,
           reviewText: data.reviewText,
           isSpoiler: data.isSpoiler,
-          isRewatch: data.isRewatch,
+          isRewatch: false,
           visibility: data.visibility,
         });
       } else {
@@ -337,7 +336,7 @@ export default function MovieDetailScreen() {
           reviewText: data.reviewText,
           rating: data.rating,
           isSpoiler: data.isSpoiler,
-          isRewatch: data.isRewatch,
+          isRewatch: false,
           visibility: data.visibility,
         });
       }
@@ -742,7 +741,6 @@ export default function MovieDetailScreen() {
           title: existingReview.title,
           reviewText: existingReview.review_text,
           isSpoiler: existingReview.is_spoiler,
-          isRewatch: existingReview.is_rewatch,
           visibility: existingReview.visibility as 'public' | 'followers_only' | 'private',
         } : null}
         isSubmitting={isCreatingReview || isUpdatingReview}

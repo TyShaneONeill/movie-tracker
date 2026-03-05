@@ -376,7 +376,7 @@ describe('addMovieToLibrary', () => {
         status: 'watchlist',
         title: movie.title,
       }),
-      { onConflict: 'user_id,tmdb_id' }
+      { onConflict: 'user_id,tmdb_id,journey_number' }
     );
     expect(chain.select).toHaveBeenCalled();
     expect(result).toEqual(upserted);
@@ -389,7 +389,7 @@ describe('addMovieToLibrary', () => {
 
     expect(chain.upsert).toHaveBeenCalledWith(
       expect.any(Object),
-      { onConflict: 'user_id,tmdb_id' }
+      { onConflict: 'user_id,tmdb_id,journey_number' }
     );
   });
 
