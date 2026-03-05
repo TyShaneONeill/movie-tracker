@@ -84,6 +84,7 @@ export async function createReview(
   const insertData: ReviewInsert = {
     user_id: userId,
     tmdb_id: data.tmdbId,
+    media_type: 'movie',
     movie_title: data.movieTitle,
     poster_path: data.posterPath,
     title: data.title.trim(),

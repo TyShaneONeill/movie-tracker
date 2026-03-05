@@ -152,7 +152,7 @@ export async function addMovieToLibrary(
 
   const { data, error } = (await (supabase
     .from('user_movies') as any)
-    .upsert(insertData, { onConflict: 'user_id,tmdb_id' })
+    .upsert(insertData, { onConflict: 'user_id,tmdb_id,journey_number' })
     .select()
     .single()) as { data: UserMovie; error: any };
 

@@ -37,7 +37,6 @@ interface ReviewSubmitData {
   title: string;
   reviewText: string;
   isSpoiler: boolean;
-  isRewatch: boolean;
   visibility: ReviewVisibility;
 }
 
@@ -46,7 +45,6 @@ interface ExistingReviewData {
   title: string;
   reviewText: string;
   isSpoiler: boolean;
-  isRewatch: boolean;
   visibility: ReviewVisibility;
 }
 
@@ -80,7 +78,6 @@ export function ReviewModal({
   const [title, setTitle] = useState(existingReview?.title ?? '');
   const [reviewText, setReviewText] = useState(existingReview?.reviewText ?? '');
   const [isSpoiler, setIsSpoiler] = useState(existingReview?.isSpoiler ?? false);
-  const [isRewatch, setIsRewatch] = useState(existingReview?.isRewatch ?? false);
   const [visibility, setVisibility] = useState<ReviewVisibility>(
     existingReview?.visibility ?? preferences?.reviewVisibility ?? 'public'
   );
@@ -92,7 +89,6 @@ export function ReviewModal({
       setTitle(existingReview?.title ?? '');
       setReviewText(existingReview?.reviewText ?? '');
       setIsSpoiler(existingReview?.isSpoiler ?? false);
-      setIsRewatch(existingReview?.isRewatch ?? false);
       setVisibility(existingReview?.visibility ?? preferences?.reviewVisibility ?? 'public');
     }
   }, [visible, existingReview, initialRating, preferences?.reviewVisibility]);
@@ -110,7 +106,6 @@ export function ReviewModal({
       title: title.trim(),
       reviewText: reviewText.trim(),
       isSpoiler,
-      isRewatch,
       visibility,
     });
 
@@ -257,20 +252,6 @@ export function ReviewModal({
                   onValueChange={setIsSpoiler}
                   activeColor={colors.tint}
                 />
-              </View>
-
-              {/* Rewatch Toggle */}
-              <View style={styles.toggleRow}>
-                <View style={styles.toggleLeft}>
-                  <View style={styles.toggleIcon}>
-                    <Text style={styles.toggleIconText}>🔄</Text>
-                  </View>
-                  <View style={styles.toggleTextContainer}>
-                    <Text style={styles.toggleTitle}>Rewatch</Text>
-                    <Text style={styles.toggleSubtitle}>I&apos;ve seen this before</Text>
-                  </View>
-                </View>
-                <ToggleSwitch value={isRewatch} onValueChange={setIsRewatch} activeColor={colors.tint} />
               </View>
 
               {/* Visibility Selector */}

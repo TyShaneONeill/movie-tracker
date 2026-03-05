@@ -150,7 +150,7 @@ Deno.serve(async (req: Request) => {
           quote_text,
           is_spoiler,
           created_at,
-          profiles!first_takes_user_id_fkey (
+          profiles!first_takes_user_id_profiles_fkey (
             full_name,
             username,
             avatar_url
