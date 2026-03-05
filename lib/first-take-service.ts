@@ -14,8 +14,6 @@ export interface CreateFirstTakeData {
   seasonNumber?: number | null;
   episodeNumber?: number | null;
   showName?: string | null;
-  title?: string | null;
-  isRewatch?: boolean;
 }
 
 /**
@@ -40,8 +38,6 @@ export async function createFirstTake(
     season_number: data.seasonNumber ?? null,
     episode_number: data.episodeNumber ?? null,
     show_name: data.showName ?? null,
-    title: data.title?.trim() || null,
-    is_rewatch: data.isRewatch ?? false,
     ...(data.visibility !== undefined && { visibility: data.visibility }),
   };
 
@@ -90,14 +86,12 @@ export async function getFirstTakeByTmdbId(
  */
 export async function updateFirstTake(
   firstTakeId: string,
-  updates: Partial<Pick<CreateFirstTakeData, 'reactionEmoji' | 'quoteText' | 'isSpoiler' | 'title' | 'isRewatch' | 'rating' | 'visibility'>>
+  updates: Partial<Pick<CreateFirstTakeData, 'reactionEmoji' | 'quoteText' | 'isSpoiler' | 'rating' | 'visibility'>>
 ): Promise<FirstTake> {
   const updateData: FirstTakeUpdate = {
     ...(updates.reactionEmoji !== undefined && { reaction_emoji: updates.reactionEmoji }),
     ...(updates.quoteText !== undefined && { quote_text: updates.quoteText }),
     ...(updates.isSpoiler !== undefined && { is_spoiler: updates.isSpoiler }),
-    ...(updates.title !== undefined && { title: updates.title?.trim() || null }),
-    ...(updates.isRewatch !== undefined && { is_rewatch: updates.isRewatch }),
     ...(updates.rating !== undefined && { rating: updates.rating }),
     ...(updates.visibility !== undefined && { visibility: updates.visibility }),
     updated_at: new Date().toISOString(),

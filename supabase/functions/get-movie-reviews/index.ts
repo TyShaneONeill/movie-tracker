@@ -14,12 +14,26 @@ interface GetMovieReviewsRequest {
   limit?: number;
 }
 
-interface ReviewRow {
+interface FirstTakeRow {
   id: string;
   user_id: string;
   rating: number | null;
   quote_text: string;
-  title: string | null;
+  is_spoiler: boolean;
+  created_at: string;
+  profiles: {
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  };
+}
+
+interface ReviewTableRow {
+  id: string;
+  user_id: string;
+  rating: number;
+  title: string;
+  review_text: string;
   is_spoiler: boolean;
   is_rewatch: boolean;
   created_at: string;
@@ -36,9 +50,11 @@ interface ReviewResponse {
   rating: number | null;
   quoteText: string;
   title: string | null;
+  reviewText: string | null;
   isSpoiler: boolean;
   isRewatch: boolean;
   createdAt: string;
+  source: 'first_take' | 'review';
   reviewer: {
     fullName: string | null;
     username: string | null;
@@ -92,67 +108,104 @@ Deno.serve(async (req: Request) => {
 
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get total count for pagination
-    const { count, error: countError } = await supabaseClient
-      .from('first_takes')
-      .select('id', { count: 'exact', head: true })
-      .eq('tmdb_id', tmdb_id)
-      .eq('media_type', 'movie')
-      .eq('visibility', 'public');
+    // Query both tables in parallel
+    const [firstTakesResult, reviewsResult] = await Promise.all([
+      supabaseClient
+        .from('first_takes')
+        .select(`
+          id,
+          user_id,
+          rating,
+          quote_text,
+          is_spoiler,
+          created_at,
+          profiles!first_takes_user_id_fkey (
+            full_name,
+            username,
+            avatar_url
+          )
+        `)
+        .eq('tmdb_id', tmdb_id)
+        .eq('media_type', 'movie')
+        .eq('visibility', 'public'),
+      supabaseClient
+        .from('reviews')
+        .select(`
+          id,
+          user_id,
+          rating,
+          title,
+          review_text,
+          is_spoiler,
+          is_rewatch,
+          created_at,
+          profiles!reviews_user_id_fkey (
+            full_name,
+            username,
+            avatar_url
+          )
+        `)
+        .eq('tmdb_id', tmdb_id)
+        .eq('media_type', 'movie')
+        .eq('visibility', 'public'),
+    ]);
 
-    if (countError) {
-      console.error('[get-movie-reviews] Count query error:', countError);
-      throw new Error('Failed to count reviews');
+    if (firstTakesResult.error) {
+      console.error('[get-movie-reviews] First takes query error:', firstTakesResult.error);
+      throw new Error('Failed to fetch first takes');
     }
-
-    const totalCount = count ?? 0;
-    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
-    const offset = (page - 1) * limit;
-
-    // Fetch reviews with reviewer profiles
-    const { data: rows, error: queryError } = await supabaseClient
-      .from('first_takes')
-      .select(`
-        id,
-        user_id,
-        rating,
-        quote_text,
-        title,
-        is_spoiler,
-        is_rewatch,
-        created_at,
-        profiles!first_takes_user_id_fkey (
-          full_name,
-          username,
-          avatar_url
-        )
-      `)
-      .eq('tmdb_id', tmdb_id)
-      .eq('media_type', 'movie')
-      .eq('visibility', 'public')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (queryError) {
-      console.error('[get-movie-reviews] Query error:', queryError);
+    if (reviewsResult.error) {
+      console.error('[get-movie-reviews] Reviews query error:', reviewsResult.error);
       throw new Error('Failed to fetch reviews');
     }
 
-    const reviews: ReviewResponse[] = (rows as ReviewRow[] || []).map((row) => ({
+    // Map first_takes to response format
+    const firstTakeItems: ReviewResponse[] = ((firstTakesResult.data || []) as FirstTakeRow[]).map((row) => ({
       id: row.id,
       userId: row.user_id,
       rating: row.rating,
       quoteText: row.quote_text,
-      title: row.title,
+      title: null,
+      reviewText: null,
       isSpoiler: row.is_spoiler,
-      isRewatch: row.is_rewatch,
+      isRewatch: false,
       createdAt: row.created_at,
+      source: 'first_take' as const,
       reviewer: {
         fullName: row.profiles?.full_name ?? null,
         username: row.profiles?.username ?? null,
         avatarUrl: row.profiles?.avatar_url ?? null,
       },
     }));
+
+    // Map reviews to response format
+    const reviewItems: ReviewResponse[] = ((reviewsResult.data || []) as ReviewTableRow[]).map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      rating: row.rating,
+      quoteText: '',
+      title: row.title,
+      reviewText: row.review_text,
+      isSpoiler: row.is_spoiler,
+      isRewatch: row.is_rewatch,
+      createdAt: row.created_at,
+      source: 'review' as const,
+      reviewer: {
+        fullName: row.profiles?.full_name ?? null,
+        username: row.profiles?.username ?? null,
+        avatarUrl: row.profiles?.avatar_url ?? null,
+      },
+    }));
+
+    // Merge and sort by created_at DESC
+    const allItems = [...firstTakeItems, ...reviewItems].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    const totalCount = allItems.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+    const offset = (page - 1) * limit;
+    const reviews = allItems.slice(offset, offset + limit);
 
     return new Response(
       JSON.stringify({ reviews, page, totalPages, totalCount }),

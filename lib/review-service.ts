@@ -1,4 +1,17 @@
 import { supabase } from './supabase';
+import type { Review, ReviewInsert, ReviewUpdate, ReviewVisibility } from './database.types';
+
+export interface CreateReviewData {
+  tmdbId: number;
+  movieTitle: string;
+  posterPath: string | null;
+  title: string;
+  reviewText: string;
+  rating: number;
+  isSpoiler: boolean;
+  isRewatch: boolean;
+  visibility: ReviewVisibility;
+}
 
 export interface ReviewerInfo {
   fullName: string | null;
@@ -16,6 +29,8 @@ export interface ReviewItem {
   isRewatch: boolean;
   createdAt: string;
   reviewer: ReviewerInfo;
+  source: 'first_take' | 'review';
+  reviewText?: string;
 }
 
 export interface MovieReviewsResponse {
@@ -53,6 +68,114 @@ export async function fetchMovieReviews(
   }
 
   return data;
+}
+
+// ============================================================================
+// Review CRUD operations (direct table access)
+// ============================================================================
+
+/**
+ * Create a new review for a movie
+ */
+export async function createReview(
+  userId: string,
+  data: CreateReviewData
+): Promise<Review> {
+  const insertData: ReviewInsert = {
+    user_id: userId,
+    tmdb_id: data.tmdbId,
+    movie_title: data.movieTitle,
+    poster_path: data.posterPath,
+    title: data.title.trim(),
+    review_text: data.reviewText.trim(),
+    rating: data.rating,
+    is_spoiler: data.isSpoiler,
+    is_rewatch: data.isRewatch,
+    visibility: data.visibility,
+  };
+
+  const { data: result, error } = (await (supabase
+    .from('reviews') as any)
+    .insert(insertData)
+    .select()
+    .single()) as { data: Review; error: any };
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('DUPLICATE_REVIEW');
+    }
+    throw new Error(error.message || 'Failed to create review');
+  }
+
+  return result;
+}
+
+/**
+ * Get a user's review for a specific movie
+ */
+export async function getReviewByTmdbId(
+  userId: string,
+  tmdbId: number,
+  mediaType: string = 'movie'
+): Promise<Review | null> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
+    .eq('media_type', mediaType)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch review');
+  }
+
+  return data;
+}
+
+/**
+ * Update an existing review
+ */
+export async function updateReview(
+  reviewId: string,
+  updates: Partial<Pick<CreateReviewData, 'title' | 'reviewText' | 'rating' | 'isSpoiler' | 'isRewatch' | 'visibility'>>
+): Promise<Review> {
+  const updateData: ReviewUpdate = {
+    ...(updates.title !== undefined && { title: updates.title.trim() }),
+    ...(updates.reviewText !== undefined && { review_text: updates.reviewText.trim() }),
+    ...(updates.rating !== undefined && { rating: updates.rating }),
+    ...(updates.isSpoiler !== undefined && { is_spoiler: updates.isSpoiler }),
+    ...(updates.isRewatch !== undefined && { is_rewatch: updates.isRewatch }),
+    ...(updates.visibility !== undefined && { visibility: updates.visibility }),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = (await (supabase
+    .from('reviews') as any)
+    .update(updateData)
+    .eq('id', reviewId)
+    .select()
+    .single()) as { data: Review; error: any };
+
+  if (error) {
+    throw new Error(error.message || 'Failed to update review');
+  }
+
+  return data;
+}
+
+/**
+ * Delete a review
+ */
+export async function deleteReview(reviewId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reviews')
+    .delete()
+    .eq('id', reviewId);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to delete review');
+  }
 }
 
 // Fetch ratings from friends who have reviewed this movie

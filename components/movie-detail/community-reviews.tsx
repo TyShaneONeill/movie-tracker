@@ -170,6 +170,9 @@ function ReviewCard({
               <Text style={styles.timestamp}>
                 {formatRelativeTime(review.createdAt)}
               </Text>
+              <Text style={[styles.sourceBadge, review.source === 'review' && styles.sourceBadgeReview]}>
+                {review.source === 'review' ? 'Review' : 'First Take'}
+              </Text>
               {review.isRewatch && (
                 <Text style={styles.rewatchTag}>Rewatch</Text>
               )}
@@ -211,6 +214,12 @@ function ReviewCard({
           </>
         )
       ) : null}
+
+      {review.reviewText && !showSpoilerOverlay && (
+        <Text style={styles.reviewTextBody} numberOfLines={5}>
+          {review.reviewText.length > 200 ? `${review.reviewText.slice(0, 200)}...` : review.reviewText}
+        </Text>
+      )}
     </View>
   );
 }
@@ -272,6 +281,25 @@ const createReviewCardStyles = (colors: typeof Colors.dark) =>
       ...Typography.caption.medium,
       color: colors.textTertiary,
       fontSize: 11,
+    },
+    sourceBadge: {
+      ...Typography.caption.medium,
+      fontSize: 10,
+      color: colors.textTertiary,
+      backgroundColor: colors.backgroundSecondary,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    sourceBadgeReview: {
+      color: colors.tint,
+    },
+    reviewTextBody: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+      marginTop: Spacing.xs,
+      fontStyle: 'italic',
     },
     ratingBadge: {
       width: 32,

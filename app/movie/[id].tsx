@@ -38,6 +38,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { FirstTakeModal } from '@/components/first-take-modal';
+import { ReviewModal } from '@/components/review-modal';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { TrailerModal } from '@/components/modals/trailer-modal';
@@ -46,6 +47,7 @@ import { CreateListModal } from '@/components/modals/create-list-modal';
 import { useMovieDetail } from '@/hooks/use-movie-detail';
 import { useMovieActions } from '@/hooks/use-movie-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
+import { useReviewActions } from '@/hooks/use-review-actions';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserLists } from '@/hooks/use-user-lists';
@@ -77,8 +79,9 @@ export default function MovieDetailScreen() {
   const queryClient = useQueryClient();
   const { data: userLists } = useUserLists();
 
-  // Modal state for First Take
+  // Modal state for First Take and Review
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
@@ -109,6 +112,17 @@ export default function MovieDetailScreen() {
     createTake,
     deleteTake,
   } = useFirstTakeActions(Number(id) || 0);
+
+  // Review actions hook
+  const {
+    existingReview,
+    hasReview,
+    isCreating: isCreatingReview,
+    isUpdating: isUpdatingReview,
+    createReview: createReviewAction,
+    updateReview: updateReviewAction,
+    deleteReview: deleteReviewAction,
+  } = useReviewActions(Number(id) || 0);
 
   // User preferences hook (for First Take prompt setting)
   const { preferences } = useUserPreferences();
@@ -180,6 +194,9 @@ export default function MovieDetailScreen() {
       if (hasFirstTake) {
         await deleteTake();
       }
+      if (hasReview) {
+        await deleteReviewAction();
+      }
       await removeFromWatchlist();
       Toast.show({
         type: 'success',
@@ -203,14 +220,15 @@ export default function MovieDetailScreen() {
 
       try {
         if (status === null) {
-          // Remove from watchlist - show confirmation if user has First Take
-          if (hasFirstTake) {
+          // Remove from watchlist - show confirmation if user has First Take or Review
+          if (hasFirstTake || hasReview) {
+            const items = [hasFirstTake && 'First Take', hasReview && 'Review'].filter(Boolean).join(' and ');
             Alert.alert(
               'Remove Movie?',
-              'This will also delete your First Take for this movie.',
+              `This will also delete your ${items} for this movie.`,
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Remove Both', style: 'destructive', onPress: performRemoval },
+                { text: 'Remove All', style: 'destructive', onPress: performRemoval },
               ]
             );
             return;
@@ -265,8 +283,6 @@ export default function MovieDetailScreen() {
     quoteText: string;
     isSpoiler: boolean;
     visibility: import('@/lib/database.types').ReviewVisibility;
-    title: string;
-    isRewatch: boolean;
   }) => {
     if (!movie) return;
 
@@ -279,12 +295,55 @@ export default function MovieDetailScreen() {
         isSpoiler: data.isSpoiler,
         rating: data.rating,
         visibility: data.visibility,
-        title: data.title || null,
-        isRewatch: data.isRewatch,
       });
       setShowFirstTakeModal(false);
     } catch {
       Alert.alert('Error', 'Failed to save your first take. Please try again.');
+    }
+  };
+
+  const handleReview = () => {
+    hapticImpact();
+    requireAuth(() => {
+      setShowReviewModal(true);
+    }, 'Sign in to write reviews');
+  };
+
+  const handleReviewSubmit = async (data: {
+    rating: number;
+    title: string;
+    reviewText: string;
+    isSpoiler: boolean;
+    isRewatch: boolean;
+    visibility: import('@/lib/database.types').ReviewVisibility;
+  }) => {
+    if (!movie) return;
+
+    try {
+      if (hasReview && existingReview) {
+        await updateReviewAction({
+          rating: data.rating,
+          title: data.title,
+          reviewText: data.reviewText,
+          isSpoiler: data.isSpoiler,
+          isRewatch: data.isRewatch,
+          visibility: data.visibility,
+        });
+      } else {
+        await createReviewAction({
+          movieTitle: movie.title,
+          posterPath: movie.poster_path,
+          title: data.title,
+          reviewText: data.reviewText,
+          rating: data.rating,
+          isSpoiler: data.isSpoiler,
+          isRewatch: data.isRewatch,
+          visibility: data.visibility,
+        });
+      }
+      setShowReviewModal(false);
+    } catch {
+      Alert.alert('Error', 'Failed to save your review. Please try again.');
     }
   };
 
@@ -314,7 +373,6 @@ export default function MovieDetailScreen() {
     }
   };
 
-  // handleReview and handleShare removed - Coming Soon features
   // showMoreOptionsSheet and hideMoreOptionsSheet removed - More options button hidden
 
   // Dynamic styles based on theme
@@ -522,13 +580,25 @@ export default function MovieDetailScreen() {
               </Svg>
               <Text style={dynamicStyles.actionLabel}>Lists</Text>
             </Pressable>
-            <View style={dynamicStyles.actionItemDisabled}>
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </Svg>
-              <Text style={dynamicStyles.actionLabelDisabled}>Review</Text>
-              <Text style={dynamicStyles.comingSoonText}>Soon</Text>
-            </View>
+            <Pressable
+              onPress={handleReview}
+              disabled={isCreatingReview || isUpdatingReview}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
+              {(isCreatingReview || isUpdatingReview) ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill={hasReview ? colors.tint : 'none'} stroke={hasReview ? colors.tint : colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </Svg>
+              )}
+              <Text style={[dynamicStyles.actionLabel, hasReview && dynamicStyles.actionLabelActive]}>
+                {hasReview ? 'Reviewed' : 'Review'}
+              </Text>
+            </Pressable>
             <View style={dynamicStyles.actionItemDisabled}>
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -658,6 +728,24 @@ export default function MovieDetailScreen() {
         movieTitle={movie?.title ?? ''}
         moviePosterUrl={posterUrl ?? undefined}
         isSubmitting={isCreatingFirstTake}
+      />
+
+      {/* Review Modal */}
+      <ReviewModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSubmit={handleReviewSubmit}
+        movieTitle={movie?.title ?? ''}
+        moviePosterUrl={posterUrl ?? undefined}
+        existingReview={existingReview ? {
+          rating: existingReview.rating,
+          title: existingReview.title,
+          reviewText: existingReview.review_text,
+          isSpoiler: existingReview.is_spoiler,
+          isRewatch: existingReview.is_rewatch,
+          visibility: existingReview.visibility as 'public' | 'followers_only' | 'private',
+        } : null}
+        isSubmitting={isCreatingReview || isUpdatingReview}
       />
 
       {/* Login Prompt Modal */}
