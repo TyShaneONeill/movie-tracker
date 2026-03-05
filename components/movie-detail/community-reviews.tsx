@@ -6,7 +6,8 @@ import { useMovieReviews } from '@/hooks/use-movie-reviews';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import type { ReviewItem } from '@/lib/review-service';
+import type { ReviewItem, ReviewSortMode } from '@/lib/review-service';
+import { LikeButton } from '@/components/like-button';
 
 interface CommunityReviewsProps {
   tmdbId: number;
@@ -221,6 +222,15 @@ function ReviewCard({
           {review.reviewText.length > 200 ? `${review.reviewText.slice(0, 200)}...` : review.reviewText}
         </Text>
       )}
+
+      <View style={styles.likeRow}>
+        <LikeButton
+          targetType={review.source}
+          targetId={review.id}
+          initialLikeCount={review.likeCount}
+          size="sm"
+        />
+      </View>
     </View>
   );
 }
@@ -342,13 +352,24 @@ const createReviewCardStyles = (colors: typeof Colors.dark) =>
       fontStyle: 'italic',
       marginTop: Spacing.xs,
     },
+    likeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: Spacing.sm,
+    },
   });
+
+const SORT_OPTIONS: { value: ReviewSortMode; label: string }[] = [
+  { value: 'recent', label: 'Recent' },
+  { value: 'popular', label: 'Popular' },
+];
 
 export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { data, isLoading } = useMovieReviews(tmdbId, 1);
+  const [sort, setSort] = useState<ReviewSortMode>('recent');
+  const { data, isLoading } = useMovieReviews(tmdbId, 1, true, sort);
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(new Set());
 
   const revealSpoiler = (id: string) => {
@@ -381,7 +402,22 @@ export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
 
   return (
     <View style={styles.container} accessibilityRole="summary" accessibilityLabel="Community reviews">
-      <Text style={styles.sectionTitle}>Community Reviews</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.sectionTitle}>Community Reviews</Text>
+        <View style={styles.sortRow}>
+          {SORT_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.value}
+              style={[styles.sortPill, sort === opt.value && styles.sortPillActive]}
+              onPress={() => setSort(opt.value)}
+            >
+              <Text style={[styles.sortPillText, sort === opt.value && styles.sortPillTextActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
       {displayedReviews.map((review) =>
         review.source === 'review' ? (
           <Pressable
@@ -427,10 +463,35 @@ const createStyles = (colors: typeof Colors.dark) =>
     container: {
       marginTop: Spacing.lg,
     },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.xs,
+    },
     sectionTitle: {
       ...Typography.body.lg,
       color: colors.text,
-      marginBottom: Spacing.xs,
+    },
+    sortRow: {
+      flexDirection: 'row',
+      gap: Spacing.xs,
+    },
+    sortPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.backgroundSecondary,
+    },
+    sortPillActive: {
+      backgroundColor: colors.tint,
+    },
+    sortPillText: {
+      ...Typography.body.xs,
+      color: colors.textSecondary,
+    },
+    sortPillTextActive: {
+      color: '#FFFFFF',
     },
     emptyText: {
       ...Typography.body.sm,

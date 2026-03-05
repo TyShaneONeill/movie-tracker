@@ -8,10 +8,13 @@ import { enforceIpRateLimit } from '../_shared/rate-limit.ts';
 // Types
 // ============================================================================
 
+type SortMode = 'recent' | 'popular';
+
 interface GetMovieReviewsRequest {
   tmdb_id: number;
   page?: number;
   limit?: number;
+  sort?: SortMode;
 }
 
 interface FirstTakeRow {
@@ -20,6 +23,7 @@ interface FirstTakeRow {
   rating: number | null;
   quote_text: string;
   is_spoiler: boolean;
+  like_count: number;
   created_at: string;
   profiles: {
     full_name: string | null;
@@ -36,6 +40,7 @@ interface ReviewTableRow {
   review_text: string;
   is_spoiler: boolean;
   is_rewatch: boolean;
+  like_count: number;
   created_at: string;
   profiles: {
     full_name: string | null;
@@ -53,6 +58,7 @@ interface ReviewResponse {
   reviewText: string | null;
   isSpoiler: boolean;
   isRewatch: boolean;
+  likeCount: number;
   createdAt: string;
   source: 'first_take' | 'review';
   reviewer: {
@@ -87,7 +93,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request body
-    const { tmdb_id, page: rawPage, limit: rawLimit }: GetMovieReviewsRequest = await req.json();
+    const { tmdb_id, page: rawPage, limit: rawLimit, sort: rawSort }: GetMovieReviewsRequest = await req.json();
+    const sort: SortMode = rawSort === 'popular' ? 'popular' : 'recent';
 
     if (!tmdb_id || typeof tmdb_id !== 'number' || tmdb_id <= 0) {
       return new Response(
@@ -118,6 +125,7 @@ Deno.serve(async (req: Request) => {
           rating,
           quote_text,
           is_spoiler,
+          like_count,
           created_at,
           profiles!first_takes_user_id_profiles_fkey (
             full_name,
@@ -138,6 +146,7 @@ Deno.serve(async (req: Request) => {
           review_text,
           is_spoiler,
           is_rewatch,
+          like_count,
           created_at,
           profiles!reviews_user_id_fkey (
             full_name,
@@ -169,6 +178,7 @@ Deno.serve(async (req: Request) => {
       reviewText: null,
       isSpoiler: row.is_spoiler,
       isRewatch: false,
+      likeCount: row.like_count ?? 0,
       createdAt: row.created_at,
       source: 'first_take' as const,
       reviewer: {
@@ -188,6 +198,7 @@ Deno.serve(async (req: Request) => {
       reviewText: row.review_text,
       isSpoiler: row.is_spoiler,
       isRewatch: row.is_rewatch,
+      likeCount: row.like_count ?? 0,
       createdAt: row.created_at,
       source: 'review' as const,
       reviewer: {
@@ -197,10 +208,16 @@ Deno.serve(async (req: Request) => {
       },
     }));
 
-    // Merge and sort by created_at DESC
-    const allItems = [...firstTakeItems, ...reviewItems].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    // Merge and sort
+    const allItems = [...firstTakeItems, ...reviewItems].sort((a, b) => {
+      if (sort === 'popular') {
+        // Sort by like_count DESC, then created_at DESC as tiebreaker
+        if (b.likeCount !== a.likeCount) return b.likeCount - a.likeCount;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      // Default: recent — sort by created_at DESC
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
     const totalCount = allItems.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / limit));

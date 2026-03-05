@@ -122,9 +122,27 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = (notification: Notification) => {
-    // Navigate to actor's profile if there's an actor
+    const data = (notification.data ?? {}) as Record<string, unknown>;
+
+    switch (notification.type) {
+      case 'like_review':
+        if (data.review_id) {
+          router.push(`/review/${data.review_id}` as any);
+          return;
+        }
+        break;
+      case 'like_first_take':
+      case 'friend_reviewed':
+        if (data.tmdb_id) {
+          router.push(`/movie/${data.tmdb_id}` as any);
+          return;
+        }
+        break;
+    }
+
+    // Default: navigate to actor's profile
     if (notification.actor_id) {
-      router.push(`/user/${notification.actor_id}`);
+      router.push(`/user/${notification.actor_id}` as any);
     }
   };
 

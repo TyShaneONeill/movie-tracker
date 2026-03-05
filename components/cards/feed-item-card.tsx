@@ -19,6 +19,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
+import { LikeButton } from '@/components/like-button';
 
 interface FeedItemCardProps {
   /**
@@ -73,6 +74,16 @@ interface FeedItemCardProps {
   mediaType?: string;
 
   /**
+   * Source ID for the review or first take (enables like button)
+   */
+  sourceId?: string;
+
+  /**
+   * Source type ('review' or 'first_take')
+   */
+  sourceType?: 'review' | 'first_take';
+
+  /**
    * Callback when movie poster/info is pressed
    */
   onMoviePress?: () => void;
@@ -119,6 +130,8 @@ export function FeedItemCard({
   isSpoiler = false,
   isCurrentUser = false,
   mediaType,
+  sourceId,
+  sourceType,
   onMoviePress,
   style,
 }: FeedItemCardProps) {
@@ -294,6 +307,16 @@ export function FeedItemCard({
           {renderReviewContent()}
         </View>
       </Pressable>
+
+      {sourceId && sourceType && (
+        <View style={styles.likeRow}>
+          <LikeButton
+            targetType={sourceType}
+            targetId={sourceId}
+            size="sm"
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -419,5 +442,11 @@ const styles = StyleSheet.create({
   spoilerButtonText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  likeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+    marginLeft: 60, // align with review body (48px poster + 12px gap)
   },
 });

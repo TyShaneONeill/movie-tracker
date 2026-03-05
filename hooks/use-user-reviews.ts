@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Review } from '@/lib/database.types';
 
-export type ReviewSortOption = 'recent' | 'highest' | 'lowest';
+export type ReviewSortOption = 'recent' | 'popular' | 'highest' | 'lowest';
 export type ReviewMediaFilter = 'all' | 'movie' | 'tv_show';
 
 interface UseUserReviewsParams {

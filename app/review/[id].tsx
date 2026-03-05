@@ -8,12 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { Fonts } from '@/constants/theme';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
 import type { Review } from '@/lib/database.types';
+import { LikeButton } from '@/components/like-button';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -250,6 +250,15 @@ export default function ReviewDetailScreen() {
                 )}
               </View>
             )}
+
+            <View style={styles.likeRow}>
+              <LikeButton
+                targetType="review"
+                targetId={review.id}
+                initialLikeCount={review.like_count}
+                size="md"
+              />
+            </View>
           </ScrollView>
         </View>
       </SafeAreaView>
@@ -410,6 +419,11 @@ function createStyles(colors: typeof Colors.dark) {
       ...Typography.body.sm,
       fontWeight: '600',
       color: '#FFFFFF',
+    },
+    likeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: Spacing.lg,
     },
   });
 }
