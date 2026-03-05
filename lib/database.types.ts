@@ -117,7 +117,7 @@ export type Database = {
           created_at: string | null
           episode_number: number | null
           id: string
-          is_rewatch: boolean
+          is_rewatch: boolean | null
           is_spoiler: boolean | null
           media_type: string
           movie_title: string
@@ -137,7 +137,7 @@ export type Database = {
           created_at?: string | null
           episode_number?: number | null
           id?: string
-          is_rewatch?: boolean
+          is_rewatch?: boolean | null
           is_spoiler?: boolean | null
           media_type?: string
           movie_title: string
@@ -157,7 +157,7 @@ export type Database = {
           created_at?: string | null
           episode_number?: number | null
           id?: string
-          is_rewatch?: boolean
+          is_rewatch?: boolean | null
           is_spoiler?: boolean | null
           media_type?: string
           movie_title?: string
@@ -313,15 +313,20 @@ export type Database = {
           cached_cast: Json | null
           cached_crew: Json | null
           created_at: string | null
+          external_ratings_fetched_at: string | null
           genre_ids: number[] | null
           id: number
           imdb_id: string | null
+          imdb_rating: number | null
+          imdb_votes: number | null
+          metacritic_score: number | null
           original_language: string | null
           original_title: string | null
           overview: string | null
           poster_path: string | null
           release_date: string | null
           revenue: number | null
+          rotten_tomatoes_score: number | null
           runtime_minutes: number | null
           status: string | null
           tagline: string | null
@@ -334,11 +339,6 @@ export type Database = {
           trailer_name: string | null
           trailer_youtube_key: string | null
           updated_at: string | null
-          imdb_rating: number | null
-          imdb_votes: number | null
-          rotten_tomatoes_score: number | null
-          metacritic_score: number | null
-          external_ratings_fetched_at: string | null
         }
         Insert: {
           adult?: boolean | null
@@ -347,15 +347,20 @@ export type Database = {
           cached_cast?: Json | null
           cached_crew?: Json | null
           created_at?: string | null
+          external_ratings_fetched_at?: string | null
           genre_ids?: number[] | null
           id?: number
           imdb_id?: string | null
+          imdb_rating?: number | null
+          imdb_votes?: number | null
+          metacritic_score?: number | null
           original_language?: string | null
           original_title?: string | null
           overview?: string | null
           poster_path?: string | null
           release_date?: string | null
           revenue?: number | null
+          rotten_tomatoes_score?: number | null
           runtime_minutes?: number | null
           status?: string | null
           tagline?: string | null
@@ -368,11 +373,6 @@ export type Database = {
           trailer_name?: string | null
           trailer_youtube_key?: string | null
           updated_at?: string | null
-          imdb_rating?: number | null
-          imdb_votes?: number | null
-          rotten_tomatoes_score?: number | null
-          metacritic_score?: number | null
-          external_ratings_fetched_at?: string | null
         }
         Update: {
           adult?: boolean | null
@@ -381,15 +381,20 @@ export type Database = {
           cached_cast?: Json | null
           cached_crew?: Json | null
           created_at?: string | null
+          external_ratings_fetched_at?: string | null
           genre_ids?: number[] | null
           id?: number
           imdb_id?: string | null
+          imdb_rating?: number | null
+          imdb_votes?: number | null
+          metacritic_score?: number | null
           original_language?: string | null
           original_title?: string | null
           overview?: string | null
           poster_path?: string | null
           release_date?: string | null
           revenue?: number | null
+          rotten_tomatoes_score?: number | null
           runtime_minutes?: number | null
           status?: string | null
           tagline?: string | null
@@ -402,11 +407,6 @@ export type Database = {
           trailer_name?: string | null
           trailer_youtube_key?: string | null
           updated_at?: string | null
-          imdb_rating?: number | null
-          imdb_votes?: number | null
-          rotten_tomatoes_score?: number | null
-          metacritic_score?: number | null
-          external_ratings_fetched_at?: string | null
         }
         Relationships: []
       }
@@ -577,6 +577,65 @@ export type Database = {
           tmdb_id?: number
         }
         Relationships: []
+      }
+      reviews: {
+        Row: {
+          created_at: string
+          id: string
+          is_rewatch: boolean
+          is_spoiler: boolean
+          media_type: string
+          movie_title: string
+          poster_path: string | null
+          rating: number
+          review_text: string
+          title: string
+          tmdb_id: number
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_rewatch?: boolean
+          is_spoiler?: boolean
+          media_type?: string
+          movie_title: string
+          poster_path?: string | null
+          rating: number
+          review_text: string
+          title: string
+          tmdb_id: number
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_rewatch?: boolean
+          is_spoiler?: boolean
+          media_type?: string
+          movie_title?: string
+          poster_path?: string | null
+          rating?: number
+          review_text?: string
+          title?: string
+          tmdb_id?: number
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scan_usage: {
         Row: {
@@ -1664,6 +1723,7 @@ export const Constants = {
   },
 } as const
 
+
 export type MovieStatus = 'watchlist' | 'watching' | 'watched';
 export type TvShowStatus = 'watchlist' | 'watching' | 'watched' | 'dropped' | 'on_hold';
 export type ContentMode = 'movies' | 'tv_shows' | 'both';
@@ -1827,3 +1887,8 @@ export interface WatchlistCommentWithProfile extends WatchlistComment {
 // Helper types for user streaming services
 export type UserStreamingService = Database['public']['Tables']['user_streaming_services']['Row'];
 export type UserStreamingServiceInsert = Database['public']['Tables']['user_streaming_services']['Insert'];
+
+// Helper types for reviews
+export type Review = Database['public']['Tables']['reviews']['Row'];
+export type ReviewInsert = Database['public']['Tables']['reviews']['Insert'];
+export type ReviewUpdate = Database['public']['Tables']['reviews']['Update'];

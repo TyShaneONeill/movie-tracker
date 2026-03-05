@@ -23,7 +23,8 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import type { ReviewVisibility } from '@/lib/database.types';
 
-const MAX_QUOTE_LENGTH = 140;
+const MAX_REVIEW_TEXT_LENGTH = 2000;
+const MAX_TITLE_LENGTH = 100;
 
 const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
   { value: 'public', label: 'Public' },
@@ -31,42 +32,74 @@ const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
   { value: 'private', label: 'Private' },
 ];
 
-interface FirstTakeModalProps {
+interface ReviewSubmitData {
+  rating: number;
+  title: string;
+  reviewText: string;
+  isSpoiler: boolean;
+  isRewatch: boolean;
+  visibility: ReviewVisibility;
+}
+
+interface ExistingReviewData {
+  rating: number;
+  title: string;
+  reviewText: string;
+  isSpoiler: boolean;
+  isRewatch: boolean;
+  visibility: ReviewVisibility;
+}
+
+interface ReviewModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { rating: number; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility }) => Promise<void>;
+  onSubmit: (data: ReviewSubmitData) => Promise<void>;
   movieTitle: string;
   moviePosterUrl?: string;
+  initialRating?: number;
+  existingReview?: ExistingReviewData | null;
   isSubmitting?: boolean;
 }
 
-export function FirstTakeModal({
+export function ReviewModal({
   visible,
   onClose,
   onSubmit,
   movieTitle,
   moviePosterUrl,
+  initialRating,
+  existingReview,
   isSubmitting = false,
-}: FirstTakeModalProps) {
+}: ReviewModalProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
-  const [rating, setRating] = useState<number>(5);
-  const [quoteText, setQuoteText] = useState('');
-  const [isSpoiler, setIsSpoiler] = useState(false);
-  const [visibility, setVisibility] = useState<ReviewVisibility>(preferences?.reviewVisibility ?? 'public');
 
-  // Sync visibility default when preferences load
+  const [rating, setRating] = useState<number>(existingReview?.rating ?? initialRating ?? 5);
+  const [title, setTitle] = useState(existingReview?.title ?? '');
+  const [reviewText, setReviewText] = useState(existingReview?.reviewText ?? '');
+  const [isSpoiler, setIsSpoiler] = useState(existingReview?.isSpoiler ?? false);
+  const [isRewatch, setIsRewatch] = useState(existingReview?.isRewatch ?? false);
+  const [visibility, setVisibility] = useState<ReviewVisibility>(
+    existingReview?.visibility ?? preferences?.reviewVisibility ?? 'public'
+  );
+
+  // Reset form when modal opens with new data
   useEffect(() => {
-    if (preferences?.reviewVisibility) {
-      setVisibility(preferences.reviewVisibility);
+    if (visible) {
+      setRating(existingReview?.rating ?? initialRating ?? 5);
+      setTitle(existingReview?.title ?? '');
+      setReviewText(existingReview?.reviewText ?? '');
+      setIsSpoiler(existingReview?.isSpoiler ?? false);
+      setIsRewatch(existingReview?.isRewatch ?? false);
+      setVisibility(existingReview?.visibility ?? preferences?.reviewVisibility ?? 'public');
     }
-  }, [preferences?.reviewVisibility]);
+  }, [visible, existingReview, initialRating, preferences?.reviewVisibility]);
 
-  const canSubmit = (rating > 0 || quoteText.trim().length > 0) && !isSubmitting;
-  const charCount = quoteText.length;
-  const isNearLimit = charCount > 120;
+  const canSubmit = rating > 0 && reviewText.trim().length > 0 && title.trim().length > 0 && !isSubmitting;
+  const charCount = reviewText.length;
+  const isNearLimit = charCount > MAX_REVIEW_TEXT_LENGTH - 200;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -74,35 +107,26 @@ export function FirstTakeModal({
 
     await onSubmit({
       rating,
-      quoteText: quoteText.trim(),
+      title: title.trim(),
+      reviewText: reviewText.trim(),
       isSpoiler,
+      isRewatch,
       visibility,
     });
 
     Toast.show({
       type: 'success',
-      text1: 'First Take posted!',
+      text1: existingReview ? 'Review updated!' : 'Review posted!',
       visibilityTime: 2000,
     });
     hapticNotification(NotificationFeedbackType.Success);
-    // Reset state after successful submit
-    setRating(5);
-    setQuoteText('');
-    setIsSpoiler(false);
-    setVisibility(preferences?.reviewVisibility ?? 'public');
   };
 
   const handleClose = () => {
     hapticImpact();
-    // Reset state on close
-    setRating(5);
-    setQuoteText('');
-    setIsSpoiler(false);
-    setVisibility(preferences?.reviewVisibility ?? 'public');
     onClose();
   };
 
-  // Format rating display (show decimal only when needed)
   const formatRating = (value: number) => {
     return value % 1 === 0 ? value.toString() : value.toFixed(1);
   };
@@ -139,7 +163,7 @@ export function FirstTakeModal({
                   <Text style={styles.movieTitle} numberOfLines={2}>
                     {movieTitle}
                   </Text>
-                  <Text style={styles.subtitle}>Your First Take</Text>
+                  <Text style={styles.subtitle}>Your Review</Text>
                 </View>
                 <Pressable
                   style={({ pressed }) => [
@@ -157,13 +181,11 @@ export function FirstTakeModal({
                 <Text style={styles.sectionLabel}>Rating</Text>
 
                 <View style={styles.ratingWrapper}>
-                  {/* Large Rating Display */}
                   <View style={styles.ratingDisplay}>
                     <Text style={styles.ratingValue}>{formatRating(rating)}</Text>
                     <Text style={styles.ratingMax}>/ 10</Text>
                   </View>
 
-                  {/* Rating Slider */}
                   <View style={styles.sliderContainer}>
                     <Slider
                       style={styles.slider}
@@ -178,7 +200,6 @@ export function FirstTakeModal({
                     />
                   </View>
 
-                  {/* Rating Labels */}
                   <View style={styles.ratingLabels}>
                     <Text style={[styles.ratingLabelText, styles.ratingLabelLeft]}>Poor</Text>
                     <Text style={[styles.ratingLabelText, styles.ratingLabelCenter]}>Average</Text>
@@ -187,36 +208,48 @@ export function FirstTakeModal({
                 </View>
               </View>
 
-              {/* Text Input Section */}
+              {/* Title */}
               <View style={styles.inputSection}>
-                <Text style={styles.sectionLabel}>Your Thoughts</Text>
+                <Text style={styles.sectionLabel}>Title</Text>
+                <TextInput
+                  style={styles.titleInput}
+                  placeholder="Give your review a title..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={title}
+                  onChangeText={(text) => setTitle(text.slice(0, MAX_TITLE_LENGTH))}
+                  maxLength={MAX_TITLE_LENGTH}
+                />
+              </View>
+
+              {/* Review Text */}
+              <View style={styles.inputSection}>
+                <Text style={styles.sectionLabel}>Your Review</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.textArea}
-                    placeholder="What did you think? No spoilers unless you toggle below..."
+                    placeholder="Write your detailed review..."
                     placeholderTextColor={colors.textTertiary}
-                    value={quoteText}
-                    onChangeText={(text) => setQuoteText(text.slice(0, MAX_QUOTE_LENGTH))}
+                    value={reviewText}
+                    onChangeText={(text) => setReviewText(text.slice(0, MAX_REVIEW_TEXT_LENGTH))}
                     multiline
-                    maxLength={MAX_QUOTE_LENGTH}
+                    maxLength={MAX_REVIEW_TEXT_LENGTH}
                     textAlignVertical="top"
                   />
                   <Text style={[styles.charCounter, isNearLimit && styles.charCounterWarning]}>
-                    {charCount}/{MAX_QUOTE_LENGTH}
+                    {charCount}/{MAX_REVIEW_TEXT_LENGTH}
                   </Text>
                 </View>
               </View>
 
               {/* Spoiler Toggle */}
-              <View style={styles.spoilerRow}>
-                <View style={styles.spoilerLeft}>
-                  {/* Warning Icon */}
-                  <View style={styles.warningIcon}>
-                    <Text style={styles.warningIconText}>⚠</Text>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleLeft}>
+                  <View style={styles.toggleIcon}>
+                    <Text style={styles.toggleIconText}>⚠</Text>
                   </View>
-                  <View style={styles.spoilerTextContainer}>
-                    <Text style={styles.spoilerTitle}>Contains Spoilers</Text>
-                    <Text style={styles.spoilerSubtitle}>Content hidden until tapped</Text>
+                  <View style={styles.toggleTextContainer}>
+                    <Text style={styles.toggleTitle}>Contains Spoilers</Text>
+                    <Text style={styles.toggleSubtitle}>Content hidden until tapped</Text>
                   </View>
                 </View>
                 <ToggleSwitch
@@ -224,6 +257,20 @@ export function FirstTakeModal({
                   onValueChange={setIsSpoiler}
                   activeColor={colors.tint}
                 />
+              </View>
+
+              {/* Rewatch Toggle */}
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleLeft}>
+                  <View style={styles.toggleIcon}>
+                    <Text style={styles.toggleIconText}>🔄</Text>
+                  </View>
+                  <View style={styles.toggleTextContainer}>
+                    <Text style={styles.toggleTitle}>Rewatch</Text>
+                    <Text style={styles.toggleSubtitle}>I&apos;ve seen this before</Text>
+                  </View>
+                </View>
+                <ToggleSwitch value={isRewatch} onValueChange={setIsRewatch} activeColor={colors.tint} />
               </View>
 
               {/* Visibility Selector */}
@@ -269,7 +316,7 @@ export function FirstTakeModal({
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={[styles.submitButtonText, !canSubmit && styles.submitButtonTextDisabled]}>
-                    Post First Take
+                    {existingReview ? 'Update Review' : 'Post Review'}
                   </Text>
                 )}
               </Pressable>
@@ -298,14 +345,14 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderTopRightRadius: BorderRadius.lg,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingBottom: 34, // Safe area
+      paddingBottom: 34,
       maxHeight: '90%',
     },
     content: {
       padding: Spacing.lg,
     },
 
-    // Header Styles
+    // Header
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -358,7 +405,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       fontFamily: Fonts.inter.semibold,
     },
 
-    // Rating Section
+    // Rating
     ratingSection: {
       marginBottom: Spacing.lg,
     },
@@ -397,7 +444,6 @@ const createStyles = (colors: typeof Colors.dark) =>
       justifyContent: 'space-between',
       width: '100%',
       marginTop: -Spacing.xs,
-      // Match the slider's internal padding (iOS ~16px, Android ~0)
       paddingHorizontal: Platform.OS === 'ios' ? 16 : 0,
     },
     ratingLabelText: {
@@ -418,7 +464,18 @@ const createStyles = (colors: typeof Colors.dark) =>
       textAlign: 'right',
     },
 
-    // Text Input Section
+    // Title Input
+    titleInput: {
+      backgroundColor: colors.backgroundSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BorderRadius.md,
+      padding: Spacing.md,
+      color: colors.text,
+      ...Typography.body.sm,
+    },
+
+    // Text Input
     inputSection: {
       marginBottom: Spacing.lg,
     },
@@ -431,10 +488,10 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderColor: colors.border,
       borderRadius: BorderRadius.md,
       padding: Spacing.md,
-      paddingBottom: Spacing.xl, // Space for character counter
+      paddingBottom: Spacing.xl,
       color: colors.text,
       ...Typography.body.sm,
-      height: 120,
+      height: 200,
       textAlignVertical: 'top',
     },
     charCounter: {
@@ -448,8 +505,8 @@ const createStyles = (colors: typeof Colors.dark) =>
       color: colors.tint,
     },
 
-    // Spoiler Toggle
-    spoilerRow: {
+    // Toggle Rows
+    toggleRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -461,35 +518,35 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderColor: colors.border,
       marginBottom: Spacing.lg,
     },
-    spoilerLeft: {
+    toggleLeft: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.md,
     },
-    warningIcon: {
+    toggleIcon: {
       width: 24,
       height: 24,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    warningIconText: {
+    toggleIconText: {
       fontSize: 18,
-      color: colors.gold, // Amber color for warning
+      color: colors.gold,
     },
-    spoilerTextContainer: {
+    toggleTextContainer: {
       gap: 2,
     },
-    spoilerTitle: {
+    toggleTitle: {
       ...Typography.body.sm,
       color: colors.text,
       fontFamily: Fonts.inter.medium,
     },
-    spoilerSubtitle: {
+    toggleSubtitle: {
       ...Typography.body.xs,
       color: colors.textTertiary,
     },
 
-    // Visibility Selector
+    // Visibility
     visibilitySection: {
       marginBottom: Spacing.lg,
     },
@@ -521,7 +578,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       color: '#ffffff',
     },
 
-    // Submit Button
+    // Submit
     submitButton: {
       width: '100%',
       backgroundColor: colors.tint,

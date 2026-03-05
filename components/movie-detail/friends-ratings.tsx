@@ -5,6 +5,7 @@ import { useFriendsRatings } from '@/hooks/use-friends-ratings';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import type { ReviewItem } from '@/lib/review-service';
 
 interface FriendsRatingsProps {
   tmdbId: number;
@@ -122,7 +123,7 @@ export function FriendsRatings({ tmdbId }: FriendsRatingsProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {friendsRatings.map((friend) => {
+        {friendsRatings.map((friend: ReviewItem) => {
           const displayName = friend.reviewer.fullName || friend.reviewer.username || 'User';
           const ratingColor = friend.rating !== null ? getRatingColor(friend.rating) : null;
 
@@ -156,6 +157,11 @@ export function FriendsRatings({ tmdbId }: FriendsRatingsProps) {
               <Text style={styles.friendName} numberOfLines={1}>
                 {displayName}
               </Text>
+              {friend.source && (
+                <Text style={[styles.sourceLabel, friend.source === 'review' && styles.sourceLabelReview]}>
+                  {friend.source === 'review' ? 'Review' : 'First Take'}
+                </Text>
+              )}
             </View>
           );
         })}
@@ -240,5 +246,15 @@ const createStyles = (colors: typeof Colors.dark) =>
       marginTop: Spacing.sm,
       textAlign: 'center',
       maxWidth: 76,
+    },
+    sourceLabel: {
+      ...Typography.caption.medium,
+      fontSize: 9,
+      color: colors.textTertiary,
+      textAlign: 'center',
+      marginTop: 2,
+    },
+    sourceLabelReview: {
+      color: colors.tint,
     },
   });
