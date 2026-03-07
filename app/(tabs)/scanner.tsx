@@ -267,8 +267,35 @@ export default function ScannerScreen() {
 
   const handleCameraCapture = useCallback(async () => {
     try {
-      // Request permission if needed
-      if (cameraPermission !== 'granted' && Platform.OS !== 'web') {
+      // Web-specific: use HTML input with capture attribute to open camera directly
+      if (Platform.OS === 'web') {
+        return new Promise<void>((resolve) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.setAttribute('capture', 'environment');
+          input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) {
+              resolve();
+              return;
+            }
+            const uri = URL.createObjectURL(file);
+            const mimeType = file.type || 'image/jpeg';
+            try {
+              await processImage(uri, mimeType);
+            } finally {
+              URL.revokeObjectURL(uri);
+              resolve();
+            }
+          };
+          input.oncancel = () => resolve();
+          input.click();
+        });
+      }
+
+      // Request permission if needed (native only)
+      if (cameraPermission !== 'granted') {
         await requestCameraPermission();
         const { status } = await ImagePicker.getCameraPermissionsAsync();
         if (status !== 'granted') {
@@ -276,7 +303,7 @@ export default function ScannerScreen() {
         }
       }
 
-      // Launch camera
+      // Launch camera (native)
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
