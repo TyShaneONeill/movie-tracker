@@ -521,7 +521,7 @@ export default function ProfileScreen() {
     // Combined stat-tab configuration: each tab shows its count AND acts as navigation
     const TAB_CONFIG: { key: TabType; label: string; getCount: () => number }[] = [
         { key: 'collection', label: 'Watched', getCount: () => stats.watched + watchedTvShows.length },
-        { key: 'first-takes', label: 'First\nTakes', getCount: () => stats.firstTakes },
+        { key: 'first-takes', label: 'First Takes', getCount: () => stats.firstTakes },
         { key: 'reviews', label: 'Reviews', getCount: () => stats.reviews },
         { key: 'lists', label: 'Lists', getCount: () => stats.lists },
     ];
@@ -552,10 +552,15 @@ export default function ProfileScreen() {
                         ]}>
                             {count}
                         </ThemedText>
-                        <ThemedText style={[
-                            styles.statTabLabel,
-                            { color: isActive ? colors.text : colors.textSecondary }
-                        ]}>
+                        <ThemedText
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.8}
+                            style={[
+                                styles.statTabLabel,
+                                { color: isActive ? colors.text : colors.textSecondary }
+                            ]}
+                        >
                             {label}
                         </ThemedText>
                     </Pressable>
