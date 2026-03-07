@@ -33,9 +33,7 @@ import { useListMutations } from '@/hooks/use-list-mutations';
 import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useUserReviews, type ReviewSortOption, type ReviewMediaFilter } from '@/hooks/use-user-reviews';
 import { useProfile } from '@/hooks/use-profile';
-import { useQuery } from '@tanstack/react-query';
 import { useNotifications } from '@/hooks/use-notifications';
-import { fetchLikedReviews } from '@/lib/like-service';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserTvShows } from '@/hooks/use-user-tv-shows';
 import { MOCK_USER } from '@/lib/mock-data/users';
@@ -43,7 +41,7 @@ import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie, UserTvShow } from '@/lib/database.types';
 
-type TabType = 'collection' | 'first-takes' | 'reviews' | 'liked' | 'lists';
+type TabType = 'collection' | 'first-takes' | 'reviews' | 'lists';
 
 // Constants for header animation
 const HEADER_MAX_HEIGHT = 350; // Full header height (avatar, name, bio, follower stats, achievements)
@@ -136,17 +134,6 @@ export default function ProfileScreen() {
         isError: reviewsError,
         refetch: refetchReviews,
     } = useUserReviews({ userId: user?.id, viewerId: user?.id, enabled: !!user });
-    const {
-        data: likedReviews,
-        isLoading: likedLoading,
-        isError: likedError,
-        refetch: refetchLiked,
-    } = useQuery({
-        queryKey: ['likedReviews', user?.id],
-        queryFn: () => fetchLikedReviews(user!.id),
-        enabled: !!user,
-        staleTime: 5 * 60 * 1000,
-    });
     const [reviewSort, setReviewSort] = useState<ReviewSortOption>('recent');
     const [reviewFilter, setReviewFilter] = useState<ReviewMediaFilter>('all');
 
@@ -261,11 +248,10 @@ export default function ProfileScreen() {
             refetchLists(),
             refetchTakes(),
             refetchReviews(),
-            refetchLiked(),
             refetchAchievements(),
         ]);
         setIsRefreshing(false);
-    }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchTvShows, refetchLists, refetchTakes, refetchReviews, refetchLiked, refetchAchievements]);
+    }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchTvShows, refetchLists, refetchTakes, refetchReviews, refetchAchievements]);
 
     const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
         const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
@@ -535,9 +521,8 @@ export default function ProfileScreen() {
     // Combined stat-tab configuration: each tab shows its count AND acts as navigation
     const TAB_CONFIG: { key: TabType; label: string; getCount: () => number }[] = [
         { key: 'collection', label: 'Watched', getCount: () => stats.watched + watchedTvShows.length },
-        { key: 'first-takes', label: 'First Takes', getCount: () => stats.firstTakes },
+        { key: 'first-takes', label: 'First\nTakes', getCount: () => stats.firstTakes },
         { key: 'reviews', label: 'Reviews', getCount: () => stats.reviews },
-        { key: 'liked', label: 'Liked', getCount: () => likedReviews?.length ?? 0 },
         { key: 'lists', label: 'Lists', getCount: () => stats.lists },
     ];
 
@@ -820,70 +805,6 @@ export default function ProfileScreen() {
                             />
                         ))
                     )}
-                </View>
-            );
-        } else if (activeTab === 'liked') {
-            if (likedLoading) {
-                return renderFirstTakesSkeleton();
-            }
-
-            if (likedError) {
-                return (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="alert-circle-outline" size={48} color={colors.tint} />
-                        <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-                            Something went wrong
-                        </ThemedText>
-                        <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                            We could not load your liked reviews
-                        </ThemedText>
-                        <Pressable
-                            style={[styles.retryButton, { backgroundColor: colors.tint }]}
-                            onPress={() => refetchLiked()}
-                        >
-                            <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
-                        </Pressable>
-                    </View>
-                );
-            }
-
-            if (!likedReviews?.length) {
-                return (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="heart-outline" size={48} color={colors.textSecondary} />
-                        <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-                            No liked reviews yet
-                        </ThemedText>
-                        <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                            Like reviews to save them here
-                        </ThemedText>
-                    </View>
-                );
-            }
-
-            return (
-                <View style={styles.firstTakesContent}>
-                    {likedReviews.map((item) => (
-                        <ReviewCard
-                            key={item.id}
-                            id={item.targetId}
-                            movieTitle={item.movieTitle}
-                            posterPath={item.posterPath}
-                            title={item.title ?? ''}
-                            reviewText={item.reviewText ?? item.quoteText ?? ''}
-                            rating={item.rating ?? 0}
-                            isSpoiler={item.isSpoiler}
-                            isRewatch={item.isRewatch}
-                            createdAt={item.createdAt}
-                            likeCount={item.likeCount}
-                            isLiked={true}
-                            onPress={() => {
-                                if (item.targetType === 'review') {
-                                    router.push(`/review/${item.targetId}` as any);
-                                }
-                            }}
-                        />
-                    ))}
                 </View>
             );
         } else {
@@ -1377,6 +1298,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
+        textAlign: 'center',
     },
     content: {
         paddingHorizontal: Spacing.lg,
