@@ -23,6 +23,7 @@ import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useFollowing } from '@/hooks/use-following';
+import { useAuth } from '@/hooks/use-auth';
 import { FollowButton } from '@/components/social/FollowButton';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import type { Profile } from '@/lib/database.types';
@@ -44,6 +45,8 @@ export default function FollowingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { session } = useAuth();
+  const currentUserId = session?.user?.id;
 
   const { following, isLoading, isError } = useFollowing(id!);
 
@@ -102,8 +105,10 @@ export default function FollowingScreen() {
             ) : null}
           </View>
 
-          {/* Follow Button */}
-          <FollowButton userId={user.id} username={user.username} size="sm" style={styles.followButton} />
+          {/* Follow Button — hide for current user */}
+          {user.id !== currentUserId && (
+            <FollowButton userId={user.id} username={user.username} size="sm" style={styles.followButton} />
+          )}
         </View>
       </Pressable>
     );
