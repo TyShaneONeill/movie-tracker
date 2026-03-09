@@ -13,8 +13,8 @@ test.describe('Dark Mode Toggle', () => {
     // Wait for settings page
     await expect(page.getByText('Dark Mode').last()).toBeVisible({ timeout: 10_000 });
 
-    // Get the dark mode switch
-    const darkModeSwitch = page.getByRole('switch').first();
+    // Get the dark mode switch (find within the row containing "Dark Mode" text)
+    const darkModeSwitch = page.getByText('Dark Mode').last().locator('../..').getByRole('switch');
     await expect(darkModeSwitch).toBeVisible();
 
     // Get initial background color of the page body/root

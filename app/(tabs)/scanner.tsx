@@ -105,6 +105,9 @@ export default function ScannerScreen() {
   // Scans remaining (null = loading, will be fetched on mount)
   const [scansRemaining, setScansRemaining] = useState<number | null>(null);
 
+  // Local processing error (for failures before scanTicket is called)
+  const [processingError, setProcessingError] = useState<string | null>(null);
+
   // ============================================================================
   // Permission Handling
   // ============================================================================
@@ -215,12 +218,13 @@ export default function ScannerScreen() {
   // Image Processing
   // ============================================================================
 
-  const processImage = useCallback(async (uri: string, mimeType?: string) => {
+  const processImage = useCallback(async (uri: string, mimeType?: string, preConvertedBase64?: string) => {
     clearError();
+    setProcessingError(null);
 
     try {
-      // Convert image to base64
-      const base64 = await imageUriToBase64(uri);
+      // Use pre-converted base64 if provided (web camera path), otherwise convert from URI
+      const base64 = preConvertedBase64 || await imageUriToBase64(uri);
       const finalMimeType = mimeType || getMimeTypeFromUri(uri);
 
       // Call the scan-ticket API
@@ -240,6 +244,8 @@ export default function ScannerScreen() {
       });
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scanner-process-image' });
+      // Show error to user if the hook didn't already set one
+      setProcessingError('Failed to process image. Please try again.');
     }
   }, [scanTicket, clearError]);
 
@@ -274,22 +280,56 @@ export default function ScannerScreen() {
           input.type = 'file';
           input.accept = 'image/*';
           input.setAttribute('capture', 'environment');
+
+          // Attach to DOM — iOS Safari/Chrome may not fire onchange
+          // for detached inputs after returning from camera
+          input.style.position = 'fixed';
+          input.style.top = '-9999px';
+          input.style.opacity = '0';
+          document.body.appendChild(input);
+
+          const cleanup = () => {
+            if (input.parentNode) {
+              document.body.removeChild(input);
+            }
+          };
+
           input.onchange = async (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file) {
+              cleanup();
               resolve();
               return;
             }
-            const uri = URL.createObjectURL(file);
             const mimeType = file.type || 'image/jpeg';
             try {
-              await processImage(uri, mimeType);
+              // Read file directly with FileReader — more reliable than
+              // blob URL + fetch on iOS WebKit after camera suspension
+              const base64 = await new Promise<string>((res, rej) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  if (typeof reader.result === 'string') {
+                    // Strip the data URI prefix (e.g. "data:image/jpeg;base64,")
+                    const b64 = reader.result.split(',')[1] || reader.result;
+                    res(b64);
+                  } else {
+                    rej(new Error('Failed to read camera image'));
+                  }
+                };
+                reader.onerror = () => rej(new Error('Failed to read camera image'));
+                reader.readAsDataURL(file);
+              });
+
+              await processImage('', mimeType, base64);
             } finally {
-              URL.revokeObjectURL(uri);
+              cleanup();
               resolve();
             }
           };
-          input.oncancel = () => resolve();
+          input.oncancel = () => {
+            cleanup();
+            resolve();
+          };
           input.click();
         });
       }
@@ -496,9 +536,9 @@ export default function ScannerScreen() {
         </View>
 
         {/* Error Message */}
-        {error && (
-          <Pressable style={styles.errorContainer} onPress={clearError}>
-            <Text style={styles.errorText}>{error}</Text>
+        {(error || processingError) && (
+          <Pressable style={styles.errorContainer} onPress={() => { clearError(); setProcessingError(null); }}>
+            <Text style={styles.errorText}>{error || processingError}</Text>
             <Text style={[styles.errorSubtext, { color: colors.textSecondary }]}>
               Tap to dismiss
             </Text>
