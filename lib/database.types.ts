@@ -186,6 +186,42 @@ export type Database = {
           },
         ]
       }
+      follow_requests: {
+        Row: {
+          created_at: string
+          id: string
+          requester_id: string
+          target_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          requester_id: string
+          target_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          requester_id?: string
+          target_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_requests_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follows: {
         Row: {
           created_at: string | null
@@ -473,7 +509,9 @@ export type Database = {
           following_count: number | null
           full_name: string | null
           id: string
+          is_private: boolean
           onboarding_completed: boolean | null
+          pending_followers_count: number
           review_visibility: string
           show_continue_watching: boolean
           theme_preference: string | null
@@ -495,7 +533,9 @@ export type Database = {
           following_count?: number | null
           full_name?: string | null
           id: string
+          is_private?: boolean
           onboarding_completed?: boolean | null
+          pending_followers_count?: number
           review_visibility?: string
           show_continue_watching?: boolean
           theme_preference?: string | null
@@ -517,7 +557,9 @@ export type Database = {
           following_count?: number | null
           full_name?: string | null
           id?: string
+          is_private?: boolean
           onboarding_completed?: boolean | null
+          pending_followers_count?: number
           review_visibility?: string
           show_continue_watching?: boolean
           theme_preference?: string | null
@@ -1811,6 +1853,11 @@ export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Updat
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+// Helper types for follow requests
+export type FollowRequest = Database['public']['Tables']['follow_requests']['Row'];
+export type FollowRequestInsert = Database['public']['Tables']['follow_requests']['Insert'];
+export type FollowRequestUpdate = Database['public']['Tables']['follow_requests']['Update'];
 
 // Helper types for follows
 export type Follow = Database['public']['Tables']['follows']['Row'];

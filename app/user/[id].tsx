@@ -30,6 +30,7 @@ import { useUserProfile } from '@/hooks/use-user-profile';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useWatchlistSocial } from '@/hooks/use-watchlist-social';
+import { useFollow } from '@/hooks/use-follow';
 import { useAuth } from '@/hooks/use-auth';
 import { formatRelativeTime } from '@/hooks/use-activity-feed';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
@@ -108,6 +109,11 @@ export default function UserProfileScreen() {
     useUserProfile(id!, activeTab);
 
   const { user } = useAuth();
+  const { isFollowing } = useFollow(id!, { username: profile?.username });
+
+  // Private account gate: hide tab content for non-followers
+  const isPrivateAndNotFollowing = profile?.is_private && !isFollowing;
+
   const {
     isLiked,
     likeCount,
@@ -535,8 +541,20 @@ export default function UserProfileScreen() {
         <FollowButton userId={id!} username={profile.username} style={styles.followButton} />
       </View>
 
-      {/* Tab Bar */}
-      {renderTabBar()}
+      {/* Private account locked state OR tab bar */}
+      {isPrivateAndNotFollowing ? (
+        <View style={styles.lockedContainer}>
+          <Ionicons name="lock-closed" size={56} color={colors.textSecondary} />
+          <Text style={[styles.lockedTitle, { color: colors.text }]}>
+            This account is private
+          </Text>
+          <Text style={[styles.lockedSubtitle, { color: colors.textSecondary }]}>
+            Follow this account to see their collection, first takes, and reviews
+          </Text>
+        </View>
+      ) : (
+        renderTabBar()
+      )}
     </>
   );
   };
@@ -601,7 +619,15 @@ export default function UserProfileScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {activeTab === 'collection' ? (
+      {isPrivateAndNotFollowing ? (
+        /* Locked profile: show header with locked state, no tab content */
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {renderListHeader()}
+        </ScrollView>
+      ) : activeTab === 'collection' ? (
         <FlatList
           data={groupedMovies}
           renderItem={renderCollectionItem}
@@ -783,6 +809,24 @@ const styles = StyleSheet.create({
   // First Takes Styles
   firstTakesContainer: {
     gap: 0,
+  },
+  // Locked Profile State
+  lockedContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xl * 3,
+    paddingHorizontal: Spacing.xl,
+  },
+  lockedTitle: {
+    ...Typography.display.h4,
+    marginTop: Spacing.md,
+    textAlign: 'center',
+  },
+  lockedSubtitle: {
+    ...Typography.body.sm,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.lg,
   },
   // Empty States
   emptyContainer: {

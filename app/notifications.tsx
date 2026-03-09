@@ -9,7 +9,7 @@
  * - Marks notifications as read when screen is viewed
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -23,12 +23,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useNotifications } from '@/hooks/use-notifications';
+import { useFollowRequests } from '@/hooks/use-follow-requests';
 import { NotificationItem } from '@/components/social/NotificationItem';
 import { supabase } from '@/lib/supabase';
 import type { Notification, Profile } from '@/lib/database.types';
@@ -141,6 +142,13 @@ export default function NotificationsScreen() {
           return;
         }
         break;
+      case 'follow_request':
+        // Navigate to the requester's profile
+        if (notification.actor_id) {
+          router.push(`/user/${notification.actor_id}` as any);
+          return;
+        }
+        break;
     }
 
     // Default: navigate to actor's profile
@@ -155,16 +163,70 @@ export default function NotificationsScreen() {
     }
   };
 
+  // Follow request handling
+  const queryClient = useQueryClient();
+  const { acceptRequest, declineRequest, isAccepting, isDeclining } = useFollowRequests();
+
+  // Track which notification is currently being acted upon
+  const [activeRequestNotificationId, setActiveRequestNotificationId] = useState<string | null>(null);
+
+  const handleAcceptFollowRequest = useCallback(async (notification: Notification) => {
+    const data = (notification.data ?? {}) as Record<string, unknown>;
+    const followRequestId = data.follow_request_id as string | undefined;
+    if (!followRequestId) return;
+
+    const actorProfile = notification.actor_id
+      ? actorProfiles?.get(notification.actor_id)
+      : undefined;
+
+    setActiveRequestNotificationId(notification.id);
+    try {
+      await acceptRequest(followRequestId, actorProfile?.username);
+      // Invalidate notifications to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+    } finally {
+      setActiveRequestNotificationId(null);
+    }
+  }, [acceptRequest, actorProfiles, queryClient]);
+
+  const handleDeclineFollowRequest = useCallback(async (notification: Notification) => {
+    const data = (notification.data ?? {}) as Record<string, unknown>;
+    const followRequestId = data.follow_request_id as string | undefined;
+    if (!followRequestId) return;
+
+    const actorProfile = notification.actor_id
+      ? actorProfiles?.get(notification.actor_id)
+      : undefined;
+
+    setActiveRequestNotificationId(notification.id);
+    try {
+      await declineRequest(followRequestId, actorProfile?.username);
+      // Invalidate notifications to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+    } finally {
+      setActiveRequestNotificationId(null);
+    }
+  }, [declineRequest, actorProfiles, queryClient]);
+
   const renderNotification = ({ item }: { item: Notification }) => {
     const actorProfile = item.actor_id
       ? actorProfiles?.get(item.actor_id)
       : undefined;
+
+    const isThisAccepting = isAccepting && activeRequestNotificationId === item.id;
+    const isThisDeclining = isDeclining && activeRequestNotificationId === item.id;
 
     return (
       <NotificationItem
         notification={item}
         actorProfile={actorProfile}
         onPress={() => handleNotificationPress(item)}
+        onAcceptFollowRequest={handleAcceptFollowRequest}
+        onDeclineFollowRequest={handleDeclineFollowRequest}
+        isAccepting={isThisAccepting}
+        isDeclining={isThisDeclining}
       />
     );
   };

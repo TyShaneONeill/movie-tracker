@@ -7,9 +7,10 @@ const FIVE_MINUTES = 5 * 60 * 1000;
 type ActiveTab = 'collection' | 'first-takes' | 'watchlist';
 
 /**
- * Fetch another user's profile from Supabase
+ * Fetch another user's profile from Supabase.
+ * Returns all profile columns including is_private (when available).
  */
-async function fetchOtherUserProfile(userId: string): Promise<Profile | null> {
+async function fetchOtherUserProfile(userId: string): Promise<(Profile & { is_private?: boolean }) | null> {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -24,7 +25,9 @@ async function fetchOtherUserProfile(userId: string): Promise<Profile | null> {
     throw error;
   }
 
-  return data;
+  // Cast to include is_private which may exist on the DB row
+  // but isn't yet in the generated database.types.ts
+  return data as Profile & { is_private?: boolean };
 }
 
 /**
@@ -63,7 +66,8 @@ async function fetchOtherUserMovies(
   userId: string,
   status: 'watched' | 'watchlist'
 ): Promise<UserMovie[]> {
-  const { data, error } = await (supabase.from('user_movies') as any)
+  const { data, error } = await supabase
+    .from('user_movies')
     .select('*')
     .eq('user_id', userId)
     .eq('status', status)
@@ -77,7 +81,8 @@ async function fetchOtherUserMovies(
  * Fetch another user's First Takes
  */
 async function fetchOtherUserFirstTakes(userId: string): Promise<FirstTake[]> {
-  const { data, error } = await (supabase.from('first_takes') as any)
+  const { data, error } = await supabase
+    .from('first_takes')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
@@ -87,7 +92,7 @@ async function fetchOtherUserFirstTakes(userId: string): Promise<FirstTake[]> {
 }
 
 export interface UseUserProfileResult {
-  profile: Profile | null;
+  profile: (Profile & { is_private?: boolean }) | null;
   watchedMovies: UserMovie[];
   firstTakes: FirstTake[];
   watchlist: UserMovie[];

@@ -1,13 +1,35 @@
 import { supabase } from './supabase';
 import type { Profile, FollowInsert } from './database.types';
+import { sendFollowRequest } from './follow-request-service';
+
+export type FollowResult = { type: 'followed' } | { type: 'requested' };
 
 /**
- * Follow a user
+ * Follow a user. If the target profile is private, a follow request is
+ * created instead of an immediate follow.
  */
 export async function followUser(
   currentUserId: string,
   targetUserId: string
-): Promise<void> {
+): Promise<FollowResult> {
+  // Check if the target profile is private
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('is_private')
+    .eq('id', targetUserId)
+    .single();
+
+  if (profileError) {
+    throw new Error(profileError.message || 'Failed to fetch target profile');
+  }
+
+  if (profile?.is_private) {
+    // Private profile — send a follow request instead of direct follow
+    await sendFollowRequest(currentUserId, targetUserId);
+    return { type: 'requested' };
+  }
+
+  // Public profile — direct follow
   const insertData: FollowInsert = {
     follower_id: currentUserId,
     following_id: targetUserId,
@@ -22,6 +44,8 @@ export async function followUser(
     }
     throw new Error(error.message || 'Failed to follow user');
   }
+
+  return { type: 'followed' };
 }
 
 /**
