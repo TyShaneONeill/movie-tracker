@@ -227,6 +227,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       alignItems: 'center',
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
+      paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
     },
     backButton: {
       width: 40,

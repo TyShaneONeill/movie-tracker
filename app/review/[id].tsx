@@ -287,6 +287,7 @@ function createStyles(colors: typeof Colors.dark) {
       justifyContent: 'space-between',
       height: 48,
       paddingHorizontal: Spacing.md,
+      paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
     },
     topBarTitle: {
       ...Typography.body.lg,

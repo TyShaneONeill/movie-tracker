@@ -18,7 +18,9 @@ import {
   Pressable,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -130,6 +132,7 @@ export default function ListDetailScreen() {
   };
 
   // Dynamic styles based on theme
+  const insets = useSafeAreaInsets();
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
   // Render movie grid item
@@ -196,7 +199,7 @@ export default function ListDetailScreen() {
           />
 
           {/* Back Button */}
-          <View style={dynamicStyles.backButtonContainer}>
+          <View style={[dynamicStyles.backButtonContainer, { top: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
             <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
               <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
                 <Text style={dynamicStyles.backIcon}>←</Text>
@@ -338,7 +341,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     backButtonContainer: {
       position: 'absolute',
-      top: 60,
+      top: 60, // Fallback, overridden inline with safe area insets
       left: Spacing.md,
       zIndex: 20,
     },

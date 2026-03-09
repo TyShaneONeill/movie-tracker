@@ -25,7 +25,9 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as Localization from 'expo-localization';
@@ -375,6 +377,7 @@ export default function MovieDetailScreen() {
   // showMoreOptionsSheet and hideMoreOptionsSheet removed - More options button hidden
 
   // Dynamic styles based on theme
+  const insets = useSafeAreaInsets();
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
   // Show loading state
@@ -437,7 +440,7 @@ export default function MovieDetailScreen() {
           />
 
           {/* Top Buttons */}
-          <View style={dynamicStyles.topButtons}>
+          <View style={[dynamicStyles.topButtons, { paddingTop: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
             <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
               <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
                 <Text style={dynamicStyles.backIcon}>←</Text>
@@ -834,7 +837,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingTop: 60, // Account for status bar
+    paddingTop: 60, // Fallback, overridden inline with safe area insets
     zIndex: 20,
   },
   iconButton: {
