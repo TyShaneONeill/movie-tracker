@@ -15,6 +15,7 @@ import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
+import { acceptAllPendingRequests } from '@/lib/follow-request-service';
 import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import type { ReviewVisibility } from '@/lib/database.types';
@@ -103,6 +104,62 @@ export default function SettingsScreen() {
       await updatePreference('showContinueWatching', value);
     } catch (error) {
       captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-continue-watching-toggle' });
+    }
+  };
+
+  const handlePrivacyToggle = (value: boolean) => {
+    const currentlyPrivate = preferences?.isPrivate ?? false;
+    if (value === currentlyPrivate) return;
+
+    const doToggle = async () => {
+      try {
+        await updatePreference('isPrivate', value);
+        // When switching to public, auto-accept all pending follow requests
+        if (!value && user) {
+          try {
+            await acceptAllPendingRequests(user.id);
+          } catch (error) {
+            // Non-critical — profile update already succeeded
+            captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-auto-accept-requests' });
+          }
+        }
+      } catch (error) {
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-privacy-toggle' });
+      }
+    };
+
+    if (value) {
+      // Switching to private
+      if (Platform.OS === 'web') {
+        if (window.confirm('Existing followers will keep access. New followers will need your approval.')) {
+          doToggle();
+        }
+      } else {
+        Alert.alert(
+          'Switch to Private?',
+          'Existing followers will keep access. New followers will need your approval.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Switch to Private', onPress: doToggle },
+          ]
+        );
+      }
+    } else {
+      // Switching to public
+      if (Platform.OS === 'web') {
+        if (window.confirm('Your profile will be visible to everyone. All pending follow requests will be automatically accepted.')) {
+          doToggle();
+        }
+      } else {
+        Alert.alert(
+          'Switch to Public?',
+          'Your profile will be visible to everyone. All pending follow requests will be automatically accepted.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Switch to Public', onPress: doToggle },
+          ]
+        );
+      }
     }
   };
 
@@ -221,16 +278,18 @@ export default function SettingsScreen() {
           <View
             style={[
               styles.settingsItem,
-              { backgroundColor: colors.card, borderBottomColor: colors.border, opacity: 0.5 }
+              { backgroundColor: colors.card, borderBottomColor: colors.border }
             ]}
           >
-            <View>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy</Text>
-              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Friends only</Text>
+            <View style={styles.settingsItemContent}>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Private Account</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Only approved followers can see your posts and collection</Text>
             </View>
-            <View style={styles.comingSoonBadge}>
-              <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
-            </View>
+            <ToggleSwitch
+              value={preferences?.isPrivate ?? false}
+              onValueChange={handlePrivacyToggle}
+              disabled={isLoadingPreferences || isUpdating}
+            />
           </View>
 
           <Pressable

@@ -6,6 +6,13 @@ import {
   followUser,
   unfollowUser,
 } from '@/lib/follow-service';
+import {
+  getRequestStatus,
+  cancelFollowRequest,
+  type FollowRequestStatus,
+} from '@/lib/follow-request-service';
+
+export type { FollowRequestStatus };
 
 interface UseFollowOptions {
   /** Username to display in toast notifications (e.g., "johndoe" becomes "@johndoe") */
@@ -14,9 +21,12 @@ interface UseFollowOptions {
 
 interface UseFollowResult {
   isFollowing: boolean;
+  requestStatus: FollowRequestStatus;
   isLoadingStatus: boolean;
   isTogglingFollow: boolean;
+  isCancellingRequest: boolean;
   toggleFollow: () => Promise<void>;
+  cancelRequest: () => Promise<void>;
   error: Error | null;
 }
 
@@ -28,26 +38,56 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
   // Query to check if current user is following the target user
   const {
     data: followingStatus,
-    isLoading: isLoadingStatus,
-    error: queryError,
+    isLoading: isLoadingFollowStatus,
+    error: followQueryError,
   } = useQuery({
     queryKey: ['followStatus', user?.id, targetUserId],
     queryFn: () => isFollowing(user!.id, targetUserId),
     enabled: !!user && !!targetUserId && user.id !== targetUserId,
   });
 
-  // Mutation to toggle follow/unfollow
+  // Query to check if there's a pending follow request for the target user
+  const {
+    data: requestStatusData,
+    isLoading: isLoadingRequestStatus,
+    error: requestQueryError,
+  } = useQuery({
+    queryKey: ['followRequestStatus', user?.id, targetUserId],
+    queryFn: () => getRequestStatus(user!.id, targetUserId),
+    enabled: !!user && !!targetUserId && user.id !== targetUserId && !followingStatus,
+  });
+
+  // Derive the composite request status:
+  // If we already know from followStatus query that we're following, use that.
+  // Otherwise, use the request status query result.
+  const hasPendingRequest = requestStatusData === 'pending';
+  const requestStatus: FollowRequestStatus = followingStatus
+    ? 'following'
+    : requestStatusData ?? 'none';
+
+  // Mutation to toggle follow/unfollow/request
   const toggleMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
       if (user.id === targetUserId) throw new Error('Cannot follow yourself');
 
       if (followingStatus) {
+        // Currently following -> unfollow
         await unfollowUser(user.id, targetUserId);
-        return false; // Now unfollowing
+        return { type: 'unfollowed' as const };
+      } else if (hasPendingRequest) {
+        // Has pending request -> cancel it
+        await cancelFollowRequest(user.id, targetUserId);
+        return { type: 'cancelled' as const };
       } else {
-        await followUser(user.id, targetUserId);
-        return true; // Now following
+        // Not following and no pending request -> follow or send request
+        const result = await followUser(user.id, targetUserId);
+        // followUser now returns { type: 'followed' | 'requested' }
+        // If the service hasn't been updated yet, it returns void (treated as 'followed')
+        if (result && typeof result === 'object' && 'type' in result) {
+          return result as { type: 'followed' | 'requested' };
+        }
+        return { type: 'followed' as const };
       }
     },
     onMutate: async () => {
@@ -55,45 +95,100 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
       await queryClient.cancelQueries({
         queryKey: ['followStatus', user?.id, targetUserId],
       });
+      await queryClient.cancelQueries({
+        queryKey: ['followRequestStatus', user?.id, targetUserId],
+      });
 
-      // Snapshot the previous value
-      const previousStatus = queryClient.getQueryData<boolean>([
+      // Snapshot the previous values
+      const previousFollowStatus = queryClient.getQueryData<boolean>([
         'followStatus',
         user?.id,
         targetUserId,
       ]);
+      const previousRequestStatus = queryClient.getQueryData<FollowRequestStatus>([
+        'followRequestStatus',
+        user?.id,
+        targetUserId,
+      ]);
 
-      // Optimistically update to the new value
-      queryClient.setQueryData(
-        ['followStatus', user?.id, targetUserId],
-        !previousStatus
-      );
+      // Optimistic update based on current state
+      if (followingStatus) {
+        // Unfollowing
+        queryClient.setQueryData(
+          ['followStatus', user?.id, targetUserId],
+          false
+        );
+      } else if (hasPendingRequest) {
+        // Cancelling request
+        queryClient.setQueryData<FollowRequestStatus>(
+          ['followRequestStatus', user?.id, targetUserId],
+          'none'
+        );
+      } else {
+        // Following or requesting — we don't know yet which it will be,
+        // so we optimistically set follow to true (will be corrected on success)
+        queryClient.setQueryData(
+          ['followStatus', user?.id, targetUserId],
+          true
+        );
+      }
 
-      // Return context with the snapshotted value
-      return { previousStatus };
+      return { previousFollowStatus, previousRequestStatus };
     },
     onError: (_error, _variables, context) => {
       // Rollback on error
-      if (context?.previousStatus !== undefined) {
+      if (context?.previousFollowStatus !== undefined) {
         queryClient.setQueryData(
           ['followStatus', user?.id, targetUserId],
-          context.previousStatus
+          context.previousFollowStatus
+        );
+      }
+      if (context?.previousRequestStatus !== undefined) {
+        queryClient.setQueryData(
+          ['followRequestStatus', user?.id, targetUserId],
+          context.previousRequestStatus
         );
       }
     },
-    onSuccess: (isNowFollowing) => {
-      // Show toast notification
+    onSuccess: (result) => {
       const displayName = username ? `@${username}` : 'user';
-      if (isNowFollowing) {
+
+      if (result.type === 'followed') {
+        // Correct optimistic update — it was a direct follow
+        queryClient.setQueryData(
+          ['followStatus', user?.id, targetUserId],
+          true
+        );
         Toast.show({
           type: 'success',
           text1: `Following ${displayName}`,
           visibilityTime: 2000,
         });
-      } else {
+      } else if (result.type === 'requested') {
+        // Correct optimistic update — it was a follow request, not a direct follow
+        queryClient.setQueryData(
+          ['followStatus', user?.id, targetUserId],
+          false
+        );
+        queryClient.setQueryData<FollowRequestStatus>(
+          ['followRequestStatus', user?.id, targetUserId],
+          'pending'
+        );
+        Toast.show({
+          type: 'success',
+          text1: `Follow request sent to ${displayName}`,
+          visibilityTime: 2000,
+        });
+      } else if (result.type === 'unfollowed') {
         Toast.show({
           type: 'info',
           text1: `Unfollowed ${displayName}`,
+          visibilityTime: 2000,
+        });
+      } else if (result.type === 'cancelled') {
+        Toast.show({
+          type: 'info',
+          text1: `Follow request cancelled`,
           visibilityTime: 2000,
         });
       }
@@ -103,17 +198,75 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
         queryKey: ['followStatus', user?.id, targetUserId],
       });
       queryClient.invalidateQueries({
+        queryKey: ['followRequestStatus', user?.id, targetUserId],
+      });
+      queryClient.invalidateQueries({
         queryKey: ['followers', targetUserId],
       });
       queryClient.invalidateQueries({
         queryKey: ['following', user?.id],
       });
-      // Invalidate profile to update follower/following counts
       queryClient.invalidateQueries({
         queryKey: ['profile', targetUserId],
       });
       queryClient.invalidateQueries({
         queryKey: ['suggestedUsers'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['followRequests'],
+      });
+    },
+  });
+
+  // Separate cancel mutation for explicit cancel action
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      await cancelFollowRequest(user.id, targetUserId);
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({
+        queryKey: ['followRequestStatus', user?.id, targetUserId],
+      });
+
+      const previousRequestStatus = queryClient.getQueryData<FollowRequestStatus>([
+        'followRequestStatus',
+        user?.id,
+        targetUserId,
+      ]);
+
+      queryClient.setQueryData<FollowRequestStatus>(
+        ['followRequestStatus', user?.id, targetUserId],
+        'none'
+      );
+
+      return { previousRequestStatus };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousRequestStatus !== undefined) {
+        queryClient.setQueryData(
+          ['followRequestStatus', user?.id, targetUserId],
+          context.previousRequestStatus
+        );
+      }
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to cancel follow request',
+        visibilityTime: 2000,
+      });
+    },
+    onSuccess: () => {
+      Toast.show({
+        type: 'info',
+        text1: 'Follow request cancelled',
+        visibilityTime: 2000,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['followRequestStatus', user?.id, targetUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['followRequests'],
       });
     },
   });
@@ -122,11 +275,21 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
     await toggleMutation.mutateAsync();
   };
 
+  const cancelRequest = async (): Promise<void> => {
+    await cancelMutation.mutateAsync();
+  };
+
   return {
     isFollowing: followingStatus ?? false,
-    isLoadingStatus,
+    requestStatus,
+    isLoadingStatus: isLoadingFollowStatus || isLoadingRequestStatus,
     isTogglingFollow: toggleMutation.isPending,
+    isCancellingRequest: cancelMutation.isPending,
     toggleFollow,
-    error: (queryError as Error | null) ?? (toggleMutation.error as Error | null),
+    cancelRequest,
+    error: (followQueryError as Error | null)
+      ?? (requestQueryError as Error | null)
+      ?? (toggleMutation.error as Error | null)
+      ?? (cancelMutation.error as Error | null),
   };
 }

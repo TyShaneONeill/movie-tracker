@@ -7,10 +7,17 @@
  * - Message based on notification type
  * - Relative timestamp
  * - Tappable to navigate to actor's profile
+ * - For follow_request type: inline Accept/Decline buttons
  */
 
 import React from 'react';
-import { StyleSheet, View, Pressable, Image } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Pressable,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +36,14 @@ interface NotificationItemProps {
     avatar_url: string | null;
   };
   onPress?: () => void;
+  /** Callback when a follow request is accepted (follow_request notifications only) */
+  onAcceptFollowRequest?: (notification: Notification) => void;
+  /** Callback when a follow request is declined (follow_request notifications only) */
+  onDeclineFollowRequest?: (notification: Notification) => void;
+  /** Whether an accept action is currently in progress */
+  isAccepting?: boolean;
+  /** Whether a decline action is currently in progress */
+  isDeclining?: boolean;
 }
 
 /**
@@ -69,6 +84,8 @@ function getNotificationMessage(
   switch (type) {
     case 'follow':
       return `${actorName} followed you`;
+    case 'follow_request':
+      return `${actorName} wants to follow you`;
     case 'like_first_take': {
       const movieTitle = data.movie_title as string | undefined;
       return movieTitle
@@ -110,6 +127,10 @@ export function NotificationItem({
   notification,
   actorProfile,
   onPress,
+  onAcceptFollowRequest,
+  onDeclineFollowRequest,
+  isAccepting,
+  isDeclining,
 }: NotificationItemProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -126,6 +147,12 @@ export function NotificationItem({
   );
 
   const relativeTime = formatRelativeTime(notification.created_at);
+
+  const isFollowRequest = notification.type === 'follow_request';
+  const notificationData = (notification.data ?? {}) as Record<string, unknown>;
+  const isHandled = notificationData.handled === true;
+  const handledAction = notificationData.handled_action as string | undefined;
+  const isActionInProgress = isAccepting || isDeclining;
 
   return (
     <Pressable
@@ -187,15 +214,74 @@ export function NotificationItem({
           >
             {relativeTime}
           </ThemedText>
+
+          {/* Follow Request Action Buttons */}
+          {isFollowRequest && !isHandled && (
+            <View style={styles.actionButtons}>
+              <Pressable
+                style={[
+                  styles.acceptButton,
+                  { backgroundColor: colors.tint },
+                  isActionInProgress && styles.disabledButton,
+                ]}
+                onPress={() => onAcceptFollowRequest?.(notification)}
+                disabled={isActionInProgress}
+              >
+                {isAccepting ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <ThemedText style={styles.acceptButtonText}>
+                    Accept
+                  </ThemedText>
+                )}
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.declineButton,
+                  {
+                    borderColor: effectiveTheme === 'dark' ? '#52525b' : colors.border,
+                  },
+                  isActionInProgress && styles.disabledButton,
+                ]}
+                onPress={() => onDeclineFollowRequest?.(notification)}
+                disabled={isActionInProgress}
+              >
+                {isDeclining ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <ThemedText
+                    style={[styles.declineButtonText, { color: colors.text }]}
+                  >
+                    Decline
+                  </ThemedText>
+                )}
+              </Pressable>
+            </View>
+          )}
+
+          {/* Show handled state for already-processed follow requests */}
+          {isFollowRequest && isHandled && (
+            <ThemedText
+              style={[
+                Typography.body.xs,
+                styles.handledText,
+                { color: colors.textTertiary },
+              ]}
+            >
+              {handledAction === 'accepted' ? 'Accepted' : 'Declined'}
+            </ThemedText>
+          )}
         </View>
 
-        {/* Chevron */}
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={colors.textTertiary}
-          style={styles.chevron}
-        />
+        {/* Chevron (not shown for unhandled follow requests — actions take priority) */}
+        {!(isFollowRequest && !isHandled) && (
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={colors.textTertiary}
+            style={styles.chevron}
+          />
+        )}
       </View>
     </Pressable>
   );
@@ -249,6 +335,44 @@ const styles = StyleSheet.create({
   },
   chevron: {
     marginLeft: Spacing.xs,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  acceptButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 1,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 72,
+  },
+  acceptButtonText: {
+    ...Typography.button.secondary,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  declineButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 1,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 72,
+  },
+  declineButtonText: {
+    ...Typography.button.secondary,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  handledText: {
+    marginTop: Spacing.xs,
+    fontStyle: 'italic',
   },
 });
 
