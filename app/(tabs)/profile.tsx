@@ -753,37 +753,43 @@ export default function ProfileScreen() {
 
             return (
                 <View style={styles.firstTakesContent}>
-                    {/* Sort & Filter Controls — single row */}
+                    {/* Sort & Filter Controls — two clean rows */}
                     <View style={styles.reviewControls}>
-                        {(['recent', 'popular', 'highest', 'lowest'] as ReviewSortOption[]).map((option) => (
-                            <Pressable
-                                key={option}
-                                style={[
-                                    styles.reviewPill,
-                                    { backgroundColor: reviewSort === option ? colors.tint : colors.backgroundSecondary, borderColor: reviewSort === option ? colors.tint : colors.border },
-                                ]}
-                                onPress={() => setReviewSort(option)}
-                            >
-                                <ThemedText style={[styles.reviewPillText, { color: reviewSort === option ? '#ffffff' : colors.textSecondary }]}>
-                                    {option === 'recent' ? 'Recent' : option === 'popular' ? 'Popular' : option === 'highest' ? 'Highest' : 'Lowest'}
-                                </ThemedText>
-                            </Pressable>
-                        ))}
-                        <View style={[styles.reviewDivider, { backgroundColor: colors.border }]} />
-                        {(['all', 'movie', 'tv_show'] as ReviewMediaFilter[]).map((option) => (
-                            <Pressable
-                                key={option}
-                                style={[
-                                    styles.reviewPill,
-                                    { backgroundColor: reviewFilter === option ? colors.tint : colors.backgroundSecondary, borderColor: reviewFilter === option ? colors.tint : colors.border },
-                                ]}
-                                onPress={() => setReviewFilter(option)}
-                            >
-                                <ThemedText style={[styles.reviewPillText, { color: reviewFilter === option ? '#ffffff' : colors.textSecondary }]}>
-                                    {option === 'all' ? 'All' : option === 'movie' ? 'Movies' : 'TV Shows'}
-                                </ThemedText>
-                            </Pressable>
-                        ))}
+                        {/* Sort row — segmented control style */}
+                        <View style={[styles.reviewSegment, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                            {(['recent', 'popular', 'highest', 'lowest'] as ReviewSortOption[]).map((option) => (
+                                <Pressable
+                                    key={option}
+                                    style={[
+                                        styles.reviewSegmentItem,
+                                        reviewSort === option && { backgroundColor: colors.tint },
+                                    ]}
+                                    onPress={() => setReviewSort(option)}
+                                >
+                                    <ThemedText style={[styles.reviewSegmentText, { color: reviewSort === option ? '#ffffff' : colors.textSecondary }]}>
+                                        {option === 'recent' ? 'Recent' : option === 'popular' ? 'Popular' : option === 'highest' ? 'Highest' : 'Lowest'}
+                                    </ThemedText>
+                                </Pressable>
+                            ))}
+                        </View>
+                        {/* Media filter row — inline text toggles */}
+                        <View style={styles.reviewMediaRow}>
+                            {(['all', 'movie', 'tv_show'] as ReviewMediaFilter[]).map((option) => (
+                                <Pressable
+                                    key={option}
+                                    style={styles.reviewMediaItem}
+                                    onPress={() => setReviewFilter(option)}
+                                >
+                                    <ThemedText style={[
+                                        styles.reviewMediaText,
+                                        { color: reviewFilter === option ? colors.text : colors.textTertiary },
+                                        reviewFilter === option && styles.reviewMediaTextActive,
+                                    ]}>
+                                        {option === 'all' ? 'All' : option === 'movie' ? 'Movies' : 'TV Shows'}
+                                    </ThemedText>
+                                </Pressable>
+                            ))}
+                        </View>
                     </View>
 
                     {filteredReviews.length === 0 ? (
@@ -1384,27 +1390,39 @@ const styles = StyleSheet.create({
     firstTakesContent: {
     },
     reviewControls: {
-        flexDirection: 'row' as const,
-        alignItems: 'center' as const,
-        flexWrap: 'wrap' as const,
-        gap: Spacing.xs,
+        gap: Spacing.sm,
         paddingTop: Spacing.md,
         marginBottom: Spacing.md,
     },
-    reviewPill: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 999,
+    reviewSegment: {
+        flexDirection: 'row' as const,
+        borderRadius: BorderRadius.sm,
         borderWidth: 1,
+        overflow: 'hidden' as const,
     },
-    reviewPillText: {
+    reviewSegmentItem: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+    },
+    reviewSegmentText: {
+        fontSize: 12,
+        fontWeight: '600' as const,
+    },
+    reviewMediaRow: {
+        flexDirection: 'row' as const,
+        gap: Spacing.md,
+    },
+    reviewMediaItem: {
+        paddingVertical: 2,
+    },
+    reviewMediaText: {
         fontSize: 12,
         fontWeight: '500' as const,
     },
-    reviewDivider: {
-        width: 1,
-        height: 20,
-        marginHorizontal: 2,
+    reviewMediaTextActive: {
+        fontWeight: '700' as const,
     },
     firstTakesSkeleton: {
         gap: Spacing.md,
