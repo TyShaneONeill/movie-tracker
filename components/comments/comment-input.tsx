@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { View, TextInput, Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TextInput, Pressable, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -55,12 +55,11 @@ export function CommentInput({
         </View>
       )}
 
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { borderColor: colors.border }]}>
         {/* Spoiler toggle */}
         <Pressable
           onPress={() => setIsSpoiler(!isSpoiler)}
           hitSlop={8}
-          style={styles.spoilerToggle}
           accessibilityLabel={isSpoiler ? 'Remove spoiler flag' : 'Mark as spoiler'}
         >
           <Ionicons
@@ -86,7 +85,7 @@ export function CommentInput({
           onPress={handleSubmit}
           disabled={!canSubmit}
           hitSlop={8}
-          style={[styles.sendButton, !canSubmit && styles.sendButtonDisabled]}
+          style={!canSubmit ? styles.sendButtonDisabled : undefined}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color={colors.tint} />
@@ -144,8 +143,11 @@ function createStyles(colors: typeof Colors.dark) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.sm,
-    },
-    spoilerToggle: {
+      borderWidth: 1,
+      borderRadius: BorderRadius.md,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      minHeight: 40,
     },
     input: {
       ...Typography.body.sm,
@@ -153,8 +155,8 @@ function createStyles(colors: typeof Colors.dark) {
       flex: 1,
       maxHeight: 100,
       paddingVertical: 0,
-    },
-    sendButton: {
+      paddingHorizontal: 0,
+      ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),
     },
     sendButtonDisabled: {
       opacity: 0.5,
