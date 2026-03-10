@@ -114,6 +114,7 @@ export type Database = {
       }
       first_takes: {
         Row: {
+          comment_count: number
           created_at: string | null
           episode_number: number | null
           id: string
@@ -135,6 +136,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          comment_count?: number
           created_at?: string | null
           episode_number?: number | null
           id?: string
@@ -156,6 +158,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          comment_count?: number
           created_at?: string | null
           episode_number?: number | null
           id?: string
@@ -623,6 +626,99 @@ export type Database = {
         }
         Relationships: []
       }
+      review_comments: {
+        Row: {
+          id: string
+          review_id: string | null
+          first_take_id: string | null
+          user_id: string
+          parent_comment_id: string | null
+          body: string
+          is_spoiler: boolean
+          report_count: number
+          is_hidden: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          review_id?: string | null
+          first_take_id?: string | null
+          user_id: string
+          parent_comment_id?: string | null
+          body: string
+          is_spoiler?: boolean
+          report_count?: number
+          is_hidden?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          review_id?: string | null
+          first_take_id?: string | null
+          user_id?: string
+          parent_comment_id?: string | null
+          body?: string
+          is_spoiler?: boolean
+          report_count?: number
+          is_hidden?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_comments_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_comments_first_take_id_fkey"
+            columns: ["first_take_id"]
+            isOneToOne: false
+            referencedRelation: "first_takes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "review_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_reports: {
+        Row: {
+          id: string
+          comment_id: string
+          reporter_id: string
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          comment_id: string
+          reporter_id: string
+          reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          comment_id?: string
+          reporter_id?: string
+          reason?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_reports_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "review_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       review_likes: {
         Row: {
           id: string
@@ -664,6 +760,7 @@ export type Database = {
       }
       reviews: {
         Row: {
+          comment_count: number
           created_at: string
           id: string
           is_rewatch: boolean
@@ -681,6 +778,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          comment_count?: number
           created_at?: string
           id?: string
           is_rewatch?: boolean
@@ -698,6 +796,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          comment_count?: number
           created_at?: string
           id?: string
           is_rewatch?: boolean
@@ -1988,3 +2087,10 @@ export type ReviewUpdate = Database['public']['Tables']['reviews']['Update'];
 // Helper types for review likes
 export type ReviewLike = Database['public']['Tables']['review_likes']['Row'];
 export type ReviewLikeInsert = Database['public']['Tables']['review_likes']['Insert'];
+
+// Helper types for review comments
+export type ReviewComment = Database['public']['Tables']['review_comments']['Row'];
+export type ReviewCommentInsert = Database['public']['Tables']['review_comments']['Insert'];
+
+// Helper types for comment reports
+export type CommentReport = Database['public']['Tables']['comment_reports']['Row'];

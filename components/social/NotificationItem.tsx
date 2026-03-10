@@ -110,6 +110,18 @@ function getNotificationMessage(
         ? `${actorName} commented on your review of ${commentMovieTitle}`
         : `${actorName} commented on your review`;
     }
+    case 'comment_first_take': {
+      const ftMovieTitle = data.movie_title as string | undefined;
+      return ftMovieTitle
+        ? `${actorName} commented on your First Take on ${ftMovieTitle}`
+        : `${actorName} commented on your First Take`;
+    }
+    case 'comment_reply': {
+      const replyMovieTitle = data.movie_title as string | undefined;
+      return replyMovieTitle
+        ? `${actorName} replied to your comment on ${replyMovieTitle}`
+        : `${actorName} replied to your comment`;
+    }
     case 'list_follow': {
       const listTitle = data.list_title as string | undefined;
       return listTitle
