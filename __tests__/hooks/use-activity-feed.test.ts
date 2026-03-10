@@ -64,6 +64,7 @@ describe('mapToFeedItem', () => {
       mediaType: 'movie',
       userDisplayName: 'John Doe',
       userAvatarUrl: 'https://example.com/avatar.jpg',
+      activityType: 'first_take',
     });
   });
 
