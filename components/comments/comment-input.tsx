@@ -142,11 +142,10 @@ function createStyles(colors: typeof Colors.dark) {
     },
     inputRow: {
       flexDirection: 'row',
-      alignItems: 'flex-end',
+      alignItems: 'center',
       gap: Spacing.sm,
     },
     spoilerToggle: {
-      paddingBottom: 4,
     },
     input: {
       ...Typography.body.sm,
@@ -156,7 +155,6 @@ function createStyles(colors: typeof Colors.dark) {
       paddingVertical: 4,
     },
     sendButton: {
-      paddingBottom: 4,
     },
     sendButtonDisabled: {
       opacity: 0.5,
