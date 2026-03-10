@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { useMemo, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import ViewShot from 'react-native-view-shot';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
@@ -15,6 +16,8 @@ import { formatRelativeTime } from '@/lib/utils';
 import type { Review } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
+import { ShareableReviewCard } from '@/components/share/shareable-review-card';
+import { captureReviewCard, shareReview, shareReviewUrl } from '@/lib/share-service';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -44,6 +47,43 @@ export default function ReviewDetailScreen() {
   });
 
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const viewShotRef = useRef<ViewShot>(null);
+
+  // Fetch reviewer profile for the share card
+  const { data: reviewerProfile } = useQuery({
+    queryKey: ['profile', review?.user_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, username, avatar_url')
+        .eq('id', review!.user_id)
+        .single();
+      return data;
+    },
+    enabled: !!review,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleShare = useCallback(async () => {
+    if (!review || isSharing) return;
+    setIsSharing(true);
+    try {
+      if (Platform.OS === 'web') {
+        await shareReviewUrl(review.id, review.movie_title);
+      } else {
+        const imageUri = await captureReviewCard(viewShotRef);
+        await shareReview(review.id, imageUri, review.movie_title);
+      }
+    } catch (err: any) {
+      if (err.message !== 'User cancelled') {
+        Alert.alert('Share failed', err.message || 'Could not share review');
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  }, [review, isSharing]);
+
   const isOwnReview = !!user && !!review && review.user_id === user.id;
   const needsFollowCheck =
     !!review && review.visibility === 'followers_only' && !isOwnReview;
@@ -163,7 +203,17 @@ export default function ReviewDetailScreen() {
               <Ionicons name="chevron-back" size={28} color={colors.text} />
             </Pressable>
             <Text style={styles.topBarTitle}>Review</Text>
-            <View style={{ width: 28 }} />
+            {review.visibility === 'public' ? (
+              <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
+                {isSharing ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Ionicons name="share-outline" size={24} color={colors.text} />
+                )}
+              </Pressable>
+            ) : (
+              <View style={{ width: 28 }} />
+            )}
           </View>
 
           <ScrollView
@@ -265,6 +315,26 @@ export default function ReviewDetailScreen() {
             <CommentThread targetType="review" targetId={review.id} />
           </ScrollView>
         </View>
+
+        {/* Off-screen share card for capture (native only) */}
+        {Platform.OS !== 'web' && review.visibility === 'public' && (
+          <ViewShot
+            ref={viewShotRef}
+            options={{ format: 'png', quality: 1 }}
+            style={styles.offScreen}
+          >
+            <ShareableReviewCard
+              movieTitle={review.movie_title}
+              posterPath={review.poster_path}
+              rating={review.rating}
+              reviewTitle={review.title}
+              reviewText={review.review_text}
+              reviewerName={reviewerProfile?.full_name || reviewerProfile?.username || 'CineTrak User'}
+              reviewerAvatar={reviewerProfile?.avatar_url ?? null}
+              isRewatch={review.is_rewatch}
+            />
+          </ViewShot>
+        )}
       </SafeAreaView>
     </>
   );
@@ -428,6 +498,11 @@ function createStyles(colors: typeof Colors.dark) {
       flexDirection: 'row',
       alignItems: 'center',
       marginTop: Spacing.lg,
+    },
+    offScreen: {
+      position: 'absolute',
+      left: -9999,
+      top: -9999,
     },
   });
 }
