@@ -33,10 +33,12 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useWatchlistSocial } from '@/hooks/use-watchlist-social';
 import { useFollow } from '@/hooks/use-follow';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserReviews } from '@/hooks/use-user-reviews';
+import { ReviewCard } from '@/components/cards/review-card';
 import { formatRelativeTime } from '@/hooks/use-activity-feed';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
-type TabType = 'collection' | 'first-takes' | 'watchlist';
+type TabType = 'collection' | 'first-takes' | 'reviews' | 'watchlist';
 
 // Grid layout constants
 const COLUMN_COUNT = 3;
@@ -115,6 +117,13 @@ export default function UserProfileScreen() {
   // Private account gate: hide tab content for non-followers
   const isPrivateAndNotFollowing = profile?.is_private && !isFollowing;
 
+  // Fetch reviews for this user (lazy-loaded when reviews tab is active)
+  const { reviews, isLoading: reviewsLoading } = useUserReviews({
+    userId: id!,
+    viewerId: user?.id,
+    enabled: activeTab === 'reviews',
+  });
+
   const {
     isLiked,
     likeCount,
@@ -156,6 +165,7 @@ export default function UserProfileScreen() {
   const TAB_CONFIG: { key: TabType; label: string; count: number }[] = [
     { key: 'collection', label: 'Collection', count: stats.watched },
     { key: 'first-takes', label: 'First Takes', count: stats.firstTakes },
+    { key: 'reviews', label: 'Reviews', count: stats.reviews },
     { key: 'watchlist', label: 'Watchlist', count: stats.watchlist },
   ];
 
@@ -268,6 +278,50 @@ export default function UserProfileScreen() {
             createdAt={take.created_at ?? ''}
             isLatest={index === 0}
             onPress={() => router.push(`/movie/${take.tmdb_id}`)}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  // Render reviews list
+  const renderReviews = () => {
+    if (reviewsLoading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+        </View>
+      );
+    }
+
+    if (reviews.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No reviews yet</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            This user has not written any reviews
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.reviewsContainer}>
+        {reviews.map((review) => (
+          <ReviewCard
+            key={review.id}
+            id={review.id}
+            movieTitle={review.movie_title}
+            posterPath={review.poster_path}
+            title={review.title}
+            reviewText={review.review_text}
+            rating={review.rating}
+            isSpoiler={review.is_spoiler}
+            isRewatch={review.is_rewatch}
+            visibility={review.visibility}
+            createdAt={review.created_at}
+            onPress={() => router.push(`/review/${review.id}`)}
           />
         ))}
       </View>
@@ -452,6 +506,8 @@ export default function UserProfileScreen() {
     switch (activeTab) {
       case 'first-takes':
         return renderFirstTakes();
+      case 'reviews':
+        return renderReviews();
       case 'watchlist':
         return renderWatchlistGrid();
       default:
@@ -810,6 +866,10 @@ const styles = StyleSheet.create({
   },
   // First Takes Styles
   firstTakesContainer: {
+    gap: 0,
+  },
+  // Reviews Styles
+  reviewsContainer: {
     gap: 0,
   },
   // Locked Profile State
