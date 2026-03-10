@@ -1,9 +1,12 @@
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useEffect, useRef } from 'react';
 
+import type { FeedFilter } from '@/hooks/use-activity-feed';
 import {
   getFollowingIds,
   fetchFollowingFeed,
+  fetchFollowingReviews,
+  fetchFollowingComments,
   fetchCommunityFeedPage,
   getFeedLastSeen,
   updateFeedLastSeen,
@@ -11,7 +14,7 @@ import {
 } from '@/lib/feed-service';
 import { useAds } from '@/lib/ads-context';
 
-export function usePrioritizedFeed(userId: string | undefined) {
+export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilter = 'all') {
   const { adsEnabled } = useAds();
   const queryClient = useQueryClient();
 
@@ -29,6 +32,22 @@ export function usePrioritizedFeed(userId: string | undefined) {
   const followingFeedQuery = useQuery({
     queryKey: ['activity-feed', 'following', followingIds],
     queryFn: () => fetchFollowingFeed(followingIds),
+    enabled: followingIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Query 2b: Following reviews (depends on followingIds)
+  const followingReviewsQuery = useQuery({
+    queryKey: ['activity-feed', 'following-reviews', followingIds],
+    queryFn: () => fetchFollowingReviews(followingIds),
+    enabled: followingIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Query 2c: Following comments (depends on followingIds)
+  const followingCommentsQuery = useQuery({
+    queryKey: ['activity-feed', 'following-comments', followingIds],
+    queryFn: () => fetchFollowingComments(followingIds),
     enabled: followingIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
@@ -88,7 +107,17 @@ export function usePrioritizedFeed(userId: string | undefined) {
     [communityQuery.data]
   );
 
-  const followingItems = followingFeedQuery.data ?? [];
+  // Merge following items (first_takes + reviews + comments), sorted by createdAt desc
+  const followingItems = useMemo(() => {
+    const firstTakes = followingFeedQuery.data ?? [];
+    const reviews = followingReviewsQuery.data ?? [];
+    const comments = followingCommentsQuery.data ?? [];
+    return [...firstTakes, ...reviews, ...comments].sort(
+      (a, b) =>
+        new Date(b.createdAt ?? 0).getTime() -
+        new Date(a.createdAt ?? 0).getTime()
+    );
+  }, [followingFeedQuery.data, followingReviewsQuery.data, followingCommentsQuery.data]);
 
   // Build merged feed list
   const feedItems = useMemo(
@@ -98,8 +127,9 @@ export function usePrioritizedFeed(userId: string | undefined) {
         communityItems,
         isAllCaughtUp,
         adsEnabled,
+        filter,
       }),
-    [followingItems, communityItems, isAllCaughtUp, adsEnabled]
+    [followingItems, communityItems, isAllCaughtUp, adsEnabled, filter]
   );
 
   // Loading state: show loading if either the following IDs query or community query is loading
@@ -114,6 +144,12 @@ export function usePrioritizedFeed(userId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ['following-ids', userId] }),
       queryClient.invalidateQueries({
         queryKey: ['activity-feed', 'following'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['activity-feed', 'following-reviews'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['activity-feed', 'following-comments'],
       }),
       queryClient.invalidateQueries({
         queryKey: ['activity-feed', 'community'],

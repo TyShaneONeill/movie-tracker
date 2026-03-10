@@ -6,11 +6,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Pressable,
 } from 'react-native';
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 
 import { SectionHeader } from '@/components/ui/section-header';
@@ -26,7 +28,7 @@ import { useContinueWatching } from '@/hooks/use-continue-watching';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
-import { formatRelativeTime, type FeedListItem } from '@/hooks/use-activity-feed';
+import { formatRelativeTime, type FeedListItem, type FeedFilter } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { ContinueWatchingCard } from '@/components/cards/continue-watching-card';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
@@ -84,6 +86,64 @@ function VerticalSeparator() {
   return <View style={{ height: Spacing.md }} />;
 }
 
+const FEED_FILTERS: { value: FeedFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'reviews', label: 'Reviews' },
+  { value: 'friends', label: 'Friends' },
+];
+
+function FeedFilterPills({
+  activeFilter,
+  onFilterChange,
+  colors,
+}: {
+  activeFilter: FeedFilter;
+  onFilterChange: (filter: FeedFilter) => void;
+  colors: typeof Colors.dark;
+}) {
+  return (
+    <View style={filterStyles.container}>
+      {FEED_FILTERS.map((f) => (
+        <Pressable
+          key={f.value}
+          style={[
+            filterStyles.pill,
+            { backgroundColor: activeFilter === f.value ? colors.tint : colors.backgroundSecondary },
+          ]}
+          onPress={() => onFilterChange(f.value)}
+        >
+          <Text
+            style={[
+              filterStyles.pillText,
+              { color: activeFilter === f.value ? '#FFFFFF' : colors.textSecondary },
+            ]}
+          >
+            {f.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const filterStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+});
+
 export default function HomeScreen() {
   const { effectiveTheme, setThemePreference } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -112,6 +172,9 @@ export default function HomeScreen() {
   const { preferences } = useUserPreferences();
   const showContinueWatching = preferences?.showContinueWatching ?? true;
 
+  // Feed filter state
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+
   // Fetch prioritized activity feed (following first, then community)
   const {
     feedItems,
@@ -120,7 +183,7 @@ export default function HomeScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = usePrioritizedFeed(user?.id);
+  } = usePrioritizedFeed(user?.id, feedFilter);
 
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -180,6 +243,48 @@ export default function HomeScreen() {
       }
 
       const feed = item.data;
+
+      // Comment activity item
+      if (feed.activityType === 'comment') {
+        return (
+          <View style={[styles.commentActivityCard, { borderColor: colors.border }]}>
+            <View style={styles.commentHeaderRow}>
+              <Image
+                source={{ uri: feed.userAvatarUrl ?? DEFAULT_AVATAR }}
+                style={styles.commentAvatar}
+                contentFit="cover"
+                transition={200}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.commentActivityText, { color: colors.text }]}>
+                  <Text style={{ fontWeight: '700' }}>{feed.userDisplayName}</Text>
+                  {' commented on '}
+                  {feed.targetReviewAuthorName && (
+                    <Text style={{ fontWeight: '600' }}>{feed.targetReviewAuthorName}&apos;s</Text>
+                  )}
+                  {' review'}
+                  {feed.movieTitle ? ` of ${feed.movieTitle}` : ''}
+                </Text>
+                <Text style={[styles.commentTimestamp, { color: colors.textTertiary }]}>
+                  {formatRelativeTime(feed.createdAt ?? '')}
+                </Text>
+              </View>
+            </View>
+            {feed.commentText && !feed.isSpoiler && (
+              <Text style={[styles.commentBody, { color: colors.textSecondary }]} numberOfLines={2}>
+                &ldquo;{feed.commentText}&rdquo;
+              </Text>
+            )}
+            {feed.commentText && feed.isSpoiler && (
+              <Text style={[styles.commentBody, { color: colors.textTertiary, fontStyle: 'italic' }]}>
+                Contains spoilers
+              </Text>
+            )}
+          </View>
+        );
+      }
+
+      // Standard feed item card (first_take or review)
       return (
         <FeedItemCard
           userName={feed.userDisplayName ?? 'Anonymous'}
@@ -192,6 +297,8 @@ export default function HomeScreen() {
           isSpoiler={feed.isSpoiler ?? undefined}
           isCurrentUser={user?.id === feed.userId}
           mediaType={feed.mediaType}
+          sourceId={feed.id}
+          sourceType={feed.activityType === 'review' ? 'review' : 'first_take'}
           onMoviePress={() => {
             if (feed.mediaType === 'tv_show') {
               router.push(`/tv/${feed.tmdbId}`);
@@ -202,7 +309,7 @@ export default function HomeScreen() {
         />
       );
     },
-    [user?.id, colors.textSecondary]
+    [user?.id, colors.textSecondary, colors.border, colors.text, colors.textTertiary]
   );
 
   // Header component with all movie sections
@@ -457,11 +564,21 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+
+        {/* Feed Filters */}
+        {user && (
+          <FeedFilterPills
+            activeFilter={feedFilter}
+            onFilterChange={setFeedFilter}
+            colors={colors}
+          />
+        )}
       </>
     ),
     [
       colors.textSecondary,
       colors.tint,
+      colors.backgroundSecondary,
       moviesLoading,
       tvLoading,
       activityLoading,
@@ -472,6 +589,7 @@ export default function HomeScreen() {
       airingTodayShows,
       user,
       continueWatching.shows,
+      feedFilter,
       handleThemeToggle,
       handleCalendarPress,
       handleSearchPress,
@@ -609,5 +727,36 @@ const styles = StyleSheet.create({
   },
   caughtUpText: {
     ...Typography.body.sm,
+  },
+  commentActivityCard: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+    marginBottom: Spacing.xs,
+  },
+  commentHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  commentAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: Spacing.sm,
+  },
+  commentActivityText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  commentTimestamp: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  commentBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: Spacing.xs,
+    marginLeft: 36, // align with text after avatar (28 + 8)
+    fontStyle: 'italic',
   },
 });

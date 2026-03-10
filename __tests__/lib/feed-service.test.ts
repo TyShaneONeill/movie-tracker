@@ -38,6 +38,7 @@ function makeActivityItem(
     mediaType: 'movie',
     userDisplayName: 'John Doe',
     userAvatarUrl: 'https://example.com/avatar.jpg',
+    activityType: 'first_take',
     ...overrides,
   };
 }
@@ -66,6 +67,7 @@ describe('buildFeedList', () => {
       communityItems: community,
       isAllCaughtUp: false,
       adsEnabled: false,
+      filter: 'all',
     });
 
     // Following items first
@@ -91,6 +93,7 @@ describe('buildFeedList', () => {
       communityItems: community,
       isAllCaughtUp: false,
       adsEnabled: false,
+      filter: 'all',
     });
 
     expect(result).toHaveLength(3);
@@ -111,13 +114,13 @@ describe('buildFeedList', () => {
       communityItems: [],
       isAllCaughtUp: true,
       adsEnabled: false,
+      filter: 'all',
     });
 
-    expect(result).toHaveLength(4); // 2 activity + caught-up + community-header
+    expect(result).toHaveLength(3); // 2 activity + caught-up (no community-header when community is empty)
     expect(result[0]).toEqual({ type: 'activity', data: following[0] });
     expect(result[1]).toEqual({ type: 'activity', data: following[1] });
     expect(result[2]).toEqual({ type: 'caught-up' });
-    expect(result[3]).toEqual({ type: 'community-header' });
   });
 
   it('shows caught-up marker when isAllCaughtUp is true', () => {
@@ -135,6 +138,7 @@ describe('buildFeedList', () => {
       communityItems: community,
       isAllCaughtUp: true,
       adsEnabled: false,
+      filter: 'all',
     });
 
     // following → caught-up → community-header → community
@@ -162,6 +166,7 @@ describe('buildFeedList', () => {
       communityItems: community,
       isAllCaughtUp: false,
       adsEnabled: false,
+      filter: 'all',
     });
 
     // following → community-header (no caught-up) → community
@@ -184,6 +189,7 @@ describe('buildFeedList', () => {
       communityItems,
       isAllCaughtUp: false,
       adsEnabled: true,
+      filter: 'all',
     });
 
     const adItems = result.filter((item) => item.type === 'ad');
@@ -207,6 +213,7 @@ describe('buildFeedList', () => {
       communityItems,
       isAllCaughtUp: false,
       adsEnabled: false,
+      filter: 'all',
     });
 
     expect(result.some((item) => item.type === 'ad')).toBe(false);

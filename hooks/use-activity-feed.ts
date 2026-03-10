@@ -13,6 +13,11 @@ export type FeedListItem =
   | { type: 'community-header' };
 
 /**
+ * Filter types for the activity feed.
+ */
+export type FeedFilter = 'all' | 'reviews' | 'friends';
+
+/**
  * Activity feed item with user profile information
  */
 export interface ActivityFeedItem {
@@ -30,6 +35,14 @@ export interface ActivityFeedItem {
   // Profile information
   userDisplayName: string | null;
   userAvatarUrl: string | null;
+  // Activity type discriminator
+  activityType: 'first_take' | 'review' | 'comment';
+  // Review-specific fields
+  reviewTitle?: string;
+  // Comment-specific fields
+  commentText?: string;
+  targetReviewTitle?: string;
+  targetReviewAuthorName?: string;
 }
 
 /** Shape returned by the JOINed Supabase query */
@@ -73,6 +86,102 @@ export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
     userDisplayName:
       row.profiles?.full_name || row.profiles?.username || 'Anonymous',
     userAvatarUrl: row.profiles?.avatar_url ?? null,
+    activityType: 'first_take',
+  };
+}
+
+/** Shape returned by the JOINed Supabase query for reviews */
+export interface ReviewWithProfile {
+  id: string;
+  user_id: string;
+  tmdb_id: number;
+  movie_title: string;
+  poster_path: string | null;
+  rating: number;
+  title: string;
+  review_text: string;
+  is_spoiler: boolean;
+  visibility: ReviewVisibility;
+  created_at: string | null;
+  like_count: number;
+  profiles: {
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
+/** The JOINed select string for review feed queries */
+export const REVIEW_FEED_SELECT =
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, title, review_text, is_spoiler, visibility, created_at, like_count, profiles(full_name, username, avatar_url)';
+
+/** Map a review row to an ActivityFeedItem */
+export function mapReviewToFeedItem(row: ReviewWithProfile): ActivityFeedItem {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    tmdbId: row.tmdb_id,
+    movieTitle: row.movie_title,
+    posterPath: row.poster_path,
+    rating: row.rating,
+    quoteText: row.review_text?.slice(0, 140) || '',
+    isSpoiler: row.is_spoiler,
+    visibility: row.visibility ?? 'public',
+    createdAt: row.created_at,
+    mediaType: 'movie',
+    userDisplayName:
+      row.profiles?.full_name || row.profiles?.username || 'Anonymous',
+    userAvatarUrl: row.profiles?.avatar_url ?? null,
+    activityType: 'review',
+    reviewTitle: row.title,
+  };
+}
+
+/** Shape for comment feed items with joined review context */
+export interface CommentWithContext {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  target_type: string;
+  target_id: string;
+  is_spoiler: boolean;
+  profiles: {
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+  // From batch-fetched review data
+  review_title: string | null;
+  review_movie_title: string | null;
+  review_poster_path: string | null;
+  review_tmdb_id: number | null;
+  review_author_name: string | null;
+}
+
+/** Map a comment row to an ActivityFeedItem */
+export function mapCommentToFeedItem(
+  row: CommentWithContext
+): ActivityFeedItem {
+  return {
+    id: `comment-${row.id}`,
+    userId: row.user_id,
+    tmdbId: row.review_tmdb_id ?? 0,
+    movieTitle: row.review_movie_title ?? '',
+    posterPath: row.review_poster_path ?? null,
+    rating: null,
+    quoteText: '',
+    isSpoiler: row.is_spoiler,
+    visibility: 'public',
+    createdAt: row.created_at,
+    mediaType: 'movie',
+    userDisplayName:
+      row.profiles?.full_name || row.profiles?.username || 'Anonymous',
+    userAvatarUrl: row.profiles?.avatar_url ?? null,
+    activityType: 'comment',
+    commentText: row.body,
+    targetReviewTitle: row.review_title ?? undefined,
+    targetReviewAuthorName: row.review_author_name ?? undefined,
   };
 }
 
