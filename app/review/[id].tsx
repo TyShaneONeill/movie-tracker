@@ -253,62 +253,48 @@ export default function ReviewDetailScreen() {
             {/* Review Title */}
             <Text style={styles.reviewTitle}>{review.title}</Text>
 
-            {/* Spoiler Warning Banner */}
-            {review.is_spoiler && !spoilerRevealed && (
-              <View style={styles.spoilerBanner}>
-                <Ionicons name="warning-outline" size={18} color="#D97706" />
-                <Text style={styles.spoilerBannerText}>
-                  This review contains spoilers
-                </Text>
-              </View>
-            )}
-
-            {/* Review Text */}
+            {/* Review Text — compact spoiler gate or revealed text */}
             {review.is_spoiler && !spoilerRevealed ? (
-              <View style={{ position: 'relative', marginTop: Spacing.md }}>
-                <Text style={[styles.reviewText, { marginTop: 0, opacity: 0.05 }]}>
-                  {review.review_text}
-                </Text>
-                <View style={styles.spoilerOverlay}>
-                  <Ionicons name="eye-off-outline" size={28} color={colors.textSecondary} />
-                  <Text style={styles.spoilerOverlayText}>
-                    Review text hidden
-                  </Text>
-                  <Pressable
-                    style={styles.revealButton}
-                    onPress={() => setSpoilerRevealed(true)}
-                  >
-                    <Text style={styles.revealButtonText}>Reveal Spoilers</Text>
-                  </Pressable>
+              <Pressable
+                style={styles.spoilerCard}
+                onPress={() => setSpoilerRevealed(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Reveal spoiler content"
+              >
+                <View style={styles.spoilerCardInner}>
+                  <Ionicons name="eye-off-outline" size={22} color={colors.textTertiary} />
+                  <Text style={styles.spoilerCardTitle}>Spoiler-protected</Text>
+                  <Text style={styles.spoilerCardHint}>Tap to reveal review</Text>
                 </View>
-              </View>
+              </Pressable>
             ) : (
               <Text style={styles.reviewText}>{review.review_text}</Text>
             )}
 
-            {/* Metadata Pills */}
-            {(review.is_rewatch || review.is_spoiler) && (
+            {/* Metadata Pills — only Rewatch (spoiler is communicated by the gate above) */}
+            {review.is_rewatch && (
               <View style={styles.pillsRow}>
-                {review.is_rewatch && (
-                  <View style={styles.pill}>
-                    <Text style={styles.pillText}>Rewatch</Text>
-                  </View>
-                )}
-                {review.is_spoiler && (
-                  <View style={styles.pill}>
-                    <Text style={styles.pillText}>Spoiler</Text>
-                  </View>
-                )}
+                <View style={styles.pill}>
+                  <Text style={styles.pillText}>Rewatch</Text>
+                </View>
               </View>
             )}
 
-            <View style={styles.likeRow}>
+            {/* Engagement Bar */}
+            <View style={styles.engagementBar}>
               <LikeButton
                 targetType="review"
                 targetId={review.id}
                 initialLikeCount={review.like_count}
                 size="md"
               />
+              <View style={styles.engagementDivider} />
+              <View style={styles.engagementMeta}>
+                <Ionicons name="chatbubble-outline" size={18} color={colors.textTertiary} />
+                <Text style={styles.engagementMetaText}>
+                  {review.comment_count ?? 0}
+                </Text>
+              </View>
             </View>
 
             {/* Comments Section */}
@@ -451,54 +437,52 @@ function createStyles(colors: typeof Colors.dark) {
       ...Typography.body.base,
       color: colors.textSecondary,
     },
-    spoilerBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-      backgroundColor: 'rgba(217, 119, 6, 0.1)',
-      borderRadius: BorderRadius.sm,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm,
+    spoilerCard: {
       marginTop: Spacing.md,
-    },
-    spoilerBannerText: {
-      ...Typography.body.sm,
-      fontWeight: '600',
-      color: '#D97706',
-    },
-    spoilerOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
       backgroundColor: colors.backgroundSecondary,
-      borderRadius: BorderRadius.sm,
-      alignItems: 'center',
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      height: 100,
       justifyContent: 'center',
-      gap: Spacing.sm,
-      minHeight: 120,
+      alignItems: 'center',
     },
-    spoilerOverlayText: {
-      ...Typography.body.sm,
-      color: colors.textSecondary,
+    spoilerCardInner: {
+      alignItems: 'center',
+      gap: 6,
     },
-    revealButton: {
-      backgroundColor: colors.tint,
-      borderRadius: BorderRadius.full,
-      paddingHorizontal: Spacing.lg,
-      paddingVertical: Spacing.sm,
-      marginTop: Spacing.xs,
-    },
-    revealButtonText: {
+    spoilerCardTitle: {
       ...Typography.body.sm,
       fontWeight: '600',
-      color: '#FFFFFF',
+      color: colors.textSecondary,
+      marginTop: 2,
     },
-    likeRow: {
+    spoilerCardHint: {
+      ...Typography.body.xs,
+      color: colors.textTertiary,
+    },
+    engagementBar: {
       flexDirection: 'row',
       alignItems: 'center',
       marginTop: Spacing.lg,
+      paddingTop: Spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      gap: Spacing.lg,
+    },
+    engagementDivider: {
+      width: 1,
+      height: 18,
+      backgroundColor: colors.border,
+    },
+    engagementMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    engagementMetaText: {
+      ...Typography.body.sm,
+      color: colors.textTertiary,
     },
     offScreen: {
       position: 'absolute',

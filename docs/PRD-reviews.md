@@ -693,4 +693,37 @@ TV reviews are woven throughout all phases, but deserve specific callout:
 
 ---
 
+## Reviews Polish: Bugs & Improvements (Post-Phase 3)
+
+Tracked issues discovered during Phase 3 QA. Address before proceeding to Phase 4.
+
+### Bugs
+
+| # | Area | Issue | Severity | Status |
+|---|------|-------|----------|--------|
+| B1 | Feed filters | "Reviews" pill filter shows no visible change — likely because no reviews exist yet (only first takes). Verify behavior once reviews are submitted; may need to show an empty state or include first takes in the "Reviews" filter | Medium | Open |
+| B2 | Review detail | Spoiler review page looks ugly — redundant "contains spoilers" messaging. The spoiler banner + spoiler overlay + spoiler pill all show simultaneously, feels repetitive | Medium | Open |
+
+### UI Improvements
+
+| # | Area | Issue | Priority | Status |
+|---|------|-------|----------|--------|
+| U1 | Feed filters | Spacing too tight between filter pill row and first feed item below Activity section header | High | Open |
+| U2 | Profile > Reviews tab | Filter pill boxes look bad — need redesigned filtering UX for this tab | High | Open |
+| U3 | Review detail | Like button feels isolated/lonely at the bottom of the review page. Consider adding engagement context (comment count, share button inline, etc.) | Low | Open |
+
+### Features to Test
+
+Items that need hands-on QA before considering Phase 3 complete:
+
+- [ ] **Comments**: Write a comment on a review, test threading (reply to comment), test spoiler toggle on comments, test long-press actions (delete own, report others)
+- [ ] **Share button**: Tap share on a public review — verify native share sheet opens with review card image (iOS), verify web clipboard/navigator.share fallback
+- [ ] **OG meta previews**: Share a review URL on social media or paste into [opengraph.xyz](https://opengraph.xyz) — verify rich preview renders with poster, title, description
+- [ ] **Comment notifications**: Comment on someone's review → verify they receive a notification; reply to a comment → verify parent commenter gets notified
+- [ ] **Feed comment activity**: After commenting, verify "X commented on Y's review" appears in followers' feeds
+- [ ] **Like notifications**: Like a review → verify author receives notification
+- [ ] **Moderation**: Report a comment → verify it works; report same comment 3x from different accounts → verify auto-hide
+
+---
+
 *This PRD follows CineTrak's phase-gated approach: build only what's validated, measure before scaling, and never overbuild ahead of user demand.*
