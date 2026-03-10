@@ -152,7 +152,7 @@ function createStyles(colors: typeof Colors.dark) {
       color: colors.text,
       flex: 1,
       maxHeight: 100,
-      paddingVertical: 4,
+      paddingVertical: 0,
     },
     sendButton: {
     },
