@@ -4,7 +4,7 @@ import type { Profile, UserMovie, FirstTake } from '@/lib/database.types';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-type ActiveTab = 'collection' | 'first-takes' | 'watchlist';
+type ActiveTab = 'collection' | 'first-takes' | 'reviews' | 'watchlist';
 
 /**
  * Fetch another user's profile from Supabase.
@@ -34,7 +34,7 @@ async function fetchOtherUserProfile(userId: string): Promise<(Profile & { is_pr
  * Fetch counts for all tabs in a single parallel batch (HEAD queries, no data transferred)
  */
 async function fetchOtherUserCounts(userId: string) {
-  const [watchedResult, firstTakesResult, watchlistResult] = await Promise.all([
+  const [watchedResult, firstTakesResult, reviewsResult, watchlistResult] = await Promise.all([
     supabase
       .from('user_movies')
       .select('*', { count: 'exact', head: true })
@@ -46,6 +46,11 @@ async function fetchOtherUserCounts(userId: string) {
       .eq('user_id', userId)
       .like('quote_text', '_%'),
     supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('visibility', 'public'),
+    supabase
       .from('user_movies')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
@@ -55,6 +60,7 @@ async function fetchOtherUserCounts(userId: string) {
   return {
     watched: watchedResult.count ?? 0,
     firstTakes: firstTakesResult.count ?? 0,
+    reviews: reviewsResult.count ?? 0,
     watchlist: watchlistResult.count ?? 0,
   };
 }
@@ -101,6 +107,7 @@ export interface UseUserProfileResult {
   stats: {
     watched: number;
     firstTakes: number;
+    reviews: number;
     watchlist: number;
   };
 }
@@ -154,7 +161,7 @@ export function useUserProfile(userId: string, activeTab: ActiveTab = 'collectio
   const watchedMovies = watchedMoviesQuery.data ?? [];
   const firstTakes = firstTakesQuery.data ?? [];
   const watchlist = watchlistQuery.data ?? [];
-  const counts = countsQuery.data ?? { watched: 0, firstTakes: 0, watchlist: 0 };
+  const counts = countsQuery.data ?? { watched: 0, firstTakes: 0, reviews: 0, watchlist: 0 };
 
   return {
     profile: profileQuery.data ?? null,

@@ -183,6 +183,7 @@ function createStyles(colors: typeof Colors.dark) {
     spoilerOverlay: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: Spacing.xs,
       backgroundColor: colors.backgroundSecondary,
       borderRadius: BorderRadius.sm,
