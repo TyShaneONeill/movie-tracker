@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   TextInput,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -664,6 +665,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
   },
   backButton: {
     padding: Spacing.xs,

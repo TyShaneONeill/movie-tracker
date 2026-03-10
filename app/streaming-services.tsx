@@ -12,6 +12,7 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -172,6 +173,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerButton: {
