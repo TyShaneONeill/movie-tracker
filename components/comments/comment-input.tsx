@@ -156,7 +156,8 @@ function createStyles(colors: typeof Colors.dark) {
       maxHeight: 100,
       paddingVertical: 0,
       paddingHorizontal: 0,
-      ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),
+      textAlignVertical: 'center',
+      ...(Platform.OS === 'web' ? { outlineStyle: 'none', verticalAlign: 'middle' } as any : {}),
     },
     sendButtonDisabled: {
       opacity: 0.5,
