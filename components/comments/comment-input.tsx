@@ -77,7 +77,6 @@ export function CommentInput({
           placeholder={replyingTo ? `Reply to @${replyingTo}...` : placeholder}
           placeholderTextColor={colors.textTertiary}
           maxLength={MAX_LENGTH}
-          multiline
           editable={!isSubmitting}
         />
 
@@ -153,11 +152,9 @@ function createStyles(colors: typeof Colors.dark) {
       ...Typography.body.sm,
       color: colors.text,
       flex: 1,
-      maxHeight: 100,
       paddingVertical: 0,
       paddingHorizontal: 0,
-      textAlignVertical: 'center',
-      ...(Platform.OS === 'web' ? { outlineStyle: 'none', verticalAlign: 'middle' } as any : {}),
+      ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}),
     },
     sendButtonDisabled: {
       opacity: 0.5,
