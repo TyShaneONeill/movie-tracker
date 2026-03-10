@@ -131,7 +131,8 @@ const filterStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
   },
   pill: {
     paddingHorizontal: 14,
