@@ -14,6 +14,7 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
 import type { Review } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
+import { CommentThread } from '@/components/comments/comment-thread';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -259,6 +260,9 @@ export default function ReviewDetailScreen() {
                 size="md"
               />
             </View>
+
+            {/* Comments Section */}
+            <CommentThread targetType="review" targetId={review.id} />
           </ScrollView>
         </View>
       </SafeAreaView>

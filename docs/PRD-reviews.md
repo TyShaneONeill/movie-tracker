@@ -328,14 +328,106 @@ CREATE TABLE notifications (
 ### PHASE 3: Conversation
 **Goal**: Turn reviews into discussions. Prove CineTrak is where movie conversations happen.
 
-#### 3.1 Features
+**Implementation**: Split into 3 sub-PRs to keep scope manageable:
+- **Phase 3A**: Comments (DB, edge functions, threaded UI, notifications, moderation)
+- **Phase 3B**: Sharing (share card image generation, native share sheet, deep links, OG meta)
+- **Phase 3C**: Feed enhancements (comment feed items, feed filters, "caught up" indicator)
+
+---
+
+#### PHASE 3A: Comments on Reviews
+
+**Goal**: Let users discuss reviews. Threaded replies, spoiler gating, and moderation.
+
+##### 3A.1 Features
 
 **Comments on Reviews**:
-- Threaded replies on any review
+- Threaded replies on any review (max 2 levels deep)
 - Comment count displayed on review cards
 - Reply notifications sent to review author + parent comment author
-- Spoiler flag on individual comments
+- Spoiler flag on individual comments (blur + tap-to-reveal)
 - Comment moderation: report button, auto-hide after N reports
+- Delete own comments
+
+##### 3A.2 Technical Scope
+
+**New table**: `review_comments`
+```sql
+CREATE TABLE review_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  review_id UUID REFERENCES reviews(id) ON DELETE CASCADE,
+  first_take_id UUID REFERENCES first_takes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  parent_comment_id UUID REFERENCES review_comments(id) ON DELETE CASCADE,
+  body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 500),
+  is_spoiler BOOLEAN DEFAULT FALSE,
+  report_count INTEGER DEFAULT 0,
+  is_hidden BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT comment_target_check CHECK (
+    (review_id IS NOT NULL AND first_take_id IS NULL) OR
+    (review_id IS NULL AND first_take_id IS NOT NULL)
+  )
+);
+
+-- Denormalized counts
+ALTER TABLE first_takes ADD COLUMN IF NOT EXISTS comment_count INTEGER DEFAULT 0;
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS comment_count INTEGER DEFAULT 0;
+
+-- Trigger to maintain comment_count
+CREATE OR REPLACE FUNCTION update_comment_count() ...
+```
+
+**New table**: `comment_reports`
+```sql
+CREATE TABLE comment_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  comment_id UUID NOT NULL REFERENCES review_comments(id) ON DELETE CASCADE,
+  reporter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(comment_id, reporter_id)
+);
+```
+
+**Edge functions**:
+- `add-comment` — Create comment with auth, rate limit 30/hr, notification creation
+- `get-comments` — Fetch threaded comments for a review/first_take (public, IP rate limited)
+- `report-comment` — Report a comment, auto-hide after 3 reports
+
+**Client changes**:
+- `lib/comment-service.ts` — Service layer for comment CRUD
+- `hooks/use-comments.ts` — React Query hook for fetching comments + mutations
+- `components/comments/comment-thread.tsx` — Threaded comment display (2 levels max)
+- `components/comments/comment-input.tsx` — Comment input with spoiler toggle
+- `components/comments/comment-item.tsx` — Single comment with reply/report/delete actions
+- Update `app/review/[id].tsx` — Add comments section below review
+- Update `components/cards/review-card.tsx` — Show comment count
+- Update `components/movie-detail/community-reviews.tsx` — Show comment count
+- Update `components/social/NotificationItem.tsx` — Handle 'comment' notification type
+- Update `app/notifications.tsx` — Navigation for comment notifications
+
+##### 3A.3 Phase Gate
+
+| Criteria | Requirement | Verification |
+|----------|-------------|--------------|
+| **Threaded comments render correctly** | Replies nest under parent comments (max 2 levels deep); thread collapse/expand works; deleted parent shows "[deleted]" with children preserved | Manual QA: create 3-level thread, delete middle comment, verify children still visible |
+| **Comment count accurate** | `comment_count` matches actual row count in `review_comments`; increments on add, decrements on delete | Automated check: add 5 comments, delete 2, verify count = 3 matches actual rows |
+| **Spoiler comments gated** | Spoiler-flagged comments are blurred; revealing one doesn't reveal others; spoiler flag persists on page reload | QA: flag 2 of 5 comments as spoilers, reveal one, verify other stays blurred, reload page |
+| **Report/moderation flow works** | Report button creates a report entry; auto-hides comment after 3 reports from different users | Test: report comment 3 times from different accounts → verify auto-hide |
+| **Notifications delivered** | Comment on someone's review → they get notified; reply to a comment → both review author and parent comment author get notified | Verify notifications appear within 5s |
+| **Cascade deletes clean** | Deleting a review removes all comments + notifications; deleting a comment removes child comments | Full cascade test |
+| **Rate limiting** | Comments rate limited to 30/hour per user | Hit rate limit → verify 429 response |
+| **Dark/light mode** | Comment thread renders correctly in both themes | Visual QA on iOS + web |
+| **CI green** | All tests pass; lint + TypeScript clean | CI pipeline |
+
+---
+
+#### PHASE 3B: Review Sharing
+
+**Goal**: Let users share reviews as beautiful cards on social media.
+
+##### 3B.1 Features
 
 **Review Sharing**:
 - "Share" button generates a beautiful review card image (movie poster + rating + quote + username)
@@ -343,52 +435,55 @@ CREATE TABLE notifications (
 - Shared card includes CineTrak branding + deep link back to review
 - Web URL for each review: `cinetrak.app/review/{id}` (public reviews only)
 
+##### 3B.2 Technical Scope
+
+**New service**: `lib/share-service.ts` (generate review card image using react-native-view-shot or canvas)
+**Deep links**: Static HTML page generation for `/review/{id}` with OG meta tags
+**Share button**: Add to `app/review/[id].tsx` and `components/cards/review-card.tsx`
+
+##### 3B.3 Phase Gate
+
+| Criteria | Requirement | Verification |
+|----------|-------------|--------------|
+| **Share card generation** | Review share card renders correctly with movie poster, rating, quote text, and CineTrak branding | Generate cards for: short review, long review (500 chars), review with special characters/emoji |
+| **Deep links resolve** | `cinetrak.app/review/{id}` loads the review on web with OG meta tags for social preview | Share a review URL on Twitter/iMessage → verify card renders |
+| **Native share sheet** | Share sheet opens on iOS with the generated image + URL | Test on iOS simulator + web |
+| **Rate limiting** | Share card generation rate limited to 20/hour | Hit rate limit → verify 429 response |
+
+---
+
+#### PHASE 3C: Enhanced Activity Feed
+
+**Goal**: Make the activity feed richer with comment activity and filtering.
+
+##### 3C.1 Features
+
 **Enhanced Activity Feed**:
 - Feed now shows: reviews, likes, comments, follows
 - "X commented on Y's review of [Movie]" feed items
 - Feed filters: All, Reviews Only, Friends Only
 - "Caught up" indicator when you've seen all new activity
 
-#### 3.2 Technical Scope
+##### 3C.2 Technical Scope
 
-**New table**: `review_comments`
-```sql
-CREATE TABLE review_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  first_take_id UUID NOT NULL REFERENCES first_takes(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  parent_comment_id UUID REFERENCES review_comments(id) ON DELETE CASCADE,
-  body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 500),
-  is_spoiler BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+- Update `components/cards/feed-item-card.tsx` — Handle 'comment' feed items
+- Update activity feed queries — Include comment activity
+- Add filter pills to feed screen
+- Add "You're all caught up" divider based on last-seen timestamp
+- Update `lib/activity-feed-service.ts` or equivalent
 
--- Denormalized count
-ALTER TABLE first_takes ADD COLUMN IF NOT EXISTS comment_count INTEGER DEFAULT 0;
-```
-
-**Edge functions**: `add-comment`, `get-comments`, `report-comment`
-**New service**: `lib/share-service.ts` (generate review card image)
-**Extend screen**: `app/review/[id].tsx` (add comments thread — base screen built in Phase 1.5)
-
-#### 3.3 Phase Gate — Must achieve ALL before proceeding to Phase 4
+##### 3C.3 Phase Gate
 
 | Criteria | Requirement | Verification |
 |----------|-------------|--------------|
-| **Threaded comments render correctly** | Replies nest under parent comments (max 2 levels deep); thread collapse/expand works; deleted parent shows "[deleted]" with children preserved | Manual QA: create 3-level thread, delete middle comment, verify children still visible |
-| **Comment count accurate** | `first_takes.comment_count` matches actual row count in `review_comments`; increments on add, decrements on delete | Automated check: add 5 comments, delete 2, verify count = 3 matches actual rows |
-| **Spoiler comments gated** | Spoiler-flagged comments are blurred; revealing one doesn't reveal others; spoiler flag persists on page reload | QA: flag 2 of 5 comments as spoilers, reveal one, verify other stays blurred, reload page |
-| **Report/moderation flow works** | Report button creates a moderation queue entry; auto-hides comment after 3 reports; admin can dismiss or confirm | Test full flow: report comment 3 times from different accounts → verify auto-hide → verify admin action |
-| **Share card generation** | Review share card renders correctly with movie poster, rating, quote text, and CineTrak branding; works on iOS share sheet and web | Generate cards for: short review, long review (500 chars), review with special characters/emoji |
-| **Deep links resolve** | `cinetrak.app/review/{id}` loads the review on web with full context; includes OG meta tags for social preview | Share a review URL on Twitter/iMessage preview → verify card renders with movie title + review snippet |
-| **Review detail screen** | `app/review/[id].tsx` loads review + comments thread; handles non-existent review (404 state); handles private review (403 state) | Navigate to valid review, deleted review, and private review → verify correct states |
 | **Feed integration** | Comment activity appears in followers' feeds ("X commented on Y's review"); feed doesn't duplicate entries on rapid comments | Write 3 comments quickly → verify feed shows correct entries without duplicates |
-| **Cascade deletes** | Deleting a review removes all comments + notifications; deleting a comment removes child comments + notifications | Full cascade test with review that has nested comments + like notifications |
-| **Rate limiting** | Comments rate limited to 30/hour per user; share card generation rate limited to 20/hour | Hit rate limit → verify 429 response with Retry-After header |
-| **Dark/light mode** | Comment thread, share card, review detail screen all render correctly in both themes | Visual QA on iOS + web |
-| **CI green** | All tests pass; lint + TypeScript clean | CI pipeline |
+| **Feed filters work** | All/Reviews Only/Friends Only filters correctly filter the feed | Toggle each filter, verify correct results |
+| **Caught up indicator** | "You're all caught up" appears at the correct position in the feed | Scroll past all new items → verify indicator position |
+| **Dark/light mode** | Feed filters and caught up indicator render correctly in both themes | Visual QA |
 
-**Why these gates**: Comments and sharing are the first features that expose user content publicly outside CineTrak. Moderation, deep links, and social previews must be bulletproof — a broken share card or a spoiler leak is a trust-breaking moment.
+---
+
+**Overall Phase 3 Gate** — Must achieve ALL sub-phase gates before proceeding to Phase 4.
 
 ---
 

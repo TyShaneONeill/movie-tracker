@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMovieReviews } from '@/hooks/use-movie-reviews';
 import { useTheme } from '@/lib/theme-context';
@@ -231,6 +232,14 @@ function ReviewCard({
           initialLikeCount={review.likeCount}
           size="sm"
         />
+        {review.source === 'review' && (
+          <View style={styles.commentCount}>
+            <Ionicons name="chatbubble-outline" size={14} color={colors.textSecondary} />
+            {(review as any).commentCount > 0 && (
+              <Text style={styles.commentCountText}>{(review as any).commentCount}</Text>
+            )}
+          </View>
+        )}
       </View>
       {review.likeCount > 0 && (
         <LikedByIndicator
@@ -364,6 +373,16 @@ const createReviewCardStyles = (colors: typeof Colors.dark) =>
       flexDirection: 'row',
       alignItems: 'center',
       marginTop: Spacing.sm,
+      gap: Spacing.md,
+    },
+    commentCount: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    commentCountText: {
+      ...Typography.body.xs,
+      color: colors.textSecondary,
     },
   });
 
