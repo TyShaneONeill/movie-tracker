@@ -5,7 +5,9 @@ import {
   addComment,
   reportComment,
   deleteComment,
+  likeComment as likeCommentService,
   type CommentsResponse,
+  type CommentLikeResponse,
 } from '@/lib/comment-service';
 
 interface UseCommentsParams {
@@ -74,6 +76,33 @@ export function useComments({
     },
   });
 
+  const likeMutation = useMutation({
+    mutationFn: (commentId: string) => likeCommentService(commentId),
+    // Optimistic update
+    onMutate: async (commentId: string) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<CommentsResponse>(queryKey);
+
+      queryClient.setQueryData<CommentsResponse>(queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          comments: updateCommentLike(old.comments, commentId),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
   return {
     comments: data?.comments ?? [],
     totalCount: data?.totalCount ?? 0,
@@ -87,6 +116,24 @@ export function useComments({
     isDeleting: deleteMutation.isPending,
     reportComment: reportMutation.mutateAsync,
     isReporting: reportMutation.isPending,
+    likeComment: likeMutation.mutateAsync,
+    isLiking: likeMutation.isPending,
     currentUserId: user?.id,
   };
+}
+
+function updateCommentLike(comments: CommentsResponse['comments'], commentId: string): CommentsResponse['comments'] {
+  return comments.map(c => {
+    if (c.id === commentId) {
+      return {
+        ...c,
+        isLikedByMe: !c.isLikedByMe,
+        likeCount: c.isLikedByMe ? Math.max(0, c.likeCount - 1) : c.likeCount + 1,
+      };
+    }
+    return {
+      ...c,
+      replies: updateCommentLike(c.replies, commentId),
+    };
+  });
 }

@@ -423,6 +423,77 @@ CREATE TABLE comment_reports (
 
 ---
 
+#### PHASE 3A.5: Comment Engagement
+
+**Goal:** Instagram-style engagement on review comments — likes, "liked by author" badges, and collapsible threaded replies.
+
+**Phase gate (from 3A):** Comments system live and stable.
+
+##### 3A.5.1 Features
+
+**Comment Likes**
+- Heart icon + like count on every comment and reply (right side, Instagram-style layout)
+- Toggle like/unlike with optimistic UI
+- Notification to comment author on new like: "X liked your comment on [Movie Title]"
+- Rate limited: 200 likes/hour per user
+
+**"Liked by Author" Badge**
+- When the review/first-take author likes a comment on their own content, display a red heart badge: `❤️ by author`
+- Badge shown inline next to username and timestamp
+- `liked_by_author` boolean maintained by DB trigger — no extra queries needed
+- Works for both top-level comments and replies
+
+**Collapsible Threaded Replies**
+- All replies collapsed by default
+- "View X more replies" / "View 1 more reply" link with dash-line prefix (Instagram-style)
+- Tap to expand, tap "Hide replies" to collapse
+- Smooth expand/collapse UX
+
+##### 3A.5.2 Database Changes
+
+**New table: `comment_likes`**
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK, gen_random_uuid() |
+| `user_id` | uuid | FK → auth.users, NOT NULL |
+| `comment_id` | uuid | FK → review_comments, NOT NULL |
+| `created_at` | timestamptz | NOT NULL, default now() |
+
+Unique constraint: `(user_id, comment_id)`
+
+**New columns on `review_comments`:**
+| Column | Type | Notes |
+|--------|------|-------|
+| `like_count` | integer | Default 0, maintained by trigger |
+| `liked_by_author` | boolean | Default false, maintained by trigger |
+
+**Trigger:** `trg_comment_likes_count` — on INSERT/DELETE to `comment_likes`, updates `like_count` and checks if the liker is the content author to set `liked_by_author`.
+
+##### 3A.5.3 Edge Functions
+
+| Function | Auth | Description |
+|----------|------|-------------|
+| `like-comment` | Required | Toggle like on a comment; returns `{ liked, likeCount, likedByAuthor }` |
+| `get-comments` (updated) | Optional | Now includes `likeCount`, `likedByAuthor`, `isLikedByMe` per comment |
+
+##### 3A.5.4 Frontend Components
+
+| Component | Changes |
+|-----------|---------|
+| `comment-item.tsx` | Heart icon + count on right, "❤️ by author" badge, `onLike` prop |
+| `comment-thread.tsx` | Collapsible reply threads, expand/collapse state |
+| `comment-service.ts` | `likeComment()` function, updated `CommentItem` type |
+| `use-comments.ts` | `likeComment` mutation with optimistic update |
+
+##### 3A.5.5 Phase Gate → 3B
+
+- [ ] Comment likes working end-to-end (like/unlike/count/badge)
+- [ ] "Liked by author" badge renders correctly for author-liked comments
+- [ ] Reply threads collapsible with correct counts
+- [ ] No regression in existing comment CRUD
+
+---
+
 #### PHASE 3B: Review Sharing
 
 **Goal**: Let users share reviews as beautiful cards on social media.

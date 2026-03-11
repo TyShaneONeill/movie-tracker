@@ -17,6 +17,9 @@ export interface CommentItem {
   isSpoiler: boolean;
   isHidden: boolean;
   createdAt: string;
+  likeCount: number;
+  likedByAuthor: boolean;
+  isLikedByMe: boolean;
   commenter: CommenterInfo;
   replies: CommentItem[];
 }
@@ -38,6 +41,12 @@ export interface CreatedComment {
 export interface ReportCommentResponse {
   reported: boolean;
   autoHidden: boolean;
+}
+
+export interface CommentLikeResponse {
+  liked: boolean;
+  likeCount: number;
+  likedByAuthor: boolean;
 }
 
 // ============================================================================
@@ -121,6 +130,19 @@ export async function reportComment(
     throw new Error('No data returned from report comment');
   }
 
+  return data;
+}
+
+/**
+ * Toggle a like on a comment
+ */
+export async function likeComment(commentId: string): Promise<CommentLikeResponse> {
+  const { data, error } = await supabase.functions.invoke<CommentLikeResponse>(
+    'like-comment',
+    { body: { comment_id: commentId } }
+  );
+  if (error) throw new Error(error.message || 'Failed to toggle comment like');
+  if (!data) throw new Error('No data returned from comment like');
   return data;
 }
 

@@ -637,6 +637,8 @@ export type Database = {
           is_spoiler: boolean
           report_count: number
           is_hidden: boolean
+          like_count: number
+          liked_by_author: boolean
           created_at: string
         }
         Insert: {
@@ -649,6 +651,8 @@ export type Database = {
           is_spoiler?: boolean
           report_count?: number
           is_hidden?: boolean
+          like_count?: number
+          liked_by_author?: boolean
           created_at?: string
         }
         Update: {
@@ -661,6 +665,8 @@ export type Database = {
           is_spoiler?: boolean
           report_count?: number
           is_hidden?: boolean
+          like_count?: number
+          liked_by_author?: boolean
           created_at?: string
         }
         Relationships: [
@@ -681,6 +687,35 @@ export type Database = {
           {
             foreignKeyName: "review_comments_parent_comment_id_fkey"
             columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "review_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_likes: {
+        Row: {
+          id: string
+          user_id: string
+          comment_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          comment_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          comment_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey"
+            columns: ["comment_id"]
             isOneToOne: false
             referencedRelation: "review_comments"
             referencedColumns: ["id"]
@@ -2091,6 +2126,10 @@ export type ReviewLikeInsert = Database['public']['Tables']['review_likes']['Ins
 // Helper types for review comments
 export type ReviewComment = Database['public']['Tables']['review_comments']['Row'];
 export type ReviewCommentInsert = Database['public']['Tables']['review_comments']['Insert'];
+
+// Helper types for comment likes
+export type CommentLike = Database['public']['Tables']['comment_likes']['Row'];
+export type CommentLikeInsert = Database['public']['Tables']['comment_likes']['Insert'];
 
 // Helper types for comment reports
 export type CommentReport = Database['public']['Tables']['comment_reports']['Row'];
