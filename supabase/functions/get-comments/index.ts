@@ -24,6 +24,8 @@ interface CommentRow {
   is_hidden: boolean;
   created_at: string;
   user_id: string;
+  like_count: number;
+  liked_by_author: boolean;
 }
 
 interface ProfileRow {
@@ -39,6 +41,9 @@ interface CommentResponse {
   isSpoiler: boolean;
   isHidden: boolean;
   createdAt: string;
+  likeCount: number;
+  likedByAuthor: boolean;
+  isLikedByMe: boolean;
   commenter: {
     userId: string;
     fullName: string | null;
@@ -55,6 +60,7 @@ interface CommentResponse {
 function buildCommentTree(
   comments: CommentRow[],
   profileMap: Map<string, ProfileRow>,
+  likedCommentIds: Set<string>,
 ): { tree: CommentResponse[]; totalCount: number } {
   const responseMap = new Map<string, CommentResponse>();
 
@@ -69,6 +75,9 @@ function buildCommentTree(
       isSpoiler: c.is_spoiler,
       isHidden,
       createdAt: c.created_at,
+      likeCount: c.like_count,
+      likedByAuthor: c.liked_by_author,
+      isLikedByMe: likedCommentIds.has(c.id),
       commenter: {
         userId: c.user_id,
         fullName: profile?.full_name ?? null,
@@ -118,6 +127,19 @@ Deno.serve(async (req: Request) => {
     const rateLimited = await enforceIpRateLimit(clientIp, 'get_comments', 120, 60, req);
     if (rateLimited) return rateLimited;
 
+    // Optional auth: get current user to determine isLikedByMe
+    let currentUserId: string | null = null;
+    const authHeader = req.headers.get('authorization');
+    if (authHeader) {
+      const supabaseUserClient = createClient(
+        SUPABASE_URL,
+        Deno.env.get('SUPABASE_ANON_KEY') || '',
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user } } = await supabaseUserClient.auth.getUser();
+      if (user) currentUserId = user.id;
+    }
+
     // Parse request body
     const { target_type, target_id }: GetCommentsRequest = await req.json();
 
@@ -145,7 +167,7 @@ Deno.serve(async (req: Request) => {
     // Get comments (without profile join to avoid FK issues)
     const { data: comments, error: commentsError } = await adminClient
       .from('review_comments')
-      .select('id, body, is_spoiler, parent_comment_id, report_count, is_hidden, created_at, user_id')
+      .select('id, body, is_spoiler, parent_comment_id, report_count, is_hidden, created_at, user_id, like_count, liked_by_author')
       .eq(column, target_id)
       .order('created_at', { ascending: true });
 
@@ -181,8 +203,22 @@ Deno.serve(async (req: Request) => {
       ((profiles as ProfileRow[]) ?? []).map((p) => [p.id, p]),
     );
 
+    // Batch fetch current user's likes
+    let likedCommentIds = new Set<string>();
+    if (currentUserId && comments.length > 0) {
+      const commentIds = (comments as CommentRow[]).map(c => c.id);
+      const { data: userLikes } = await adminClient
+        .from('comment_likes')
+        .select('comment_id')
+        .eq('user_id', currentUserId)
+        .in('comment_id', commentIds);
+      if (userLikes) {
+        likedCommentIds = new Set(userLikes.map((l: any) => l.comment_id));
+      }
+    }
+
     // Build threaded tree
-    const { tree, totalCount } = buildCommentTree(comments as CommentRow[], profileMap);
+    const { tree, totalCount } = buildCommentTree(comments as CommentRow[], profileMap, likedCommentIds);
 
     return new Response(
       JSON.stringify({ comments: tree, totalCount }),

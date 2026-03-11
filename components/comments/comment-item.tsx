@@ -16,6 +16,7 @@ interface CommentItemProps {
   onReply?: (commentId: string, username: string | null) => void;
   onDelete?: (commentId: string) => void;
   onReport?: (commentId: string) => void;
+  onLike?: (commentId: string) => void;
 }
 
 export function CommentItem({
@@ -25,6 +26,7 @@ export function CommentItem({
   onReply,
   onDelete,
   onReport,
+  onLike,
 }: CommentItemProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -94,6 +96,12 @@ export function CommentItem({
             {displayName}
           </Text>
           <Text style={styles.time}>{formatRelativeTime(comment.createdAt)}</Text>
+          {comment.likedByAuthor && (
+            <View style={styles.authorBadge}>
+              <Ionicons name="heart" size={10} color="#EF4444" />
+              <Text style={styles.authorBadgeText}>by author</Text>
+            </View>
+          )}
         </View>
 
         {/* Body */}
@@ -121,6 +129,24 @@ export function CommentItem({
           </Pressable>
         )}
       </View>
+
+      {/* Like column on far right */}
+      {!comment.isHidden && onLike && (
+        <Pressable
+          onPress={() => onLike(comment.id)}
+          hitSlop={8}
+          style={styles.likeColumn}
+        >
+          <Ionicons
+            name={comment.isLikedByMe ? 'heart' : 'heart-outline'}
+            size={isReply ? 14 : 16}
+            color={comment.isLikedByMe ? '#EF4444' : colors.textTertiary}
+          />
+          {comment.likeCount > 0 && (
+            <Text style={styles.likeCount}>{comment.likeCount}</Text>
+          )}
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -202,6 +228,29 @@ function createStyles(colors: typeof Colors.dark) {
       ...Typography.body.xs,
       color: colors.textSecondary,
       fontWeight: '600',
+    },
+    authorBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+    },
+    authorBadgeText: {
+      ...Typography.body.xs,
+      color: '#EF4444',
+      fontSize: 10,
+    },
+    likeColumn: {
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingTop: 2,
+      marginLeft: Spacing.sm,
+      minWidth: 24,
+    },
+    likeCount: {
+      ...Typography.body.xs,
+      color: colors.textTertiary,
+      fontSize: 11,
+      marginTop: 2,
     },
   });
 }

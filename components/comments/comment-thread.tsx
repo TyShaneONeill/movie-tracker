@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -25,10 +25,24 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
     isAdding,
     deleteComment: deleteCommentFn,
     reportComment: reportCommentFn,
+    likeComment: likeCommentFn,
     currentUserId,
   } = useComments({ targetType, targetId });
 
   const [replyTo, setReplyTo] = useState<{ commentId: string; username: string | null } | null>(null);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+
+  const toggleThread = useCallback((commentId: string) => {
+    setExpandedThreads(prev => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+      return next;
+    });
+  }, []);
 
   const handleReply = useCallback((commentId: string, username: string | null) => {
     setReplyTo({ commentId, username });
@@ -90,6 +104,17 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
     [reportCommentFn]
   );
 
+  const handleLike = useCallback(
+    async (commentId: string) => {
+      try {
+        await likeCommentFn(commentId);
+      } catch {
+        // Silently fail likes (optimistic update handles UI)
+      }
+    },
+    [likeCommentFn]
+  );
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -108,27 +133,51 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
       {comments.length === 0 ? (
         <Text style={styles.emptyText}>No comments yet. Be the first to comment!</Text>
       ) : (
-        comments.map((comment) => (
-          <View key={comment.id}>
-            <CommentItem
-              comment={comment}
-              currentUserId={currentUserId}
-              onReply={handleReply}
-              onDelete={handleDelete}
-              onReport={handleReport}
-            />
-            {comment.replies.map((reply) => (
+        comments.map((comment) => {
+          const isExpanded = expandedThreads.has(comment.id);
+          const replyCount = comment.replies.length;
+
+          return (
+            <View key={comment.id}>
               <CommentItem
-                key={reply.id}
-                comment={reply}
+                comment={comment}
                 currentUserId={currentUserId}
-                isReply
+                onReply={handleReply}
                 onDelete={handleDelete}
                 onReport={handleReport}
+                onLike={handleLike}
               />
-            ))}
-          </View>
-        ))
+
+              {/* Show replies if expanded */}
+              {isExpanded && comment.replies.map((reply) => (
+                <CommentItem
+                  key={reply.id}
+                  comment={reply}
+                  currentUserId={currentUserId}
+                  isReply
+                  onDelete={handleDelete}
+                  onReport={handleReport}
+                  onLike={handleLike}
+                />
+              ))}
+
+              {/* Collapse/expand button */}
+              {replyCount > 0 && (
+                <Pressable
+                  onPress={() => toggleThread(comment.id)}
+                  style={styles.viewRepliesRow}
+                >
+                  <View style={styles.viewRepliesDash} />
+                  <Text style={styles.viewRepliesText}>
+                    {isExpanded
+                      ? 'Hide replies'
+                      : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          );
+        })
       )}
 
       {currentUserId && (
@@ -161,6 +210,23 @@ function createStyles(colors: typeof Colors.dark) {
     },
     loader: {
       marginVertical: Spacing.md,
+    },
+    viewRepliesRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 40 + Spacing.sm,
+      paddingVertical: Spacing.xs,
+    },
+    viewRepliesDash: {
+      width: 24,
+      height: 1,
+      backgroundColor: colors.textTertiary,
+      marginRight: Spacing.sm,
+    },
+    viewRepliesText: {
+      ...Typography.body.xs,
+      color: colors.textSecondary,
+      fontWeight: '600',
     },
   });
 }
