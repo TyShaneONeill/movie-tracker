@@ -25,6 +25,7 @@ import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime, type FeedListItem, type FeedFilter } from '@/hooks/use-activity-feed';
+import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
 
 // Default avatar for users without one
 const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
@@ -102,7 +103,19 @@ function AuthenticatedFeed() {
       // Comment activity item
       if (feed.activityType === 'comment') {
         return (
-          <View style={[styles.commentActivityCard, { borderColor: colors.border }]}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.commentActivityCard,
+              { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+            ]}
+            onPress={() => {
+              if (feed.mediaType === 'tv_show') {
+                router.push(`/tv/${feed.tmdbId}`);
+              } else {
+                router.push(`/movie/${feed.tmdbId}`);
+              }
+            }}
+          >
             <View style={styles.commentHeaderRow}>
               <Image
                 source={{ uri: feed.userAvatarUrl ?? DEFAULT_AVATAR }}
@@ -135,7 +148,7 @@ function AuthenticatedFeed() {
                 Contains spoilers
               </Text>
             )}
-          </View>
+          </Pressable>
         );
       }
 
@@ -255,6 +268,7 @@ function AuthenticatedFeed() {
               : item.type + '-' + index
         }
         renderItem={renderFeedItem}
+        ListHeaderComponent={SuggestedUsersSection}
         ListFooterComponent={ListFooter}
         ListEmptyComponent={ListEmpty}
         ItemSeparatorComponent={VerticalSeparator}
@@ -373,10 +387,9 @@ const styles = StyleSheet.create({
     ...Typography.body.sm,
   },
   commentActivityCard: {
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderBottomWidth: 1,
-    marginBottom: Spacing.xs,
   },
   commentHeaderRow: {
     flexDirection: 'row',
