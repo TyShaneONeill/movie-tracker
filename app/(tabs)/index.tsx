@@ -28,7 +28,6 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { ContinueWatchingCard } from '@/components/cards/continue-watching-card';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
-import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -387,8 +386,6 @@ export default function HomeScreen() {
         {/* Ad Banner */}
         <BannerAdComponent placement="home" />
 
-        {/* Suggested Users */}
-        <SuggestedUsersSection />
       </ScrollView>
     </SafeAreaView>
   );

@@ -40,7 +40,6 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
     <View style={styles.navItems}>
       {items.map((item, index) => {
         const isActive = index === activeIndex;
-        const isCenterTab = items.length === 5 && index === 2;
         return (
           <Pressable
             key={index}
@@ -50,18 +49,10 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
             accessibilityState={{ selected: isActive }}
             style={({ pressed }) => [
               styles.navItem,
-              isCenterTab && {
-                backgroundColor: `${colors.tint}12`,
-                borderRadius: Spacing.md,
-                paddingHorizontal: Spacing.xs,
-              },
               pressed && styles.navItemPressed,
             ]}
           >
-            <View style={[
-              styles.iconContainer,
-              isCenterTab && styles.centerIconContainer,
-            ]}>
+            <View style={styles.iconContainer}>
               {item.icon(isActive ? colors.tint : colors.textTertiary)}
             </View>
             <ThemedText
@@ -149,7 +140,7 @@ const styles = StyleSheet.create({
   navItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   navItemPressed: {
     transform: [{ scale: 0.9 }],
@@ -159,10 +150,6 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  centerIconContainer: {
-    width: 28,
-    height: 28,
   },
   label: {
     fontSize: 12,
