@@ -186,6 +186,56 @@ export async function updateMovieStatus(
   return data;
 }
 
+// Downgrade movie status from "watched" to "watchlist"/"watching", clearing all journey/watch fields
+// Uses limit(1) instead of single() to handle movies with multiple journey rows
+export async function downgradeMovieStatus(
+  userId: string,
+  tmdbId: number,
+  newStatus: MovieStatus
+): Promise<UserMovie> {
+  const updateData: UserMovieUpdate = {
+    status: newStatus,
+    ai_poster_url: null,
+    ai_poster_rarity: null,
+    journey_notes: null,
+    journey_tagline: null,
+    journey_photos: null,
+    journey_created_at: null,
+    journey_updated_at: null,
+    watched_at: null,
+    watch_time: null,
+    watched_with: null,
+    watch_format: null,
+    location_type: null,
+    location_name: null,
+    auditorium: null,
+    seat_location: null,
+    ticket_id: null,
+    ticket_price: null,
+    cover_photo_index: null,
+    display_poster: null,
+  };
+
+  const { data, error } = (await (supabase
+    .from('user_movies') as any)
+    .update(updateData)
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
+    .order('journey_number', { ascending: false })
+    .select()
+    .limit(1)) as { data: UserMovie[]; error: any };
+
+  if (error) {
+    throw new Error(error.message || 'Failed to downgrade movie status');
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('Movie not found in library');
+  }
+
+  return data[0];
+}
+
 // Remove movie from library
 export async function removeMovieFromLibrary(userId: string, tmdbId: number): Promise<void> {
   const { error } = await supabase
