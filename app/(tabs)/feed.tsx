@@ -109,13 +109,16 @@ function AuthenticatedFeed() {
               { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
             ]}
             onPress={() => {
-              if (feed.mediaType === 'tv_show') {
+              if (feed.targetReviewId) {
+                router.push(`/review/${feed.targetReviewId}`);
+              } else if (feed.mediaType === 'tv_show') {
                 router.push(`/tv/${feed.tmdbId}`);
               } else {
                 router.push(`/movie/${feed.tmdbId}`);
               }
             }}
           >
+            {/* Header row — matches FeedItemCard: 24px avatar + name + timestamp */}
             <View style={styles.commentHeaderRow}>
               <Image
                 source={{ uri: feed.userAvatarUrl ?? DEFAULT_AVATAR }}
@@ -123,21 +126,25 @@ function AuthenticatedFeed() {
                 contentFit="cover"
                 transition={200}
               />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.commentActivityText, { color: colors.text }]}>
-                  <Text style={{ fontWeight: '700' }}>{feed.userDisplayName}</Text>
-                  {' commented on '}
-                  {feed.targetReviewAuthorName && (
-                    <Text style={{ fontWeight: '600' }}>{feed.targetReviewAuthorName}&apos;s</Text>
-                  )}
-                  {' review'}
-                  {feed.movieTitle ? ` of ${feed.movieTitle}` : ''}
-                </Text>
-                <Text style={[styles.commentTimestamp, { color: colors.textTertiary }]}>
-                  {formatRelativeTime(feed.createdAt ?? '')}
-                </Text>
-              </View>
+              <Text style={[styles.commentUserName, { color: colors.text }]}>
+                {feed.userDisplayName}
+              </Text>
+              <Text style={[styles.commentTimestamp, { color: colors.textTertiary }]}>
+                {formatRelativeTime(feed.createdAt ?? '')}
+              </Text>
             </View>
+            {/* Context line */}
+            <Text style={[styles.commentContextText, { color: colors.textSecondary }]} numberOfLines={2}>
+              commented on{' '}
+              {feed.targetReviewAuthorName && (
+                <Text style={{ fontWeight: '600', color: colors.text }}>
+                  {feed.targetReviewAuthorName}&apos;s
+                </Text>
+              )}
+              {' review'}
+              {feed.movieTitle ? ` of ${feed.movieTitle}` : ''}
+            </Text>
+            {/* Comment body */}
             {feed.commentText && !feed.isSpoiler && (
               <Text style={[styles.commentBody, { color: colors.textSecondary }]} numberOfLines={2}>
                 &ldquo;{feed.commentText}&rdquo;
@@ -387,33 +394,37 @@ const styles = StyleSheet.create({
     ...Typography.body.sm,
   },
   commentActivityCard: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
+    marginBottom: Spacing.sm,
   },
   commentHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
   commentAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     marginRight: Spacing.sm,
   },
-  commentActivityText: {
+  commentUserName: {
     fontSize: 14,
-    lineHeight: 20,
+    fontWeight: '600',
+    marginRight: 6,
   },
   commentTimestamp: {
     fontSize: 12,
-    marginTop: 2,
   },
-  commentBody: {
+  commentContextText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  commentBody: {
+    fontSize: 15,
+    lineHeight: 22,
     marginTop: Spacing.xs,
-    marginLeft: 36,
     fontStyle: 'italic',
   },
   emptyContainer: {
