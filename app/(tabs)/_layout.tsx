@@ -35,6 +35,15 @@ export default function TabLayout() {
                 <Polyline points="9 22 9 12 15 12 15 22" />
               </Svg>
             );
+          } else if (route.name === 'feed') {
+            // Feed / Activity stream icon
+            icon = (color: string) => (
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M4 11a9 9 0 0 1 9 9" />
+                <Path d="M4 4a16 16 0 0 1 16 16" />
+                <Circle cx={5} cy={19} r={1} />
+              </Svg>
+            );
           } else if (route.name === 'scanner') {
             // Camera/Scan icon
             icon = (color: string) => (
@@ -86,6 +95,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
+        }}
+      />
+      <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
         }}
       />
       <Tabs.Screen

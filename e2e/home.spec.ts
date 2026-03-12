@@ -14,7 +14,6 @@ test.describe('Home Page', () => {
     await expect(page.getByText('Coming Soon').last()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Trending TV').last()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Airing Today').last()).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Activity').last()).toBeVisible({ timeout: 15_000 });
   });
 
   test('tab navigation works', async ({ page }) => {

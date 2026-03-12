@@ -21,7 +21,7 @@ export interface BottomNavBarProps {
  * BottomNavBar - Glassmorphism floating tab bar
  *
  * Features:
- * - 4 tabs: Home, Scan, Stats, Profile
+ * - 5 tabs: Home, Feed, Scan, Stats, Profile
  * - Glassmorphism effect with backdrop blur
  * - Active state with accent color
  * - Haptic feedback on iOS
@@ -40,6 +40,7 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
     <View style={styles.navItems}>
       {items.map((item, index) => {
         const isActive = index === activeIndex;
+        const isCenterTab = items.length === 5 && index === 2;
         return (
           <Pressable
             key={index}
@@ -49,10 +50,18 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
             accessibilityState={{ selected: isActive }}
             style={({ pressed }) => [
               styles.navItem,
+              isCenterTab && {
+                backgroundColor: `${colors.tint}12`,
+                borderRadius: Spacing.md,
+                paddingHorizontal: Spacing.xs,
+              },
               pressed && styles.navItemPressed,
             ]}
           >
-            <View style={styles.iconContainer}>
+            <View style={[
+              styles.iconContainer,
+              isCenterTab && styles.centerIconContainer,
+            ]}>
               {item.icon(isActive ? colors.tint : colors.textTertiary)}
             </View>
             <ThemedText
@@ -150,6 +159,10 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  centerIconContainer: {
+    width: 28,
+    height: 28,
   },
   label: {
     fontSize: 12,
