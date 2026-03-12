@@ -41,6 +41,7 @@ export interface ActivityFeedItem {
   reviewTitle?: string;
   // Comment-specific fields
   commentText?: string;
+  targetReviewId?: string;
   targetReviewTitle?: string;
   targetReviewAuthorName?: string;
 }
@@ -180,6 +181,7 @@ export function mapCommentToFeedItem(
     userAvatarUrl: row.profiles?.avatar_url ?? null,
     activityType: 'comment',
     commentText: row.body,
+    targetReviewId: row.target_id,
     targetReviewTitle: row.review_title ?? undefined,
     targetReviewAuthorName: row.review_author_name ?? undefined,
   };
