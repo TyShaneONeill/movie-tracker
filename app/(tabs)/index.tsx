@@ -6,18 +6,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
-  Pressable,
+  ScrollView,
 } from 'react-native';
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 
 import { SectionHeader } from '@/components/ui/section-header';
 import { TrendingCard } from '@/components/cards/trending-card';
-import { FeedItemCard } from '@/components/cards/feed-item-card';
 import IconButton from '@/components/ui/icon-button';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -27,12 +25,9 @@ import { useHomeTvShowLists } from '@/hooks/use-home-tv-show-lists';
 import { useContinueWatching } from '@/hooks/use-continue-watching';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
-import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
-import { formatRelativeTime, type FeedListItem, type FeedFilter } from '@/hooks/use-activity-feed';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { ContinueWatchingCard } from '@/components/cards/continue-watching-card';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
-import { NativeFeedAd } from '@/components/ads/native-feed-ad';
 import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
 
 function SunIcon({ color }: { color: string }) {
@@ -74,76 +69,10 @@ function CalendarIcon({ color }: { color: string }) {
   );
 }
 
-// Default avatar for users without one
-const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
-
 // Stable separator components extracted to module level to avoid re-creating on every render
 function HorizontalSeparator() {
   return <View style={{ width: Spacing.md }} />;
 }
-
-function VerticalSeparator() {
-  return <View style={{ height: Spacing.md }} />;
-}
-
-const FEED_FILTERS: { value: FeedFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'reviews', label: 'Reviews' },
-  { value: 'friends', label: 'Friends' },
-];
-
-function FeedFilterPills({
-  activeFilter,
-  onFilterChange,
-  colors,
-}: {
-  activeFilter: FeedFilter;
-  onFilterChange: (filter: FeedFilter) => void;
-  colors: typeof Colors.dark;
-}) {
-  return (
-    <View style={filterStyles.container}>
-      {FEED_FILTERS.map((f) => (
-        <Pressable
-          key={f.value}
-          style={[
-            filterStyles.pill,
-            { backgroundColor: activeFilter === f.value ? colors.tint : colors.backgroundSecondary },
-          ]}
-          onPress={() => onFilterChange(f.value)}
-        >
-          <Text
-            style={[
-              filterStyles.pillText,
-              { color: activeFilter === f.value ? '#FFFFFF' : colors.textSecondary },
-            ]}
-          >
-            {f.label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-const filterStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.lg,
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  pillText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-});
 
 export default function HomeScreen() {
   const { effectiveTheme, setThemePreference } = useTheme();
@@ -173,34 +102,14 @@ export default function HomeScreen() {
   const { preferences } = useUserPreferences();
   const showContinueWatching = preferences?.showContinueWatching ?? true;
 
-  // Feed filter state
-  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
-
-  // Fetch prioritized activity feed (following first, then community)
-  const {
-    feedItems,
-    isLoading: activityLoading,
-    refetch: refetchActivity,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = usePrioritizedFeed(user?.id, feedFilter);
-
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
-    await Promise.all([refetchMovies(), refetchTvShows(), refetchActivity(), continueWatching.refetch()]);
+    await Promise.all([refetchMovies(), refetchTvShows(), continueWatching.refetch()]);
     setRefreshing(false);
-  }, [refetchMovies, refetchTvShows, refetchActivity, continueWatching, queryClient]);
-
-  // Handle infinite scroll
-  const handleEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [refetchMovies, refetchTvShows, continueWatching, queryClient]);
 
   const handleThemeToggle = useCallback(() => {
     setThemePreference(effectiveTheme === 'dark' ? 'light' : 'dark');
@@ -222,101 +131,26 @@ export default function HomeScreen() {
     router.push(`/tv/${showId}`);
   }, []);
 
-  // Render activity feed item, ad, or separator
-  const renderFeedItem = useCallback(
-    ({ item }: { item: FeedListItem }) => {
-      if (item.type === 'ad') return <NativeFeedAd />;
-
-      if (item.type === 'caught-up') {
-        return (
-          <View style={styles.caughtUpContainer}>
-            <View style={[styles.caughtUpLine, { backgroundColor: colors.textSecondary }]} />
-            <Text style={[styles.caughtUpText, { color: colors.textSecondary }]}>
-              You&apos;re all caught up
-            </Text>
-            <View style={[styles.caughtUpLine, { backgroundColor: colors.textSecondary }]} />
-          </View>
-        );
-      }
-
-      if (item.type === 'community-header') {
-        return <SectionHeader title="From the community" style={{ marginTop: Spacing.sm }} />;
-      }
-
-      const feed = item.data;
-
-      // Comment activity item
-      if (feed.activityType === 'comment') {
-        return (
-          <View style={[styles.commentActivityCard, { borderColor: colors.border }]}>
-            <View style={styles.commentHeaderRow}>
-              <Image
-                source={{ uri: feed.userAvatarUrl ?? DEFAULT_AVATAR }}
-                style={styles.commentAvatar}
-                contentFit="cover"
-                transition={200}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.commentActivityText, { color: colors.text }]}>
-                  <Text style={{ fontWeight: '700' }}>{feed.userDisplayName}</Text>
-                  {' commented on '}
-                  {feed.targetReviewAuthorName && (
-                    <Text style={{ fontWeight: '600' }}>{feed.targetReviewAuthorName}&apos;s</Text>
-                  )}
-                  {' review'}
-                  {feed.movieTitle ? ` of ${feed.movieTitle}` : ''}
-                </Text>
-                <Text style={[styles.commentTimestamp, { color: colors.textTertiary }]}>
-                  {formatRelativeTime(feed.createdAt ?? '')}
-                </Text>
-              </View>
-            </View>
-            {feed.commentText && !feed.isSpoiler && (
-              <Text style={[styles.commentBody, { color: colors.textSecondary }]} numberOfLines={2}>
-                &ldquo;{feed.commentText}&rdquo;
-              </Text>
-            )}
-            {feed.commentText && feed.isSpoiler && (
-              <Text style={[styles.commentBody, { color: colors.textTertiary, fontStyle: 'italic' }]}>
-                Contains spoilers
-              </Text>
-            )}
-          </View>
-        );
-      }
-
-      // Standard feed item card (first_take or review)
-      return (
-        <FeedItemCard
-          userName={feed.userDisplayName ?? 'Anonymous'}
-          userAvatarUrl={feed.userAvatarUrl ?? DEFAULT_AVATAR}
-          timestamp={formatRelativeTime(feed.createdAt ?? '')}
-          movieTitle={feed.movieTitle}
-          moviePosterUrl={getTMDBImageUrl(feed.posterPath, 'w185') ?? ''}
-          rating={feed.rating}
-          reviewText={feed.quoteText}
-          isSpoiler={feed.isSpoiler ?? undefined}
-          isCurrentUser={user?.id === feed.userId}
-          mediaType={feed.mediaType}
-          sourceId={feed.id}
-          sourceType={feed.activityType === 'review' ? 'review' : 'first_take'}
-          onMoviePress={() => {
-            if (feed.mediaType === 'tv_show') {
-              router.push(`/tv/${feed.tmdbId}`);
-            } else {
-              router.push(`/movie/${feed.tmdbId}`);
-            }
-          }}
-        />
-      );
-    },
-    [user?.id, colors.textSecondary, colors.border, colors.text, colors.textTertiary]
-  );
-
-  // Header component with all movie sections
-  const ListHeader = useCallback(
-    () => (
-      <>
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={Platform.OS !== 'web'}
+        overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
+        refreshControl={
+          Platform.OS !== 'web' ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.tint}
+            />
+          ) : undefined
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -555,110 +389,7 @@ export default function HomeScreen() {
 
         {/* Suggested Users */}
         <SuggestedUsersSection />
-
-        {/* Activity Section Header */}
-        <View style={styles.activityHeader}>
-          <SectionHeader title="Activity" />
-          {activityLoading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.tint} />
-            </View>
-          )}
-        </View>
-
-        {/* Feed Filters */}
-        {user && (
-          <FeedFilterPills
-            activeFilter={feedFilter}
-            onFilterChange={setFeedFilter}
-            colors={colors}
-          />
-        )}
-      </>
-    ),
-    [
-      colors.textSecondary,
-      colors.tint,
-      colors.backgroundSecondary,
-      moviesLoading,
-      tvLoading,
-      activityLoading,
-      trendingMovies,
-      nowPlayingMovies,
-      upcomingMovies,
-      trendingShows,
-      airingTodayShows,
-      user,
-      continueWatching.shows,
-      feedFilter,
-      handleThemeToggle,
-      handleCalendarPress,
-      handleSearchPress,
-      handleTrendingPress,
-      handleTvShowPress,
-    ]
-  );
-
-  // Footer component for loading more indicator
-  const ListFooter = useCallback(() => {
-    if (isFetchingNextPage) {
-      return (
-        <View style={styles.loadingFooter}>
-          <ActivityIndicator size="small" color={colors.tint} />
-        </View>
-      );
-    }
-    return null;
-  }, [isFetchingNextPage, colors.tint]);
-
-  // Empty component when no activity
-  const ListEmpty = useCallback(() => {
-    if (activityLoading) return null;
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          No activity yet. Be the first to share a First Take!
-        </Text>
-      </View>
-    );
-  }, [activityLoading, colors.textSecondary]);
-
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top']}
-    >
-      <FlatList
-        data={feedItems}
-        keyExtractor={(item, index) =>
-          item.type === 'ad' ? item.id :
-          item.type === 'activity' ? item.data.id :
-          item.type + '-' + index
-        }
-        renderItem={renderFeedItem}
-        ListHeaderComponent={ListHeader}
-        ListFooterComponent={ListFooter}
-        ListEmptyComponent={ListEmpty}
-        ItemSeparatorComponent={VerticalSeparator}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        bounces={Platform.OS !== 'web'}
-        overScrollMode={Platform.OS === 'web' ? 'never' : 'auto'}
-        refreshControl={
-          Platform.OS !== 'web' ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.tint}
-            />
-          ) : undefined
-        }
-      />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -692,9 +423,6 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: Spacing.lg,
   },
-  activityHeader: {
-    marginBottom: Spacing.sm,
-  },
   trendingList: {
     paddingVertical: Spacing.xs,
   },
@@ -702,62 +430,5 @@ const styles = StyleSheet.create({
     height: 200,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingFooter: {
-    paddingVertical: Spacing.lg,
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    paddingVertical: Spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  caughtUpContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-  },
-  caughtUpLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.3,
-  },
-  caughtUpText: {
-    ...Typography.body.sm,
-  },
-  commentActivityCard: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    borderBottomWidth: 1,
-    marginBottom: Spacing.xs,
-  },
-  commentHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  commentAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: Spacing.sm,
-  },
-  commentActivityText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  commentTimestamp: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  commentBody: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: Spacing.xs,
-    marginLeft: 36, // align with text after avatar (28 + 8)
-    fontStyle: 'italic',
   },
 });
