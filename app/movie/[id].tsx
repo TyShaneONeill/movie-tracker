@@ -23,7 +23,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Alert,
   Linking,
   Platform,
 } from 'react-native';
@@ -44,6 +43,7 @@ import { ReviewModal } from '@/components/review-modal';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { TrailerModal } from '@/components/modals/trailer-modal';
+import { ConfirmationModal } from '@/components/modals/confirmation-modal';
 import { AddToListModal } from '@/components/modals/add-to-list-modal';
 import { CreateListModal } from '@/components/modals/create-list-modal';
 import { useMovieDetail } from '@/hooks/use-movie-detail';
@@ -87,6 +87,13 @@ export default function MovieDetailScreen() {
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const [confirmation, setConfirmation] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+    destructive?: boolean;
+  } | null>(null);
 
   // Fetch movie details using the hook
   const { movie, cast, crew, trailer, watchProviders, isLoading, isError, error } = useMovieDetail({
@@ -96,6 +103,7 @@ export default function MovieDetailScreen() {
 
   // Movie actions hook for save/like functionality (separate operations)
   const {
+    userMovie,
     isSaved,
     currentStatus,
     isLiked,
@@ -104,6 +112,7 @@ export default function MovieDetailScreen() {
     addToWatchlist,
     removeFromWatchlist,
     changeStatus,
+    downgradeStatus,
     toggleLike,
   } = useMovieActions(Number(id) || 0);
 
@@ -182,7 +191,7 @@ export default function MovieDetailScreen() {
         try {
           await toggleLike(movieData);
         } catch {
-          Alert.alert('Error', 'Failed to update like status. Please try again.');
+          Toast.show({ type: 'error', text1: 'Failed to update like status', visibilityTime: 3000 });
         }
       }
     }, 'Sign in to like movies');
@@ -206,7 +215,22 @@ export default function MovieDetailScreen() {
         visibilityTime: 2000,
       });
     } catch {
-      Alert.alert('Error', 'Failed to remove movie. Please try again.');
+      Toast.show({ type: 'error', text1: 'Failed to remove movie', visibilityTime: 3000 });
+    }
+  };
+
+  // Helper function to perform status downgrade (watched → watchlist/watching)
+  const performDowngrade = async (newStatus: MovieStatus) => {
+    hapticImpact();
+    try {
+      if (hasFirstTake) await deleteTake();
+      if (hasReview) await deleteReviewAction();
+      await downgradeStatus(newStatus);
+      const label = newStatus === 'watchlist' ? 'Moved to Watchlist' : 'Now Watching';
+      Toast.show({ type: 'success', text1: label, visibilityTime: 2000 });
+      hapticNotification(NotificationFeedbackType.Success);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to update movie status', visibilityTime: 3000 });
     }
   };
 
@@ -225,14 +249,13 @@ export default function MovieDetailScreen() {
           // Remove from watchlist - show confirmation if user has First Take or Review
           if (hasFirstTake || hasReview) {
             const items = [hasFirstTake && 'First Take', hasReview && 'Review'].filter(Boolean).join(' and ');
-            Alert.alert(
-              'Remove Movie?',
-              `This will also delete your ${items} for this movie.`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Remove All', style: 'destructive', onPress: performRemoval },
-              ]
-            );
+            setConfirmation({
+              title: 'Remove Movie?',
+              message: `This will also delete your ${items} for this movie.`,
+              confirmLabel: 'Remove All',
+              onConfirm: performRemoval,
+              destructive: true,
+            });
             return;
           }
           await removeFromWatchlist();
@@ -241,8 +264,39 @@ export default function MovieDetailScreen() {
             text1: 'Removed from List',
             visibilityTime: 2000,
           });
+        } else if (isSaved && currentStatus === 'watched' && (status === 'watchlist' || status === 'watching')) {
+          // Downgrading from "watched" — check if user has content at risk
+          const hasJourneyContent = !!(
+            userMovie?.ai_poster_url ||
+            userMovie?.journey_notes ||
+            (userMovie?.journey_photos && userMovie.journey_photos.length > 0)
+          );
+
+          if (hasFirstTake || hasReview || hasJourneyContent) {
+            const items = [
+              hasFirstTake && 'First Take',
+              hasReview && 'Review',
+              userMovie?.ai_poster_url && 'AI Journey Art',
+              (userMovie?.journey_notes || userMovie?.journey_photos?.length) && 'viewing details',
+            ].filter(Boolean).join(', ');
+
+            const statusLabel = status === 'watchlist' ? 'Watchlist' : 'Watching';
+            setConfirmation({
+              title: `Move to ${statusLabel}?`,
+              message: `This will permanently delete your ${items} for this movie. This cannot be undone.`,
+              confirmLabel: `Move to ${statusLabel}`,
+              onConfirm: () => performDowngrade(status),
+              destructive: true,
+            });
+            return;
+          }
+
+          // No content at risk, just downgrade directly
+          await downgradeStatus(status);
+          const toastLabel = status === 'watchlist' ? 'Moved to Watchlist' : 'Now Watching';
+          Toast.show({ type: 'success', text1: toastLabel, visibilityTime: 2000 });
         } else if (isSaved) {
-          // Movie already in watchlist, change status
+          // Movie already in watchlist, change status (non-downgrade)
           await changeStatus(status);
           // Show toast based on new status
           const toastMessage = status === 'watchlist' ? 'Added to Watchlist' :
@@ -273,9 +327,8 @@ export default function MovieDetailScreen() {
 
         // Success haptic after action completes
         hapticNotification(NotificationFeedbackType.Success);
-      } catch (err) {
-        console.error('Movie status error:', err);
-        Alert.alert('Error', 'Failed to update movie status. Please try again.');
+      } catch {
+        Toast.show({ type: 'error', text1: 'Failed to update movie status', visibilityTime: 3000 });
       }
     }, 'Sign in to track movies');
   };
@@ -300,7 +353,7 @@ export default function MovieDetailScreen() {
       });
       setShowFirstTakeModal(false);
     } catch {
-      Alert.alert('Error', 'Failed to save your first take. Please try again.');
+      Toast.show({ type: 'error', text1: 'Failed to save your first take', visibilityTime: 3000 });
     }
   };
 
@@ -344,7 +397,7 @@ export default function MovieDetailScreen() {
       }
       setShowReviewModal(false);
     } catch {
-      Alert.alert('Error', 'Failed to save your review. Please try again.');
+      Toast.show({ type: 'error', text1: 'Failed to save your review', visibilityTime: 3000 });
     }
   };
 
@@ -370,7 +423,7 @@ export default function MovieDetailScreen() {
         visibilityTime: 2000,
       });
     } catch {
-      Alert.alert('Error', 'Failed to save movie to lists. Please try again.');
+      Toast.show({ type: 'error', text1: 'Failed to save to lists', visibilityTime: 3000 });
     }
   };
 
@@ -803,9 +856,20 @@ export default function MovieDetailScreen() {
             // Re-open the add-to-list modal so user can select the new list
             setShowAddToListModal(true);
           } catch {
-            Alert.alert('Error', 'Failed to create list. Please try again.');
+            Toast.show({ type: 'error', text1: 'Failed to create list', visibilityTime: 3000 });
           }
         }}
+      />
+
+      {/* Confirmation Dialog (cross-platform replacement for Alert.alert) */}
+      <ConfirmationModal
+        visible={!!confirmation}
+        onClose={() => setConfirmation(null)}
+        title={confirmation?.title ?? ''}
+        message={confirmation?.message ?? ''}
+        confirmLabel={confirmation?.confirmLabel ?? ''}
+        onConfirm={confirmation?.onConfirm ?? (() => {})}
+        destructive={confirmation?.destructive}
       />
     </View>
   );

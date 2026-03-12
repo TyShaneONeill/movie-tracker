@@ -6,6 +6,7 @@ import {
   addMovieToLibrary,
   removeMovieFromLibrary,
   updateMovieStatus,
+  downgradeMovieStatus,
   getMovieLike,
   likeMovie,
   unlikeMovie,
@@ -30,6 +31,7 @@ interface UseMovieActionsResult {
   addToWatchlist: (movie: TMDBMovie, status: MovieStatus) => Promise<void>;
   removeFromWatchlist: () => Promise<void>;
   changeStatus: (status: MovieStatus) => Promise<void>;
+  downgradeStatus: (status: MovieStatus) => Promise<void>;
 
   // Like actions (independent of watchlist)
   toggleLike: (movie: TMDBMovie) => Promise<void>;
@@ -200,6 +202,64 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     },
   });
 
+  // Mutation to downgrade status from "watched" (clears journey/watch fields)
+  const downgradeStatusMutation = useMutation({
+    mutationFn: async (status: MovieStatus) => {
+      if (!user) throw new Error('Not authenticated');
+      return downgradeMovieStatus(user.id, tmdbId, status);
+    },
+    onMutate: async (newStatus) => {
+      await queryClient.cancelQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
+
+      const previousMovie = queryClient.getQueryData<UserMovie | null>(
+        ['userMovie', user?.id, tmdbId]
+      );
+
+      if (previousMovie) {
+        queryClient.setQueryData<UserMovie>(
+          ['userMovie', user?.id, tmdbId],
+          {
+            ...previousMovie,
+            status: newStatus,
+            ai_poster_url: null,
+            ai_poster_rarity: null,
+            journey_notes: null,
+            journey_tagline: null,
+            journey_photos: null,
+            journey_created_at: null,
+            journey_updated_at: null,
+            watched_at: null,
+            watch_time: null,
+            watched_with: null,
+            watch_format: null,
+            location_type: null,
+            location_name: null,
+            auditorium: null,
+            seat_location: null,
+            ticket_id: null,
+            ticket_price: null,
+            cover_photo_index: null,
+            display_poster: null,
+          }
+        );
+      }
+
+      return { previousMovie };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousMovie !== undefined) {
+        queryClient.setQueryData(
+          ['userMovie', user?.id, tmdbId],
+          context.previousMovie
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
+      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+    },
+  });
+
   // Mutation to toggle like (optimistic, independent of watchlist)
   const toggleLikeMutation = useMutation({
     mutationFn: async (movie: TMDBMovie) => {
@@ -253,6 +313,10 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     await changeStatusMutation.mutateAsync(status);
   };
 
+  const downgradeStatus = async (status: MovieStatus): Promise<void> => {
+    await downgradeStatusMutation.mutateAsync(status);
+  };
+
   const toggleLike = async (movie: TMDBMovie): Promise<void> => {
     await toggleLikeMutation.mutateAsync(movie);
   };
@@ -263,7 +327,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     isSaved: !!userMovie,
     currentStatus: (userMovie?.status as MovieStatus) ?? null,
     isLoadingWatchlist,
-    isSaving: addMutation.isPending || removeMutation.isPending || changeStatusMutation.isPending,
+    isSaving: addMutation.isPending || removeMutation.isPending || changeStatusMutation.isPending || downgradeStatusMutation.isPending,
 
     // Like state
     isLiked: !!userLike,
@@ -274,6 +338,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     addToWatchlist,
     removeFromWatchlist,
     changeStatus,
+    downgradeStatus,
     toggleLike,
   };
 }

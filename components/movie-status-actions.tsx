@@ -1,7 +1,6 @@
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle, Polyline } from 'react-native-svg';
 import { hapticImpact } from '@/lib/haptics';
-import Toast from 'react-native-toast-message';
 
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -135,44 +134,17 @@ export function MovieStatusActions({
 
   const handleWatchlist = () => {
     hapticImpact();
-    if (isWatchlist) {
-      onStatusChange(null);
-    } else {
-      onStatusChange('watchlist');
-      Toast.show({
-        type: 'success',
-        text1: 'Added to Watchlist',
-        visibilityTime: 2000,
-      });
-    }
+    onStatusChange(isWatchlist ? null : 'watchlist');
   };
 
   const handleWatching = () => {
     hapticImpact();
-    if (isWatching) {
-      onStatusChange(null);
-    } else {
-      onStatusChange('watching');
-      Toast.show({
-        type: 'success',
-        text1: 'Now Watching',
-        visibilityTime: 2000,
-      });
-    }
+    onStatusChange(isWatching ? null : 'watching');
   };
 
   const handleWatched = () => {
     hapticImpact();
-    if (isWatched) {
-      onStatusChange(null);
-    } else {
-      onStatusChange('watched');
-      Toast.show({
-        type: 'success',
-        text1: 'Marked as Watched',
-        visibilityTime: 2000,
-      });
-    }
+    onStatusChange(isWatched ? null : 'watched');
   };
 
   return (
