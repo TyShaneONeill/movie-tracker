@@ -9,6 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { usePremium } from '@/hooks/use-premium';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -41,7 +42,51 @@ export default function SettingsScreen() {
   const colors = Colors[effectiveTheme];
   const { signOut, user } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
+  const { isPremium, tier, subscription, restorePurchases, isLoading: isPremiumLoading } = usePremium();
   const [isExporting, setIsExporting] = useState(false);
+  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+
+  const handleRestorePurchases = async () => {
+    hapticImpact();
+    setIsRestoringPurchases(true);
+    try {
+      const result = await restorePurchases();
+      if (result && typeof result === 'object' && 'message' in result) {
+        Toast.show({
+          type: result.restored ? 'success' : 'info',
+          text1: result.restored ? 'Restored!' : 'No subscription found',
+          text2: String(result.message),
+          visibilityTime: 3000,
+        });
+      }
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Restore failed',
+        text2: 'Please try again later.',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsRestoringPurchases(false);
+    }
+  };
+
+  /** Format subscription expiry for display */
+  const formatExpiryDate = (date: Date | null): string => {
+    if (!date) return '';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  };
+
+  const getSubscriptionLabel = (): string => {
+    if (!isPremium || tier === 'dev') return 'Free Plan';
+    if (!subscription) return 'CineTrak+';
+    const expiryStr = subscription.expiresAt ? formatExpiryDate(subscription.expiresAt) : '';
+    if (subscription.willRenew) {
+      return expiryStr ? `CineTrak+ \u2014 Renews ${expiryStr}` : 'CineTrak+';
+    }
+    return expiryStr ? `CineTrak+ \u2014 Expires ${expiryStr}` : 'CineTrak+ (Not renewing)';
+  };
 
   const handleThemeToggle = async (isDarkMode: boolean) => {
     hapticImpact();
@@ -321,6 +366,79 @@ export default function SettingsScreen() {
             </View>
             <ChevronRightIcon color="#ff4444" />
           </Pressable>
+        </View>
+
+        {/* Subscription Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>SUBSCRIPTION</Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.firstItem,
+              isPremium ? { backgroundColor: colors.card, borderBottomColor: colors.border } : styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => router.push('/upgrade')}
+          >
+            <View style={styles.settingsItemContent}>
+              <View style={styles.subscriptionRow}>
+                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Plan</Text>
+                {!isPremium && (
+                  <View style={[styles.upgradeBadge, { backgroundColor: colors.gold }]}>
+                    <Text style={styles.upgradeBadgeText}>Upgrade</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[Typography.body.sm, { color: isPremium ? colors.gold : colors.textSecondary }]}>
+                {isPremiumLoading ? 'Loading...' : getSubscriptionLabel()}
+              </Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
+
+          {isPremium && tier !== 'dev' && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingsItem,
+                { backgroundColor: colors.card, borderBottomColor: colors.border },
+                pressed && { backgroundColor: colors.backgroundSecondary }
+              ]}
+              onPress={() => {
+                // Opens Stripe Customer Portal on web
+                hapticImpact();
+              }}
+            >
+              <View>
+                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Manage Subscription</Text>
+              </View>
+              <ChevronRightIcon color={colors.textSecondary} />
+            </Pressable>
+          )}
+
+          {(isPremium && tier !== 'dev' || !isPremium) && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingsItem,
+                isPremium ? styles.lastItem : {},
+                !isPremium ? {} : { backgroundColor: colors.card },
+                { backgroundColor: colors.card },
+                pressed && { backgroundColor: colors.backgroundSecondary }
+              ]}
+              onPress={handleRestorePurchases}
+              disabled={isRestoringPurchases}
+            >
+              <View>
+                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Restore Purchases</Text>
+              </View>
+              {isRestoringPurchases ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <ChevronRightIcon color={colors.textSecondary} />
+              )}
+            </Pressable>
+          )}
         </View>
 
         {/* App Preferences Section */}
@@ -613,6 +731,21 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: BorderRadius.md,
     borderBottomRightRadius: BorderRadius.md,
     borderBottomWidth: 0,
+  },
+  subscriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  upgradeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  upgradeBadgeText: {
+    color: '#000',
+    fontSize: 11,
+    fontWeight: '700',
   },
   integrationRow: {
     flexDirection: 'row',
