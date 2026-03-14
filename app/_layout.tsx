@@ -40,6 +40,7 @@ import { OfflineBanner } from '@/components/offline-banner';
 import { AdsProvider } from '@/lib/ads-context';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AchievementProvider } from '@/lib/achievement-context';
+import { PremiumProvider } from '@/lib/premium-context';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -200,6 +201,7 @@ function RootLayoutNav() {
         <Stack.Screen name="lists" options={{ headerShown: false }} />
         <Stack.Screen name="release-calendar" options={{ headerShown: false }} />
         <Stack.Screen name="streaming-services" options={{ headerShown: false }} />
+        <Stack.Screen name="upgrade" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
@@ -251,11 +253,13 @@ export default function RootLayout() {
               <AuthProvider>
                 <OnboardingProvider>
                   <ThemeProvider>
-                    <AchievementProvider>
-                      <ErrorBoundary>
-                        <RootLayoutNav />
-                      </ErrorBoundary>
-                    </AchievementProvider>
+                    <PremiumProvider>
+                      <AchievementProvider>
+                        <ErrorBoundary>
+                          <RootLayoutNav />
+                        </ErrorBoundary>
+                      </AchievementProvider>
+                    </PremiumProvider>
                   </ThemeProvider>
                 </OnboardingProvider>
               </AuthProvider>

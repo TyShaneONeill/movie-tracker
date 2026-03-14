@@ -755,12 +755,26 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Look up account tier to determine daily scan limit
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('account_tier')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('[scan-ticket] Failed to fetch profile:', profileError);
+    }
+
+    const accountTier = profile?.account_tier || 'free';
+    const dailyLimit = accountTier === 'dev' ? 999 : accountTier === 'plus' || accountTier === 'premium' ? 20 : 3;
+
     // Check rate limit
     const { data: rateLimit, error: rateLimitError } = await supabaseClient.rpc(
       'check_and_increment_scan',
       {
         p_user_id: user.id,
-        p_daily_limit: 3
+        p_daily_limit: dailyLimit
       }
     );
 

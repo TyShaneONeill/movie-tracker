@@ -13,6 +13,8 @@ const AdsContext = createContext<AdsContextType>({
 });
 
 export function AdsProvider({ children }: { children: React.ReactNode }) {
+  // Ads enabled by default, disabled in dev mode.
+  // Premium users: PremiumProvider calls setAdsEnabled(false) when isPremium is true.
   const [adsEnabled, setAdsEnabled] = useState(!__DEV__);
   const [adsReady, setAdsReady] = useState(false);
 
