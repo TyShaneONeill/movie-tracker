@@ -9,10 +9,11 @@ import {
   Pressable,
 } from 'react-native';
 import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -46,6 +47,14 @@ function AuthenticatedFeed() {
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
+  const queryClient = useQueryClient();
+
+  // Invalidate unread indicator when feed tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['feed-unread'] });
+    }, [queryClient])
+  );
 
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
 
@@ -108,6 +117,8 @@ function AuthenticatedFeed() {
               styles.commentActivityCard,
               { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
             ]}
+            accessibilityLabel={`Comment by ${feed.userDisplayName} on ${feed.movieTitle}`}
+            accessibilityRole="button"
             onPress={() => {
               if (feed.targetReviewId) {
                 router.push(`/review/${feed.targetReviewId}`);
@@ -224,6 +235,8 @@ function AuthenticatedFeed() {
         <Pressable
           onPress={() => router.push('/notifications')}
           style={({ pressed }) => [styles.bellButton, { opacity: pressed ? 0.7 : 1 }]}
+          accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+          accessibilityRole="button"
         >
           <Ionicons name="notifications-outline" size={24} color={colors.text} />
           {unreadCount > 0 && (
@@ -249,6 +262,9 @@ function AuthenticatedFeed() {
               },
             ]}
             onPress={() => setFeedFilter(f.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: feedFilter === f.value }}
+            accessibilityLabel={`Filter by ${f.value === 'all' ? 'all activity' : f.value === 'reviews' ? 'reviews only' : 'friends only'}`}
           >
             <Text
               style={[

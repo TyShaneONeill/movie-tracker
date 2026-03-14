@@ -1,13 +1,16 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { View } from 'react-native';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 
 import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
 import { Colors } from '@/constants/theme';
+import { useFeedUnread } from '@/hooks/use-feed-unread';
 import { useTheme } from '@/lib/theme-context';
 
 export default function TabLayout() {
   const { effectiveTheme } = useTheme();
+  const hasUnreadFeed = useFeedUnread();
 
   return (
     <Tabs
@@ -38,11 +41,24 @@ export default function TabLayout() {
           } else if (route.name === 'feed') {
             // Feed / Activity stream icon
             icon = (color: string) => (
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M4 11a9 9 0 0 1 9 9" />
-                <Path d="M4 4a16 16 0 0 1 16 16" />
-                <Circle cx={5} cy={19} r={1} />
-              </Svg>
+              <View style={{ position: 'relative' }}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M4 11a9 9 0 0 1 9 9" />
+                  <Path d="M4 4a16 16 0 0 1 16 16" />
+                  <Circle cx={5} cy={19} r={1} />
+                </Svg>
+                {hasUnreadFeed && (
+                  <View style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -4,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: Colors[effectiveTheme].tint,
+                  }} />
+                )}
+              </View>
             );
           } else if (route.name === 'scanner') {
             // Camera/Scan icon

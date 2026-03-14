@@ -119,8 +119,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     borderWidth: 1,
     overflow: 'hidden',
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.lg,
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
   },
   webBlurFallback: {
     // CSS backdrop-filter for glassmorphism on web
