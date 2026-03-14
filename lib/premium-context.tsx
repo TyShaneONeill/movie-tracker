@@ -64,6 +64,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [purchasesInstance, setPurchasesInstance] = useState<any>(null);
+  const [availablePackages, setAvailablePackages] = useState<any[]>([]);
 
   const isPremium = tier === 'plus' || tier === 'dev';
 
@@ -129,8 +130,9 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   /** Initialize RevenueCat web SDK and identify the user */
   const initRevenueCat = async (userId: string) => {
     try {
-      // Dynamic import — package must be installed: npm install @revenuecat/purchases-js
-      const { Purchases } = await import(/* webpackIgnore: true */ '@revenuecat/purchases-js' as string) as { Purchases: any };
+      // Dynamic import — web-only SDK, must not be statically imported for native builds
+      const rcModule = await import('@revenuecat/purchases-js');
+      const Purchases = (rcModule as any).Purchases;
 
       const instance = Purchases.configure(REVENUECAT_WEB_API_KEY, userId);
       setPurchasesInstance(instance);
@@ -138,8 +140,20 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       // Fetch current customer info to check entitlements
       const customerInfo = await instance.getCustomerInfo();
       deriveStateFromCustomerInfo(customerInfo);
+
+      // Fetch available offerings/packages for the purchase flow
+      try {
+        const offerings = await instance.getOfferings();
+        const currentOffering = offerings?.current;
+        if (currentOffering?.availablePackages) {
+          setAvailablePackages(currentOffering.availablePackages);
+        }
+      } catch (offeringsError) {
+        console.warn('[PremiumProvider] Failed to fetch offerings:', offeringsError);
+      }
     } catch (error) {
       // RevenueCat unavailable — fall back to DB tier (already set above)
+      console.warn('[PremiumProvider] RevenueCat init failed:', error);
       captureException(error instanceof Error ? error : new Error(String(error)), {
         context: 'premium-revenuecat-init',
       });
@@ -181,7 +195,20 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const result = await purchasesInstance.purchase({ rcPackage: packageToPurchase as any });
+      // If a string product ID is passed, resolve it to the actual RC package object
+      let rcPackage = packageToPurchase;
+      if (typeof packageToPurchase === 'string') {
+        rcPackage = availablePackages.find(
+          (pkg: any) => pkg.rcBillingProduct?.identifier === packageToPurchase
+            || pkg.identifier === packageToPurchase
+            || pkg.webBillingProduct?.identifier === packageToPurchase
+        );
+        if (!rcPackage) {
+          return { success: false, error: `Package "${packageToPurchase}" not found in offerings. Available: ${availablePackages.map((p: any) => p.rcBillingProduct?.identifier || p.identifier).join(', ')}` };
+        }
+      }
+
+      const result = await purchasesInstance.purchase({ rcPackage });
 
       if (result?.customerInfo) {
         deriveStateFromCustomerInfo(result.customerInfo);
@@ -202,7 +229,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         error: error?.message || 'Purchase failed. Please try again.',
       };
     }
-  }, [purchasesInstance]);
+  }, [purchasesInstance, availablePackages]);
 
   /** Restore purchases via RevenueCat */
   const restorePurchases = useCallback(async (): Promise<RestoreResult> => {

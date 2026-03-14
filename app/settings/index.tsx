@@ -79,7 +79,8 @@ export default function SettingsScreen() {
   };
 
   const getSubscriptionLabel = (): string => {
-    if (!isPremium || tier === 'dev') return 'Free Plan';
+    if (tier === 'dev') return 'Developer';
+    if (!isPremium) return 'Free Plan';
     if (!subscription) return 'CineTrak+';
     const expiryStr = subscription.expiresAt ? formatExpiryDate(subscription.expiresAt) : '';
     if (subscription.willRenew) {

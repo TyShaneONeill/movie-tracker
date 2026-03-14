@@ -85,8 +85,8 @@ export default function UpgradeScreen() {
     setIsPurchasing(true);
     try {
       const packageId = selectedPlan === 'monthly'
-        ? 'cinetrak_plus_monthly'
-        : 'cinetrak_plus_yearly';
+        ? 'monthly'
+        : 'yearly';
 
       const result = await purchasePackage(packageId);
 
