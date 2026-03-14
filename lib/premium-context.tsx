@@ -225,8 +225,14 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     } catch (error: any) {
-      // User cancelled is not an error
-      if (error?.userCancelled) {
+      // User cancelled / closed checkout is not an error
+      const isCancellation = error?.userCancelled
+        || error?.code === 'CANCELLED'
+        || error?.code === 'USER_CANCELLED'
+        || error?.message?.toLowerCase()?.includes('cancel')
+        || error?.message?.toLowerCase()?.includes('closed')
+        || error?.message?.toLowerCase()?.includes('dismissed');
+      if (isCancellation) {
         return { success: false };
       }
 
