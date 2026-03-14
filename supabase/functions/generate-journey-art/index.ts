@@ -294,6 +294,36 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // --- Free-tier generation limit ---
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('account_tier')
+      .eq('id', user.id)
+      .single();
+
+    const tier = profile?.account_tier || 'free';
+
+    if (tier === 'free') {
+      // function_name uses underscores to match existing logAiCost value
+      const { count } = await supabaseAdmin
+        .from('ai_usage_costs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('function_name', 'generate_journey_art');
+
+      if ((count ?? 0) >= 1) {
+        return new Response(
+          JSON.stringify({
+            error: 'ai_generation_limit',
+            message: 'Free users get 1 AI art generation. Upgrade to CineTrak+ for unlimited.',
+            upgrade: true,
+          }),
+          { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    // --- End free-tier limit ---
+
     // Roll for rarity
     const rarity = rollForRarity();
     console.log(`Rarity roll: ${rarity} for journey ${journeyId}`);
@@ -333,16 +363,6 @@ Deno.serve(async (req: Request) => {
       imageBase64 = await applyHolographicEffect(imageBase64, OPENAI_API_KEY);
       console.log('Applied holographic effect');
     }
-
-    // Log OpenAI API cost (1 call for common, 2 for holographic)
-    const apiCalls = rarity === 'holographic' ? 2 : 1;
-    await logAiCost(
-      supabaseAdmin,
-      user.id,
-      'generate_journey_art',
-      'gpt-image-1.5',
-      AI_COST_ESTIMATES['gpt-image-1.5'] * apiCalls,
-    );
 
     // Step 3: Upload final image to Storage bucket
     const base64Data = imageBase64.replace('data:image/png;base64,', '');
@@ -392,6 +412,17 @@ Deno.serve(async (req: Request) => {
         { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
+
+    // Log AI cost for tracking — placed after user_movies update
+    // so free trial is only consumed on full success
+    const apiCalls = rarity === 'holographic' ? 2 : 1;
+    await logAiCost(
+      supabaseAdmin,
+      user.id,
+      'generate_journey_art',
+      'gpt-image-1.5',
+      AI_COST_ESTIMATES['gpt-image-1.5'] * apiCalls,
+    );
 
     const response: GenerateArtResponse = {
       success: true,
