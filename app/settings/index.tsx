@@ -375,39 +375,52 @@ export default function SettingsScreen() {
 
           <Pressable
             style={({ pressed }) => [
-              styles.settingsItem,
-              styles.firstItem,
-              isPremium ? { backgroundColor: colors.card, borderBottomColor: colors.border } : styles.lastItem,
+              styles.subscriptionCard,
               { backgroundColor: colors.card },
-              pressed && { backgroundColor: colors.backgroundSecondary }
+              !isPremium && { borderColor: colors.gold + '40', borderWidth: 1 },
+              pressed && { opacity: 0.85 },
             ]}
             onPress={() => router.push('/upgrade')}
           >
-            <View style={styles.settingsItemContent}>
-              <View style={styles.subscriptionRow}>
-                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Plan</Text>
+            <View style={styles.subscriptionCardTop}>
+              <View style={[styles.subscriptionIconCircle, { backgroundColor: isPremium ? colors.gold + '20' : colors.gold + '15' }]}>
+                <Ionicons name={isPremium ? 'star' : 'star-outline'} size={20} color={colors.gold} />
+              </View>
+              <View style={styles.subscriptionCardInfo}>
+                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '700' }]}>
+                  {isPremiumLoading ? 'Loading...' : getSubscriptionLabel()}
+                </Text>
                 {!isPremium && (
-                  <View style={[styles.upgradeBadge, { backgroundColor: colors.gold }]}>
-                    <Text style={styles.upgradeBadgeText}>Upgrade</Text>
-                  </View>
+                  <Text style={[Typography.body.xs, { color: colors.textTertiary, marginTop: 1 }]}>
+                    Unlock all features with CineTrak+
+                  </Text>
+                )}
+                {isPremium && tier !== 'dev' && subscription?.expiresAt && (
+                  <Text style={[Typography.body.xs, { color: colors.textSecondary, marginTop: 1 }]}>
+                    {subscription.willRenew ? 'Renews' : 'Expires'} {formatExpiryDate(subscription.expiresAt)}
+                  </Text>
                 )}
               </View>
-              <Text style={[Typography.body.sm, { color: isPremium ? colors.gold : colors.textSecondary }]}>
-                {isPremiumLoading ? 'Loading...' : getSubscriptionLabel()}
-              </Text>
+              {!isPremium ? (
+                <View style={[styles.upgradeChip, { backgroundColor: colors.gold }]}>
+                  <Text style={styles.upgradeChipText}>Upgrade</Text>
+                  <Ionicons name="arrow-forward" size={12} color="#000" />
+                </View>
+              ) : (
+                <Ionicons name="checkmark-circle" size={22} color={colors.gold} />
+              )}
             </View>
-            <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>
 
           {isPremium && tier !== 'dev' && (
             <Pressable
               style={({ pressed }) => [
                 styles.settingsItem,
+                styles.firstItem,
                 { backgroundColor: colors.card, borderBottomColor: colors.border },
                 pressed && { backgroundColor: colors.backgroundSecondary }
               ]}
               onPress={() => {
-                // Opens Stripe Customer Portal on web
                 hapticImpact();
               }}
             >
@@ -421,22 +434,16 @@ export default function SettingsScreen() {
           {(isPremium && tier !== 'dev' || !isPremium) && (
             <Pressable
               style={({ pressed }) => [
-                styles.settingsItem,
-                isPremium ? styles.lastItem : {},
-                !isPremium ? {} : { backgroundColor: colors.card },
-                { backgroundColor: colors.card },
-                pressed && { backgroundColor: colors.backgroundSecondary }
+                styles.restoreLink,
+                pressed && { opacity: 0.5 },
               ]}
               onPress={handleRestorePurchases}
               disabled={isRestoringPurchases}
             >
-              <View>
-                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Restore Purchases</Text>
-              </View>
               {isRestoringPurchases ? (
-                <ActivityIndicator size="small" color={colors.tint} />
+                <ActivityIndicator size="small" color={colors.textTertiary} />
               ) : (
-                <ChevronRightIcon color={colors.textSecondary} />
+                <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>Restore Purchases</Text>
               )}
             </Pressable>
           )}
@@ -733,20 +740,41 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: BorderRadius.md,
     borderBottomWidth: 0,
   },
-  subscriptionRow: {
+  subscriptionCard: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  subscriptionCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  upgradeBadge: {
+  subscriptionIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subscriptionCardInfo: {
+    flex: 1,
+  },
+  upgradeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 6,
     borderRadius: BorderRadius.full,
   },
-  upgradeBadgeText: {
+  upgradeChipText: {
     color: '#000',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
+  },
+  restoreLink: {
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
   },
   integrationRow: {
     flexDirection: 'row',
