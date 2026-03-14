@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { analytics } from '@/lib/analytics';
 import {
   getMovieByTmdbId,
   addMovieToLibrary,
@@ -127,6 +128,9 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
         triggerAchievementCheck();
       }
     },
+    onSuccess: (_data, variables) => {
+      analytics.track('movie:watchlist_add', { tmdb_id: variables.movie.id });
+    },
   });
 
   // Mutation to remove movie from watchlist (optimistic)
@@ -160,6 +164,9 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+    },
+    onSuccess: () => {
+      analytics.track('movie:watchlist_remove', { tmdb_id: tmdbId });
     },
   });
 

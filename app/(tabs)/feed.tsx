@@ -27,6 +27,7 @@ import { useNotifications } from '@/hooks/use-notifications';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime, type FeedListItem, type FeedFilter } from '@/hooks/use-activity-feed';
 import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
+import { analytics } from '@/lib/analytics';
 
 // Default avatar for users without one
 const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
@@ -48,15 +49,15 @@ function AuthenticatedFeed() {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const queryClient = useQueryClient();
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
 
   // Invalidate unread indicator when feed tab gains focus
   useFocusEffect(
     useCallback(() => {
+      analytics.track('feed:view', { tab: feedFilter === 'friends' ? 'following' : 'community' });
       queryClient.invalidateQueries({ queryKey: ['feed-unread'] });
-    }, [queryClient])
+    }, [queryClient, feedFilter])
   );
-
-  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
 
   const {
     feedItems,
@@ -120,6 +121,7 @@ function AuthenticatedFeed() {
             accessibilityLabel={`Comment by ${feed.userDisplayName} on ${feed.movieTitle}`}
             accessibilityRole="button"
             onPress={() => {
+              analytics.track('feed:item_tap', { item_type: 'comment', tmdb_id: feed.tmdbId });
               if (feed.targetReviewId) {
                 router.push(`/review/${feed.targetReviewId}`);
               } else if (feed.mediaType === 'tv_show') {
@@ -186,6 +188,7 @@ function AuthenticatedFeed() {
           sourceId={feed.id}
           sourceType={feed.activityType === 'review' ? 'review' : 'first_take'}
           onMoviePress={() => {
+            analytics.track('feed:item_tap', { item_type: feed.activityType, tmdb_id: feed.tmdbId });
             if (feed.mediaType === 'tv_show') {
               router.push(`/tv/${feed.tmdbId}`);
             } else {
@@ -261,7 +264,10 @@ function AuthenticatedFeed() {
                   feedFilter === f.value ? colors.tint : colors.backgroundSecondary,
               },
             ]}
-            onPress={() => setFeedFilter(f.value)}
+            onPress={() => {
+              analytics.track('feed:view', { tab: f.value === 'friends' ? 'following' : 'community' });
+              setFeedFilter(f.value);
+            }}
             accessibilityRole="button"
             accessibilityState={{ selected: feedFilter === f.value }}
             accessibilityLabel={`Filter by ${f.value === 'all' ? 'all activity' : f.value === 'reviews' ? 'reviews only' : 'friends only'}`}

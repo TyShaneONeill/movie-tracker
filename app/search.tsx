@@ -44,6 +44,7 @@ import type { TMDBMovie, TMDBTvShow, SearchType } from '@/lib/tmdb.types';
 import { useMovieList } from '@/hooks/use-movie-lists';
 import { SearchSkeletonList } from '@/components/search-skeleton';
 import { useNetwork } from '@/lib/network-context';
+import { analytics } from '@/lib/analytics';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 
 // SVG Icons
@@ -368,6 +369,16 @@ export default function SearchScreen() {
     });
     router.push(`/tv/${show.id}`);
   }, [addRecentSearch]);
+
+  // Track movie search results
+  useEffect(() => {
+    if (debouncedQuery.length >= 2 && mediaType === 'movies' && !isMovieLoading && movies.length >= 0 && activeCategory !== 'Users') {
+      analytics.track('movie:search', {
+        query: debouncedQuery,
+        result_count: movies.length,
+      });
+    }
+  }, [debouncedQuery, movies, isMovieLoading, mediaType, activeCategory]);
 
   const showSearchResults = debouncedQuery.length >= 2 || selectedGenre !== null;
 

@@ -7,6 +7,7 @@ import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
 import { Colors } from '@/constants/theme';
 import { useFeedUnread } from '@/hooks/use-feed-unread';
 import { useTheme } from '@/lib/theme-context';
+import { analytics } from '@/lib/analytics';
 
 export default function TabLayout() {
   const { effectiveTheme } = useTheme();
@@ -91,6 +92,7 @@ export default function TabLayout() {
             icon,
             label,
             onPress: () => {
+              analytics.track('nav:tab_switch', { tab: route.name });
               const event = navigation.emit({
                 type: 'tabPress',
                 target: route.key,

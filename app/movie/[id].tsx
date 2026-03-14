@@ -15,7 +15,7 @@
  * - First Take modal prompt when marking as Watched
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -61,6 +61,7 @@ import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { addMovieToList, createList } from '@/lib/list-service';
 import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
+import { analytics } from '@/lib/analytics';
 import type { MovieStatus } from '@/lib/database.types';
 
 // Helper to format runtime from minutes to "Xh Ym" format
@@ -147,6 +148,19 @@ export default function MovieDetailScreen() {
   const movieGenres = movie?.genres?.map(g => g.name) ?? [];
   const backdropUrl = getTMDBImageUrl(movie?.backdrop_path ?? null, 'original');
   const posterUrl = getTMDBImageUrl(movie?.poster_path ?? null, 'w342');
+
+  // Track movie detail view
+  const hasTrackedView = useRef(false);
+  useEffect(() => {
+    if (movie && !hasTrackedView.current) {
+      hasTrackedView.current = true;
+      analytics.track('movie:view', {
+        tmdb_id: movie.id,
+        title: movie.title,
+        source: 'direct',
+      });
+    }
+  }, [movie]);
 
   // Determine user's country for watch providers
   const countryCode = Localization.getLocales()[0]?.regionCode || 'US';
@@ -351,6 +365,13 @@ export default function MovieDetailScreen() {
         rating: data.rating,
         visibility: data.visibility,
       });
+      analytics.track('movie:rate', {
+        tmdb_id: movie.id,
+        rating: data.rating,
+        has_quote: data.quoteText.length > 0,
+        is_spoiler: data.isSpoiler,
+        visibility: data.visibility,
+      });
       setShowFirstTakeModal(false);
     } catch {
       Toast.show({ type: 'error', text1: 'Failed to save your first take', visibilityTime: 3000 });
@@ -392,6 +413,13 @@ export default function MovieDetailScreen() {
           rating: data.rating,
           isSpoiler: data.isSpoiler,
           isRewatch: false,
+          visibility: data.visibility,
+        });
+        analytics.track('movie:rate', {
+          tmdb_id: movie.id,
+          rating: data.rating,
+          has_quote: data.reviewText.length > 0,
+          is_spoiler: data.isSpoiler,
           visibility: data.visibility,
         });
       }

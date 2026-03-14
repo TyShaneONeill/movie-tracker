@@ -6,7 +6,7 @@
  * purchase button, restore purchases, and legal links.
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -29,6 +29,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { hapticImpact } from '@/lib/haptics';
 import { PREMIUM_FEATURES, type PremiumFeatureKey } from '@/lib/premium-features';
+import { analytics } from '@/lib/analytics';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -66,11 +67,16 @@ export default function UpgradeScreen() {
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { isPremium, purchasePackage, restorePurchases } = usePremium();
+  const { source } = useLocalSearchParams<{ source?: string }>();
 
   const [selectedPlan, setSelectedPlan] = useState<PlanPeriod>('yearly');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    analytics.track('premium:upgrade_view', { source: source ?? 'direct' });
+  }, [source]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -91,6 +97,7 @@ export default function UpgradeScreen() {
       const result = await purchasePackage(packageId);
 
       if (result && typeof result === 'object' && 'success' in result && result.success) {
+        analytics.track('premium:subscribe', { plan: selectedPlan, trial: false });
         setShowSuccess(true);
         setTimeout(() => {
           setShowSuccess(false);

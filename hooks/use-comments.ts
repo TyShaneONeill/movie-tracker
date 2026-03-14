@@ -9,6 +9,7 @@ import {
   type CommentsResponse,
   type CommentLikeResponse,
 } from '@/lib/comment-service';
+import { analytics } from '@/lib/analytics';
 
 interface UseCommentsParams {
   targetType: 'review' | 'first_take';
@@ -49,7 +50,11 @@ export function useComments({
       isSpoiler?: boolean;
       parentCommentId?: string;
     }) => addComment(targetType, targetId, body, isSpoiler, parentCommentId),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      analytics.track('social:comment', {
+        review_id: targetId,
+        is_reply: !!variables.parentCommentId,
+      });
       queryClient.invalidateQueries({ queryKey });
       // Invalidate review queries to update comment counts
       queryClient.invalidateQueries({ queryKey: ['review', targetId] });
@@ -77,7 +82,10 @@ export function useComments({
   });
 
   const likeMutation = useMutation({
-    mutationFn: (commentId: string) => likeCommentService(commentId),
+    mutationFn: (commentId: string) => {
+      analytics.track('social:like', { target_type: 'comment', target_id: commentId });
+      return likeCommentService(commentId);
+    },
     // Optimistic update
     onMutate: async (commentId: string) => {
       await queryClient.cancelQueries({ queryKey });
