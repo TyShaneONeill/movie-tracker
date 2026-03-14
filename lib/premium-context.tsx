@@ -198,13 +198,22 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       // If a string product ID is passed, resolve it to the actual RC package object
       let rcPackage = packageToPurchase;
       if (typeof packageToPurchase === 'string') {
+        // Map friendly names to RevenueCat package types and identifiers
+        const packageTypeMap: Record<string, { type: string; rcId: string }> = {
+          monthly: { type: 'MONTHLY', rcId: '$rc_monthly' },
+          yearly: { type: 'ANNUAL', rcId: '$rc_annual' },
+          lifetime: { type: 'LIFETIME', rcId: '$rc_lifetime' },
+        };
+        const mapped = packageTypeMap[packageToPurchase];
+
         rcPackage = availablePackages.find(
           (pkg: any) => pkg.rcBillingProduct?.identifier === packageToPurchase
             || pkg.identifier === packageToPurchase
             || pkg.webBillingProduct?.identifier === packageToPurchase
+            || (mapped && (pkg.packageType === mapped.type || pkg.identifier === mapped.rcId))
         );
         if (!rcPackage) {
-          return { success: false, error: `Package "${packageToPurchase}" not found in offerings. Available: ${availablePackages.map((p: any) => p.rcBillingProduct?.identifier || p.identifier).join(', ')}` };
+          return { success: false, error: `Package "${packageToPurchase}" not found in offerings. Available: ${availablePackages.map((p: any) => `${p.identifier}(${p.packageType})`).join(', ')}` };
         }
       }
 
