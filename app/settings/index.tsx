@@ -16,6 +16,7 @@ import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
+import { analytics } from '@/lib/analytics';
 import { acceptAllPendingRequests } from '@/lib/follow-request-service';
 import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
@@ -380,7 +381,10 @@ export default function SettingsScreen() {
               !isPremium && { borderColor: colors.gold + '40', borderWidth: 1 },
               pressed && { opacity: 0.85 },
             ]}
-            onPress={() => router.push('/upgrade')}
+            onPress={() => {
+              analytics.track('premium:upgrade_view', { source: 'settings' });
+              router.push('/upgrade?source=settings');
+            }}
           >
             <View style={styles.subscriptionCardTop}>
               <View style={[styles.subscriptionIconCircle, { backgroundColor: isPremium ? colors.gold + '20' : colors.gold + '15' }]}>

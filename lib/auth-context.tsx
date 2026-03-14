@@ -13,6 +13,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
 import { setSentryUser, captureException } from './sentry';
+import { analytics } from '@/lib/analytics';
 import type { Session, User } from '@supabase/supabase-js';
 
 // Dynamically import Apple Authentication to avoid crash on web (iOS-only native module)
@@ -141,11 +142,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
+    if (!error) {
+      analytics.track('auth:sign_in', { method: 'email' });
+    }
     return { error: error as Error | null };
   };
 
   const signUp = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
+    if (!error) {
+      analytics.track('auth:sign_up', { method: 'email' });
+    }
     // If user exists but session is null, email confirmation is required
     const needsEmailConfirmation = !error && !!data.user && !data.session;
     return { error: error as Error | null, needsEmailConfirmation };
@@ -158,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         captureException(error as Error, { context: 'signOut' });
         throw error;
       }
+      analytics.track('auth:sign_out');
       // Clear all cached queries to prevent stale user data
       queryClient.clear();
       // Explicitly clear the state to ensure immediate UI update
@@ -207,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           throw error;
         }
+        analytics.track('auth:sign_in', { method: 'apple' });
         // Auth state will be updated by the onAuthStateChange listener
         return;
       }
@@ -231,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: { redirectTo: window.location.origin },
       });
       if (error) throw error;
+      analytics.track('auth:sign_in', { method: 'google' });
       return;
     }
 
@@ -268,6 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw error;
         }
 
+        analytics.track('auth:sign_in', { method: 'google' });
         // Auth state will be updated by the onAuthStateChange listener
         return;
       } else {

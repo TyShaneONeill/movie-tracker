@@ -40,7 +40,8 @@ import { OfflineBanner } from '@/components/offline-banner';
 import { AdsProvider } from '@/lib/ads-context';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AchievementProvider } from '@/lib/achievement-context';
-import { PremiumProvider } from '@/lib/premium-context';
+import { PremiumProvider, usePremium } from '@/lib/premium-context';
+import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -155,12 +156,33 @@ function useProtectedRoute() {
   }, [user, segments, authLoading, onboardingLoading, guestLoading, hasCompletedOnboarding, isGuest, navigationState?.key]);
 }
 
+/** Identify / reset analytics user when auth state changes */
+function useAnalyticsIdentity() {
+  const { user } = useAuth();
+  const { tier, isPremium } = usePremium();
+
+  useEffect(() => {
+    if (user) {
+      analytics.identify(user.id, {
+        email: user.email ?? undefined,
+        auth_provider: user.app_metadata?.provider ?? 'email',
+        created_at: user.created_at,
+        is_premium: isPremium,
+        premium_tier: tier,
+      });
+    } else {
+      analytics.reset();
+    }
+  }, [user, tier, isPremium]);
+}
+
 function RootLayoutNav() {
   const { effectiveTheme } = useTheme();
   const { isLoading: authLoading } = useAuth();
   const { isLoading: onboardingLoading } = useOnboarding();
   const { isLoading: guestLoading } = useGuest();
   useProtectedRoute();
+  useAnalyticsIdentity();
 
   // Sync the page background color on web so the area outside the max-width container matches
   useEffect(() => {
@@ -229,6 +251,16 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // Initialize PostHog analytics (web only)
+  useEffect(() => {
+    const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY || '';
+    const host = process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+    if (apiKey) {
+      initAnalytics(apiKey, host);
+    }
+    return () => shutdownAnalytics();
+  }, []);
 
   // Request App Tracking Transparency permission before ads load (iOS 14.5+)
   useEffect(() => {

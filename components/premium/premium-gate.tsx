@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePremium } from '@/hooks/use-premium';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing } from '@/constants/theme';
+import { analytics } from '@/lib/analytics';
 import { PremiumBadge } from '@/components/premium/premium-badge';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import type { PremiumFeatureKey } from '@/lib/premium-features';
@@ -55,6 +56,11 @@ export function PremiumGate({
 
   const isUnlocked = checkFeature(featureKey);
 
+  const handleGateHit = () => {
+    analytics.track('premium:gate_hit', { feature: featureKey });
+    setPromptVisible(true);
+  };
+
   // Premium users see children with no modification
   if (isUnlocked) {
     return <>{children}</>;
@@ -70,7 +76,7 @@ export function PremiumGate({
       <>
         <Pressable
           style={styles.overlayContainer}
-          onPress={() => setPromptVisible(true)}
+          onPress={handleGateHit}
           accessibilityRole="button"
           accessibilityLabel="Premium feature. Tap to upgrade."
         >
@@ -101,7 +107,7 @@ export function PremiumGate({
       <>
         <Pressable
           style={styles.badgeContainer}
-          onPress={() => setPromptVisible(true)}
+          onPress={handleGateHit}
           accessibilityRole="button"
           accessibilityLabel="Premium feature. Tap to upgrade."
         >
@@ -125,7 +131,7 @@ export function PremiumGate({
     <>
       <Pressable
         style={styles.disableContainer}
-        onPress={() => setPromptVisible(true)}
+        onPress={handleGateHit}
         accessibilityRole="button"
         accessibilityLabel="Premium feature. Tap to upgrade."
       >

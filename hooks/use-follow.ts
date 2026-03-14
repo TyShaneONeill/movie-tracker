@@ -11,6 +11,7 @@ import {
   cancelFollowRequest,
   type FollowRequestStatus,
 } from '@/lib/follow-request-service';
+import { analytics } from '@/lib/analytics';
 
 export type { FollowRequestStatus };
 
@@ -154,6 +155,7 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
       const displayName = username ? `@${username}` : 'user';
 
       if (result.type === 'followed') {
+        analytics.track('social:follow', { target_user_id: targetUserId });
         // Correct optimistic update — it was a direct follow
         queryClient.setQueryData(
           ['followStatus', user?.id, targetUserId],
@@ -180,6 +182,7 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
           visibilityTime: 2000,
         });
       } else if (result.type === 'unfollowed') {
+        analytics.track('social:unfollow', { target_user_id: targetUserId });
         Toast.show({
           type: 'info',
           text1: `Unfollowed ${displayName}`,

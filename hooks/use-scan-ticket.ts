@@ -4,6 +4,7 @@ import { captureException } from '@/lib/sentry';
 import type { ExtractedTicket, ProcessedTicket, TMDBMatch } from '@/lib/ticket-processor';
 import { processExtractedTickets } from '@/lib/ticket-processor';
 import type { TMDBMovie } from '@/lib/tmdb.types';
+import { analytics } from '@/lib/analytics';
 
 // Debug flag - set to true to enable detailed logging
 const DEBUG_AUTH = __DEV__;
@@ -135,6 +136,7 @@ export function useScanTicket(): UseScanTicketResult {
     setIsScanning(true);
     setError(null);
     setErrorType(null);
+    analytics.track('scan:attempt');
 
     try {
       // Verify user is authenticated before calling the Edge Function
@@ -219,6 +221,7 @@ export function useScanTicket(): UseScanTicketResult {
           const limit = errorBody?.dailyLimit || 'your daily';
           setErrorType('rate_limit');
           setError(`You've reached ${typeof limit === 'number' ? `your ${limit}` : limit} scan limit. Try again tomorrow.`);
+          analytics.track('scan:fail', { reason: 'rate_limit' });
           throw new Error(ERROR_MESSAGES.rate_limit);
         }
 
@@ -230,6 +233,7 @@ export function useScanTicket(): UseScanTicketResult {
         ) {
           setErrorType('extraction_failed');
           setError(ERROR_MESSAGES.extraction_failed);
+          analytics.track('scan:fail', { reason: 'extraction_failed' });
           throw new Error(ERROR_MESSAGES.extraction_failed);
         }
 
@@ -243,6 +247,7 @@ export function useScanTicket(): UseScanTicketResult {
         ) {
           setErrorType('auth_error');
           setError(ERROR_MESSAGES.auth_error);
+          analytics.track('scan:fail', { reason: 'auth_error' });
           throw new Error(ERROR_MESSAGES.auth_error);
         }
 
@@ -250,12 +255,14 @@ export function useScanTicket(): UseScanTicketResult {
         if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
           setErrorType('network_error');
           setError(ERROR_MESSAGES.network_error);
+          analytics.track('scan:fail', { reason: 'network_error' });
           throw new Error(ERROR_MESSAGES.network_error);
         }
 
         // Unknown error
         setErrorType('unknown');
         setError(ERROR_MESSAGES.unknown);
+        analytics.track('scan:fail', { reason: 'unknown' });
         throw new Error(ERROR_MESSAGES.unknown);
       }
 
@@ -343,6 +350,13 @@ export function useScanTicket(): UseScanTicketResult {
         duplicatesRemoved = originalCount - processedTickets.length;
       }
 
+      // Track success for each matched ticket
+      for (const ticket of processedTickets) {
+        if (ticket.tmdbMatch?.movie?.id) {
+          analytics.track('scan:success', { tmdb_id: ticket.tmdbMatch.movie.id });
+        }
+      }
+
       return {
         tickets: processedTickets,
         scansRemaining: data.scansRemaining,
@@ -353,6 +367,7 @@ export function useScanTicket(): UseScanTicketResult {
       if (err instanceof TypeError && err.message.includes('Network')) {
         setErrorType('network_error');
         setError(ERROR_MESSAGES.network_error);
+        analytics.track('scan:fail', { reason: 'network_error' });
         throw new Error(ERROR_MESSAGES.network_error);
       }
 
@@ -364,6 +379,7 @@ export function useScanTicket(): UseScanTicketResult {
       // Unknown error
       setErrorType('unknown');
       setError(ERROR_MESSAGES.unknown);
+      analytics.track('scan:fail', { reason: 'unknown' });
       throw err;
     } finally {
       setIsScanning(false);
