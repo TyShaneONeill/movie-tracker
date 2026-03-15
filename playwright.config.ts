@@ -36,10 +36,10 @@ export default defineConfig({
 
   webServer: {
     command: CI
-      ? 'npx expo export --platform web && npx serve dist -s -l 8081'
+      ? 'npx serve dist -s -l 8081'
       : 'npx expo start --web --port 8081',
     port: 8081,
     reuseExistingServer: !CI,
-    timeout: CI ? 300_000 : 120_000,
+    timeout: CI ? 30_000 : 120_000,
   },
 });
