@@ -166,6 +166,7 @@ export function TicketFlipCard({
         <Pressable
           style={styles.titleSection}
           onPress={handleFlip}
+          pointerEvents={isFlipped ? 'none' : 'auto'}
           accessibilityRole="button"
           accessibilityLabel={a11yLabel}
         >
@@ -293,6 +294,7 @@ export function TicketFlipCard({
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={handleFlip}
+          pointerEvents={isFlipped ? 'auto' : 'none'}
           accessibilityRole="button"
           accessibilityLabel="Flip ticket to front"
         >
