@@ -43,6 +43,8 @@ import { buildAvatarUrl } from '@/lib/avatar-service';
 import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
+import { usePremium } from '@/hooks/use-premium';
+import { PremiumGate } from '@/components/premium/premium-gate';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -98,7 +100,8 @@ export default function JourneyCardScreen() {
   const firstTake = journeyData?.firstTake;
 
   // AI art generation
-  const { generateArt, isGenerating } = useGenerateArt();
+  const { tier } = usePremium();
+  const { generateArt, isGenerating, hasUsedFreeTrial } = useGenerateArt();
 
   // Calculate available height for ticket card
   // Screen height - header - top safe area - bottom safe area - padding
@@ -319,25 +322,41 @@ export default function JourneyCardScreen() {
           {/* Generate AI Art Button - below flip card */}
           {!hasAiPoster && (
             <View style={styles.posterOptionsSection}>
-              <Pressable
-                style={styles.generateArtButton}
-                onPress={handleGenerateArt}
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <ActivityIndicator size="small" color={colors.text} />
-                    <Text style={styles.generateArtButtonText}>Generating...</Text>
-                  </>
-                ) : (
-                  <>
+              {tier === 'free' && hasUsedFreeTrial ? (
+                <PremiumGate featureKey="ai_poster_generation">
+                  <Pressable
+                    style={styles.generateArtButton}
+                    disabled
+                  >
                     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
                       <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                     </Svg>
                     <Text style={styles.generateArtButtonText}>Generate AI Art</Text>
-                  </>
-                )}
-              </Pressable>
+                  </Pressable>
+                </PremiumGate>
+              ) : (
+                <Pressable
+                  style={styles.generateArtButton}
+                  onPress={handleGenerateArt}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <ActivityIndicator size="small" color={colors.text} />
+                      <Text style={styles.generateArtButtonText}>Generating...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                        <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                      </Svg>
+                      <Text style={styles.generateArtButtonText}>
+                        {tier === 'free' ? 'Generate AI Art (1 free trial)' : 'Generate AI Art'}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
             </View>
           )}
           </View>
