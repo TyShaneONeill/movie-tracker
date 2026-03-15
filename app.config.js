@@ -43,7 +43,7 @@ export default {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
-      "@sentry/react-native/expo",
+      ["@sentry/react-native/expo", { organization: "cinetrak-5w", project: "react-native-cinetrak" }],
       "expo-router",
       "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
