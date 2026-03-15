@@ -486,9 +486,9 @@ export default function MovieDetailScreen() {
     return (
       <View style={dynamicStyles.container}>
         <View style={dynamicStyles.errorContainer}>
-          <Text style={dynamicStyles.errorTitle}>Something went wrong</Text>
+          <Text style={dynamicStyles.errorTitle}>Movie not found</Text>
           <Text style={dynamicStyles.errorSubtitle}>
-            {error?.message || 'Could not load movie details'}
+            This movie could not be loaded. It may have been removed or the link may be incorrect.
           </Text>
           <Pressable onPress={handleGoBack} style={dynamicStyles.errorBackButton}>
             <Text style={dynamicStyles.errorBackButtonText}>Go Back</Text>
