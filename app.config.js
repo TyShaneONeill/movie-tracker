@@ -30,6 +30,7 @@ export default {
       }
     },
     android: {
+      package: "com.cinetrak.app",
       adaptiveIcon: {
         backgroundColor: "#000000",
         foregroundImage: "./assets/images/android-icon-foreground.png",
