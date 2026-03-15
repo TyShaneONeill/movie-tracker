@@ -40,6 +40,6 @@ export default defineConfig({
       : 'npx expo start --web --port 8081',
     port: 8081,
     reuseExistingServer: !CI,
-    timeout: CI ? 180_000 : 120_000,
+    timeout: CI ? 300_000 : 120_000,
   },
 });

@@ -5,7 +5,8 @@ export type PremiumFeatureKey =
   | 'calendar_platform_filter'
   | 'calendar_personalized_toggle'
   | 'release_reminders'
-  | 'advanced_stats';
+  | 'advanced_stats'
+  | 'ai_poster_generation';
 
 export type PremiumTier = 'free' | 'plus' | 'dev';
 
@@ -66,6 +67,13 @@ export const PREMIUM_FEATURES: Record<PremiumFeatureKey, PremiumFeatureConfig> =
     icon: 'bar-chart-outline',
     requiredTier: 'plus',
     category: 'stats',
+  },
+  ai_poster_generation: {
+    label: 'AI Poster Art',
+    description: 'Generate unlimited AI cartoon posters for your journeys',
+    icon: 'sparkles-outline',
+    requiredTier: 'plus',
+    category: 'core',
   },
 };
 

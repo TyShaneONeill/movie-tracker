@@ -37,18 +37,10 @@ const mutationCache = new MutationCache({
       });
     }
   },
-  onError: (error, variables, context, mutation) => {
-    // Handle generate-art mutation error globally
-    if (mutation.options.mutationKey?.[0] === MUTATION_KEYS.GENERATE_ART) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
-      Toast.show({
-        type: 'error',
-        text1: 'Generation Failed',
-        text2: errorMessage,
-        visibilityTime: 5000,
-      });
-    }
+  onError: (_error, _variables, _context, _mutation) => {
+    // Generate-art errors are handled by useGenerateArt's onError callback
+    // (which distinguishes ai_generation_limit from generic failures).
+    // Add global mutation error handlers for other mutations here as needed.
   },
 });
 
