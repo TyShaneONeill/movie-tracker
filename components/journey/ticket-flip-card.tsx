@@ -166,7 +166,6 @@ export function TicketFlipCard({
         <Pressable
           style={styles.titleSection}
           onPress={handleFlip}
-          pointerEvents={isFlipped ? 'none' : 'auto'}
           accessibilityRole="button"
           accessibilityLabel={a11yLabel}
         >
@@ -290,11 +289,13 @@ export function TicketFlipCard({
       </Animated.View>
 
       {/* Back face — absolutely positioned to fill, tap anywhere to flip back */}
-      <Animated.View style={[styles.face, styles.backFace, backAnimatedStyle]}>
+      <Animated.View
+        style={[styles.face, styles.backFace, backAnimatedStyle]}
+        pointerEvents={isFlipped ? 'auto' : 'none'}
+      >
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={handleFlip}
-          pointerEvents={isFlipped ? 'auto' : 'none'}
           accessibilityRole="button"
           accessibilityLabel="Flip ticket to front"
         >
