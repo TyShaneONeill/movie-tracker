@@ -109,7 +109,7 @@ export async function fetchLikedBy(
     .from('review_likes') as any)
     .select(`
       user_id,
-      profiles!review_likes_user_id_fkey (
+      profiles (
         full_name,
         username
       )
