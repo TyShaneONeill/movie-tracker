@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -10,6 +11,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
+import Toast from 'react-native-toast-message';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
 import { setSentryUser, captureException } from './sentry';
@@ -93,20 +95,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Track user-initiated sign-outs so we can distinguish them from
+  // involuntary ones (e.g. expired refresh token) in onAuthStateChange.
+  const userInitiatedSignOut = useRef(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
       if (error) {
+        const isRefreshError =
+          error.message?.includes('Refresh Token') ||
+          error.message?.includes('refresh_token') ||
+          error.message?.includes('Invalid Refresh Token');
         // Stale or corrupted session — clear state and let user sign in fresh
         console.warn('[auth] getSession failed:', error.message);
         supabase.auth.signOut().catch(() => {});
         setSession(null);
         setUser(null);
         setSentryUser(null);
+        if (isRefreshError) {
+          Toast.show({
+            type: 'info',
+            text1: 'Session expired',
+            text2: 'Please sign in again.',
+            visibilityTime: 4000,
+          });
+        }
       } else {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setSentryUser(session?.user?.id ?? null);
+        setSession(s);
+        setUser(s?.user ?? null);
+        setSentryUser(s?.user?.id ?? null);
       }
       setIsLoading(false);
     }).catch(() => {
@@ -116,22 +133,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      // Handle invalid refresh token — sign out gracefully instead of
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Handle token refresh failure — sign out gracefully instead of
       // surfacing a raw AuthApiError to the user.
-      if (event === 'TOKEN_REFRESHED' && !session) {
+      if (event === 'TOKEN_REFRESHED' && !newSession) {
         console.warn('[auth] Token refresh failed — signing out');
         supabase.auth.signOut().catch(() => {});
         setSession(null);
         setUser(null);
         setSentryUser(null);
+        Toast.show({
+          type: 'info',
+          text1: 'Session expired',
+          text2: 'Please sign in again.',
+          visibilityTime: 4000,
+        });
         return;
       }
 
-      setSession(session);
-      setUser(session?.user ?? null);
+      // Handle involuntary sign-out (e.g. Supabase detected invalid refresh token).
+      // Don't show toast for user-initiated sign-outs.
+      if (event === 'SIGNED_OUT' && !userInitiatedSignOut.current) {
+        // Only show toast if we previously had a session (real expiry, not just app boot)
+        if (session) {
+          Toast.show({
+            type: 'info',
+            text1: 'Session expired',
+            text2: 'Please sign in again.',
+            visibilityTime: 4000,
+          });
+        }
+      }
+      userInitiatedSignOut.current = false;
+
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
       // Update Sentry user context when auth state changes
-      setSentryUser(session?.user?.id ?? null);
+      setSentryUser(newSession?.user?.id ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -160,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      userInitiatedSignOut.current = true;
       const { error } = await supabase.auth.signOut();
       if (error) {
         captureException(error as Error, { context: 'signOut' });
