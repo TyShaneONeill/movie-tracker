@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineTrak — Track Your Movie Journey</title>
+    <meta name="description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
+    <link rel="canonical" href="https://cinetrak.app/welcome">
+    <meta property="og:title" content="CineTrak — Track Your Movie Journey">
+    <meta property="og:description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cinetrak.app/welcome">
+    <meta property="og:site_name" content="CineTrak">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="CineTrak — Track Your Movie Journey">
+    <meta name="twitter:description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5311715630678079" crossorigin="anonymous"></script>
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "CineTrak",
+      "description": "Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.",
+      "url": "https://cinetrak.app",
+      "applicationCategory": "EntertainmentApplication",
+      "operatingSystem": "iOS, Android, Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "CineTrak",
+        "url": "https://cinetrak.app",
+        "email": "help.cinetrak@gmail.com"
+      }
+    }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #09090b;
+            color: #fafafa;
+            min-height: 100vh;
+            line-height: 1.7;
+        }
+
+        a { color: #e11d48; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Layout */
+        .section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 80px 24px;
+        }
+
+        /* Hero */
+        .hero {
+            display: flex;
+            align-items: center;
+            gap: 60px;
+            padding-top: 60px;
+            padding-bottom: 80px;
+        }
+
+        .hero-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.25rem;
+        }
+
+        .hero .subheadline {
+            font-size: 1.15rem;
+            color: #a1a1aa;
+            line-height: 1.7;
+            margin-bottom: 2rem;
+            max-width: 500px;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+        }
+
+        .btn:hover {
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: #e11d48;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #be123c;
+            box-shadow: 0 4px 20px rgba(225, 29, 72, 0.3);
+        }
+
+        .btn-secondary {
+            background: #18181b;
+            color: #fafafa;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: #27272a;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Phone mockup */
+        .phone-mockup {
+            flex-shrink: 0;
+            width: 280px;
+            height: 560px;
+            background: linear-gradient(145deg, #18181b 0%, #27272a 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 36px;
+            box-shadow: 0 0 40px rgba(225, 29, 72, 0.15), 0 0 80px rgba(225, 29, 72, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .phone-mockup img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: top;
+            display: block;
+        }
+
+        .phone-mockup::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 24px;
+            background: #09090b;
+            border-radius: 12px;
+            z-index: 1;
+        }
+
+        /* Features */
+        .features-section {
+            background: #0f0f12;
+        }
+
+        .features-heading {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .features-heading h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .features-heading p {
+            color: #a1a1aa;
+            font-size: 1.1rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: #18181b;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 32px;
+            transition: border-color 0.2s ease, transform 0.15s ease;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(225, 29, 72, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            font-size: 1.5rem;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(225, 29, 72, 0.1);
+            border-radius: 50%;
+            margin-bottom: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            color: #a1a1aa;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .feature-screenshot {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 20px;
+            display: block;
+        }
+
+        /* Second CTA */
+        .cta-section {
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .cta-section h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .cta-section .subtext {
+            color: #a1a1aa;
+            font-size: 1.05rem;
+            margin-bottom: 2rem;
+        }
+
+        .cta-section .cta-group {
+            justify-content: center;
+        }
+
+        /* Footer */
+        .footer {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px 24px;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links a {
+            color: #a1a1aa;
+            font-size: 0.9rem;
+        }
+
+        .footer-links a:hover {
+            color: #e11d48;
+        }
+
+        .footer p {
+            color: #52525b;
+            font-size: 0.8rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero {
+                flex-direction: column;
+                text-align: center;
+                gap: 40px;
+                padding-top: 40px;
+                padding-bottom: 60px;
+            }
+
+            .hero h1 {
+                font-size: 2.25rem;
+            }
+
+            .hero .subheadline {
+                max-width: 100%;
+            }
+
+            .cta-group {
+                justify-content: center;
+            }
+
+            .phone-mockup {
+                width: 240px;
+                height: 480px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section {
+                padding: 60px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero -->
+    <section class="section hero">
+        <div class="hero-content">
+            <h1>Your Movie Journey, Tracked</h1>
+            <p class="subheadline">Build watchlists, log every viewing, create AI-powered journey art, and share your taste with friends. Free on web, coming to iOS and Android.</p>
+            <div class="cta-group">
+                <a href="/" class="btn btn-primary">Browse Movies Free</a>
+                <a href="https://apps.apple.com/app/cinetrak-movie-tracker/id6743377883" class="btn btn-secondary">Download on iOS</a>
+            </div>
+        </div>
+        <div class="phone-mockup">
+            <img src="/images/landing/home.png" alt="CineTrak home screen showing trending and now playing movies" loading="eager" width="280" height="560">
+        </div>
+    </section>
+
+    <!-- Features -->
+    <div class="features-section">
+    <section class="section">
+        <div class="features-heading">
+            <h2>Everything You Need</h2>
+            <p>One app. Every movie. Your story.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <span class="feature-icon">🔥</span>
+                <h3>Discover What's Trending</h3>
+                <p>Browse trending, now playing, and upcoming films. Every movie includes cast, trailers, and ratings from IMDb, Rotten Tomatoes, and Metacritic.</p>
+                <img class="feature-screenshot" src="/images/landing/home.png" alt="CineTrak home screen with trending and now playing movie lists" loading="lazy">
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🎨</span>
+                <h3>Journey Cards &amp; AI Art</h3>
+                <p>Every viewing becomes a journey with metadata — where you watched, who you were with, your seat, the format. Each journey gets unique AI-generated poster art.</p>
+                <img class="feature-screenshot" src="/images/landing/journey.png" alt="Journey card for Scream 7 showing AI-generated art, viewing date, cinema, and seat" loading="lazy">
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">💬</span>
+                <h3>Reviews &amp; Social</h3>
+                <p>Write First Takes (quick ratings) or full reviews. Follow friends, see what they're watching, and discover films through people you trust — not algorithms.</p>
+                <img class="feature-screenshot" src="/images/landing/feed.PNG" alt="Activity feed showing friends' ratings, reviews, and First Takes" loading="lazy">
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">📋</span>
+                <h3>Track Everything</h3>
+                <p>Watchlist, watching, watched — with full rewatch support. Build custom lists, earn achievements, and see your stats and viewing history at a glance.</p>
+                <img class="feature-screenshot" src="/images/landing/movie-detail.png" alt="Movie detail page for Interstellar showing ratings, trailer, cast, and tracking buttons" loading="lazy">
+            </div>
+        </div>
+    </section>
+    </div>
+
+    <!-- Second CTA -->
+    <section class="section cta-section">
+        <h2>Start Tracking for Free</h2>
+        <p class="subtext">No account required to browse. Sign up when you're ready.</p>
+        <div class="cta-group">
+            <a href="/" class="btn btn-primary">Browse Movies Free</a>
+            <a href="https://apps.apple.com/app/cinetrak-movie-tracker/id6743377883" class="btn btn-secondary">Download on iOS</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-links">
+            <a href="/about">About</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/support">Support</a>
+        </div>
+        <p>&copy; 2026 CineTrak. All rights reserved.</p>
+    </footer>
+</body>
+</html>
