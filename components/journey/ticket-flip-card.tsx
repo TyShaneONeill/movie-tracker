@@ -288,27 +288,34 @@ export function TicketFlipCard({
 
       </Animated.View>
 
-      {/* Back face — absolutely positioned to fill */}
+      {/* Back face — absolutely positioned to fill, tap anywhere to flip back */}
       <Animated.View style={[styles.face, styles.backFace, backAnimatedStyle]}>
-        {/* Large rotated ticket number on the left edge */}
-        <View style={styles.backIdRotatedContainer}>
-          <Text style={styles.backIdRotatedText}>
-            #{journey.id.slice(0, 6).toUpperCase()}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleFlip}
+          accessibilityRole="button"
+          accessibilityLabel="Flip ticket to front"
+        >
+          {/* Large rotated ticket number on the left edge */}
+          <View style={styles.backIdRotatedContainer}>
+            <Text style={styles.backIdRotatedText}>
+              #{journey.id.slice(0, 6).toUpperCase()}
+            </Text>
+          </View>
+
+          {/* Disclaimer text — upper right */}
+          <Text style={styles.admitOneText}>
+            {'ADMIT ONE\nNON-TRANSFERABLE\nSUBJECT TO TERMS'}
           </Text>
-        </View>
 
-        {/* Disclaimer text — upper right */}
-        <Text style={styles.admitOneText}>
-          {'ADMIT ONE\nNON-TRANSFERABLE\nSUBJECT TO TERMS'}
-        </Text>
+          {/* Monospace ticket ID — middle right */}
+          <Text style={styles.backIdText}>{ticketId}</Text>
 
-        {/* Monospace ticket ID — middle right */}
-        <Text style={styles.backIdText}>{ticketId}</Text>
-
-        {/* Wide barcode — bottom right */}
-        <View style={styles.barcodeContainer}>
-          <BarcodeVisual colors={colors} />
-        </View>
+          {/* Wide barcode — bottom right */}
+          <View style={styles.barcodeContainer}>
+            <BarcodeVisual colors={colors} />
+          </View>
+        </Pressable>
       </Animated.View>
 
     </>
