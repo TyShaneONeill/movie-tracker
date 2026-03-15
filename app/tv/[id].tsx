@@ -991,6 +991,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 40,
     overflow: 'hidden',
     borderRadius: BorderRadius.full,
+    ...(Platform.OS === 'android' ? { elevation: 4 } : {}),
   },
   blurContainer: {
     flex: 1,
@@ -999,6 +1000,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: BorderRadius.full,
+    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.55)' } : {}),
   },
   backIcon: {
     fontSize: 24,
@@ -1018,6 +1020,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
     zIndex: 20,
+    ...(Platform.OS === 'android' ? { elevation: 6 } : {}),
   },
   playButtonBlur: {
     flex: 1,
@@ -1026,6 +1029,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: BorderRadius.full,
+    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.55)' } : {}),
   },
   playIcon: {
     fontSize: 32,

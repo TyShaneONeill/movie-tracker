@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Pressable,
   TextInput,
@@ -12,6 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import Svg, { Path } from 'react-native-svg';
