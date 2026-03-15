@@ -129,7 +129,7 @@ export function FriendsRatings({ tmdbId }: FriendsRatingsProps) {
 
           return (
             <View
-              key={friend.id}
+              key={`${friend.id}-${friend.source}`}
               style={styles.friendCard}
               accessibilityLabel={`${displayName}${friend.rating !== null ? `, rated ${friend.rating} out of 10` : ''}`}
             >
