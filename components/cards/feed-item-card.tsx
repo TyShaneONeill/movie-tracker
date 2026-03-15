@@ -302,11 +302,11 @@ export function FeedItemCard({
               {formattedRating}
             </Text>
           )}
-
-          {/* Review Text with Spoiler Handling */}
-          {renderReviewContent()}
         </View>
       </Pressable>
+
+      {/* Review Text with Spoiler Handling — outside Pressable to avoid nested buttons on web */}
+      {renderReviewContent()}
 
       {sourceId && sourceType && (
         <View style={styles.likeRow}>
@@ -405,6 +405,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: BorderRadius.sm,
+    marginLeft: 60, // align with review body (48px poster + 12px gap)
   },
   spoilerWrapperWithButton: {
     minHeight: 40, // Ensure enough room for spoiler button
