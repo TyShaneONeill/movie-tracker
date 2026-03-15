@@ -62,6 +62,7 @@ function AuthenticatedFeed() {
   const {
     feedItems,
     isLoading,
+    isError,
     refetch,
     fetchNextPage,
     hasNextPage,
@@ -201,8 +202,29 @@ function AuthenticatedFeed() {
     [user?.id, colors.textSecondary, colors.border, colors.text, colors.textTertiary]
   );
 
-  // Empty state when no activity
+  // Empty state when no activity or error
   const ListEmpty = useCallback(() => {
+    if (isError) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="warning-outline" size={48} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Couldn&apos;t load your feed
+          </Text>
+          <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
+            Something went wrong. Please try again.
+          </Text>
+          <Pressable
+            onPress={() => refetch()}
+            style={[styles.retryButton, { backgroundColor: colors.tint }]}
+            accessibilityRole="button"
+            accessibilityLabel="Try again"
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </Pressable>
+        </View>
+      );
+    }
     if (isLoading) return null;
     return (
       <View style={styles.emptyContainer}>
@@ -213,7 +235,7 @@ function AuthenticatedFeed() {
         </Text>
       </View>
     );
-  }, [isLoading, colors.textSecondary, colors.text]);
+  }, [isLoading, isError, refetch, colors.textSecondary, colors.text, colors.tint]);
 
   // Footer loading spinner
   const ListFooter = useCallback(() => {
@@ -461,6 +483,17 @@ const styles = StyleSheet.create({
   emptyMessage: {
     ...Typography.body.sm,
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: Spacing.md,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   loadingFooter: {
     paddingVertical: Spacing.lg,

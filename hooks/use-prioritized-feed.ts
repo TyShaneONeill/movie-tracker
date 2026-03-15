@@ -24,6 +24,7 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     queryFn: () => getFollowingIds(userId!),
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
   const followingIds = followingIdsQuery.data ?? [];
@@ -34,6 +35,7 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     queryFn: () => fetchFollowingFeed(followingIds),
     enabled: followingIds.length > 0,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
   // Query 2b: Following reviews (depends on followingIds)
@@ -42,6 +44,7 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     queryFn: () => fetchFollowingReviews(followingIds),
     enabled: followingIds.length > 0,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
   // Query 2c: Following comments (depends on followingIds)
@@ -50,6 +53,7 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     queryFn: () => fetchFollowingComments(followingIds),
     enabled: followingIds.length > 0,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
   // Query 3: Community feed (paginated, depends on followingIds for exclusion)
@@ -62,6 +66,7 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     initialPageParam: undefined as string | undefined,
     enabled: !!userId && followingIdsQuery.isSuccess,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
   // Query 4: Feed last seen timestamp
@@ -136,6 +141,22 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
   const isLoading =
     (!!userId && followingIdsQuery.isLoading) || communityQuery.isLoading;
 
+  // Error state: surface errors from any query
+  const isError =
+    followingIdsQuery.isError ||
+    followingFeedQuery.isError ||
+    followingReviewsQuery.isError ||
+    followingCommentsQuery.isError ||
+    communityQuery.isError;
+
+  const error =
+    followingIdsQuery.error ??
+    followingFeedQuery.error ??
+    followingReviewsQuery.error ??
+    followingCommentsQuery.error ??
+    communityQuery.error ??
+    null;
+
   // Refetch all queries
   const refetch = async () => {
     hasUpdatedLastSeen.current = false;
@@ -160,6 +181,8 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
   return {
     feedItems,
     isLoading,
+    isError,
+    error,
     refetch,
     fetchNextPage: communityQuery.fetchNextPage,
     hasNextPage: communityQuery.hasNextPage ?? false,
