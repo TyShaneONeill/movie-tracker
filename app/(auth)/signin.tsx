@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,8 +77,8 @@ export default function SignInScreen() {
 
     try {
       if (provider === 'apple') {
-        if (Platform.OS !== 'ios') {
-          alert('Apple Sign-In is only available on iOS devices');
+        if (Platform.OS !== 'ios' && Platform.OS !== 'web') {
+          alert('Apple Sign-In is only available on iOS and web');
           return;
         }
         await signInWithApple();
@@ -221,7 +222,7 @@ export default function SignInScreen() {
               </View>
             </Pressable>
 
-            {Platform.OS === 'ios' && (
+            {(Platform.OS === 'ios' || Platform.OS === 'web') && (
               <Pressable
                 onPress={() => handleOAuthSignIn('apple')}
                 style={({ pressed }) => [
@@ -239,15 +240,16 @@ export default function SignInScreen() {
             )}
 
             <Pressable
-              onPress={() => handleOAuthSignIn('meta')}
-              style={({ pressed }) => [
+              onPress={() => Alert.alert('Coming Soon', 'Facebook login will be available soon.')}
+              disabled
+              style={[
                 styles.socialButton,
-                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.4 },
               ]}
             >
               <View style={styles.socialButtonContent}>
-                <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-                <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                <Ionicons name="logo-facebook" size={20} color={colors.textSecondary} />
+                <ThemedText style={[styles.socialButtonText, { color: colors.textSecondary }]}>
                   Meta
                 </ThemedText>
               </View>
