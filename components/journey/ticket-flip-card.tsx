@@ -7,7 +7,7 @@
  * Uses Reanimated rotateY with backfaceVisibility: hidden for the flip.
  */
 
-import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,6 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Rect, Path } from 'react-native-svg';
 import { Image as ExpoImage } from 'expo-image';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
@@ -100,32 +99,6 @@ function ChevronIcon({ direction, color }: { direction: 'left' | 'right'; color:
   );
 }
 
-// --- Flip hint persistence ---
-
-const FLIP_HINT_KEY = 'journey_flip_hint_views';
-const FLIP_HINT_MAX_VIEWS = 3;
-
-function useFlipHint() {
-  const [showHint, setShowHint] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(FLIP_HINT_KEY);
-        const count = raw ? parseInt(raw, 10) : 0;
-        if (count < FLIP_HINT_MAX_VIEWS) {
-          setShowHint(true);
-          await AsyncStorage.setItem(FLIP_HINT_KEY, String(count + 1));
-        }
-      } catch {
-        // Silently ignore storage errors
-      }
-    })();
-  }, []);
-
-  return showHint;
-}
-
 // --- Props ---
 
 export interface TicketFlipCardProps {
@@ -136,12 +109,6 @@ export interface TicketFlipCardProps {
   infoPageWidth: number;
   companionAvatarMap?: Map<string, string | null>;
 }
-
-// --- Tap detection ---
-// A touch is considered a "tap" (not a swipe) when the finger moves
-// less than this threshold and the duration is short.
-const TAP_MOVE_THRESHOLD = 10;
-const TAP_DURATION_MS = 300;
 
 // --- Component ---
 
@@ -156,10 +123,6 @@ export function TicketFlipCard({
   const rotation = useSharedValue(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [infoPageIndex, setInfoPageIndex] = useState(0);
-  const showHint = useFlipHint();
-
-  // Track touch start to distinguish taps from swipes
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const styles = useMemo(
     () => createFlipCardStyles(colors, isDark, infoPageWidth),
@@ -174,32 +137,6 @@ export function TicketFlipCard({
     });
     setIsFlipped(!isFlipped);
   }, [isFlipped, rotation]);
-
-  const handleTouchStart = useCallback((e: { nativeEvent: { pageX: number; pageY: number } }) => {
-    touchStartRef.current = {
-      x: e.nativeEvent.pageX,
-      y: e.nativeEvent.pageY,
-      time: Date.now(),
-    };
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: { nativeEvent: { pageX: number; pageY: number } }) => {
-      const start = touchStartRef.current;
-      if (!start) return;
-
-      const dx = Math.abs(e.nativeEvent.pageX - start.x);
-      const dy = Math.abs(e.nativeEvent.pageY - start.y);
-      const elapsed = Date.now() - start.time;
-
-      if (dx < TAP_MOVE_THRESHOLD && dy < TAP_MOVE_THRESHOLD && elapsed < TAP_DURATION_MS) {
-        handleFlip();
-      }
-
-      touchStartRef.current = null;
-    },
-    [handleFlip],
-  );
 
   const frontAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -218,14 +155,20 @@ export function TicketFlipCard({
   }));
 
   const ticketId = journey.ticket_id || 'CNTK-' + journey.id.slice(0, 8).toUpperCase();
+  const a11yLabel = isFlipped ? 'Flip ticket to front' : 'Flip ticket to see barcode';
 
-  // Shared content for both faces + hint (rendered inside the flip wrapper)
+  // Shared content for both faces (rendered inside the flip wrapper)
   const flipContent = (
     <>
       {/* Front face */}
       <Animated.View style={[styles.face, frontAnimatedStyle]}>
-        {/* Title & Rating */}
-        <View style={styles.titleSection}>
+        {/* Title & Rating — tap here to flip */}
+        <Pressable
+          style={styles.titleSection}
+          onPress={handleFlip}
+          accessibilityRole="button"
+          accessibilityLabel={a11yLabel}
+        >
           <Text style={styles.movieTitle}>{journey.title}</Text>
           {firstTake?.rating && (
             <View style={styles.ratingRow}>
@@ -239,7 +182,7 @@ export function TicketFlipCard({
               )}
             </View>
           )}
-        </View>
+        </Pressable>
 
         {/* Info Carousel */}
         <View style={styles.infoCarouselContainer}>
@@ -345,69 +288,45 @@ export function TicketFlipCard({
 
       </Animated.View>
 
-      {/* Back face — absolutely positioned to fill */}
-      <Animated.View style={[styles.face, styles.backFace, backAnimatedStyle]}>
-        {/* Large rotated ticket number on the left edge */}
-        <View style={styles.backIdRotatedContainer}>
-          <Text style={styles.backIdRotatedText}>
-            #{journey.id.slice(0, 6).toUpperCase()}
+      {/* Back face — absolutely positioned to fill, tap anywhere to flip back */}
+      <Animated.View
+        style={[styles.face, styles.backFace, backAnimatedStyle]}
+        pointerEvents={isFlipped ? 'auto' : 'none'}
+      >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleFlip}
+          accessibilityRole="button"
+          accessibilityLabel="Flip ticket to front"
+        >
+          {/* Large rotated ticket number on the left edge */}
+          <View style={styles.backIdRotatedContainer}>
+            <Text style={styles.backIdRotatedText}>
+              #{journey.id.slice(0, 6).toUpperCase()}
+            </Text>
+          </View>
+
+          {/* Disclaimer text — upper right */}
+          <Text style={styles.admitOneText}>
+            {'ADMIT ONE\nNON-TRANSFERABLE\nSUBJECT TO TERMS'}
           </Text>
-        </View>
 
-        {/* Disclaimer text — upper right */}
-        <Text style={styles.admitOneText}>
-          {'ADMIT ONE\nNON-TRANSFERABLE\nSUBJECT TO TERMS'}
-        </Text>
+          {/* Monospace ticket ID — middle right */}
+          <Text style={styles.backIdText}>{ticketId}</Text>
 
-        {/* Monospace ticket ID — middle right */}
-        <Text style={styles.backIdText}>{ticketId}</Text>
-
-        {/* Wide barcode — bottom right */}
-        <View style={styles.barcodeContainer}>
-          <BarcodeVisual colors={colors} />
-        </View>
+          {/* Wide barcode — bottom right */}
+          <View style={styles.barcodeContainer}>
+            <BarcodeVisual colors={colors} />
+          </View>
+        </Pressable>
       </Animated.View>
 
-      {/* Tap-to-flip hint — inside the flip wrapper so tapping it flips */}
-      {showHint && (
-        <View style={styles.hintRow}>
-          <View style={styles.hintPill}>
-            <Text style={styles.hintText}>Tap to flip</Text>
-          </View>
-        </View>
-      )}
     </>
   );
 
-  const a11yLabel = isFlipped ? 'Flip ticket to front' : 'Flip ticket to see barcode';
-
   return (
-    <View>
-      {/* Web: Pressable with onPress for flip.
-          Native: View with manual touch detection (onTouchStart/onTouchEnd) — preserves
-          the responder-based swipe discrimination that Pressable can break on native. */}
-      {Platform.OS === 'web' ? (
-        <Pressable
-          style={styles.flipWrapper}
-          onPress={handleFlip}
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={a11yLabel}
-        >
-          {flipContent}
-        </Pressable>
-      ) : (
-        <View
-          style={styles.flipWrapper}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={a11yLabel}
-        >
-          {flipContent}
-        </View>
-      )}
+    <View style={styles.flipWrapper}>
+      {flipContent}
     </View>
   );
 }
@@ -531,26 +450,6 @@ const createFlipCardStyles = (colors: ThemeColors, isDark: boolean, infoPageWidt
     },
     arrowDisabled: {
       opacity: 0.3,
-    },
-
-    // Hint
-    hintRow: {
-      alignItems: 'center',
-      paddingTop: Spacing.xs,
-      paddingBottom: Spacing.xs,
-    },
-    hintPill: {
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.xs,
-      borderRadius: BorderRadius.full,
-    },
-    hintText: {
-      ...Typography.caption.medium,
-      color: colors.textTertiary,
-      letterSpacing: 1,
-      textTransform: 'uppercase',
-      fontSize: 11,
     },
 
     // Back face content
