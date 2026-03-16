@@ -34,7 +34,7 @@ import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { Image } from 'expo-image';
 import { useTheme } from '@/lib/theme-context';
-import { useJourney, useJourneyMutations } from '@/hooks/use-journey';
+import { useJourney, useJourneyMutations, useJourneysByMovie, useCreateJourney } from '@/hooks/use-journey';
 import type { WatchFormat as DbWatchFormat } from '@/lib/database.types';
 import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
@@ -63,18 +63,27 @@ function toDisplayFormat(dbFormat: string | null): WatchFormat {
 
 export default function EditJourneyScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tmdbId: tmdbIdParam } = useLocalSearchParams<{ id: string; tmdbId?: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
   const { mutualFollows } = useMutualFollows(user?.id ?? '');
 
-  // Fetch real journey data
-  const { data: journeyData, isLoading: isLoadingJourney } = useJourney(id);
+  // Create mode: id === 'new' with tmdbId query param
+  const isCreateMode = id === 'new';
+  const parsedTmdbId = tmdbIdParam ? parseInt(tmdbIdParam, 10) : undefined;
+
+  // Fetch real journey data (edit mode only)
+  const { data: journeyData, isLoading: isLoadingJourney } = useJourney(isCreateMode ? undefined : id);
+
+  // Fetch existing journeys for movie metadata template (create mode only)
+  const { data: movieJourneys } = useJourneysByMovie(isCreateMode ? parsedTmdbId : undefined);
+  const { createJourney } = useCreateJourney();
 
   // Journey mutations (update + delete)
+  const tmdbId = isCreateMode ? parsedTmdbId : journeyData?.tmdb_id;
   const { updateJourney: updateJourneyMutation, isUpdating, deleteJourney, isDeleting } =
-    useJourneyMutations(journeyData?.tmdb_id);
+    useJourneyMutations(tmdbId);
 
   // Form state (initialized with defaults, populated via useEffect when data loads)
   const [tagline, setTagline] = useState('');
@@ -149,33 +158,42 @@ export default function EditJourneyScreen() {
     }
   }, [router]);
 
+  // Build form data for save
+  const buildFormData = useCallback(() => ({
+    journey_tagline: tagline.trim() || null,
+    journey_notes: notes.trim() || null,
+    watched_at: watchedAt.toISOString(),
+    watch_time: `${watchTime.getHours().toString().padStart(2, '0')}:${watchTime.getMinutes().toString().padStart(2, '0')}`,
+    location_name: locationName.trim() || null,
+    seat_location: seatLocation.trim() || null,
+    watch_format: watchFormat.toLowerCase() as DbWatchFormat,
+    auditorium: auditorium.trim() || null,
+    ticket_price: ticketPrice ? parseFloat(ticketPrice) : null,
+    ticket_id: ticketId.trim() || null,
+    watched_with: watchedWith.length > 0 ? watchedWith : null,
+  }), [tagline, notes, watchedAt, watchTime, locationName, seatLocation, watchFormat, auditorium, ticketPrice, ticketId, watchedWith]);
+
   // Handle save
   const handleSave = useCallback(async () => {
-    if (!id) return;
     hapticImpact();
+    const formData = buildFormData();
 
     try {
-      await updateJourneyMutation({
-        journeyId: id,
-        data: {
-          journey_tagline: tagline.trim() || null,
-          journey_notes: notes.trim() || null,
-          watched_at: watchedAt.toISOString(),
-          watch_time: `${watchTime.getHours().toString().padStart(2, '0')}:${watchTime.getMinutes().toString().padStart(2, '0')}`,
-          location_name: locationName.trim() || null,
-          seat_location: seatLocation.trim() || null,
-          watch_format: watchFormat.toLowerCase() as DbWatchFormat,
-          auditorium: auditorium.trim() || null,
-          ticket_price: ticketPrice ? parseFloat(ticketPrice) : null,
-          ticket_id: ticketId.trim() || null,
-          watched_with: watchedWith.length > 0 ? watchedWith : null,
-        },
-      });
+      if (isCreateMode) {
+        // Create mode: create the journey first, then set form data
+        const templateJourney = movieJourneys?.journeys[0];
+        if (!templateJourney) return;
+        const newJourney = await createJourney(templateJourney);
+        await updateJourneyMutation({ journeyId: newJourney.id, data: formData });
+      } else {
+        if (!id) return;
+        await updateJourneyMutation({ journeyId: id, data: formData });
+      }
 
       hapticNotification(NotificationFeedbackType.Success);
       Toast.show({
         type: 'success',
-        text1: 'Journey updated',
+        text1: isCreateMode ? 'Journey created' : 'Journey updated',
         visibilityTime: 2000,
       });
 
@@ -194,17 +212,10 @@ export default function EditJourneyScreen() {
     }
   }, [
     id,
-    tagline,
-    notes,
-    watchedAt,
-    watchTime,
-    locationName,
-    seatLocation,
-    watchFormat,
-    auditorium,
-    ticketPrice,
-    ticketId,
-    watchedWith,
+    isCreateMode,
+    buildFormData,
+    createJourney,
+    movieJourneys,
     updateJourneyMutation,
     router,
   ]);
@@ -265,7 +276,7 @@ export default function EditJourneyScreen() {
     setShowFormatPicker(false);
   }, []);
 
-  if (isLoadingJourney) {
+  if (!isCreateMode && isLoadingJourney) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
@@ -276,7 +287,7 @@ export default function EditJourneyScreen() {
     );
   }
 
-  if (!isLoadingJourney && !journeyData) {
+  if (!isCreateMode && !isLoadingJourney && !journeyData) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
@@ -304,7 +315,7 @@ export default function EditJourneyScreen() {
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </Pressable>
 
-          <Text style={styles.headerTitle}>Edit Journey</Text>
+          <Text style={styles.headerTitle}>{isCreateMode ? 'New Journey' : 'Edit Journey'}</Text>
 
           <Pressable
             onPress={handleSave}
@@ -609,22 +620,24 @@ export default function EditJourneyScreen() {
             </View>
           </View>
 
-          {/* DELETE JOURNEY Button */}
-          <Pressable
-            onPress={handleDelete}
-            disabled={isDeleting}
-            style={({ pressed }) => [
-              styles.deleteButton,
-              pressed && styles.deleteButtonPressed,
-              isDeleting && styles.deleteButtonDisabled,
-            ]}
-          >
-            {isDeleting ? (
-              <ActivityIndicator size="small" color={colors.tint} />
-            ) : (
-              <Text style={styles.deleteButtonText}>Delete Journey</Text>
-            )}
-          </Pressable>
+          {/* DELETE JOURNEY Button (edit mode only) */}
+          {!isCreateMode && (
+            <Pressable
+              onPress={handleDelete}
+              disabled={isDeleting}
+              style={({ pressed }) => [
+                styles.deleteButton,
+                pressed && styles.deleteButtonPressed,
+                isDeleting && styles.deleteButtonDisabled,
+              ]}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Text style={styles.deleteButtonText}>Delete Journey</Text>
+              )}
+            </Pressable>
+          )}
 
           {/* Bottom spacing */}
           <View style={styles.bottomSpacer} />

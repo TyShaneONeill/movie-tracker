@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, Link } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
@@ -34,7 +34,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import { useJourneysByMovie, useCreateJourney, useJourneyMutations } from '@/hooks/use-journey';
+import { useJourneysByMovie, useJourneyMutations } from '@/hooks/use-journey';
 import { useGenerateArt } from '@/hooks/use-generate-art';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { getGenreNamesByIds } from '@/lib/genre-service';
@@ -219,16 +219,12 @@ function JourneyTicket({
   const isDark = effectiveTheme === 'dark';
   const styles = useMemo(() => createTicketStyles(colors, ticketHeight, ticketWidth, infoPageWidth, isDark), [colors, ticketHeight, ticketWidth, infoPageWidth, isDark]);
 
+  const router = useRouter();
+
   return (
     <View style={styles.ticketCard}>
       {/* Hero Image Area — top 50% */}
-      <Pressable
-        onPress={onPosterTap}
-        style={({ pressed }) => [
-          styles.heroSection,
-          pressed && { opacity: 0.8 }
-        ]}
-      >
+      <View style={styles.heroSection}>
         <Image
           source={{ uri: heroImageUrl || undefined }}
           style={styles.heroImage}
@@ -240,7 +236,7 @@ function JourneyTicket({
         />
 
         {/* Location Badge */}
-        <View style={styles.locationBadge}>
+        <View style={styles.locationBadge} pointerEvents="none">
           <LinearGradient
             colors={['rgba(225, 29, 72, 0.9)', 'rgba(190, 18, 60, 0.9)']}
             start={{ x: 0, y: 0 }}
@@ -253,23 +249,9 @@ function JourneyTicket({
           </LinearGradient>
         </View>
 
-        {/* Top right edit button */}
-        <View style={styles.heroButtonsRow}>
-          <Link href={`/journey/edit/${journey.id}` as never} asChild>
-            <Pressable style={styles.editButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={styles.editBlurContainer}>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                  <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </Svg>
-              </BlurView>
-            </Pressable>
-          </Link>
-        </View>
-
         {/* Holographic Rarity Badge */}
         {isHolographic && showAiPoster && (
-          <View style={styles.rarityBadge}>
+          <View style={styles.rarityBadge} pointerEvents="none">
             <LinearGradient
               colors={['#FFD700', '#FFA500', '#FFD700']}
               start={{ x: 0, y: 0 }}
@@ -280,7 +262,28 @@ function JourneyTicket({
             </LinearGradient>
           </View>
         )}
-      </Pressable>
+
+        {/* Poster tap overlay — catches taps on the hero image area */}
+        <Pressable
+          onPress={onPosterTap}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Edit button — rendered after poster overlay so it sits on top in z-order */}
+        <View style={styles.heroButtonsRow} pointerEvents="box-none">
+          <Pressable
+            style={styles.editButton}
+            onPress={() => router.push(`/journey/edit/${journey.id}` as never)}
+          >
+            <BlurView intensity={20} tint={effectiveTheme} style={styles.editBlurContainer}>
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </Svg>
+            </BlurView>
+          </Pressable>
+        </View>
+      </View>
 
       {/* Perforated edge — between hero and bottom section so blur starts below it */}
       <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
@@ -420,9 +423,6 @@ export default function JourneyCarouselScreen() {
   const journeys = useMemo(() => journeyData?.journeys ?? [], [journeyData?.journeys]);
   const firstTake = journeyData?.firstTake ?? null;
 
-  // Create journey mutation
-  const { createJourney, isCreating } = useCreateJourney();
-
   // AI art generation
   const { generateArt } = useGenerateArt();
   const { updateJourney } = useJourneyMutations(parsedTmdbId);
@@ -513,24 +513,14 @@ export default function JourneyCarouselScreen() {
     hapticImpact(ImpactFeedbackStyle.Light);
   }, [currentJourneyIndex, journeys.length]);
 
-  // Handle create new journey
-  const handleCreateJourney = useCallback(async () => {
-    requireAuth(async () => {
-      if (journeys.length === 0) return;
-      try {
-        const newJourney = await createJourney(journeys[0]);
-        // Navigate to the edit screen for the new journey
-        router.push(`/journey/edit/${newJourney.id}` as never);
-      } catch (error) {
-        console.error('Failed to create new journey:', error);
-        Toast.show({
-          type: 'error',
-          text1: 'Failed to create journey',
-          text2: error instanceof Error ? error.message : 'Please try again',
-        });
-      }
+  // Handle create new journey — navigate to edit screen in create mode (journey is only
+  // persisted when the user presses Save, not when they tap "Log Another Viewing").
+  const handleCreateJourney = useCallback(() => {
+    requireAuth(() => {
+      if (journeys.length === 0 || !parsedTmdbId) return;
+      router.push(`/journey/edit/new?tmdbId=${parsedTmdbId}` as never);
     }, 'Sign in to log another viewing');
-  }, [requireAuth, journeys, createJourney, router]);
+  }, [requireAuth, journeys, parsedTmdbId, router]);
 
   // Handle generate AI art for a journey
   const handleGenerateArt = useCallback(async (journey: UserMovie) => {
@@ -595,7 +585,7 @@ export default function JourneyCarouselScreen() {
               ticketHeight={ticketHeight}
               ticketWidth={ticketWidth}
               onPress={handleCreateJourney}
-              isCreating={isCreating}
+              isCreating={false}
             />
           </View>
         );
@@ -621,7 +611,7 @@ export default function JourneyCarouselScreen() {
     },
     [colors, effectiveTheme, ticketHeight, ticketWidth, infoPageWidth, pageWidth,
      firstTake, generatingJourneyId, handleGenerateArt, handleTogglePoster,
-     handlePosterTap, handleCreateJourney, isCreating],
+     handlePosterTap, handleCreateJourney],
   );
 
   // Show loading state
