@@ -104,12 +104,12 @@ function useProtectedRoute() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboardingGroup = segments[0] === '(onboarding)';
 
-    // Defer navigation to next tick to ensure all routes are mounted
-    // This prevents "route not found" errors during initial render
+    // Defer navigation to next frame to ensure all routes are mounted
+    // requestAnimationFrame is more reliable than setTimeout(0) on Android
     const performNavigation = (route: string) => {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
-      }, 0);
+      });
     };
 
     // If we're handling a password reset deep link, go to reset-password screen
