@@ -9,6 +9,7 @@ import {
   View,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -91,8 +92,8 @@ export default function SignUpScreen() {
 
     try {
       if (provider === 'apple') {
-        if (Platform.OS !== 'ios') {
-          alert('Apple Sign-In is only available on iOS devices');
+        if (Platform.OS !== 'ios' && Platform.OS !== 'web') {
+          alert('Apple Sign-In is only available on iOS and web');
           return;
         }
         await signInWithApple();
@@ -273,7 +274,7 @@ export default function SignUpScreen() {
                 </View>
               </Pressable>
 
-              {Platform.OS === 'ios' && (
+              {(Platform.OS === 'ios' || Platform.OS === 'web') && (
                 <Pressable
                   onPress={() => handleOAuthSignIn('apple')}
                   style={({ pressed }) => [

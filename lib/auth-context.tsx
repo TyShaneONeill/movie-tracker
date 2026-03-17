@@ -233,6 +233,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithApple = async () => {
+    // On web, use Supabase OAuth redirect flow
+    if (Platform.OS === 'web') {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      analytics.track('auth:sign_in', { method: 'apple' });
+      return;
+    }
+
     if (Platform.OS !== 'ios' || !AppleAuthentication) {
       throw new Error('Apple Sign-In is only available on iOS devices');
     }
