@@ -161,7 +161,7 @@ export function TicketFlipCard({
   const flipContent = (
     <>
       {/* Front face */}
-      <Animated.View style={[styles.face, frontAnimatedStyle]}>
+      <Animated.View style={[styles.face, frontAnimatedStyle]} aria-hidden={isFlipped}>
         {/* Title & Rating — tap here to flip */}
         <Pressable
           style={styles.titleSection}
@@ -292,6 +292,7 @@ export function TicketFlipCard({
       <Animated.View
         style={[styles.face, styles.backFace, backAnimatedStyle]}
         pointerEvents={isFlipped ? 'auto' : 'none'}
+        aria-hidden={!isFlipped}
       >
         <Pressable
           style={StyleSheet.absoluteFill}
