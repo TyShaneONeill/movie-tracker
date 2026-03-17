@@ -15,22 +15,14 @@ test.describe('Block User Flow', () => {
     // Switch to Users category
     await page.getByText('Users', { exact: true }).click();
 
-    // Wait for at least one user result to appear (avatar images)
-    const userResult = page.locator('img').first();
-    await expect(userResult).toBeVisible({ timeout: 15_000 });
+    // Wait for at least one user result to appear (each card shows "X movies" text)
+    await expect(page.getByText(/\d+ movies?/).first()).toBeVisible({ timeout: 15_000 });
 
     // Click the first user result to go to their profile
-    // User results are Pressable (div[role="button"]) rows — click the first one
-    // The user row contains a display name text; find a clickable area in the results
-    const firstUserRow = page.locator('[role="button"]').filter({ has: page.locator('img') }).first();
-    await firstUserRow.click();
+    await page.getByText(/\d+ movies?/).first().click();
 
-    // Verify we're on a user profile page
-    await expect(page.getByText('Profile')).toBeVisible({ timeout: 10_000 });
-
-    // Capture the username shown on the profile for later verification
-    const profileUsername = page.locator('text=/^@/').first();
-    const usernameText = await profileUsername.textContent({ timeout: 5_000 });
+    // Verify we're on a user profile page (the "..." button is unique to other users' profiles)
+    await expect(page.getByLabel('More options')).toBeVisible({ timeout: 10_000 });
 
     // Tap the "..." more options button
     await page.getByLabel('More options').click();
