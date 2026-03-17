@@ -170,6 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
       // Update Sentry user context when auth state changes
       setSentryUser(newSession?.user?.id ?? null);
+
+      // On web, set a cookie so Vercel skips the landing-page redirect for returning users
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && newSession?.user) {
+        document.cookie = 'cinetrak_visited=1;path=/;max-age=31536000';
+      }
     });
 
     return () => subscription.unsubscribe();
