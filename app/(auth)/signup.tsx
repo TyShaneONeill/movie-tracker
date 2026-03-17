@@ -293,16 +293,16 @@ export default function SignUpScreen() {
               )}
 
               <Pressable
-                onPress={() => handleOAuthSignIn('meta')}
-                style={({ pressed }) => [
+                onPress={() => Alert.alert('Coming Soon', 'Facebook login will be available soon.')}
+                disabled
+                style={[
                   styles.socialButton,
-                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.4 },
                 ]}
-                disabled={isSubmitting}
               >
                 <View style={styles.socialButtonContent}>
-                  <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-                  <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                  <Ionicons name="logo-facebook" size={20} color={colors.textSecondary} />
+                  <ThemedText style={[styles.socialButtonText, { color: colors.textSecondary }]}>
                     Meta
                   </ThemedText>
                 </View>
