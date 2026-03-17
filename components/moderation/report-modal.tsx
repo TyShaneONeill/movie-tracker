@@ -172,6 +172,7 @@ function createStyles(colors: typeof Colors.dark) {
       paddingHorizontal: Spacing.lg,
       paddingBottom: Spacing.xl + (Platform.OS === 'ios' ? 20 : 0),
       maxHeight: '80%',
+      ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
     },
     handleBar: {
       width: 36,

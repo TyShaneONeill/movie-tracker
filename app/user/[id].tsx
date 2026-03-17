@@ -15,7 +15,6 @@ import {
   TextInput,
   useWindowDimensions,
   Platform,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -39,6 +38,7 @@ import { ReviewCard } from '@/components/cards/review-card';
 import { formatRelativeTime } from '@/hooks/use-activity-feed';
 import { useBlockAction } from '@/components/moderation/block-button';
 import { ReportModal } from '@/components/moderation/report-modal';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'reviews' | 'watchlist';
@@ -119,22 +119,20 @@ export default function UserProfileScreen() {
   const isOwnProfile = user?.id === id;
 
   // Moderation
-  const { trigger: triggerBlock, label: blockLabel } = useBlockAction(id!, profile?.username);
+  const { trigger: triggerBlock, label: blockLabel } = useBlockAction(id!, profile?.username, {
+    onBlocked: () => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)');
+      }
+    },
+  });
   const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const handleMoreMenu = () => {
-    Alert.alert(undefined as unknown as string, undefined, [
-      {
-        text: blockLabel,
-        style: 'destructive',
-        onPress: triggerBlock,
-      },
-      {
-        text: 'Report User',
-        onPress: () => setReportModalVisible(true),
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setMenuVisible(true);
   };
 
   // Private account gate: hide tab content for non-followers
@@ -707,6 +705,16 @@ export default function UserProfileScreen() {
           <View style={styles.headerSpacer} />
         )}
       </View>
+
+      {/* Action Sheet Menu */}
+      <ActionSheet
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        options={[
+          { label: blockLabel, onPress: triggerBlock, destructive: true },
+          { label: 'Report User', onPress: () => setReportModalVisible(true) },
+        ]}
+      />
 
       {/* Report Modal */}
       <ReportModal

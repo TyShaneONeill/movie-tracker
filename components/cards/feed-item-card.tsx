@@ -13,7 +13,6 @@ import {
   StyleSheet,
   ViewStyle,
   Animated,
-  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -271,12 +270,7 @@ export function FeedItemCard({
         </Text>
         {!isCurrentUser && onReport && (
           <Pressable
-            onPress={() => {
-              Alert.alert(undefined as unknown as string, undefined, [
-                { text: 'Report', onPress: onReport },
-                { text: 'Cancel', style: 'cancel' },
-              ]);
-            }}
+            onPress={onReport}
             hitSlop={8}
             style={styles.moreButton}
           >

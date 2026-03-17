@@ -17,6 +17,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="change-password" />
       <Stack.Screen name="delete-account" />
+      <Stack.Screen name="blocked-users" />
       <Stack.Screen name="letterboxd-import" />
     </Stack>
   );

@@ -77,3 +77,22 @@ export async function isUserBlocked(userId: string): Promise<boolean> {
 
   return !!data;
 }
+
+/**
+ * Get profiles of all blocked users
+ */
+export async function getBlockedUsersWithProfiles(): Promise<any[]> {
+  const ids = await getBlockedUserIds();
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('id', ids);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch blocked user profiles');
+  }
+
+  return data ?? [];
+}

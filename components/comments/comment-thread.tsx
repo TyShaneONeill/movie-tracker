@@ -6,6 +6,7 @@ import { Typography } from '@/constants/typography';
 import { useComments } from '@/hooks/use-comments';
 import { CommentItem } from './comment-item';
 import { CommentInput } from './comment-input';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 
 interface CommentThreadProps {
   targetType: 'review' | 'first_take';
@@ -16,9 +17,10 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { blockedIds } = useBlockedUsers();
 
   const {
-    comments,
+    comments: rawComments,
     totalCount,
     isLoading,
     addComment,
@@ -28,6 +30,13 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
     likeComment: likeCommentFn,
     currentUserId,
   } = useComments({ targetType, targetId });
+
+  const comments = rawComments
+    .filter((c) => !blockedIds.includes(c.commenter.userId ?? ''))
+    .map((c) => ({
+      ...c,
+      replies: c.replies.filter((r) => !blockedIds.includes(r.commenter.userId ?? '')),
+    }));
 
   const [replyTo, setReplyTo] = useState<{ commentId: string; username: string | null } | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());

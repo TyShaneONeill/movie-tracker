@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import type { ReviewItem } from '@/lib/review-service';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 
 interface FriendsRatingsProps {
   tmdbId: number;
@@ -82,6 +83,7 @@ export function FriendsRatings({ tmdbId }: FriendsRatingsProps) {
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { data, isLoading } = useFriendsRatings(tmdbId);
+  const { blockedIds } = useBlockedUsers();
 
   if (isLoading) {
     return (
@@ -104,7 +106,16 @@ export function FriendsRatings({ tmdbId }: FriendsRatingsProps) {
     return null;
   }
 
-  const { friendsRatings, averageRating } = data;
+  const friendsRatings = data.friendsRatings.filter((f: ReviewItem) => !blockedIds.includes(f.userId));
+
+  if (friendsRatings.length === 0) {
+    return null;
+  }
+
+  const ratedFriends = friendsRatings.filter((f: ReviewItem) => f.rating !== null);
+  const averageRating = ratedFriends.length > 0
+    ? ratedFriends.reduce((sum: number, f: ReviewItem) => sum + (f.rating ?? 0), 0) / ratedFriends.length
+    : null;
 
   return (
     <View style={styles.container} accessibilityRole="summary" accessibilityLabel="Friends who watched this movie">
