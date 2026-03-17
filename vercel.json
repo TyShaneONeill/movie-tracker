@@ -3,6 +3,18 @@
   "outputDirectory": "dist",
   "framework": null,
   "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/",
+      "missing": [
+        { "type": "cookie", "key": "cinetrak_visited" },
+        { "type": "query", "key": "code" },
+        { "type": "query", "key": "access_token" }
+      ],
+      "destination": "/welcome",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/ingest/static/:path*", "destination": "https://us-assets.i.posthog.com/static/:path*" },
     { "source": "/ingest/:path*", "destination": "https://us.i.posthog.com/:path*" },
