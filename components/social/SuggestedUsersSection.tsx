@@ -6,11 +6,14 @@ import { Colors, Spacing } from '@/constants/theme';
 import { SectionHeader } from '@/components/ui/section-header';
 import { SuggestedUserCard } from './SuggestedUserCard';
 import { useSuggestedUsers } from '@/hooks/use-suggested-users';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 
 export function SuggestedUsersSection() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { suggestions, isLoading } = useSuggestedUsers();
+  const { suggestions: rawSuggestions, isLoading } = useSuggestedUsers();
+  const { blockedIds } = useBlockedUsers();
+  const suggestions = rawSuggestions.filter((u) => !blockedIds.includes(u.id));
 
   if (!isLoading && suggestions.length === 0) {
     return null;

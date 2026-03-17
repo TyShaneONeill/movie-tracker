@@ -27,7 +27,9 @@ import { useNotifications } from '@/hooks/use-notifications';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime, type FeedListItem, type FeedFilter } from '@/hooks/use-activity-feed';
 import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
+import { ReportModal } from '@/components/moderation/report-modal';
 import { analytics } from '@/lib/analytics';
+import type { ReportTargetType } from '@/lib/report-service';
 
 // Default avatar for users without one
 const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
@@ -50,6 +52,12 @@ function AuthenticatedFeed() {
   const { unreadCount } = useNotifications();
   const queryClient = useQueryClient();
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+
+  // Report modal state
+  const [reportTarget, setReportTarget] = useState<{
+    type: ReportTargetType;
+    id: string;
+  } | null>(null);
 
   // Invalidate unread indicator when feed tab gains focus
   useFocusEffect(
@@ -174,6 +182,7 @@ function AuthenticatedFeed() {
       }
 
       // Standard feed item card (first_take or review)
+      const isOwn = user?.id === feed.userId;
       return (
         <FeedItemCard
           userName={feed.userDisplayName ?? 'Anonymous'}
@@ -184,10 +193,16 @@ function AuthenticatedFeed() {
           rating={feed.rating}
           reviewText={feed.quoteText}
           isSpoiler={feed.isSpoiler ?? undefined}
-          isCurrentUser={user?.id === feed.userId}
+          isCurrentUser={isOwn}
           mediaType={feed.mediaType}
           sourceId={feed.id}
           sourceType={feed.activityType === 'review' ? 'review' : 'first_take'}
+          onReport={isOwn ? undefined : () => {
+            setReportTarget({
+              type: feed.activityType === 'review' ? 'review' : 'first_take',
+              id: feed.id,
+            });
+          }}
           onMoviePress={() => {
             analytics.track('feed:item_tap', { item_type: feed.activityType, tmdb_id: feed.tmdbId });
             if (feed.mediaType === 'tv_show') {
@@ -307,6 +322,16 @@ function AuthenticatedFeed() {
           </Pressable>
         ))}
       </View>
+
+      {/* Report modal */}
+      {reportTarget && (
+        <ReportModal
+          visible={!!reportTarget}
+          onClose={() => setReportTarget(null)}
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+        />
+      )}
 
       {/* Feed list */}
       <FlatList

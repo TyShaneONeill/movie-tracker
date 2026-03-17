@@ -15,6 +15,7 @@ import {
   TextInput,
   useWindowDimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -36,6 +37,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserReviews } from '@/hooks/use-user-reviews';
 import { ReviewCard } from '@/components/cards/review-card';
 import { formatRelativeTime } from '@/hooks/use-activity-feed';
+import { useBlockAction } from '@/components/moderation/block-button';
+import { ReportModal } from '@/components/moderation/report-modal';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'reviews' | 'watchlist';
@@ -113,6 +116,26 @@ export default function UserProfileScreen() {
 
   const { user } = useAuth();
   const { isFollowing } = useFollow(id!, { username: profile?.username });
+  const isOwnProfile = user?.id === id;
+
+  // Moderation
+  const { trigger: triggerBlock, label: blockLabel } = useBlockAction(id!, profile?.username);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+
+  const handleMoreMenu = () => {
+    Alert.alert(undefined as unknown as string, undefined, [
+      {
+        text: blockLabel,
+        style: 'destructive',
+        onPress: triggerBlock,
+      },
+      {
+        text: 'Report User',
+        onPress: () => setReportModalVisible(true),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   // Private account gate: hide tab content for non-followers
   const isPrivateAndNotFollowing = profile?.is_private && !isFollowing;
@@ -673,8 +696,25 @@ export default function UserProfileScreen() {
           <BackIcon color={colors.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
-        <View style={styles.headerSpacer} />
+        {!isOwnProfile ? (
+          <Pressable
+            onPress={handleMoreMenu}
+            style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
+
+      {/* Report Modal */}
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        targetType="user"
+        targetId={id!}
+      />
 
       {isPrivateAndNotFollowing ? (
         /* Locked profile: show header with locked state, no tab content */
