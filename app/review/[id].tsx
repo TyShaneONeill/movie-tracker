@@ -18,6 +18,7 @@ import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
 import { ShareableReviewCard } from '@/components/share/shareable-review-card';
 import { captureReviewCard, shareReview, shareReviewUrl } from '@/lib/share-service';
+import { analytics } from '@/lib/analytics';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -75,6 +76,7 @@ export default function ReviewDetailScreen() {
         const imageUri = await captureReviewCard(viewShotRef);
         await shareReview(review.id, imageUri, review.movie_title);
       }
+      analytics.track('social:share', { content_type: 'review', tmdb_id: review.tmdb_id });
     } catch (err: any) {
       if (err.message !== 'User cancelled') {
         Alert.alert('Share failed', err.message || 'Could not share review');

@@ -426,6 +426,7 @@ export default function SettingsScreen() {
               ]}
               onPress={() => {
                 hapticImpact();
+                analytics.track('premium:cancel', { plan: tier ?? 'plus' });
               }}
             >
               <View>
