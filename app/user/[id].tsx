@@ -697,6 +697,8 @@ export default function UserProfileScreen() {
         {!isOwnProfile ? (
           <Pressable
             onPress={handleMoreMenu}
+            accessibilityLabel="More options"
+            accessibilityRole="button"
             style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }]}
           >
             <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
