@@ -1,33 +1,53 @@
 import { Platform } from 'react-native';
+import PostHogNative from 'posthog-react-native';
 
 type EventProperties = Record<string, string | number | boolean | null | undefined>;
 type UserProperties = Record<string, string | number | boolean | null | undefined>;
 
 let posthogClient: any = null;
+let nativeClient: PostHogNative | null = null;
 
-/** Initialize the analytics client (web only for now) */
+/** Initialize the analytics client */
 export async function initAnalytics(apiKey: string, host: string) {
-  if (Platform.OS !== 'web' || !apiKey) return;
+  if (!apiKey) return;
 
-  try {
-    const posthog = await import('posthog-js');
-    posthog.default.init(apiKey, {
-      api_host: '/ingest',
-      ui_host: host,
-      capture_pageview: true,
-      capture_pageleave: true,
-      persistence: 'localStorage',
-      autocapture: false, // We'll track events explicitly for a clean taxonomy
-      respect_dnt: true,
-    });
-    posthogClient = posthog.default;
-  } catch (error) {
-    console.warn('[analytics] Failed to initialize PostHog:', error);
+  if (Platform.OS === 'web') {
+    try {
+      const posthog = await import('posthog-js');
+      posthog.default.init(apiKey, {
+        api_host: '/ingest',
+        ui_host: host,
+        capture_pageview: true,
+        capture_pageleave: true,
+        persistence: 'localStorage',
+        autocapture: false, // We'll track events explicitly for a clean taxonomy
+        respect_dnt: true,
+      });
+      posthogClient = posthog.default;
+    } catch (error) {
+      console.warn('[analytics] Failed to initialize PostHog (web):', error);
+    }
+  } else {
+    try {
+      nativeClient = new PostHogNative(apiKey, {
+        host,
+        captureAppLifecycleEvents: true,
+        enableSessionReplay: false,
+      });
+      posthogClient = nativeClient;
+    } catch (error) {
+      console.warn('[analytics] Failed to initialize PostHog (native):', error);
+    }
   }
 }
 
 /** Shut down the analytics client */
 export function shutdownAnalytics() {
+  if (nativeClient) {
+    nativeClient.flush().catch(() => {});
+    nativeClient.shutdown();
+    nativeClient = null;
+  }
   posthogClient = null;
 }
 
