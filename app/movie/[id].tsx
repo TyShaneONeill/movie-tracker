@@ -75,6 +75,10 @@ function formatRuntime(minutes: number | null): string {
 export default function MovieDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  // Support slug-format URLs like "scarface-111" (title-slug + TMDB ID).
+  // Extract the numeric TMDB ID from the trailing segment after the last "-".
+  const rawId = id ?? '';
+  const tmdbId = rawId.includes('-') ? (rawId.split('-').pop() ?? rawId) : rawId;
   const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -98,8 +102,8 @@ export default function MovieDetailScreen() {
 
   // Fetch movie details using the hook
   const { movie, cast, crew, trailer, watchProviders, isLoading, isError, error } = useMovieDetail({
-    movieId: id || '',
-    enabled: !!id,
+    movieId: tmdbId,
+    enabled: !!tmdbId,
   });
 
   // Movie actions hook for save/like functionality (separate operations)
@@ -115,7 +119,7 @@ export default function MovieDetailScreen() {
     changeStatus,
     downgradeStatus,
     toggleLike,
-  } = useMovieActions(Number(id) || 0);
+  } = useMovieActions(Number(tmdbId) || 0);
 
   // First Take actions hook
   const {
@@ -123,7 +127,7 @@ export default function MovieDetailScreen() {
     isCreating: isCreatingFirstTake,
     createTake,
     deleteTake,
-  } = useFirstTakeActions(Number(id) || 0);
+  } = useFirstTakeActions(Number(tmdbId) || 0);
 
   // Review actions hook
   const {
@@ -134,7 +138,7 @@ export default function MovieDetailScreen() {
     createReview: createReviewAction,
     updateReview: updateReviewAction,
     deleteReview: deleteReviewAction,
-  } = useReviewActions(Number(id) || 0);
+  } = useReviewActions(Number(tmdbId) || 0);
 
   // User preferences hook (for First Take prompt setting)
   const { preferences } = useUserPreferences();
