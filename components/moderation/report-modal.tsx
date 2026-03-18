@@ -40,9 +40,11 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
 
   const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
   const [description, setDescription] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!selectedReason) return;
+    setErrorMessage(null);
     try {
       await report({
         targetType,
@@ -54,14 +56,19 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
       setSelectedReason(null);
       setDescription('');
       onClose();
-    } catch {
-      // Error handled in useReport hook
+    } catch (err) {
+      if (err instanceof Error && err.message === 'ALREADY_REPORTED') {
+        setErrorMessage("You've already reported this.");
+      } else {
+        setErrorMessage('Failed to submit report. Please try again.');
+      }
     }
   };
 
   const handleClose = () => {
     setSelectedReason(null);
     setDescription('');
+    setErrorMessage(null);
     onClose();
   };
 
@@ -132,6 +139,10 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
             maxLength={500}
             textAlignVertical="top"
           />
+
+          {errorMessage && (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          )}
 
           {/* Submit */}
           <Pressable
@@ -225,6 +236,12 @@ function createStyles(colors: typeof Colors.dark) {
       padding: Spacing.md,
       minHeight: 80,
       marginBottom: Spacing.lg,
+    },
+    errorText: {
+      ...Typography.body.sm,
+      color: '#EF4444',
+      marginBottom: Spacing.sm,
+      textAlign: 'center' as const,
     },
     submitButton: {
       backgroundColor: '#EF4444',
