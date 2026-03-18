@@ -36,6 +36,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserReviews } from '@/hooks/use-user-reviews';
 import { ReviewCard } from '@/components/cards/review-card';
 import { formatRelativeTime } from '@/hooks/use-activity-feed';
+import { useBlockAction } from '@/components/moderation/block-button';
+import { ReportModal } from '@/components/moderation/report-modal';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'reviews' | 'watchlist';
@@ -113,6 +116,24 @@ export default function UserProfileScreen() {
 
   const { user } = useAuth();
   const { isFollowing } = useFollow(id!, { username: profile?.username });
+  const isOwnProfile = user?.id === id;
+
+  // Moderation
+  const { trigger: triggerBlock, label: blockLabel } = useBlockAction(id!, profile?.username, {
+    onBlocked: () => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)');
+      }
+    },
+  });
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  const handleMoreMenu = () => {
+    setMenuVisible(true);
+  };
 
   // Private account gate: hide tab content for non-followers
   const isPrivateAndNotFollowing = profile?.is_private && !isFollowing;
@@ -673,8 +694,37 @@ export default function UserProfileScreen() {
           <BackIcon color={colors.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
-        <View style={styles.headerSpacer} />
+        {!isOwnProfile ? (
+          <Pressable
+            onPress={handleMoreMenu}
+            accessibilityLabel="More options"
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
+
+      {/* Action Sheet Menu */}
+      <ActionSheet
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        options={[
+          { label: blockLabel, onPress: triggerBlock, destructive: true },
+          { label: 'Report User', onPress: () => setReportModalVisible(true) },
+        ]}
+      />
+
+      {/* Report Modal */}
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        targetType="user"
+        targetId={id!}
+      />
 
       {isPrivateAndNotFollowing ? (
         /* Locked profile: show header with locked state, no tab content */

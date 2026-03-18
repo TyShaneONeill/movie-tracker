@@ -24,6 +24,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useFollowers } from '@/hooks/use-followers';
 import { useAuth } from '@/hooks/use-auth';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import { FollowButton } from '@/components/social/FollowButton';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import type { Profile } from '@/lib/database.types';
@@ -48,7 +49,9 @@ export default function FollowersScreen() {
   const { session } = useAuth();
   const currentUserId = session?.user?.id;
 
-  const { followers, isLoading, isError } = useFollowers(id!);
+  const { followers: rawFollowers, isLoading, isError } = useFollowers(id!);
+  const { blockedIds } = useBlockedUsers();
+  const followers = rawFollowers.filter((u: Profile) => !blockedIds.includes(u.id));
 
   const handleBack = () => {
     if (router.canGoBack()) {

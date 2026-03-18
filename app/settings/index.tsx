@@ -345,6 +345,21 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
+            onPress={() => router.push('/settings/blocked-users')}
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Blocked Users</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Manage blocked accounts</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
             onPress={() => router.push('/streaming-services')}
           >
             <View>

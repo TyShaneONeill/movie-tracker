@@ -28,7 +28,7 @@ export default defineConfig({
     },
     {
       name: 'authenticated',
-      testMatch: /\/(auth|profile|dark-mode|journey-card)\.spec\.ts$/,
+      testMatch: /\/(auth|profile|dark-mode|journey-card|block)\.spec\.ts$/,
       dependencies: ['setup'],
       use: { storageState: 'e2e/.auth/user.json' },
     },

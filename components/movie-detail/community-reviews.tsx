@@ -10,6 +10,7 @@ import { Typography } from '@/constants/typography';
 import type { ReviewItem, ReviewSortMode } from '@/lib/review-service';
 import { LikeButton } from '@/components/like-button';
 import { LikedByIndicator } from '@/components/liked-by-indicator';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 
 interface CommunityReviewsProps {
   tmdbId: number;
@@ -399,6 +400,7 @@ export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
   const [sort, setSort] = useState<ReviewSortMode>('recent');
   const { data, isLoading } = useMovieReviews(tmdbId, 1, true, sort);
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(new Set());
+  const { blockedIds } = useBlockedUsers();
 
   const revealSpoiler = (id: string) => {
     setRevealedSpoilers((prev) => new Set(prev).add(id));
@@ -425,7 +427,8 @@ export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
     );
   }
 
-  const { reviews, totalCount } = data;
+  const { reviews: allReviews } = data;
+  const reviews = allReviews.filter((r) => !blockedIds.includes(r.userId));
   const displayedReviews = reviews.slice(0, REVIEWS_LIMIT);
 
   return (
@@ -471,14 +474,14 @@ export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
           />
         )
       )}
-      {totalCount > REVIEWS_LIMIT && (
+      {reviews.length > REVIEWS_LIMIT && (
         <Pressable
           style={styles.viewAllButton}
           accessibilityRole="button"
-          accessibilityLabel={`View all ${totalCount} reviews`}
+          accessibilityLabel={`View all ${reviews.length} reviews`}
         >
           <Text style={styles.viewAllText}>
-            View all {totalCount} reviews
+            View all {reviews.length} reviews
           </Text>
         </Pressable>
       )}

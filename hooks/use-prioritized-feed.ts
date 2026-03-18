@@ -13,10 +13,12 @@ import {
   buildFeedList,
 } from '@/lib/feed-service';
 import { useAds } from '@/lib/ads-context';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 
 export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilter = 'all') {
   const { adsEnabled } = useAds();
   const queryClient = useQueryClient();
+  const { blockedIds } = useBlockedUsers();
 
   // Query 1: Get followed user IDs (lightweight, enables subsequent queries)
   const followingIdsQuery = useQuery({
@@ -106,23 +108,27 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     );
   }, [feedLastSeenQuery.data, followingFeedQuery.data]);
 
-  // Flatten community pages
+  // Flatten community pages, filtering out blocked users
   const communityItems = useMemo(
-    () => communityQuery.data?.pages.flatMap((page) => page.items) ?? [],
-    [communityQuery.data]
+    () => (communityQuery.data?.pages.flatMap((page) => page.items) ?? [])
+      .filter((item) => !blockedIds.includes(item.userId)),
+    [communityQuery.data, blockedIds]
   );
 
   // Merge following items (first_takes + reviews + comments), sorted by createdAt desc
+  // Filter out blocked users
   const followingItems = useMemo(() => {
     const firstTakes = followingFeedQuery.data ?? [];
     const reviews = followingReviewsQuery.data ?? [];
     const comments = followingCommentsQuery.data ?? [];
-    return [...firstTakes, ...reviews, ...comments].sort(
-      (a, b) =>
-        new Date(b.createdAt ?? 0).getTime() -
-        new Date(a.createdAt ?? 0).getTime()
-    );
-  }, [followingFeedQuery.data, followingReviewsQuery.data, followingCommentsQuery.data]);
+    return [...firstTakes, ...reviews, ...comments]
+      .filter((item) => !blockedIds.includes(item.userId))
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt ?? 0).getTime() -
+          new Date(a.createdAt ?? 0).getTime()
+      );
+  }, [followingFeedQuery.data, followingReviewsQuery.data, followingCommentsQuery.data, blockedIds]);
 
   // Build merged feed list
   const feedItems = useMemo(

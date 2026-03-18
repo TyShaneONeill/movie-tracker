@@ -36,6 +36,7 @@ import { TvShowSearchCard } from '@/components/tv-show-search-card';
 import { MediaTypeToggle, type MediaType } from '@/components/media-type-toggle';
 import { UserSearchResult } from '@/components/social/UserSearchResult';
 import { useUserSearch } from '@/hooks/use-user-search';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import { useTvShowSearch } from '@/hooks/use-tv-show-search';
 import { useDiscoverTvShows } from '@/hooks/use-discover-tv-shows';
 import { useTvShowList } from '@/hooks/use-tv-show-lists';
@@ -272,9 +273,11 @@ export default function SearchScreen() {
   });
 
   // User search hook
-  const { users, isLoading: isUserLoading, isError: isUserError, error: userError } = useUserSearch(
+  const { users: rawUsers, isLoading: isUserLoading, isError: isUserError, error: userError } = useUserSearch(
     activeCategory === 'Users' ? debouncedQuery : ''
   );
+  const { blockedIds } = useBlockedUsers();
+  const users = rawUsers.filter((u) => !blockedIds.includes(u.id));
 
   // Combine loading/error states based on active category and media type
   const isContentLoading = activeCategory === 'Users'

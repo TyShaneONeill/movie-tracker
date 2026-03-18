@@ -89,6 +89,11 @@ interface FeedItemCardProps {
   onMoviePress?: () => void;
 
   /**
+   * Callback when user wants to report this item
+   */
+  onReport?: () => void;
+
+  /**
    * Additional style overrides for the container
    */
   style?: ViewStyle;
@@ -133,6 +138,7 @@ export function FeedItemCard({
   sourceId,
   sourceType,
   onMoviePress,
+  onReport,
   style,
 }: FeedItemCardProps) {
   const { effectiveTheme } = useTheme();
@@ -243,7 +249,7 @@ export function FeedItemCard({
         style,
       ]}
     >
-      {/* Header Row: Avatar + Username + Timestamp */}
+      {/* Header Row: Avatar + Username + Timestamp + Report */}
       <View style={styles.headerRow}>
         <Image
           source={{ uri: userAvatarUrl }}
@@ -262,6 +268,15 @@ export function FeedItemCard({
         <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
           {timestamp}
         </Text>
+        {!isCurrentUser && onReport && (
+          <Pressable
+            onPress={onReport}
+            hitSlop={8}
+            style={styles.moreButton}
+          >
+            <Ionicons name="ellipsis-horizontal" size={16} color={colors.textTertiary} />
+          </Pressable>
+        )}
       </View>
 
       {/* Content Row: Poster + Movie Info */}
@@ -346,6 +361,11 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 12,
+    flex: 1,
+  },
+  moreButton: {
+    padding: 4,
+    marginLeft: 4,
   },
   // Content Row - poster centered with review body
   contentRow: {
