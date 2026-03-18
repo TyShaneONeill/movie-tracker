@@ -208,6 +208,10 @@ function SeasonAccordionItem({
 export default function TvShowDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  // Support slug-format URLs like "breaking-bad-1396" (title-slug + TMDB ID).
+  // Extract the numeric TMDB ID from the trailing segment after the last "-".
+  const rawId = id ?? '';
+  const tmdbId = rawId.includes('-') ? (rawId.split('-').pop() ?? rawId) : rawId;
   const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -224,8 +228,8 @@ export default function TvShowDetailScreen() {
 
   // Fetch TV show details using the hook
   const { show, cast, crew, trailer, watchProviders, seasons, recommendations, isLoading, isError, error } = useTvShowDetail({
-    showId: id || '',
-    enabled: !!id,
+    showId: tmdbId,
+    enabled: !!tmdbId,
   });
 
   // TV show actions hook for save/like functionality
@@ -240,7 +244,7 @@ export default function TvShowDetailScreen() {
     removeFromLibrary,
     changeStatus,
     toggleLike,
-  } = useTvShowActions(Number(id) || 0);
+  } = useTvShowActions(Number(tmdbId) || 0);
 
   // First Take actions hook
   const {
@@ -248,7 +252,7 @@ export default function TvShowDetailScreen() {
     isCreating: isCreatingFirstTake,
     createTake,
     deleteTake,
-  } = useFirstTakeActions(Number(id) || 0, 'tv_show');
+  } = useFirstTakeActions(Number(tmdbId) || 0, 'tv_show');
 
   // User preferences hook (for First Take prompt setting)
   const { preferences } = useUserPreferences();
@@ -708,7 +712,7 @@ export default function TvShowDetailScreen() {
                   <SeasonAccordionItem
                     key={season.id}
                     season={season}
-                    showId={Number(id)}
+                    showId={Number(tmdbId)}
                     userTvShowId={userTvShow?.id ?? ''}
                     isExpanded={expandedSeason === season.season_number}
                     onToggle={() => setExpandedSeason(
@@ -722,7 +726,7 @@ export default function TvShowDetailScreen() {
                 <SeasonAccordionItem
                   key={season.id}
                   season={season}
-                  showId={Number(id)}
+                  showId={Number(tmdbId)}
                   userTvShowId={userTvShow?.id ?? ''}
                   isExpanded={expandedSeason === season.season_number}
                   onToggle={() => setExpandedSeason(
