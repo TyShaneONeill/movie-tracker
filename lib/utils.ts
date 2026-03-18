@@ -43,3 +43,12 @@ export function formatRelativeTime(dateString: string): string {
 
   return date.toLocaleDateString('en-US', options);
 }
+
+/**
+ * Returns true if the given release date is in the future (i.e. movie has not yet been released).
+ * Returns false if release date is null, undefined, or already past.
+ */
+export function isUnreleased(releaseDate: string | null | undefined): boolean {
+  if (!releaseDate) return false;
+  return new Date(releaseDate) > new Date();
+}

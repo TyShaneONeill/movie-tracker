@@ -120,7 +120,7 @@ export function TrendingCard({
             { color: 'rgba(255, 255, 255, 0.8)' },
           ]}
         >
-          {genre} • {rating}
+          {genre}{rating && rating !== '—' ? ` • ${rating}` : ''}
         </Text>
       </View>
     </Pressable>

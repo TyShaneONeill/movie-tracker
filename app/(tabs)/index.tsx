@@ -233,7 +233,7 @@ export default function HomeScreen() {
                 <TrendingCard
                   title={item.title}
                   genre={getPrimaryGenre(item.genre_ids)}
-                  rating={item.vote_average.toFixed(1)}
+                  rating={item.vote_count > 0 && item.vote_average > 0 ? item.vote_average.toFixed(1) : '—'}
                   posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
                   onPress={() => handleTrendingPress(item.id)}
                 />
@@ -267,7 +267,7 @@ export default function HomeScreen() {
                 <TrendingCard
                   title={item.title}
                   genre={getPrimaryGenre(item.genre_ids)}
-                  rating={item.vote_average.toFixed(1)}
+                  rating={item.vote_count > 0 && item.vote_average > 0 ? item.vote_average.toFixed(1) : '—'}
                   posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
                   onPress={() => handleTrendingPress(item.id)}
                 />
@@ -301,7 +301,7 @@ export default function HomeScreen() {
                 <TrendingCard
                   title={item.title}
                   genre={getPrimaryGenre(item.genre_ids)}
-                  rating={item.vote_average.toFixed(1)}
+                  rating={item.vote_count > 0 && item.vote_average > 0 ? item.vote_average.toFixed(1) : '—'}
                   posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
                   onPress={() => handleTrendingPress(item.id)}
                 />
@@ -335,7 +335,7 @@ export default function HomeScreen() {
                 <TrendingCard
                   title={item.name}
                   genre={getPrimaryGenre(item.genre_ids)}
-                  rating={item.vote_average.toFixed(1)}
+                  rating={item.vote_count > 0 && item.vote_average > 0 ? item.vote_average.toFixed(1) : '—'}
                   posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
                   onPress={() => handleTvShowPress(item.id)}
                 />
@@ -369,7 +369,7 @@ export default function HomeScreen() {
                 <TrendingCard
                   title={item.name}
                   genre={getPrimaryGenre(item.genre_ids)}
-                  rating={item.vote_average.toFixed(1)}
+                  rating={item.vote_count > 0 && item.vote_average > 0 ? item.vote_average.toFixed(1) : '—'}
                   posterUrl={getTMDBImageUrl(item.poster_path, 'w342') ?? ''}
                   onPress={() => handleTvShowPress(item.id)}
                 />

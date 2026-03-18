@@ -25,6 +25,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -54,6 +55,7 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
+import { useTicketVerification } from '@/hooks/use-ticket-verification';
 import { ExternalRatings } from '@/components/movie-detail/external-ratings';
 import { FriendsRatings } from '@/components/movie-detail/friends-ratings';
 import { CommunityReviews } from '@/components/movie-detail/community-reviews';
@@ -63,6 +65,7 @@ import { addMovieToList, createList } from '@/lib/list-service';
 import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
 import type { MovieStatus } from '@/lib/database.types';
+import { isUnreleased } from '@/lib/utils';
 
 // Helper to format runtime from minutes to "Xh Ym" format
 function formatRuntime(minutes: number | null): string {
@@ -148,10 +151,20 @@ export default function MovieDetailScreen() {
   // Derive display data from fetched movie
   const movieYear = movie?.release_date ? movie.release_date.split('-')[0] : 'N/A';
   const movieRuntime = formatRuntime(movie?.runtime ?? null);
-  const movieRating = movie?.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
+  const movieRating = (movie?.vote_count ?? 0) > 0 && (movie?.vote_average ?? 0) > 0 ? movie?.vote_average.toFixed(1) : '—';
   const movieGenres = movie?.genres?.map(g => g.name) ?? [];
   const backdropUrl = getTMDBImageUrl(movie?.backdrop_path ?? null, 'original');
   const posterUrl = getTMDBImageUrl(movie?.poster_path ?? null, 'w342');
+
+  // Unreleased movie guard — prevents ratings/reviews on movies not yet in theaters
+  const unreleased = isUnreleased(movie?.release_date);
+  const { hasVerifiedTicket } = useTicketVerification(movie?.id ?? 0);
+  const canInteract = !unreleased || hasVerifiedTicket;
+
+  // Human-readable release date for alert messages (e.g. "March 22, 2025")
+  const formattedReleaseDate = movie?.release_date
+    ? new Date(movie.release_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : 'an upcoming date';
 
   // Track movie detail view
   const hasTrackedView = useRef(false);
@@ -255,6 +268,23 @@ export default function MovieDetailScreen() {
   const handleStatusChange = async (status: MovieStatus | null) => {
     if (isSaving) return;
     hapticImpact();
+
+    // Gate: block Watched and Watching actions for unreleased movies without a verified ticket
+    if (!canInteract && (status === 'watched' || status === 'watching') && movie) {
+      analytics.track('movie:unreleased_gate_hit', {
+        tmdb_id: movie.id,
+        title: movie.title,
+        release_date: movie.release_date,
+        has_verified_ticket: hasVerifiedTicket,
+      });
+      Alert.alert(
+        'Not Available Yet',
+        `${movie.title} releases on ${formattedReleaseDate}. Scan your ticket if you're attending an early showing.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     requireAuth(async () => {
       const movieData = getMovieForSave();
       if (!movieData) return;
@@ -338,8 +368,8 @@ export default function MovieDetailScreen() {
         }
 
         // After successful status change to "watched", prompt for First Take
-        // Only if user doesn't already have a First Take and preference is enabled
-        if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled) {
+        // Only if user doesn't already have a First Take, preference is enabled, and movie is released/accessible
+        if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled && canInteract) {
           setShowFirstTakeModal(true);
         }
 
@@ -384,6 +414,23 @@ export default function MovieDetailScreen() {
 
   const handleReview = () => {
     hapticImpact();
+
+    // Gate: block reviews for unreleased movies without a verified ticket
+    if (!canInteract && movie) {
+      analytics.track('movie:unreleased_gate_hit', {
+        tmdb_id: movie.id,
+        title: movie.title,
+        release_date: movie.release_date,
+        has_verified_ticket: hasVerifiedTicket,
+      });
+      Alert.alert(
+        'Not Available Yet',
+        `${movie.title} releases on ${formattedReleaseDate}. Scan your ticket if you're attending an early showing.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     requireAuth(() => {
       setShowReviewModal(true);
     }, 'Sign in to write reviews');
