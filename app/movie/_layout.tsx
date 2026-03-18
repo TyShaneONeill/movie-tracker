@@ -4,7 +4,6 @@ export default function MovieLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="[id]" />
-      <Stack.Screen name="[id]/reviews" options={{ headerShown: true }} />
     </Stack>
   );
 }

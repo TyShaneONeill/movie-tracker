@@ -14,7 +14,7 @@ test.describe('Movie Detail', () => {
     await expect(page.getByText(/★\s*\d+\.\d/).last()).toBeVisible({ timeout: 15_000 });
 
     // At least one genre — use exact match to avoid picking up text like "Action • 0.0"
-    await expect(page.getByText('Action', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Action', { exact: true }).last()).toBeVisible({ timeout: 15_000 });
 
     // Synopsis — try both known phrases
     await expect(
