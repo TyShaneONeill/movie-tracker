@@ -109,10 +109,12 @@ jobs:
           path: test-results/
           retention-days: 30
 
+  # EAS Preview Build disabled to conserve free tier build minutes (15/month iOS limit)
+  # Re-enable when on a paid EAS plan or at end of billing cycle
   eas-preview:
+    if: false  # Disabled: conserving free tier build minutes
     name: EAS Preview Build
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     needs: [lint-and-typecheck, test, e2e]
 
     permissions:
