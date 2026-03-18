@@ -8,9 +8,9 @@ test.describe('Block User Flow', () => {
     await page.goto('/');
     await expect(page.getByRole('tab', { name: 'Home' })).toBeVisible({ timeout: 15_000 });
 
-    // Navigate to Search and find a user
+    // Navigate to Search and find a user (query must be >= 2 chars for user search)
     await page.getByLabel('Search').last().click();
-    await page.getByPlaceholder('Movies, people, lists...').fill('a');
+    await page.getByPlaceholder('Movies, people, lists...').fill('ab');
 
     // Switch to Users category
     await page.getByText('Users', { exact: true }).click();
@@ -18,7 +18,8 @@ test.describe('Block User Flow', () => {
     // Wait for at least one user result to appear (each card shows "X movies" text)
     await expect(page.getByText(/\d+ movies?/).first()).toBeVisible({ timeout: 15_000 });
 
-    // Click the first user result to go to their profile
+    // Click the first user result's movie count text to navigate to their profile
+    // The text is inside the card's Pressable, so clicking it triggers navigation
     await page.getByText(/\d+ movies?/).first().click();
 
     // Verify we're on a user profile page (the "..." button is unique to other users' profiles)
