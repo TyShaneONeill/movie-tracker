@@ -247,11 +247,12 @@ function generateMovieHTML(movie, credits, trailer) {
   if (runtime > 0) {
     jsonLd.duration = 'PT' + runtime + 'M';
   }
-  if (voteCount > 0) {
+  if (voteCount > 0 && movie.vote_average > 0) {
     jsonLd.aggregateRating = {
       '@type': 'AggregateRating',
       'ratingValue': rating,
       'bestRating': '10',
+      'worstRating': '0',
       'ratingCount': voteCount
     };
   }
@@ -264,6 +265,8 @@ function generateMovieHTML(movie, credits, trailer) {
       });
     }
   }
+  jsonLd.url = canonicalURL;
+
   var topActorsForSchema = cast.slice(0, 10);
   if (topActorsForSchema.length > 0) {
     jsonLd.actor = topActorsForSchema.map(function (a) {
