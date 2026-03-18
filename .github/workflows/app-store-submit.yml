@@ -1,9 +1,17 @@
 name: App Store Submission
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build and submit'
+        required: true
+        default: 'ios'
+        type: choice
+        options:
+          - ios
+          - android
+          - all
 
 jobs:
   build-and-submit:
