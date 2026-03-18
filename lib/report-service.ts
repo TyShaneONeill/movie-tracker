@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
 export type ReportTargetType = 'user' | 'review' | 'comment' | 'first_take';
@@ -36,6 +37,33 @@ export async function reportContent(
       throw new Error('ALREADY_REPORTED');
     }
     throw new Error(error.message || 'Failed to submit report');
+  }
+
+  const webhookUrl = process.env.EXPO_PUBLIC_DISCORD_MODERATION_WEBHOOK;
+  if (webhookUrl) {
+    if (Platform.OS === 'web') {
+      const embed = {
+        embeds: [{
+          title: '🚨 New Report Submitted',
+          color: 0xe11d48,
+          fields: [
+            { name: 'Type', value: targetType, inline: true },
+            { name: 'Reason', value: reason, inline: true },
+            { name: 'Target ID', value: targetId, inline: false },
+            { name: 'Description', value: description || 'No additional details', inline: false },
+          ],
+          footer: { text: 'CineTrak Moderation' },
+          timestamp: new Date().toISOString(),
+        }],
+      };
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(embed),
+      }).catch(() => {});
+    } else {
+      console.log('[Report] Discord webhook skipped on native (CORS). Report submitted:', { targetType, targetId, reason });
+    }
   }
 }
 
