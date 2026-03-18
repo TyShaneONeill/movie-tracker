@@ -498,14 +498,14 @@ export function CommunityReviews({ tmdbId }: CommunityReviewsProps) {
           accessibilityRole="button"
           accessibilityLabel={showMore ? 'Hide reviews' : 'Show more reviews'}
         >
+          <Text style={styles.showMoreText}>
+            {showMore ? 'Hide reviews' : 'Show more reviews'}
+          </Text>
           <Ionicons
             name={showMore ? 'chevron-up' : 'chevron-down'}
             size={16}
             color={colors.textSecondary}
           />
-          <Text style={styles.showMoreText}>
-            {showMore ? 'Hide reviews' : 'Show more reviews'}
-          </Text>
         </Pressable>
       )}
 
@@ -582,8 +582,8 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     viewAllButton: {
       alignItems: 'center',
-      paddingVertical: Spacing.md,
-      marginTop: Spacing.xs,
+      paddingVertical: Spacing.sm,
+      marginTop: 0,
     },
     viewAllText: {
       ...Typography.body.smMedium,
