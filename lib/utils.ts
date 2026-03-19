@@ -50,5 +50,8 @@ export function formatRelativeTime(dateString: string): string {
  */
 export function isUnreleased(releaseDate: string | null | undefined): boolean {
   if (!releaseDate) return false;
-  return new Date(releaseDate) > new Date();
+  // Compare YYYY-MM-DD strings directly to avoid UTC timezone parsing issues.
+  // en-CA locale reliably formats as YYYY-MM-DD in the user's local timezone.
+  const today = new Date().toLocaleDateString('en-CA');
+  return releaseDate > today;
 }
