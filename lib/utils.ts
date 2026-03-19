@@ -50,9 +50,8 @@ export function formatRelativeTime(dateString: string): string {
  */
 export function isUnreleased(releaseDate: string | null | undefined): boolean {
   if (!releaseDate) return false;
-  // Compare date strings directly (YYYY-MM-DD) to avoid UTC timezone issues
-  // where new Date('2026-03-25') parses as UTC midnight and appears "in the past"
-  // for users in negative UTC offset timezones (e.g. EST, PST)
-  const today = new Date().toISOString().split('T')[0];
+  // Compare YYYY-MM-DD strings directly to avoid UTC timezone parsing issues.
+  // en-CA locale reliably formats as YYYY-MM-DD in the user's local timezone.
+  const today = new Date().toLocaleDateString('en-CA');
   return releaseDate > today;
 }
