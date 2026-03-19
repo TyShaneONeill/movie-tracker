@@ -14,8 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import Toast from 'react-native-toast-message';
 import { useReport } from '@/hooks/use-report';
 import type { ReportTargetType, ReportReason } from '@/lib/report-service';
+
+function targetLabel(type: ReportTargetType): string {
+  if (type === 'first_take') return 'first take';
+  return type;
+}
 
 interface ReportModalProps {
   visible: boolean;
@@ -40,11 +46,9 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
 
   const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
   const [description, setDescription] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!selectedReason) return;
-    setErrorMessage(null);
     try {
       await report({
         targetType,
@@ -58,17 +62,27 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
       onClose();
     } catch (err) {
       if (err instanceof Error && err.message === 'ALREADY_REPORTED') {
-        setErrorMessage("You've already reported this.");
+        Toast.show({
+          type: 'info',
+          text1: 'Already reported',
+          text2: `You already reported this ${targetLabel(targetType)}.`,
+          visibilityTime: 3000,
+        });
       } else {
-        setErrorMessage('Failed to submit report. Please try again.');
+        Toast.show({
+          type: 'error',
+          text1: 'Report failed',
+          text2: 'Failed to submit report. Please try again.',
+          visibilityTime: 3000,
+        });
       }
+      onClose();
     }
   };
 
   const handleClose = () => {
     setSelectedReason(null);
     setDescription('');
-    setErrorMessage(null);
     onClose();
   };
 
@@ -139,10 +153,6 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
             maxLength={500}
             textAlignVertical="top"
           />
-
-          {errorMessage && (
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          )}
 
           {/* Submit */}
           <Pressable
@@ -236,12 +246,6 @@ function createStyles(colors: typeof Colors.dark) {
       padding: Spacing.md,
       minHeight: 80,
       marginBottom: Spacing.lg,
-    },
-    errorText: {
-      ...Typography.body.sm,
-      color: '#EF4444',
-      marginBottom: Spacing.sm,
-      textAlign: 'center' as const,
     },
     submitButton: {
       backgroundColor: '#EF4444',
