@@ -6,7 +6,7 @@ import { captureException } from '@/lib/sentry';
 import { useAuth } from '@/hooks/use-auth';
 import type { ThemePreference } from '@/lib/database.types';
 
-const THEME_STORAGE_KEY = 'cinetrak_theme_preference';
+const THEME_STORAGE_KEY = 'pocketstubs_theme_preference';
 
 type EffectiveTheme = 'light' | 'dark';
 

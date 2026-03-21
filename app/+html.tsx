@@ -12,7 +12,7 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no"
         />
 
-        <title>CineTrak - Track Your Movie Journey</title>
+        <title>PocketStubs - Track Your Movie Journey</title>
         <meta
           name="description"
           content="Your personal movie tracker. Log films, rate them, build your collection, and track your cinematic journey."
@@ -20,18 +20,18 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#09090b" />
 
         {/* Open Graph */}
-        <meta property="og:title" content="CineTrak - Track Your Movie Journey" />
+        <meta property="og:title" content="PocketStubs - Track Your Movie Journey" />
         <meta
           property="og:description"
           content="Your personal movie tracker. Log films, rate them, build your collection, and track your cinematic journey."
         />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="CineTrak" />
-        <meta property="og:url" content="https://cinetrak.app" />
+        <meta property="og:site_name" content="PocketStubs" />
+        <meta property="og:url" content="https://pocketstubs.com" />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="CineTrak - Track Your Movie Journey" />
+        <meta name="twitter:title" content="PocketStubs - Track Your Movie Journey" />
         <meta
           name="twitter:description"
           content="Your personal movie tracker. Log films, rate them, build your collection, and track your cinematic journey."
@@ -45,7 +45,7 @@ export default function Root({ children }: PropsWithChildren) {
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-title" content="CineTrak" />
+        <meta name="apple-mobile-web-app-title" content="PocketStubs" />
 
         {/* Google AdSense */}
         <script
@@ -70,7 +70,7 @@ export default function Root({ children }: PropsWithChildren) {
               minHeight: '100vh',
             }}
           >
-            <h1>CineTrak - Track Your Movie Journey</h1>
+            <h1>PocketStubs - Track Your Movie Journey</h1>
             <p>
               Your personal movie tracker. Discover trending films, log what
               you&apos;ve watched, rate and review movies, and track your
@@ -98,12 +98,12 @@ export default function Root({ children }: PropsWithChildren) {
             <h2>Connect with Friends</h2>
             <p>
               Follow other movie lovers, see what they&apos;re watching, and
-              share your reviews. CineTrak is a social platform for film
+              share your reviews. PocketStubs is a social platform for film
               enthusiasts who love discovering and discussing movies together.
             </p>
             <p>
-              <a href="https://cinetrak.app" style={{ color: '#6d28d9' }}>
-                Visit CineTrak
+              <a href="https://pocketstubs.com" style={{ color: '#6d28d9' }}>
+                Visit PocketStubs
               </a>{' '}
               to start tracking your movie journey today. Available on iOS,
               Android, and web.

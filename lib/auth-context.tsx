@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // On web, set a cookie so Vercel skips the landing-page redirect for returning users
       if (Platform.OS === 'web' && typeof document !== 'undefined' && newSession?.user) {
-        document.cookie = 'cinetrak_visited=1;path=/;max-age=31536000';
+        document.cookie = 'pocketstubs_visited=1;path=/;max-age=31536000';
       }
     });
 
@@ -232,7 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPasswordForEmail = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'cinetrak://reset-password',
+      redirectTo: 'pocketstubs://reset-password',
     });
     return { error: error as Error | null };
   };

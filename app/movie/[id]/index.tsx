@@ -159,7 +159,7 @@ export default function MovieDetailScreen() {
   // Unreleased movie guard — prevents ratings/reviews on movies not yet in theaters
   const unreleased = isUnreleased(movie?.release_date);
   const { hasVerifiedTicket } = useTicketVerification(movie?.id ?? 0);
-  const canInteract = !unreleased || hasVerifiedTicket;
+  const canInteract = !!movie && (!unreleased || hasVerifiedTicket);
 
   // Human-readable release date for alert messages (e.g. "March 22, 2025")
   const formattedReleaseDate = movie?.release_date

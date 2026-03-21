@@ -1,6 +1,6 @@
 /**
  * Upgrade Screen (Paywall)
- * Full-screen route for CineTrak+ subscription plans.
+ * Full-screen route for PocketStubs+ subscription plans.
  *
  * Shows feature comparison, pricing toggle (monthly/yearly),
  * purchase button, restore purchases, and legal links.
@@ -159,11 +159,11 @@ export default function UpgradeScreen() {
           <Pressable onPress={handleBack} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
             <ChevronLeftIcon color={colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>CineTrak+</Text>
+          <Text style={styles.headerTitle}>PocketStubs+</Text>
         </View>
         <View style={styles.alreadyPremiumContainer}>
           <Ionicons name="checkmark-circle" size={64} color={colors.gold} />
-          <Text style={styles.alreadyPremiumTitle}>You have CineTrak+</Text>
+          <Text style={styles.alreadyPremiumTitle}>You have PocketStubs+</Text>
           <Text style={styles.alreadyPremiumMessage}>
             All premium features are unlocked. Enjoy!
           </Text>
@@ -178,7 +178,7 @@ export default function UpgradeScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.successContainer}>
           <Ionicons name="checkmark-circle" size={80} color={colors.gold} />
-          <Text style={styles.successTitle}>Welcome to CineTrak+!</Text>
+          <Text style={styles.successTitle}>Welcome to PocketStubs+!</Text>
           <Text style={styles.successMessage}>
             All premium features are now unlocked.
           </Text>
@@ -199,7 +199,7 @@ export default function UpgradeScreen() {
           <Pressable onPress={handleBack} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
             <ChevronLeftIcon color={colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>CineTrak+</Text>
+          <Text style={styles.headerTitle}>PocketStubs+</Text>
         </View>
 
         {/* Branding */}
@@ -207,7 +207,7 @@ export default function UpgradeScreen() {
           <View style={styles.brandIcon}>
             <Ionicons name="star" size={36} color={colors.gold} />
           </View>
-          <Text style={styles.brandTitle}>Upgrade to CineTrak+</Text>
+          <Text style={styles.brandTitle}>Upgrade to PocketStubs+</Text>
           <Text style={styles.brandSubtitle}>
             Get the most out of your movie tracking experience
           </Text>
@@ -356,14 +356,14 @@ export default function UpgradeScreen() {
           </Text>
           <View style={styles.legalLinks}>
             <Pressable
-              onPress={() => WebBrowser.openBrowserAsync('https://cinetrak.app/terms')}
+              onPress={() => WebBrowser.openBrowserAsync('https://pocketstubs.com/terms')}
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
               <Text style={styles.legalLink}>Terms of Service</Text>
             </Pressable>
             <Text style={styles.legalDivider}>|</Text>
             <Pressable
-              onPress={() => WebBrowser.openBrowserAsync('https://cinetrak.app/privacy')}
+              onPress={() => WebBrowser.openBrowserAsync('https://pocketstubs.com/privacy')}
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
               <Text style={styles.legalLink}>Privacy Policy</Text>

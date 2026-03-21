@@ -7,7 +7,7 @@
     {
       "source": "/",
       "missing": [
-        { "type": "cookie", "key": "cinetrak_visited" },
+        { "type": "cookie", "key": "pocketstubs_visited" },
         { "type": "query", "key": "code" },
         { "type": "query", "key": "access_token" }
       ],

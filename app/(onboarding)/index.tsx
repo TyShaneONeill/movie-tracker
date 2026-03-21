@@ -34,7 +34,7 @@ const SLIDES: OnboardingSlide[] = [
     id: 'welcome',
     icon: 'film',
     iconColor: '#fff',
-    title: 'Welcome to CineTrak',
+    title: 'Welcome to PocketStubs',
     description: 'Your personal movie companion. Track what you watch, capture your reactions, and discover your viewing habits.',
     gradient: ['#e11d48', '#be123c'] as const,
   },
