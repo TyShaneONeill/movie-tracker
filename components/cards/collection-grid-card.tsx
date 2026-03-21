@@ -67,7 +67,7 @@ export function CollectionGridCard({
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
-  const showBadge = journeyCount && journeyCount > 1;
+  const showBadge = (journeyCount ?? 0) > 1;
 
   return (
     <Pressable
