@@ -10,7 +10,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
-const GUEST_MODE_KEY = 'cinetrak_is_guest';
+const GUEST_MODE_KEY = 'pocketstubs_is_guest';
 
 interface GuestContextType {
   /** Currently in guest mode (browsing without account) */

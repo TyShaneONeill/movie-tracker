@@ -1,25 +1,26 @@
 export default {
   expo: {
-    name: "CineTrak",
-    slug: "cinetrak",
+    owner: "tormaj",
+    name: "PocketStubs",
+    slug: "pocketstubs",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "cinetrak",
+    scheme: "pocketstubs",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
       supportsTablet: false,
-      bundleIdentifier: "com.cinetrak.app",
+      bundleIdentifier: "com.pocketstubs.app",
       usesAppleSignIn: true,
-      associatedDomains: ["applinks:cinetrak.app"],
+      associatedDomains: ["applinks:pocketstubs.com"],
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
-        NSUserTrackingUsageDescription: "This allows CineTrak to show you relevant movie recommendations and ads.",
+        NSUserTrackingUsageDescription: "This allows PocketStubs to show you relevant movie recommendations and ads.",
         CFBundleURLTypes: [
           {
-            CFBundleURLName: "com.cinetrak.app",
-            CFBundleURLSchemes: ["cinetrak"]
+            CFBundleURLName: "com.pocketstubs.app",
+            CFBundleURLSchemes: ["pocketstubs"]
           },
           {
             CFBundleURLSchemes: [
@@ -30,7 +31,7 @@ export default {
       }
     },
     android: {
-      package: "com.cinetrak.app",
+      package: "com.pocketstubs.app",
       adaptiveIcon: {
         backgroundColor: "#000000",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -44,7 +45,7 @@ export default {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
-      ["@sentry/react-native/expo", { organization: "cinetrak-5w", project: "react-native-cinetrak" }],
+      ["@sentry/react-native/expo", { organization: "pocketstubs-5w", project: "react-native-pocketstubs" }],
       "expo-router",
       "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
@@ -54,8 +55,9 @@ export default {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
+          backgroundColor: "#E7E5DA",
           dark: {
+            image: "./assets/images/splash-icon-dark.png",
             backgroundColor: "#000000",
           },
         },
@@ -89,7 +91,7 @@ export default {
       googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
       googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       eas: {
-        projectId: "ecccbab0-48e5-4c5c-b830-f14131408a69",
+        projectId: "d71c1a95-3697-4a03-b485-813c803573f9",
       },
     },
   },

@@ -1,6 +1,6 @@
 {
-  "name": "CineTrak",
-  "short_name": "CineTrak",
+  "name": "PocketStubs",
+  "short_name": "PocketStubs",
   "description": "Your personal movie tracker. Log films, rate them, build your collection, and track your cinematic journey.",
   "start_url": "/",
   "display": "standalone",

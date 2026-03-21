@@ -113,7 +113,9 @@ export default function SignInScreen() {
           {/* Logo & Title */}
           <View style={styles.header}>
             <Image
-              source={require('@/assets/images/icon.png')}
+              source={effectiveTheme === 'dark'
+                ? require('@/assets/images/PocketStubs_Logo_Dark.png')
+                : require('@/assets/images/icon.png')}
               style={styles.logoImage}
             />
             <ThemedText style={[styles.title, { color: colors.text }]}>Welcome Back</ThemedText>

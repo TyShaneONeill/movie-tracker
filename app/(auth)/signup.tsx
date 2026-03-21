@@ -159,10 +159,12 @@ export default function SignUpScreen() {
         <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
           <View style={styles.header}>
             <Image
-              source={require('@/assets/images/icon.png')}
+              source={effectiveTheme === 'dark'
+                ? require('@/assets/images/PocketStubs_Logo_Dark.png')
+                : require('@/assets/images/icon.png')}
               style={styles.logoImage}
             />
-            <ThemedText type="title" style={styles.title}>Join CineTrak</ThemedText>
+            <ThemedText type="title" style={styles.title}>Join PocketStubs</ThemedText>
             <ThemedText style={styles.subtitle}>Start tracking your cinema journey</ThemedText>
           </View>
 

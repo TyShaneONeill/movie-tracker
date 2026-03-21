@@ -137,7 +137,9 @@ export default function ForgotPasswordScreen() {
           {/* Header */}
           <View style={styles.header}>
             <Image
-              source={require('@/assets/images/icon.png')}
+              source={effectiveTheme === 'dark'
+                ? require('@/assets/images/PocketStubs_Logo_Dark.png')
+                : require('@/assets/images/icon.png')}
               style={styles.logoImage}
             />
             <ThemedText style={[styles.title, { color: colors.text }]}>

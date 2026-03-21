@@ -52,7 +52,7 @@ export async function reportContent(
             { name: 'Target ID', value: targetId, inline: false },
             { name: 'Description', value: description || 'No additional details', inline: false },
           ],
-          footer: { text: 'CineTrak Moderation' },
+          footer: { text: 'PocketStubs Moderation' },
           timestamp: new Date().toISOString(),
         }],
       };

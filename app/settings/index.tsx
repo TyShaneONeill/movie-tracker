@@ -82,12 +82,12 @@ export default function SettingsScreen() {
   const getSubscriptionLabel = (): string => {
     if (tier === 'dev') return 'Developer';
     if (!isPremium) return 'Free Plan';
-    if (!subscription) return 'CineTrak+';
+    if (!subscription) return 'PocketStubs+';
     const expiryStr = subscription.expiresAt ? formatExpiryDate(subscription.expiresAt) : '';
     if (subscription.willRenew) {
-      return expiryStr ? `CineTrak+ \u2014 Renews ${expiryStr}` : 'CineTrak+';
+      return expiryStr ? `PocketStubs+ \u2014 Renews ${expiryStr}` : 'PocketStubs+';
     }
-    return expiryStr ? `CineTrak+ \u2014 Expires ${expiryStr}` : 'CineTrak+ (Not renewing)';
+    return expiryStr ? `PocketStubs+ \u2014 Expires ${expiryStr}` : 'PocketStubs+ (Not renewing)';
   };
 
   const handleThemeToggle = async (isDarkMode: boolean) => {
@@ -211,7 +211,7 @@ export default function SettingsScreen() {
   };
 
   const handleTestSentry = () => {
-    Sentry.captureException(new Error('Test error from CineTrak Settings'));
+    Sentry.captureException(new Error('Test error from PocketStubs Settings'));
     Toast.show({
       type: 'success',
       text1: 'Test error sent!',
@@ -226,7 +226,7 @@ export default function SettingsScreen() {
     setIsExporting(true);
     try {
       const csv = await exportCollectionCSV(user.id);
-      const fileUri = `${FileSystem.cacheDirectory}cinetrak-export.csv`;
+      const fileUri = `${FileSystem.cacheDirectory}pocketstubs-export.csv`;
       await FileSystem.writeAsStringAsync(fileUri, csv);
       await Sharing.shareAsync(fileUri, {
         mimeType: 'text/csv',
@@ -411,7 +411,7 @@ export default function SettingsScreen() {
                 </Text>
                 {!isPremium && (
                   <Text style={[Typography.body.xs, { color: colors.textTertiary, marginTop: 1 }]}>
-                    Unlock all features with CineTrak+
+                    Unlock all features with PocketStubs+
                   </Text>
                 )}
                 {isPremium && tier !== 'dev' && subscription?.expiresAt && (
@@ -649,7 +649,7 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
-            onPress={() => WebBrowser.openBrowserAsync('https://cinetrak.app/privacy')}
+            onPress={() => WebBrowser.openBrowserAsync('https://pocketstubs.com/privacy')}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy Policy</Text>

@@ -1,18 +1,28 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { useAuth } from '@/hooks/use-auth';
 import { useAds } from '@/lib/ads-context';
 import { fetchSubscriptionStatus } from '@/lib/premium-service';
 import { isFeatureAvailable } from '@/lib/premium-features';
 import { captureException } from '@/lib/sentry';
 import type { PremiumTier, PremiumFeatureKey } from '@/lib/premium-features';
+import { Purchases as NativePurchases, isNativeAvailable } from '@/lib/native-purchases';
 
-// RevenueCat Web SDK API key (from .env.local)
+// RevenueCat API keys
 const REVENUECAT_WEB_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_WEB_API_KEY || '';
+const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || '';
+const REVENUECAT_ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || '';
+
+function getNativeApiKey(): string {
+  if (Platform.OS === 'ios') return REVENUECAT_IOS_API_KEY;
+  if (Platform.OS === 'android') return REVENUECAT_ANDROID_API_KEY;
+  return '';
+}
 
 interface PremiumContextType {
   /** Current tier: 'free', 'plus', or 'dev' */
   tier: PremiumTier;
-  /** Convenience: true if user has CineTrak+ (or dev) */
+  /** Convenience: true if user has PocketStubs+ (or dev) */
   isPremium: boolean;
   /** Whether the premium state is still loading */
   isLoading: boolean;
@@ -64,6 +74,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [purchasesInstance, setPurchasesInstance] = useState<any>(null);
+  const [isNativeInitialized, setIsNativeInitialized] = useState(false);
   const [availablePackages, setAvailablePackages] = useState<any[]>([]);
 
   const isPremium = tier === 'plus' || tier === 'dev';
@@ -127,36 +138,62 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, purchasesInstance]);
 
-  /** Initialize RevenueCat web SDK and identify the user */
+  /** Initialize RevenueCat — native SDK on iOS/Android, web SDK on web */
   const initRevenueCat = async (userId: string) => {
     try {
-      // Dynamic import — web-only SDK, must not be statically imported for native builds
-      const rcModule = await import('@revenuecat/purchases-js');
-      const Purchases = (rcModule as any).Purchases;
-
-      const instance = Purchases.configure(REVENUECAT_WEB_API_KEY, userId);
-      setPurchasesInstance(instance);
-
-      // Fetch current customer info to check entitlements
-      const customerInfo = await instance.getCustomerInfo();
-      deriveStateFromCustomerInfo(customerInfo);
-
-      // Fetch available offerings/packages for the purchase flow
-      try {
-        const offerings = await instance.getOfferings();
-        const currentOffering = offerings?.current;
-        if (currentOffering?.availablePackages) {
-          setAvailablePackages(currentOffering.availablePackages);
-        }
-      } catch (offeringsError) {
-        console.warn('[PremiumProvider] Failed to fetch offerings:', offeringsError);
+      if (isNativeAvailable && Platform.OS !== 'web') {
+        await initRevenueCatNative(userId);
+      } else {
+        await initRevenueCatWeb(userId);
       }
     } catch (error) {
-      // RevenueCat unavailable — fall back to DB tier (already set above)
       console.warn('[PremiumProvider] RevenueCat init failed:', error);
       captureException(error instanceof Error ? error : new Error(String(error)), {
         context: 'premium-revenuecat-init',
       });
+    }
+  };
+
+  /** Initialize react-native-purchases (iOS / Android) */
+  const initRevenueCatNative = async (userId: string) => {
+    const apiKey = getNativeApiKey();
+    if (!apiKey || !NativePurchases) return;
+
+    NativePurchases.configure({ apiKey, appUserID: userId });
+    setIsNativeInitialized(true);
+
+    const customerInfo = await NativePurchases.getCustomerInfo();
+    deriveStateFromCustomerInfo(customerInfo);
+
+    try {
+      const offerings = await NativePurchases.getOfferings();
+      const packages = offerings?.current?.availablePackages ?? [];
+      setAvailablePackages(packages);
+    } catch (offeringsError) {
+      console.warn('[PremiumProvider] Failed to fetch native offerings:', offeringsError);
+    }
+  };
+
+  /** Initialize @revenuecat/purchases-js (web) */
+  const initRevenueCatWeb = async (userId: string) => {
+    // Dynamic import — web-only SDK, must not be statically imported for native builds
+    const rcModule = await import('@revenuecat/purchases-js');
+    const Purchases = (rcModule as any).Purchases;
+
+    const instance = Purchases.configure(REVENUECAT_WEB_API_KEY, userId);
+    setPurchasesInstance(instance);
+
+    const customerInfo = await instance.getCustomerInfo();
+    deriveStateFromCustomerInfo(customerInfo);
+
+    try {
+      const offerings = await instance.getOfferings();
+      const currentOffering = offerings?.current;
+      if (currentOffering?.availablePackages) {
+        setAvailablePackages(currentOffering.availablePackages);
+      }
+    } catch (offeringsError) {
+      console.warn('[PremiumProvider] Failed to fetch web offerings:', offeringsError);
     }
   };
 
@@ -188,17 +225,17 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  /** Purchase a package via RevenueCat (triggers Stripe Checkout on web) */
+  /** Purchase a package via RevenueCat (StoreKit on native, Stripe Checkout on web) */
   const purchasePackage = useCallback(async (packageToPurchase: unknown): Promise<PurchaseResult> => {
-    if (!purchasesInstance) {
+    const isNative = isNativeAvailable && Platform.OS !== 'web';
+    if (isNative ? !isNativeInitialized : !purchasesInstance) {
       return { success: false, error: 'Purchases not initialized' };
     }
 
     try {
-      // If a string product ID is passed, resolve it to the actual RC package object
+      // Resolve string identifiers ('monthly', 'yearly') to the actual RC package object
       let rcPackage = packageToPurchase;
       if (typeof packageToPurchase === 'string') {
-        // Map friendly names to RevenueCat package types and identifiers
         const packageTypeMap: Record<string, { type: string; rcId: string }> = {
           monthly: { type: 'MONTHLY', rcId: '$rc_monthly' },
           yearly: { type: 'ANNUAL', rcId: '$rc_annual' },
@@ -217,15 +254,21 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const result = await purchasesInstance.purchase({ rcPackage });
+      let customerInfo: any;
+      if (isNative && NativePurchases) {
+        const result = await NativePurchases.purchasePackage(rcPackage as any);
+        customerInfo = result?.customerInfo;
+      } else {
+        const result = await purchasesInstance.purchase({ rcPackage });
+        customerInfo = result?.customerInfo;
+      }
 
-      if (result?.customerInfo) {
-        deriveStateFromCustomerInfo(result.customerInfo);
+      if (customerInfo) {
+        deriveStateFromCustomerInfo(customerInfo);
       }
 
       return { success: true };
     } catch (error: any) {
-      // User cancelled / closed checkout is not an error
       const isCancellation = error?.userCancelled
         || error?.code === 'CANCELLED'
         || error?.code === 'USER_CANCELLED'
@@ -244,21 +287,28 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         error: error?.message || 'Purchase failed. Please try again.',
       };
     }
-  }, [purchasesInstance, availablePackages]);
+  }, [purchasesInstance, isNativeInitialized, availablePackages]);
 
   /** Restore purchases via RevenueCat */
   const restorePurchases = useCallback(async (): Promise<RestoreResult> => {
-    if (!purchasesInstance) {
+    const isNative = isNativeAvailable && Platform.OS !== 'web';
+    if (isNative ? !isNativeInitialized : !purchasesInstance) {
       return { restored: false, tier: 'free', message: 'Purchases not initialized' };
     }
 
     try {
-      const customerInfo = await purchasesInstance.getCustomerInfo();
+      let customerInfo: any;
+      if (isNative && NativePurchases) {
+        customerInfo = await NativePurchases.restorePurchases();
+      } else {
+        customerInfo = await purchasesInstance.getCustomerInfo();
+      }
+
       deriveStateFromCustomerInfo(customerInfo);
 
       const plusEntitlement = customerInfo?.entitlements?.active?.['plus'];
       if (plusEntitlement) {
-        return { restored: true, tier: 'plus', message: 'Your CineTrak+ subscription has been restored!' };
+        return { restored: true, tier: 'plus', message: 'Your PocketStubs+ subscription has been restored!' };
       }
 
       return { restored: false, tier: 'free', message: 'No active subscription found.' };
@@ -272,7 +322,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         message: 'Could not restore purchases. Please try again.',
       };
     }
-  }, [purchasesInstance]);
+  }, [purchasesInstance, isNativeInitialized]);
 
   /** Check if a specific feature is unlocked for the current tier */
   const checkFeature = useCallback(

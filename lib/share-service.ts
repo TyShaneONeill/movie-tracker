@@ -4,7 +4,7 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 
-const REVIEW_URL_BASE = 'https://cinetrak.app/review';
+const REVIEW_URL_BASE = 'https://pocketstubs.com/review';
 
 /**
  * Capture a ViewShot ref as a temporary PNG file
@@ -35,7 +35,7 @@ export async function shareReview(
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: `Review of ${movieTitle} on CineTrak`,
+          title: `Review of ${movieTitle} on PocketStubs`,
           url: reviewUrl,
         });
       } catch (e) {
@@ -73,7 +73,7 @@ export async function shareReviewUrl(
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: `Review of ${movieTitle} on CineTrak`,
+          title: `Review of ${movieTitle} on PocketStubs`,
           url: reviewUrl,
         });
         return;
@@ -89,7 +89,7 @@ export async function shareReviewUrl(
   // expo-sharing requires a file URI, so for URL-only sharing
   // on native, we create a temp file
   const tempPath = `${FileSystem.cacheDirectory}review-share.txt`;
-  await FileSystem.writeAsStringAsync(tempPath, `Check out this review on CineTrak: ${reviewUrl}`);
+  await FileSystem.writeAsStringAsync(tempPath, `Check out this review on PocketStubs: ${reviewUrl}`);
   await Sharing.shareAsync(tempPath, {
     mimeType: 'text/plain',
     dialogTitle: `Share review of ${movieTitle}`,
