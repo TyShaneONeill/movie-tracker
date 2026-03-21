@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run security audit
+        run: npm audit --audit-level=high
+
       - name: Run ESLint
         run: npm run lint
 
@@ -151,5 +154,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '📱 **EAS Preview Build triggered!**\n\nBuilds are running on [Expo dashboard](https://expo.dev/accounts/cinetrak/projects/cinetrak/builds).\n\nOnce complete, install via the Expo dashboard or internal distribution link.'
+              body: '📱 **EAS Preview Build triggered!**\n\nBuilds are running on [Expo dashboard](https://expo.dev/accounts/tormaj/projects/pocketstubs/builds).\n\nOnce complete, install via the Expo dashboard or internal distribution link.'
             });
