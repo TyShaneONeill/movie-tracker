@@ -1,16 +1,10 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { captureMessage, captureException } from '@/lib/sentry';
+import { captureException } from '@/lib/sentry';
 
-// Guarded require for Expo Go compatibility.
-// Web uses ads-context.web.tsx instead (no native ads on web).
-let mobileAds: (() => { initialize: () => Promise<any> }) | null = null;
-
-try {
-  const ads = require('react-native-google-mobile-ads');
-  mobileAds = ads.default;
-} catch {
-  // Native module not available (e.g., Expo Go)
-}
+// react-native-google-mobile-ads is NOT imported here — doing so executes module-level
+// initialization code (NativeEventEmitter, listener registration) that crashes on iOS 26.4 beta
+// via ObjCTurboModule::performVoidMethodInvocation. The module is loaded lazily inside
+// AdsProvider's useEffect only when ads are enabled.
 
 interface AdsContextType {
   adsEnabled: boolean;
@@ -31,11 +25,21 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   const [adsInitialized, setAdsInitialized] = useState(false);
 
   useEffect(() => {
-    if (!mobileAds || !adsEnabled) return;
+    if (!adsEnabled) return;
 
     (async () => {
       try {
-        await mobileAds!().initialize();
+        // Dynamic require prevents react-native-google-mobile-ads module-level code
+        // (NativeEventEmitter, listener registration) from running at startup.
+        let mobileAds: (() => { initialize: () => Promise<any> }) | null = null;
+        try {
+          const ads = require('react-native-google-mobile-ads');
+          mobileAds = ads.default;
+        } catch {
+          return; // Native module not available (e.g., Expo Go)
+        }
+        if (!mobileAds) return;
+        await mobileAds().initialize();
         setAdsInitialized(true);
       } catch (error) {
         console.warn('[AdMob] SDK initialization failed:', error);

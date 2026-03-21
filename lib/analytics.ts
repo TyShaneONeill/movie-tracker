@@ -1,11 +1,13 @@
 import { Platform } from 'react-native';
-import PostHogNative from 'posthog-react-native';
+
+// posthog-react-native is NOT statically imported — doing so runs module-level native
+// initialization code that can crash on iOS 26.4 beta. Loaded lazily inside initAnalytics.
 
 type EventProperties = Record<string, string | number | boolean | null | undefined>;
 type UserProperties = Record<string, string | number | boolean | null | undefined>;
 
 let posthogClient: any = null;
-let nativeClient: PostHogNative | null = null;
+let nativeClient: any | null = null;
 
 /** Initialize the analytics client */
 export async function initAnalytics(apiKey: string, host: string) {
@@ -29,6 +31,9 @@ export async function initAnalytics(apiKey: string, host: string) {
     }
   } else {
     try {
+      // Dynamic import prevents posthog-react-native module-level native initialization
+      // from running at bundle load time (same iOS 26.4 beta crash pattern as GMA/RevenueCat).
+      const { default: PostHogNative } = await import('posthog-react-native');
       nativeClient = new PostHogNative(apiKey, {
         host,
         captureAppLifecycleEvents: true,
