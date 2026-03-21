@@ -10,7 +10,7 @@ setup('authenticate', async ({ page }) => {
   await page.getByText('Sign In', { exact: true }).click();
 
   // Wait for redirect to home after successful login
-  await expect(page.getByText('CineTrak').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('PocketStubs').first()).toBeVisible({ timeout: 30_000 });
 
   await page.context().storageState({ path: 'e2e/.auth/user.json' });
 });
