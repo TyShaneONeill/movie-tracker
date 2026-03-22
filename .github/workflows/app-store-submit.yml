@@ -43,8 +43,8 @@ jobs:
       - name: Run tests
         run: npm test -- --ci --forceExit
 
-      - name: Build production (iOS)
-        run: eas build --profile production --platform ios --non-interactive
+      - name: Build production
+        run: eas build --profile production --platform ${{ inputs.platform }} --non-interactive
 
-      - name: Submit to App Store
-        run: eas submit --profile production --platform ios --non-interactive --latest
+      - name: Submit to store
+        run: eas submit --profile production --platform ${{ inputs.platform }} --non-interactive --latest
