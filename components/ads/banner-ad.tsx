@@ -1,28 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useAds } from '@/lib/ads-context';
 import { captureMessage } from '@/lib/sentry';
 import { Spacing } from '@/constants/theme';
 
-// Use require() in try-catch to gracefully handle Expo Go
-// where the native module isn't available.
+// react-native-google-mobile-ads is NOT imported at module level — doing so executes
+// module-level initialization code that crashes on iOS 26.4 beta. Loaded lazily on first render.
 // Web uses banner-ad.web.tsx instead (no native ads on web).
-let AdComponents: {
-  BannerAd: any;
-  BannerAdSize: any;
-  TestIds: any;
-} | null = null;
-
-try {
-  const ads = require('react-native-google-mobile-ads');
-  AdComponents = {
-    BannerAd: ads.BannerAd,
-    BannerAdSize: ads.BannerAdSize,
-    TestIds: ads.TestIds,
-  };
-} catch {
-  // Native module not available (e.g., Expo Go)
-}
 
 type BannerPlacement = 'home' | 'search' | 'stats';
 
@@ -39,9 +23,20 @@ interface BannerAdProps {
 export function BannerAdComponent({ placement }: BannerAdProps) {
   const { adsReady } = useAds();
 
-  if (!adsReady || !AdComponents) return null;
+  // Lazy-load GMA components on first render to avoid module-level native initialization
+  // crashing on iOS 26.4 beta via ObjCTurboModule::performVoidMethodInvocation.
+  const adComponents = useMemo(() => {
+    try {
+      const ads = require('react-native-google-mobile-ads');
+      return { BannerAd: ads.BannerAd, BannerAdSize: ads.BannerAdSize, TestIds: ads.TestIds };
+    } catch {
+      return null; // Native module not available (e.g., Expo Go)
+    }
+  }, []);
 
-  const { BannerAd, BannerAdSize, TestIds } = AdComponents;
+  if (!adsReady || !adComponents) return null;
+
+  const { BannerAd, BannerAdSize, TestIds } = adComponents;
   const unitId = __DEV__ ? TestIds.ADAPTIVE_BANNER : BANNER_AD_UNIT_IDS[placement];
 
   return (

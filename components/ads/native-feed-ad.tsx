@@ -5,24 +5,9 @@ import { captureMessage } from '@/lib/sentry';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius, FontSizes } from '@/constants/theme';
 
-// Guarded require for Expo Go compatibility.
+// react-native-google-mobile-ads is NOT imported at module level — doing so executes
+// module-level initialization code that crashes on iOS 26.4 beta. Loaded lazily on first render.
 // Web uses native-feed-ad.web.tsx instead (no native ads on web).
-let AdComponents: {
-  BannerAd: any;
-  BannerAdSize: any;
-  TestIds: any;
-} | null = null;
-
-try {
-  const ads = require('react-native-google-mobile-ads');
-  AdComponents = {
-    BannerAd: ads.BannerAd,
-    BannerAdSize: ads.BannerAdSize,
-    TestIds: ads.TestIds,
-  };
-} catch {
-  // Native module not available (e.g., Expo Go)
-}
 
 export function NativeFeedAd() {
   const { adsReady } = useAds();
@@ -34,6 +19,17 @@ export function NativeFeedAd() {
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  // Lazy-load GMA components on first render to avoid module-level native initialization
+  // crashing on iOS 26.4 beta via ObjCTurboModule::performVoidMethodInvocation.
+  const adComponents = useMemo(() => {
+    try {
+      const ads = require('react-native-google-mobile-ads');
+      return { BannerAd: ads.BannerAd, BannerAdSize: ads.BannerAdSize, TestIds: ads.TestIds };
+    } catch {
+      return null; // Native module not available (e.g., Expo Go)
+    }
+  }, []);
+
   useEffect(() => {
     if (loaded) {
       Animated.timing(fadeAnim, {
@@ -44,9 +40,9 @@ export function NativeFeedAd() {
     }
   }, [loaded, fadeAnim]);
 
-  if (!adsReady || !AdComponents || failed) return null;
+  if (!adsReady || !adComponents || failed) return null;
 
-  const { BannerAd, BannerAdSize, TestIds } = AdComponents;
+  const { BannerAd, BannerAdSize, TestIds } = adComponents;
   const unitId = __DEV__
     ? TestIds.ADAPTIVE_BANNER
     : 'ca-app-pub-5311715630678079/5869703809';

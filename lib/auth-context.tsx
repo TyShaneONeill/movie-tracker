@@ -45,16 +45,7 @@ try {
   isSuccessResponse = googleSignInModule.isSuccessResponse;
   isErrorWithCode = googleSignInModule.isErrorWithCode;
   statusCodes = googleSignInModule.statusCodes;
-
-  // Configure Google Sign-In if module loaded successfully
-  if (GoogleSignin && googleIosClientId) {
-    GoogleSignin.configure({
-      iosClientId: googleIosClientId,
-      webClientId: googleWebClientId,
-    });
-    isGoogleSignInAvailable = true;
-  }
-} catch (error) {
+} catch {
   // Google Sign-In not available (expected in Expo Go)
   isGoogleSignInAvailable = false;
 }
@@ -98,6 +89,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Track user-initiated sign-outs so we can distinguish them from
   // involuntary ones (e.g. expired refresh token) in onAuthStateChange.
   const userInitiatedSignOut = useRef(false);
+
+  // Configure Google Sign-In inside useEffect to avoid calling a void TurboModule
+  // method at module load time, which causes an NSException → Hermes GC crash on iOS.
+  useEffect(() => {
+    if (!GoogleSignin || !googleIosClientId) return;
+    try {
+      GoogleSignin.configure({
+        iosClientId: googleIosClientId,
+        webClientId: googleWebClientId,
+      });
+      isGoogleSignInAvailable = true;
+    } catch {
+      isGoogleSignInAvailable = false;
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s }, error }) => {

@@ -43,12 +43,6 @@ import { AchievementProvider } from '@/lib/achievement-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
 
-// Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
-
-// Preload genres for faster UI rendering
-preloadGenres();
-
 export const unstable_settings = {
   anchor: '(tabs)',
 };
@@ -234,6 +228,11 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    SplashScreen.preventAutoHideAsync();
+    preloadGenres();
+  }, []);
+
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
