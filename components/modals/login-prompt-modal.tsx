@@ -79,7 +79,7 @@ export function LoginPromptModal({
 
           {/* Title */}
           <Text style={[styles.title, { color: colors.text }]}>
-            Join CineTrak
+            Join PocketStubs
           </Text>
 
           {/* Message */}

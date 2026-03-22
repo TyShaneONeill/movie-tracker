@@ -106,7 +106,7 @@ const ShareableReviewCard = React.forwardRef<View, ShareableReviewCardProps>(
 
           {/* Branding bar */}
           <View style={styles.brandingBar}>
-            <Text style={styles.brandingText}>CineTrak</Text>
+            <Text style={styles.brandingText}>PocketStubs</Text>
           </View>
         </View>
       </View>

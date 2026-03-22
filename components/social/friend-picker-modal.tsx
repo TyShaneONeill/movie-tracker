@@ -209,11 +209,11 @@ export function FriendPickerModal({
           {/* Manual entry */}
           <View style={styles.manualSection}>
             <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>
-              Add someone not on CineTrak
+              Add someone not on PocketStubs
             </Text>
             {!hasFriends && !isLoading && (
               <Text style={[Typography.body.xs, { color: colors.textTertiary, marginTop: Spacing.xs }]}>
-                Follow friends on CineTrak to see them here
+                Follow friends on PocketStubs to see them here
               </Text>
             )}
             <View style={styles.manualRow}>

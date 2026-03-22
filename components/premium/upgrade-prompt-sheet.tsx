@@ -79,19 +79,19 @@ export function UpgradePromptSheet({
 
           {/* Title */}
           <Text style={[styles.title, { color: colors.text }]}>
-            {feature ? `Unlock ${feature.label}` : 'Upgrade to CineTrak+'}
+            {feature ? `Unlock ${feature.label}` : 'Upgrade to PocketStubs+'}
           </Text>
 
           {/* Description */}
           <Text style={[styles.message, { color: colors.textSecondary }]}>
-            {feature?.description ?? 'Get the most out of CineTrak with premium features.'}
+            {feature?.description ?? 'Get the most out of PocketStubs with premium features.'}
           </Text>
 
           {/* Tier Badge */}
           <View style={[styles.tierBadge, { backgroundColor: colors.gold + '15' }]}>
             <Ionicons name="star" size={14} color={colors.gold} />
             <Text style={[styles.tierBadgeText, { color: colors.gold }]}>
-              Included in CineTrak+
+              Included in PocketStubs+
             </Text>
           </View>
 

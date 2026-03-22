@@ -57,7 +57,7 @@ function useProtectedRoute() {
 
   // Listen for deep links and PASSWORD_RECOVERY auth events
   useEffect(() => {
-    // Handle deep links (e.g., cinetrak://reset-password?code=xxx)
+    // Handle deep links (e.g., pocketstubs://reset-password?code=xxx)
     const handleUrl = async (event: { url: string }) => {
       const path = await handleAuthDeepLink(event.url);
       if (path === 'reset-password') {
