@@ -317,7 +317,7 @@ export default function ReviewDetailScreen() {
               rating={review.rating}
               reviewTitle={review.title}
               reviewText={review.review_text}
-              reviewerName={reviewerProfile?.full_name || reviewerProfile?.username || 'CineTrak User'}
+              reviewerName={reviewerProfile?.full_name || reviewerProfile?.username || 'PocketStubs User'}
               reviewerAvatar={reviewerProfile?.avatar_url ?? null}
               isRewatch={review.is_rewatch}
             />

@@ -1,7 +1,7 @@
 /**
  * PremiumBadge Component
  * Small inline lock/crown indicator for premium features.
- * Shows a lock icon in the theme's gold color, optionally with "CineTrak+" text.
+ * Shows a lock icon in the theme's gold color, optionally with "PocketStubs+" text.
  */
 
 import React from 'react';
@@ -12,7 +12,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 
 interface PremiumBadgeProps {
-  /** 'sm': icon only (12px). 'md': icon + "CineTrak+" text (14px). */
+  /** 'sm': icon only (12px). 'md': icon + "PocketStubs+" text (14px). */
   size?: 'sm' | 'md';
   /** Optional style override for the container */
   style?: ViewStyle;
@@ -35,7 +35,7 @@ export function PremiumBadge({ size = 'sm', style }: PremiumBadgeProps) {
     <View style={[styles.container, size === 'md' && styles.containerMd, style]}>
       <Ionicons name="lock-closed" size={iconSize} color={colors.gold} />
       {size === 'md' && (
-        <Text style={[styles.label, { color: colors.gold }]}>CineTrak+</Text>
+        <Text style={[styles.label, { color: colors.gold }]}>PocketStubs+</Text>
       )}
     </View>
   );
