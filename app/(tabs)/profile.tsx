@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { StyleSheet, View, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions, Platform } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions, Platform } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
