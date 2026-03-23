@@ -16,8 +16,10 @@ import {
   Modal,
   ActivityIndicator,
   ScrollView,
+  Keyboard,
+  Platform,
 } from 'react-native';
-import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BlurView } from 'expo-blur';
 
@@ -76,6 +78,9 @@ const MPAA_RATING_OPTIONS = ['G', 'PG', 'PG-13', 'R', 'NC-17', 'NR'];
 // Component
 // ============================================================================
 
+// Use BottomSheetTextInput on Android for proper keyboard handling inside bottom sheets
+const FormTextInput = Platform.OS === 'android' ? BottomSheetTextInput : TextInput;
+
 export function TicketEditModal({
   visible,
   ticket,
@@ -83,6 +88,16 @@ export function TicketEditModal({
   onSave,
 }: TicketEditModalProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
+
+  // TextInput refs for keyboard navigation
+  // Typed as `any` to bridge react-native TextInput and BottomSheetTextInput (android) ref incompatibility
+  const theaterRef = useRef<any>(null);
+  const auditoriumRef = useRef<any>(null);
+  const dateRef = useRef<any>(null);
+  const timeRef = useRef<any>(null);
+  const rowRef = useRef<any>(null);
+  const seatRef = useRef<any>(null);
+  const priceRef = useRef<any>(null);
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -279,6 +294,7 @@ export function TicketEditModal({
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Title */}
             <Text style={styles.modalTitle}>Edit Ticket Details</Text>
@@ -304,7 +320,10 @@ export function TicketEditModal({
                       />
                       <Pressable
                         style={styles.cancelSearchButton}
-                        onPress={handleCancelSearch}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          handleCancelSearch();
+                        }}
                       >
                         <Text style={styles.cancelSearchButtonText}>Cancel</Text>
                       </Pressable>
@@ -363,7 +382,10 @@ export function TicketEditModal({
                     </View>
                     <Pressable
                       style={styles.searchButton}
-                      onPress={handleEnterSearchMode}
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        handleEnterSearchMode();
+                      }}
                     >
                       <Text style={styles.searchButtonText}>{searchButtonText}</Text>
                     </Pressable>
@@ -375,23 +397,31 @@ export function TicketEditModal({
               <View style={styles.formRow}>
                 <View style={[styles.formGroup, styles.formGroupFlex2]}>
                   <Text style={styles.label}>Theater</Text>
-                  <TextInput
+                  <FormTextInput
+                    ref={theaterRef}
                     style={styles.input}
                     value={formData.theater}
                     onChangeText={(value) => handleChange('theater', value)}
                     placeholder="Theater name"
                     placeholderTextColor={Colors.dark.textTertiary}
                     autoCapitalize="words"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => auditoriumRef.current?.focus()}
                   />
                 </View>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
                   <Text style={styles.label}>Auditorium</Text>
-                  <TextInput
+                  <FormTextInput
+                    ref={auditoriumRef}
                     style={[styles.input, styles.inputCenter]}
                     value={formData.auditorium}
                     onChangeText={(value) => handleChange('auditorium', value)}
                     placeholder="1"
                     placeholderTextColor={Colors.dark.textTertiary}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => dateRef.current?.focus()}
                   />
                 </View>
               </View>
@@ -400,23 +430,31 @@ export function TicketEditModal({
               <View style={styles.formRow}>
                 <View style={[styles.formGroup, styles.formGroupFlex2]}>
                   <Text style={styles.label}>Date</Text>
-                  <TextInput
+                  <FormTextInput
+                    ref={dateRef}
                     style={styles.input}
                     value={formData.date}
                     onChangeText={(value) => handleChange('date', value)}
                     placeholder="YYYY-MM-DD"
                     placeholderTextColor={Colors.dark.textTertiary}
                     keyboardType="default"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => timeRef.current?.focus()}
                   />
                 </View>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
                   <Text style={styles.label}>Time</Text>
-                  <TextInput
+                  <FormTextInput
+                    ref={timeRef}
                     style={styles.input}
                     value={formData.time}
                     onChangeText={(value) => handleChange('time', value)}
                     placeholder="7:00 PM"
                     placeholderTextColor={Colors.dark.textTertiary}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => rowRef.current?.focus()}
                   />
                 </View>
               </View>
@@ -425,7 +463,8 @@ export function TicketEditModal({
               <View style={styles.formRow}>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
                   <Text style={styles.label}>Row</Text>
-                  <TextInput
+                  <FormTextInput
+                    ref={rowRef}
                     style={[styles.input, styles.inputCenter]}
                     value={formData.row}
                     onChangeText={(value) => handleChange('row', value.toUpperCase())}
@@ -433,11 +472,15 @@ export function TicketEditModal({
                     placeholderTextColor={Colors.dark.textTertiary}
                     autoCapitalize="characters"
                     maxLength={3}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => seatRef.current?.focus()}
                   />
                 </View>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
                   <Text style={styles.label}>Seat</Text>
-                  <TextInput
+                  <FormTextInput
+                    ref={seatRef}
                     style={[styles.input, styles.inputCenter]}
                     value={formData.seat}
                     onChangeText={(value) => handleChange('seat', value)}
@@ -445,6 +488,9 @@ export function TicketEditModal({
                     placeholderTextColor={Colors.dark.textTertiary}
                     keyboardType="number-pad"
                     maxLength={3}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => priceRef.current?.focus()}
                   />
                 </View>
               </View>
@@ -456,6 +502,7 @@ export function TicketEditModal({
                   <Pressable
                     style={styles.selectButton}
                     onPress={() => {
+                      Keyboard.dismiss();
                       setShowFormatPicker(!showFormatPicker);
                       setShowRatingPicker(false);
                     }}
@@ -466,13 +513,17 @@ export function TicketEditModal({
                 </View>
                 <View style={[styles.formGroup, styles.formGroupFlex2]}>
                   <Text style={styles.label}>Price</Text>
-                  <TextInput
+                  <FormTextInput
+                    ref={priceRef}
                     style={styles.input}
                     value={formData.price}
                     onChangeText={(value) => handleChange('price', value)}
                     placeholder="$22.99"
                     placeholderTextColor={Colors.dark.textTertiary}
                     keyboardType="decimal-pad"
+                    returnKeyType="done"
+                    blurOnSubmit={true}
+                    onSubmitEditing={() => Keyboard.dismiss()}
                   />
                 </View>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
@@ -480,6 +531,7 @@ export function TicketEditModal({
                   <Pressable
                     style={styles.selectButton}
                     onPress={() => {
+                      Keyboard.dismiss();
                       setShowRatingPicker(!showRatingPicker);
                       setShowFormatPicker(false);
                     }}
