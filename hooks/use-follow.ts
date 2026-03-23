@@ -212,6 +212,13 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
       queryClient.invalidateQueries({
         queryKey: ['profile', targetUserId],
       });
+      // Also invalidate the current user's own profile so their following_count
+      // and followers_count reflect the DB update immediately on iOS (where the
+      // React Query in-memory cache persists across tab switches and never gets
+      // cleared by a page reload the way a web browser would).
+      queryClient.invalidateQueries({
+        queryKey: ['profile', user?.id],
+      });
       queryClient.invalidateQueries({
         queryKey: ['suggestedUsers'],
       });
