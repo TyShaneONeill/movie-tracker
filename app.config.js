@@ -5,11 +5,16 @@ export default {
     slug: "pocketstubs",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
+    icon: "./assets/images/icon-concepts/pocketstubs-light.png",
     scheme: "pocketstubs",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
+      icon: {
+        light: "./assets/images/icon-concepts/pocketstubs-light.png",
+        dark: "./assets/images/icon-concepts/pocketstubs-dark.png",
+        tinted: "./assets/images/icon-concepts/pocketstubs-dark.png",
+      },
       supportsTablet: false,
       bundleIdentifier: "com.pocketstubs.app",
       usesAppleSignIn: true,
