@@ -5,15 +5,15 @@ export default {
     slug: "pocketstubs",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/icon-concepts/pocketstubs-light.png",
+    icon: "./assets/images/icon.png",
     scheme: "pocketstubs",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
       icon: {
-        light: "./assets/images/icon-concepts/pocketstubs-light.png",
-        dark: "./assets/images/icon-concepts/pocketstubs-dark.png",
-        tinted: "./assets/images/icon-concepts/pocketstubs-dark.png",
+        light: "./assets/images/icon.png",
+        dark: "./assets/images/icon-dark.png",
+        tinted: "./assets/images/icon-dark.png",
       },
       supportsTablet: false,
       bundleIdentifier: "com.pocketstubs.app",
@@ -60,7 +60,7 @@ export default {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#E7E5DA",
+          backgroundColor: "#FFFFFF",
           dark: {
             image: "./assets/images/splash-icon-dark.png",
             backgroundColor: "#000000",
