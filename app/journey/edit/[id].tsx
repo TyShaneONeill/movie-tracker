@@ -10,7 +10,7 @@
  * 5. DELETE JOURNEY - Confirmation alert before deleting
  */
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -98,6 +99,14 @@ export default function EditJourneyScreen() {
   const [ticketPrice, setTicketPrice] = useState('');
   const [ticketId, setTicketId] = useState('');
   const [watchedWith, setWatchedWith] = useState<string[]>([]);
+
+  // TextInput refs for keyboard navigation
+  const taglineRef = useRef<TextInput>(null);
+  const locationRef = useRef<TextInput>(null);
+  const seatRef = useRef<TextInput>(null);
+  const auditoriumRef = useRef<TextInput>(null);
+  const priceRef = useRef<TextInput>(null);
+  const ticketIdRef = useRef<TextInput>(null);
 
   // Populate form state when journey data loads
   useEffect(() => {
@@ -258,6 +267,7 @@ export default function EditJourneyScreen() {
 
   // Handle add friend
   const handleAddFriend = useCallback(() => {
+    Keyboard.dismiss();
     setShowFriendPicker(true);
   }, []);
 
@@ -338,6 +348,7 @@ export default function EditJourneyScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* MEMORIES Section */}
           <View style={styles.section}>
@@ -372,12 +383,16 @@ export default function EditJourneyScreen() {
               {/* Tagline Input */}
               <Text style={styles.inputLabel}>Tagline</Text>
               <TextInput
+                ref={taglineRef}
                 style={styles.textInput}
                 placeholder="e.g. Masterpiece, Fun time..."
                 placeholderTextColor={colors.textTertiary}
                 value={tagline}
                 onChangeText={setTagline}
                 maxLength={50}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => locationRef.current?.focus()}
               />
 
               {/* Rating Display (Read-only for Phase 1) */}
@@ -462,11 +477,15 @@ export default function EditJourneyScreen() {
               {/* Location Input */}
               <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>Location</Text>
               <TextInput
+                ref={locationRef}
                 style={styles.textInput}
                 placeholder="Theater name, Home, etc."
                 placeholderTextColor={colors.textTertiary}
                 value={locationName}
                 onChangeText={setLocationName}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => seatRef.current?.focus()}
               />
 
               {/* Seat & Format Row */}
@@ -474,11 +493,15 @@ export default function EditJourneyScreen() {
                 <View style={styles.halfColumn}>
                   <Text style={styles.inputLabel}>Seat</Text>
                   <TextInput
+                    ref={seatRef}
                     style={styles.textInput}
                     placeholder="e.g. H-12"
                     placeholderTextColor={colors.textTertiary}
                     value={seatLocation}
                     onChangeText={setSeatLocation}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => auditoriumRef.current?.focus()}
                   />
                 </View>
                 <View style={styles.halfColumn}>
@@ -488,7 +511,10 @@ export default function EditJourneyScreen() {
                       styles.pickerButton,
                       pressed && styles.pickerButtonPressed,
                     ]}
-                    onPress={() => setShowFormatPicker(!showFormatPicker)}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowFormatPicker(!showFormatPicker);
+                    }}
                   >
                     <Text style={styles.pickerButtonText}>{watchFormat}</Text>
                     <Text style={styles.dropdownIcon}>
@@ -529,11 +555,15 @@ export default function EditJourneyScreen() {
                 <View style={styles.halfColumn}>
                   <Text style={styles.inputLabel}>Auditorium</Text>
                   <TextInput
+                    ref={auditoriumRef}
                     style={styles.textInput}
                     placeholder="e.g. Theater 4"
                     placeholderTextColor={colors.textTertiary}
                     value={auditorium}
                     onChangeText={setAuditorium}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => priceRef.current?.focus()}
                   />
                 </View>
                 <View style={styles.halfColumn}>
@@ -541,6 +571,7 @@ export default function EditJourneyScreen() {
                   <View style={styles.priceInputWrapper}>
                     <Text style={styles.pricePrefix}>$</Text>
                     <TextInput
+                      ref={priceRef}
                       style={[styles.textInput, styles.priceInput]}
                       placeholder="0.00"
                       placeholderTextColor={colors.textTertiary}
@@ -556,6 +587,9 @@ export default function EditJourneyScreen() {
                         setTicketPrice(cleaned);
                       }}
                       keyboardType="decimal-pad"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                      onSubmitEditing={() => ticketIdRef.current?.focus()}
                     />
                   </View>
                 </View>
@@ -564,12 +598,16 @@ export default function EditJourneyScreen() {
               {/* Ticket ID Input */}
               <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>Ticket ID</Text>
               <TextInput
+                ref={ticketIdRef}
                 style={styles.textInput}
                 placeholder="e.g. 8X92-MM24"
                 placeholderTextColor={colors.textTertiary}
                 value={ticketId}
                 onChangeText={setTicketId}
                 autoCapitalize="characters"
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>
           </View>

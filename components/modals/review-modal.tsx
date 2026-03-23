@@ -14,6 +14,8 @@ import {
   Image,
   Modal,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme-context';
@@ -119,6 +121,10 @@ export function ReviewModal({
       animationType="slide"
       onRequestClose={handleClose}
     >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
       {/* Backdrop */}
       <Pressable
         style={styles.overlay}
@@ -229,6 +235,7 @@ export function ReviewModal({
           </ScrollView>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
