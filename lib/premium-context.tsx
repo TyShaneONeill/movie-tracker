@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { useAuth } from '@/hooks/use-auth';
 import { useAds } from '@/lib/ads-context';
@@ -6,7 +6,7 @@ import { fetchSubscriptionStatus } from '@/lib/premium-service';
 import { isFeatureAvailable } from '@/lib/premium-features';
 import { captureException } from '@/lib/sentry';
 import type { PremiumTier, PremiumFeatureKey } from '@/lib/premium-features';
-import { Purchases as NativePurchases, isNativeAvailable } from '@/lib/native-purchases';
+import { isNativeAvailable } from '@/lib/native-purchases';
 
 // RevenueCat API keys
 const REVENUECAT_WEB_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_WEB_API_KEY || '';
@@ -76,6 +76,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const [purchasesInstance, setPurchasesInstance] = useState<any>(null);
   const [isNativeInitialized, setIsNativeInitialized] = useState(false);
   const [availablePackages, setAvailablePackages] = useState<any[]>([]);
+  const nativePurchasesRef = useRef<any>(null);
 
   const isPremium = tier === 'plus' || tier === 'dev';
 
@@ -157,20 +158,28 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   /** Initialize react-native-purchases (iOS / Android) */
   const initRevenueCatNative = async (userId: string) => {
     const apiKey = getNativeApiKey();
-    if (!apiKey || !NativePurchases) return;
-
-    NativePurchases.configure({ apiKey, appUserID: userId });
-    setIsNativeInitialized(true);
-
-    const customerInfo = await NativePurchases.getCustomerInfo();
-    deriveStateFromCustomerInfo(customerInfo);
+    if (!apiKey) return;
 
     try {
-      const offerings = await NativePurchases.getOfferings();
+      // Dynamic import prevents react-native-purchases module-level code
+      // (NativeEventEmitter, listener registration) from running at startup
+      const { default: Purchases } = await import('react-native-purchases');
+      nativePurchasesRef.current = Purchases;
+
+      Purchases.configure({ apiKey, appUserID: userId });
+      setIsNativeInitialized(true);
+
+      const customerInfo = await Purchases.getCustomerInfo();
+      deriveStateFromCustomerInfo(customerInfo);
+
+      const offerings = await Purchases.getOfferings();
       const packages = offerings?.current?.availablePackages ?? [];
       setAvailablePackages(packages);
-    } catch (offeringsError) {
-      console.warn('[PremiumProvider] Failed to fetch native offerings:', offeringsError);
+    } catch (error) {
+      console.warn('[PremiumProvider] RevenueCat native init failed:', error);
+      captureException(error instanceof Error ? error : new Error(String(error)), {
+        context: 'premium-revenuecat-native-init',
+      });
     }
   };
 
@@ -255,8 +264,8 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       }
 
       let customerInfo: any;
-      if (isNative && NativePurchases) {
-        const result = await NativePurchases.purchasePackage(rcPackage as any);
+      if (isNative && nativePurchasesRef.current) {
+        const result = await nativePurchasesRef.current.purchasePackage(rcPackage as any);
         customerInfo = result?.customerInfo;
       } else {
         const result = await purchasesInstance.purchase({ rcPackage });
@@ -298,8 +307,8 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
 
     try {
       let customerInfo: any;
-      if (isNative && NativePurchases) {
-        customerInfo = await NativePurchases.restorePurchases();
+      if (isNative && nativePurchasesRef.current) {
+        customerInfo = await nativePurchasesRef.current.restorePurchases();
       } else {
         customerInfo = await purchasesInstance.getCustomerInfo();
       }

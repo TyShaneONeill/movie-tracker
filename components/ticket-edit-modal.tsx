@@ -99,6 +99,14 @@ export function TicketEditModal({
   const seatRef = useRef<any>(null);
   const priceRef = useRef<any>(null);
 
+  // Keyboard scroll — manual avoidance (keyboardBehavior is unreliable inside RN Modal)
+  const scrollRef = useRef<any>(null);
+  const kbHeightRef = useRef(0);
+  const [kbHeight, setKbHeight] = useState(0);
+  const focusedFieldKey = useRef<string | null>(null);
+  const formOffset = useRef(0);
+  const rowOffsets = useRef<Record<string, number>>({});
+
   // Form state
   const [formData, setFormData] = useState<FormData>({
     movieTitle: '',
@@ -174,6 +182,34 @@ export function TicketEditModal({
       onClose();
     }
   }, [onClose]);
+
+  // Keyboard listeners — scroll to focused field manually since keyboardBehavior
+  // prop doesn't fire reliably when BottomSheet is inside a React Native Modal.
+  const scrollToKey = useCallback((key: string) => {
+    const y = formOffset.current + (rowOffsets.current[key] ?? 0);
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 100), animated: true });
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    const show = Keyboard.addListener('keyboardWillShow', (e) => {
+      kbHeightRef.current = e.endCoordinates.height;
+      setKbHeight(e.endCoordinates.height);
+      if (focusedFieldKey.current) scrollToKey(focusedFieldKey.current);
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => {
+      kbHeightRef.current = 0;
+      setKbHeight(0);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, [visible, scrollToKey]);
+
+  const handleFieldFocus = useCallback((key: string) => {
+    focusedFieldKey.current = key;
+    // If keyboard is already up (switching fields), scroll immediately
+    if (kbHeightRef.current > 0) scrollToKey(key);
+  }, [scrollToKey]);
 
   // Handle form field changes
   const handleChange = (field: keyof FormData, value: string) => {
@@ -291,8 +327,9 @@ export function TicketEditModal({
           handleIndicatorStyle={styles.handleIndicator}
         >
           <BottomSheetScrollView
+            ref={scrollRef}
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, kbHeight > 0 && { paddingBottom: kbHeight + 34 }]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
@@ -300,7 +337,7 @@ export function TicketEditModal({
             <Text style={styles.modalTitle}>Edit Ticket Details</Text>
 
             {/* Form */}
-            <View style={styles.form}>
+            <View style={styles.form} onLayout={(e) => { formOffset.current = e.nativeEvent.layout.y; }}>
               {/* Movie Title */}
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Movie Title</Text>
@@ -394,7 +431,7 @@ export function TicketEditModal({
               </View>
 
               {/* Theater and Auditorium row */}
-              <View style={styles.formRow}>
+              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.theater = e.nativeEvent.layout.y; }}>
                 <View style={[styles.formGroup, styles.formGroupFlex2]}>
                   <Text style={styles.label}>Theater</Text>
                   <FormTextInput
@@ -407,6 +444,7 @@ export function TicketEditModal({
                     autoCapitalize="words"
                     returnKeyType="next"
                     blurOnSubmit={false}
+                    onFocus={() => handleFieldFocus('theater')}
                     onSubmitEditing={() => auditoriumRef.current?.focus()}
                   />
                 </View>
@@ -421,13 +459,14 @@ export function TicketEditModal({
                     placeholderTextColor={Colors.dark.textTertiary}
                     returnKeyType="next"
                     blurOnSubmit={false}
+                    onFocus={() => handleFieldFocus('theater')}
                     onSubmitEditing={() => dateRef.current?.focus()}
                   />
                 </View>
               </View>
 
               {/* Date and Time row */}
-              <View style={styles.formRow}>
+              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.date = e.nativeEvent.layout.y; }}>
                 <View style={[styles.formGroup, styles.formGroupFlex2]}>
                   <Text style={styles.label}>Date</Text>
                   <FormTextInput
@@ -440,6 +479,7 @@ export function TicketEditModal({
                     keyboardType="default"
                     returnKeyType="next"
                     blurOnSubmit={false}
+                    onFocus={() => handleFieldFocus('date')}
                     onSubmitEditing={() => timeRef.current?.focus()}
                   />
                 </View>
@@ -454,13 +494,14 @@ export function TicketEditModal({
                     placeholderTextColor={Colors.dark.textTertiary}
                     returnKeyType="next"
                     blurOnSubmit={false}
+                    onFocus={() => handleFieldFocus('date')}
                     onSubmitEditing={() => rowRef.current?.focus()}
                   />
                 </View>
               </View>
 
               {/* Row and Seat row */}
-              <View style={styles.formRow}>
+              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.row = e.nativeEvent.layout.y; }}>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
                   <Text style={styles.label}>Row</Text>
                   <FormTextInput
@@ -474,6 +515,7 @@ export function TicketEditModal({
                     maxLength={3}
                     returnKeyType="next"
                     blurOnSubmit={false}
+                    onFocus={() => handleFieldFocus('row')}
                     onSubmitEditing={() => seatRef.current?.focus()}
                   />
                 </View>
@@ -490,13 +532,14 @@ export function TicketEditModal({
                     maxLength={3}
                     returnKeyType="next"
                     blurOnSubmit={false}
+                    onFocus={() => handleFieldFocus('row')}
                     onSubmitEditing={() => priceRef.current?.focus()}
                   />
                 </View>
               </View>
 
               {/* Format, Price, and Rated row */}
-              <View style={styles.formRow}>
+              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.price = e.nativeEvent.layout.y; }}>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
                   <Text style={styles.label}>Format</Text>
                   <Pressable
@@ -523,6 +566,7 @@ export function TicketEditModal({
                     keyboardType="decimal-pad"
                     returnKeyType="done"
                     blurOnSubmit={true}
+                    onFocus={() => handleFieldFocus('price')}
                     onSubmitEditing={() => Keyboard.dismiss()}
                   />
                 </View>
