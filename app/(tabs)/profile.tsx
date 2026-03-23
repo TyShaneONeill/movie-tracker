@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { StyleSheet, View, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions, Platform } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions, Platform } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
@@ -931,9 +931,9 @@ export default function ProfileScreen() {
                     <Ionicons name="notifications-outline" size={24} color={colors.text} />
                     {unreadCount > 0 && (
                         <View style={[styles.notificationBadge, { backgroundColor: colors.tint }]}>
-                            <ThemedText style={styles.notificationBadgeText}>
+                            <Text style={styles.notificationBadgeText}>
                                 {unreadCount > 99 ? '99+' : unreadCount}
-                            </ThemedText>
+                            </Text>
                         </View>
                     )}
                 </Pressable>
@@ -1184,8 +1184,8 @@ const styles = StyleSheet.create({
     },
     notificationBadge: {
         position: 'absolute',
-        top: -4,
-        right: -6,
+        top: 0,
+        right: 0,
         minWidth: 18,
         height: 18,
         borderRadius: 9,
@@ -1197,6 +1197,7 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
         color: '#fff',
+        lineHeight: 14,
     },
     // Sticky tab bar overlay
     stickyTabBarOverlay: {
