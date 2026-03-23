@@ -26,6 +26,7 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!adsEnabled) return;
+    if (__DEV__) return; // Never initialize GMA in dev — native module unavailable in Expo Go
 
     (async () => {
       try {
