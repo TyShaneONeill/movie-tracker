@@ -142,15 +142,26 @@ function AuthenticatedFeed() {
           >
             {/* Header row — matches FeedItemCard: 24px avatar + name + timestamp */}
             <View style={styles.commentHeaderRow}>
-              <Image
-                source={{ uri: feed.userAvatarUrl ?? DEFAULT_AVATAR }}
-                style={styles.commentAvatar}
-                contentFit="cover"
-                transition={200}
-              />
-              <Text style={[styles.commentUserName, { color: colors.text }]}>
-                {feed.userDisplayName}
-              </Text>
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  router.push(`/user/${feed.userId}`);
+                }}
+                style={({ pressed }) => [
+                  styles.commentUserPressable,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Image
+                  source={{ uri: feed.userAvatarUrl ?? DEFAULT_AVATAR }}
+                  style={styles.commentAvatar}
+                  contentFit="cover"
+                  transition={200}
+                />
+                <Text style={[styles.commentUserName, { color: colors.text }]}>
+                  {feed.userDisplayName}
+                </Text>
+              </Pressable>
               <Text style={[styles.commentTimestamp, { color: colors.textTertiary }]}>
                 {formatRelativeTime(feed.createdAt ?? '')}
               </Text>
@@ -197,6 +208,18 @@ function AuthenticatedFeed() {
           mediaType={feed.mediaType}
           sourceId={feed.id}
           sourceType={feed.activityType === 'review' ? 'review' : 'first_take'}
+          userId={feed.userId}
+          onUserPress={() => router.push(`/user/${feed.userId}`)}
+          onCardPress={() => {
+            analytics.track('feed:item_tap', { item_type: feed.activityType, tmdb_id: feed.tmdbId });
+            if (feed.activityType === 'review') {
+              router.push(`/review/${feed.id}`);
+            } else if (feed.mediaType === 'tv_show') {
+              router.push(`/tv/${feed.tmdbId}`);
+            } else {
+              router.push(`/movie/${feed.tmdbId}`);
+            }
+          }}
           onReport={isOwn ? undefined : () => {
             setReportTarget({
               type: feed.activityType === 'review' ? 'review' : 'first_take',
@@ -471,6 +494,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.sm,
+  },
+  commentUserPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   commentAvatar: {
     width: 24,

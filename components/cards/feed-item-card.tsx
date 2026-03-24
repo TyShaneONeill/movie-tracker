@@ -89,6 +89,21 @@ interface FeedItemCardProps {
   onMoviePress?: () => void;
 
   /**
+   * User ID for profile navigation
+   */
+  userId?: string;
+
+  /**
+   * Callback when the card body is pressed (navigate to review/first take)
+   */
+  onCardPress?: () => void;
+
+  /**
+   * Callback when user avatar or username is pressed (navigate to profile)
+   */
+  onUserPress?: () => void;
+
+  /**
    * Callback when user wants to report this item
    */
   onReport?: () => void;
@@ -137,6 +152,9 @@ export function FeedItemCard({
   mediaType,
   sourceId,
   sourceType,
+  userId,
+  onCardPress,
+  onUserPress,
   onMoviePress,
   onReport,
   style,
@@ -240,31 +258,43 @@ export function FeedItemCard({
   const formattedRating = formatRating();
 
   return (
-    <View
-      style={[
+    <Pressable
+      onPress={onCardPress}
+      disabled={!onCardPress}
+      style={({ pressed }) => [
         styles.container,
         {
           borderColor: colors.border,
+          opacity: pressed && onCardPress ? 0.7 : 1,
         },
         style,
       ]}
     >
       {/* Header Row: Avatar + Username + Timestamp + Report */}
       <View style={styles.headerRow}>
-        <Image
-          source={{ uri: userAvatarUrl }}
-          style={styles.avatar}
-          contentFit="cover"
-          transition={200}
-        />
-        <Text
-          style={[
-            styles.userName,
-            { color: isCurrentUser ? colors.tint : colors.text },
+        <Pressable
+          onPress={onUserPress}
+          disabled={!onUserPress}
+          style={({ pressed }) => [
+            styles.userPressable,
+            { opacity: pressed && onUserPress ? 0.7 : 1 },
           ]}
         >
-          {displayName}
-        </Text>
+          <Image
+            source={{ uri: userAvatarUrl }}
+            style={styles.avatar}
+            contentFit="cover"
+            transition={200}
+          />
+          <Text
+            style={[
+              styles.userName,
+              { color: isCurrentUser ? colors.tint : colors.text },
+            ]}
+          >
+            {displayName}
+          </Text>
+        </Pressable>
         <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
           {timestamp}
         </Text>
@@ -332,7 +362,7 @@ export function FeedItemCard({
           />
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -347,6 +377,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.sm,
+  },
+  userPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   avatar: {
     width: 24,
