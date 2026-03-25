@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -50,6 +50,7 @@ export default function ReviewDetailScreen() {
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Fetch reviewer profile for the share card
   const { data: reviewerProfile } = useQuery({
@@ -103,6 +104,14 @@ export default function ReviewDetailScreen() {
     enabled: needsFollowCheck && !!user,
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    const event = 'keyboardDidShow';
+    const sub = Keyboard.addListener(event, () => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, []);
 
   if (isLoading || (needsFollowCheck && followsLoading)) {
     return (
@@ -219,9 +228,11 @@ export default function ReviewDetailScreen() {
           </View>
 
           <ScrollView
+            ref={scrollRef}
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* Movie Info Section */}
             <View style={styles.movieInfoRow}>

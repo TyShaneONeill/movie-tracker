@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { useMemo, useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -44,6 +44,7 @@ export default function FirstTakeDetailScreen() {
   });
 
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   const isOwn = !!user && !!firstTake && firstTake.user_id === user.id;
   const needsFollowCheck =
@@ -62,6 +63,14 @@ export default function FirstTakeDetailScreen() {
     enabled: needsFollowCheck && !!user,
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    const event = 'keyboardDidShow';
+    const sub = Keyboard.addListener(event, () => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, []);
 
   if (isLoading || (needsFollowCheck && followsLoading)) {
     return (
@@ -166,9 +175,11 @@ export default function FirstTakeDetailScreen() {
           </View>
 
           <ScrollView
+            ref={scrollRef}
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* Movie Info */}
             <View style={styles.movieInfoRow}>
