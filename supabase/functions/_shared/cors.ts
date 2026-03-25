@@ -7,7 +7,8 @@
  */
 
 const ALLOWED_ORIGINS = [
-  'https://cinetrak.app',
+  'https://pocketstubs.com',
+  'https://www.pocketstubs.com',
   'http://localhost:8081', // Expo dev server
   'exp://192.168',         // Expo Go (prefix match)
 ];
