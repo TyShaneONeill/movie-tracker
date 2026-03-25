@@ -94,9 +94,9 @@ interface FeedItemCardProps {
   userId?: string;
 
   /**
-   * Callback when the card body is pressed (navigate to review/first take)
+   * Callback when review text / quote snippet is pressed (navigate to review or profile)
    */
-  onCardPress?: () => void;
+  onReviewTextPress?: () => void;
 
   /**
    * Callback when user avatar or username is pressed (navigate to profile)
@@ -153,7 +153,7 @@ export function FeedItemCard({
   sourceId,
   sourceType,
   userId,
-  onCardPress,
+  onReviewTextPress,
   onUserPress,
   onMoviePress,
   onReport,
@@ -258,15 +258,10 @@ export function FeedItemCard({
   const formattedRating = formatRating();
 
   return (
-    <Pressable
-      onPress={onCardPress}
-      disabled={!onCardPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.container,
-        {
-          borderColor: colors.border,
-          opacity: pressed && onCardPress ? 0.7 : 1,
-        },
+        { borderColor: colors.border },
         style,
       ]}
     >
@@ -309,22 +304,21 @@ export function FeedItemCard({
         )}
       </View>
 
-      {/* Content Row: Poster + Movie Info */}
-      <Pressable
-        onPress={onMoviePress}
-        accessibilityRole="button"
-        accessibilityLabel={`${movieTitle}${formattedRating ? `, rated ${formattedRating}` : ''}`}
-        style={({ pressed }) => [
-          styles.contentRow,
-          { opacity: pressed ? 0.7 : 1 },
-        ]}
-      >
-        <Image
-          source={{ uri: moviePosterUrl }}
-          style={[styles.poster, Shadows.sm]}
-          contentFit="cover"
-          transition={200}
-        />
+      {/* Content Row: Poster (tappable) + Movie Info (inert) */}
+      <View style={styles.contentRow}>
+        <Pressable
+          onPress={onMoviePress}
+          accessibilityRole="button"
+          accessibilityLabel={`Go to ${movieTitle}`}
+          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Image
+            source={{ uri: moviePosterUrl }}
+            style={[styles.poster, Shadows.sm]}
+            contentFit="cover"
+            transition={200}
+          />
+        </Pressable>
         <View style={styles.reviewBody}>
           {/* Movie/TV Title Row */}
           <View style={styles.titleRow}>
@@ -348,10 +342,19 @@ export function FeedItemCard({
             </Text>
           )}
         </View>
-      </Pressable>
+      </View>
 
-      {/* Review Text with Spoiler Handling — outside Pressable to avoid nested buttons on web */}
-      {renderReviewContent()}
+      {/* Review Text — tappable if onReviewTextPress provided */}
+      {onReviewTextPress ? (
+        <Pressable
+          onPress={onReviewTextPress}
+          style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
+        >
+          {renderReviewContent()}
+        </Pressable>
+      ) : (
+        renderReviewContent()
+      )}
 
       {sourceId && sourceType && (
         <View style={styles.likeRow}>
@@ -362,7 +365,7 @@ export function FeedItemCard({
           />
         </View>
       )}
-    </Pressable>
+    </View>
   );
 }
 

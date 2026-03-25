@@ -99,11 +99,11 @@ function groupMoviesByTmdbId(movies: UserMovie[]): GroupedUserMovie[] {
 }
 
 export default function UserProfileScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { width: screenWidth } = useWindowDimensions();
-  const [activeTab, setActiveTab] = useState<TabType>('collection');
+  const [activeTab, setActiveTab] = useState<TabType>((tab as TabType) ?? 'collection');
 
   const cardWidth = useMemo(() => {
     const availableWidth = screenWidth - Spacing.lg * 2;
