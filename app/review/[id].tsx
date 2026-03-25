@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -106,7 +106,7 @@ export default function ReviewDetailScreen() {
   });
 
   useEffect(() => {
-    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const event = 'keyboardDidShow';
     const sub = Keyboard.addListener(event, () => {
       scrollRef.current?.scrollToEnd({ animated: true });
     });
@@ -227,16 +227,13 @@ export default function ReviewDetailScreen() {
             )}
           </View>
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          <ScrollView
+            ref={scrollRef}
             style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
-            <ScrollView
-              ref={scrollRef}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              style={{ flex: 1 }}
-            >
             {/* Movie Info Section */}
             <View style={styles.movieInfoRow}>
               {posterUri ? (
@@ -315,8 +312,7 @@ export default function ReviewDetailScreen() {
 
             {/* Comments Section */}
             <CommentThread targetType="review" targetId={review.id} />
-            </ScrollView>
-          </KeyboardAvoidingView>
+          </ScrollView>
         </View>
 
         {/* Off-screen share card for capture (native only) */}

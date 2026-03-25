@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -65,7 +65,7 @@ export default function FirstTakeDetailScreen() {
   });
 
   useEffect(() => {
-    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const event = 'keyboardDidShow';
     const sub = Keyboard.addListener(event, () => {
       scrollRef.current?.scrollToEnd({ animated: true });
     });
@@ -174,16 +174,13 @@ export default function FirstTakeDetailScreen() {
             <View style={{ width: 28 }} />
           </View>
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          <ScrollView
+            ref={scrollRef}
             style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
-            <ScrollView
-              ref={scrollRef}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              style={{ flex: 1 }}
-            >
             {/* Movie Info */}
             <View style={styles.movieInfoRow}>
               {posterUri ? (
@@ -265,8 +262,7 @@ export default function FirstTakeDetailScreen() {
 
             {/* Comments */}
             <CommentThread targetType="first_take" targetId={firstTake.id} />
-            </ScrollView>
-          </KeyboardAvoidingView>
+          </ScrollView>
         </View>
       </SafeAreaView>
     </>
