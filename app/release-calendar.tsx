@@ -67,7 +67,7 @@ export default function ReleaseCalendarScreen() {
 
   // Data fetching
   const { data, isLoading } = useReleaseCalendar({ month, year });
-  const { data: watchlistIds } = useWatchlistIds();
+  const { data: watchlistIds } = useWatchlistIds(!!user);
   const { data: tasteProfile } = useTasteProfile();
 
   // Load saved filter preferences

@@ -18,9 +18,13 @@ export async function getReleaseCalendar(
 }
 
 export async function getWatchlistTmdbIds(): Promise<Set<number>> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new Set();
+
   const { data } = await supabase
     .from('user_movies')
     .select('tmdb_id')
+    .eq('user_id', user.id)
     .eq('status', 'watchlist');
 
   return new Set((data ?? []).map(row => row.tmdb_id));
