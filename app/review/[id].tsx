@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -50,6 +50,7 @@ export default function ReviewDetailScreen() {
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Fetch reviewer profile for the share card
   const { data: reviewerProfile } = useQuery({
@@ -103,6 +104,14 @@ export default function ReviewDetailScreen() {
     enabled: needsFollowCheck && !!user,
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(event, () => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, []);
 
   if (isLoading || (needsFollowCheck && followsLoading)) {
     return (
@@ -218,11 +227,16 @@ export default function ReviewDetailScreen() {
             )}
           </View>
 
-          <ScrollView
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
           >
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
+            >
             {/* Movie Info Section */}
             <View style={styles.movieInfoRow}>
               {posterUri ? (
@@ -301,7 +315,8 @@ export default function ReviewDetailScreen() {
 
             {/* Comments Section */}
             <CommentThread targetType="review" targetId={review.id} />
-          </ScrollView>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
 
         {/* Off-screen share card for capture (native only) */}
