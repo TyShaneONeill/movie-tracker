@@ -136,8 +136,21 @@ export default function NotificationsScreen() {
         }
         break;
       case 'like_first_take':
-      case 'friend_reviewed':
       case 'comment_first_take':
+        if (data.first_take_id) {
+          router.push(`/first-take/${data.first_take_id}` as any);
+          return;
+        }
+        if (data.tmdb_id) {
+          router.push(`/movie/${data.tmdb_id}` as any);
+          return;
+        }
+        break;
+      case 'friend_reviewed':
+        if (data.review_id) {
+          router.push(`/review/${data.review_id}` as any);
+          return;
+        }
         if (data.tmdb_id) {
           router.push(`/movie/${data.tmdb_id}` as any);
           return;
