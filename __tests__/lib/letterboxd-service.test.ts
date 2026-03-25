@@ -21,6 +21,7 @@ import {
   parseLetterboxdCSV,
   matchMoviesToTMDB,
   exportCollectionCSV,
+  detectLetterboxdCSVType,
 } from '@/lib/letterboxd-service';
 import type { LetterboxdEntry } from '@/lib/letterboxd-service';
 import { searchMovies, fetchUserMovies } from '@/lib/movie-service';
@@ -217,7 +218,7 @@ describe('parseLetterboxdCSV', () => {
     expect(result[0].rating).toBeNull();
     expect(result[0].isRewatch).toBe(false);
     expect(result[0].letterboxdUri).toBeNull();
-    expect(result[0].watchedDate).toBeNull();
+    expect(result[0].watchedDate).toBe('2024-03-15');
   });
 
   it('skips entries without a movie name', () => {
@@ -253,6 +254,36 @@ describe('parseLetterboxdCSV', () => {
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe('Fight Club');
     expect(result[1].name).toBe('The Matrix');
+  });
+});
+
+// ============================================================================
+// detectLetterboxdCSVType
+// ============================================================================
+
+describe('detectLetterboxdCSVType', () => {
+  it('identifies watched.csv by Date + Name columns without Rating or Watched Date', () => {
+    const csv = 'Date,Name,Year,Letterboxd URI\n2023-07-26,Barbie,2023,https://boxd.it/bCLK';
+    expect(detectLetterboxdCSVType(csv)).toBe('watched');
+  });
+
+  it('identifies diary.csv by Watched Date + Rewatch columns', () => {
+    const csv = 'Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date\n2023-07-26,Barbie,2023,https://boxd.it/bCLK,4.5,,in theaters,2023-07-26';
+    expect(detectLetterboxdCSVType(csv)).toBe('diary');
+  });
+
+  it('identifies ratings.csv by Rating column without Watched Date', () => {
+    const csv = 'Date,Name,Year,Letterboxd URI,Rating\n2023-07-26,Barbie,2023,https://boxd.it/bCLK,4.5';
+    expect(detectLetterboxdCSVType(csv)).toBe('ratings');
+  });
+
+  it('returns unknown for unrecognized CSV headers', () => {
+    const csv = 'foo,bar,baz\n1,2,3';
+    expect(detectLetterboxdCSVType(csv)).toBe('unknown');
+  });
+
+  it('returns unknown for completely empty CSV', () => {
+    expect(detectLetterboxdCSVType('')).toBe('unknown');
   });
 });
 
