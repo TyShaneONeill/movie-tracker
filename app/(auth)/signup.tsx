@@ -161,7 +161,7 @@ export default function SignUpScreen() {
             <Image
               source={effectiveTheme === 'dark'
                 ? require('@/assets/images/PocketStubs_Logo_Dark.png')
-                : require('@/assets/images/icon.png')}
+                : require('@/assets/images/PocketStubs_Logo_Light.png')}
               style={styles.logoImage}
             />
             <ThemedText type="title" style={styles.title}>Join PocketStubs</ThemedText>
