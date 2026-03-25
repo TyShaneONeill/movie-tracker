@@ -11,7 +11,7 @@ export default {
     newArchEnabled: true,
     ios: {
       icon: {
-        light: "./assets/images/icon.png",
+        light: "./assets/images/icon-light.png",
         dark: "./assets/images/icon-dark.png",
         tinted: "./assets/images/icon-dark.png",
       },
@@ -40,7 +40,7 @@ export default {
       adaptiveIcon: {
         backgroundColor: "#000000",
         foregroundImage: "./assets/images/android-icon-foreground.png",
-        monochromeImage: "./assets/images/android-icon-monochrome.png",
+        monochromeImage: "./assets/images/android-icon-foreground.png",
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,

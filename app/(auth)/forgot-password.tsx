@@ -139,7 +139,7 @@ export default function ForgotPasswordScreen() {
             <Image
               source={effectiveTheme === 'dark'
                 ? require('@/assets/images/PocketStubs_Logo_Dark.png')
-                : require('@/assets/images/icon.png')}
+                : require('@/assets/images/PocketStubs_Logo_Light.png')}
               style={styles.logoImage}
             />
             <ThemedText style={[styles.title, { color: colors.text }]}>
