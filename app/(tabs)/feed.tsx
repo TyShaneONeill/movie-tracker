@@ -210,14 +210,12 @@ function AuthenticatedFeed() {
           sourceType={feed.activityType === 'review' ? 'review' : 'first_take'}
           userId={feed.userId}
           onUserPress={() => router.push(`/user/${feed.userId}`)}
-          onCardPress={() => {
-            analytics.track('feed:item_tap', { item_type: feed.activityType, tmdb_id: feed.tmdbId });
+          onReviewTextPress={() => {
+            analytics.track('feed:item_tap', { item_type: feed.activityType, target: 'review_text', tmdb_id: feed.tmdbId });
             if (feed.activityType === 'review') {
               router.push(`/review/${feed.id}`);
-            } else if (feed.mediaType === 'tv_show') {
-              router.push(`/tv/${feed.tmdbId}`);
             } else {
-              router.push(`/movie/${feed.tmdbId}`);
+              router.push({ pathname: '/user/[id]', params: { id: feed.userId, tab: 'first-takes' } });
             }
           }}
           onReport={isOwn ? undefined : () => {
@@ -227,7 +225,7 @@ function AuthenticatedFeed() {
             });
           }}
           onMoviePress={() => {
-            analytics.track('feed:item_tap', { item_type: feed.activityType, tmdb_id: feed.tmdbId });
+            analytics.track('feed:item_tap', { item_type: feed.activityType, target: 'poster', tmdb_id: feed.tmdbId });
             if (feed.mediaType === 'tv_show') {
               router.push(`/tv/${feed.tmdbId}`);
             } else {
