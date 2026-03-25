@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { View, TextInput, Pressable, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
@@ -29,6 +29,24 @@ export function CommentInput({
   const [text, setText] = useState('');
   const [isSpoiler, setIsSpoiler] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof window === 'undefined') return;
+
+    const vv = (window as Window & { visualViewport?: EventTarget & { height: number } }).visualViewport;
+    if (!vv) return;
+
+    const scrollFocusedIntoView = () => {
+      const el = document.activeElement;
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+
+    vv.addEventListener('resize', scrollFocusedIntoView);
+    return () => vv.removeEventListener('resize', scrollFocusedIntoView);
+  }, []);
 
   const trimmed = text.trim();
   const canSubmit = trimmed.length >= 1 && trimmed.length <= MAX_LENGTH && !isSubmitting;
