@@ -26,9 +26,12 @@ import {
   parseLetterboxdCSV,
   matchMoviesToTMDB,
   importMovies,
+  detectLetterboxdCSVType,
+  type LetterboxdCSVType,
+  type MatchedMovie,
+  type ImportProgress,
 } from '@/lib/letterboxd-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { MatchedMovie, ImportProgress } from '@/lib/letterboxd-service';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -38,7 +41,7 @@ function ChevronLeftIcon({ color }: { color: string }) {
   );
 }
 
-type ImportState = 'idle' | 'parsing' | 'matching' | 'review' | 'importing' | 'done';
+type ImportState = 'idle' | 'parsing' | 'wrong-file' | 'matching' | 'review' | 'importing' | 'done';
 
 type ThemeColors = typeof Colors.dark;
 
@@ -50,6 +53,7 @@ export default function LetterboxdImportScreen() {
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
   const [state, setState] = useState<ImportState>('idle');
+  const [detectedFileType, setDetectedFileType] = useState<LetterboxdCSVType | null>(null);
   const [matches, setMatches] = useState<MatchedMovie[]>([]);
   const [matchProgress, setMatchProgress] = useState<ImportProgress | null>(null);
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
@@ -87,10 +91,18 @@ export default function LetterboxdImportScreen() {
       // Parse CSV
       setState('parsing');
       const csvContent = await FileSystem.readAsStringAsync(fileUri);
+
+      const csvType = detectLetterboxdCSVType(csvContent);
+      if (csvType === 'ratings' || csvType === 'watchlist' || csvType === 'unknown') {
+        setDetectedFileType(csvType);
+        setState('wrong-file');
+        return;
+      }
+
       const entries = parseLetterboxdCSV(csvContent);
 
       if (entries.length === 0) {
-        setError('No valid entries found in the CSV file. Make sure you selected the diary.csv file from your Letterboxd export.');
+        setError('No valid entries found. Make sure you selected watched.csv or diary.csv from your Letterboxd export.');
         setState('idle');
         return;
       }
@@ -164,7 +176,7 @@ export default function LetterboxdImportScreen() {
         return (
           <View style={dynamicStyles.centeredContent}>
             <Text style={dynamicStyles.instructions}>
-              Export your data from Letterboxd (Settings &gt; Import &amp; Export), then select the diary.csv file.
+              Export your data from Letterboxd.com (Settings → Import &amp; Export → Export Your Data). You&apos;ll receive a .zip file — extract it on your device, then select watched.csv to import your full watch history.
             </Text>
             {error && (
               <Text style={dynamicStyles.errorText}>{error}</Text>
@@ -176,10 +188,37 @@ export default function LetterboxdImportScreen() {
               ]}
               onPress={handleSelectFile}
             >
-              <Text style={dynamicStyles.primaryButtonText}>Select CSV File</Text>
+              <Text style={dynamicStyles.primaryButtonText}>Select watched.csv</Text>
             </Pressable>
           </View>
         );
+
+      case 'wrong-file': {
+        const wrongFileMessage =
+          detectedFileType === 'ratings'
+            ? 'You selected ratings.csv. This file only contains ratings, not your full watch history.'
+            : detectedFileType === 'watchlist'
+            ? "You selected watchlist.csv. This contains films you want to watch, not ones you've seen."
+            : "This doesn't look like a Letterboxd export file.";
+
+        return (
+          <View style={dynamicStyles.centeredContent}>
+            <Text style={dynamicStyles.wrongFileTitle}>Wrong file selected</Text>
+            <Text style={dynamicStyles.instructions}>{wrongFileMessage}</Text>
+            <Text style={dynamicStyles.instructions}>
+              Open your Letterboxd export folder and select{' '}
+              <Text style={{ fontWeight: '700', color: colors.text }}>watched.csv</Text>
+              {' '}to import your watch history.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [dynamicStyles.primaryButton, pressed && { opacity: 0.8 }]}
+              onPress={() => { setState('idle'); setDetectedFileType(null); }}
+            >
+              <Text style={dynamicStyles.primaryButtonText}>Try Again</Text>
+            </Pressable>
+          </View>
+        );
+      }
 
       case 'parsing':
         return (
@@ -542,5 +581,10 @@ const createStyles = (colors: ThemeColors) =>
       ...Typography.display.h3,
       color: colors.accentSecondary,
       marginBottom: Spacing.lg,
+    },
+    wrongFileTitle: {
+      ...Typography.display.h3,
+      color: colors.text,
+      marginBottom: Spacing.md,
     },
   });

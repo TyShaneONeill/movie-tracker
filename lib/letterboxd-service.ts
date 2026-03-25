@@ -41,10 +41,27 @@ interface LetterboxdCSVRow {
   'Watched Date'?: string;
 }
 
+export type LetterboxdCSVType = 'watched' | 'diary' | 'ratings' | 'watchlist' | 'unknown';
+
+export function detectLetterboxdCSVType(csvContent: string): LetterboxdCSVType {
+  const result = Papa.parse<Record<string, string>>(csvContent, {
+    header: true,
+    preview: 1,
+  });
+  const headers = result.meta.fields ?? [];
+
+  if (headers.includes('Watched Date') && headers.includes('Rewatch')) return 'diary';
+  if (headers.includes('Rating') && !headers.includes('Watched Date')) return 'ratings';
+  if (headers.includes('Name') && !headers.includes('Rating') && !headers.includes('Watched Date')) {
+    return headers.includes('Date') ? 'watched' : 'unknown';
+  }
+  return 'unknown';
+}
+
 /**
  * Parse Letterboxd CSV content into structured entries.
- * Expects the diary.csv format with columns:
- * Date, Name, Year, Letterboxd URI, Rating, Rewatch, Tags, Watched Date
+ * Supports watched.csv (Date, Name, Year, Letterboxd URI) and
+ * diary.csv (Date, Name, Year, Letterboxd URI, Rating, Rewatch, Tags, Watched Date).
  */
 export function parseLetterboxdCSV(csvContent: string): LetterboxdEntry[] {
   const result = Papa.parse<LetterboxdCSVRow>(csvContent, {
@@ -61,7 +78,7 @@ export function parseLetterboxdCSV(csvContent: string): LetterboxdEntry[] {
       return {
         name: row.Name!.trim(),
         year: yearParsed && !isNaN(yearParsed) ? yearParsed : null,
-        watchedDate: row['Watched Date']?.trim() || null,
+        watchedDate: (row['Watched Date']?.trim() || row.Date?.trim()) ?? null,
         rating: ratingParsed && !isNaN(ratingParsed) ? ratingParsed : null,
         isRewatch: row.Rewatch?.trim() === 'Yes',
         letterboxdUri: row['Letterboxd URI']?.trim() || null,
