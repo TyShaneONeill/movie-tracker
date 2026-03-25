@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -70,6 +71,7 @@ export function CreateListModal({
 }: CreateListModalProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { height: windowHeight } = useWindowDimensions();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -119,7 +121,7 @@ export function CreateListModal({
         >
           {/* Modal Card - prevent backdrop press from closing when tapping inside */}
           <Pressable
-            style={[styles.modalCard, { backgroundColor: colors.card }]}
+            style={[styles.modalCard, { backgroundColor: colors.card, maxHeight: windowHeight * 0.78 }]}
             onPress={(e) => e.stopPropagation()}
           >
             {/* Header with close button */}
@@ -290,7 +292,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   textArea: {
-    height: 100,
+    height: 72,
   },
   privacyRow: {
     flexDirection: 'row',
