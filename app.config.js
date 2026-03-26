@@ -26,11 +26,6 @@ export default {
           {
             CFBundleURLName: "com.pocketstubs.app",
             CFBundleURLSchemes: ["pocketstubs"]
-          },
-          {
-            CFBundleURLSchemes: [
-              "com.googleusercontent.apps.886034953782-jn8kerjnbnu38hoc100vh08p7cb5arah"
-            ]
           }
         ]
       }
@@ -53,7 +48,12 @@ export default {
       ["@sentry/react-native/expo", { organization: "pocketstubs-5w", project: "react-native-pocketstubs" }],
       "expo-router",
       "expo-apple-authentication",
-      "@react-native-google-signin/google-signin",
+      ["@react-native-google-signin/google-signin", {
+        // iosUrlScheme must be the reversed form of EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.
+        // Keeping this in sync with the env var prevents the GIDSignIn NSException crash
+        // ("missing support for URL scheme") in release builds.
+        iosUrlScheme: "com.googleusercontent.apps.886034953782-3jlpq4fm2qas6atfes6ekir6pn134h71",
+      }],
       [
         "expo-splash-screen",
         {
