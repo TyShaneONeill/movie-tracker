@@ -124,9 +124,11 @@ export function FirstTakeCard({
       </View>
 
       {/* Quote */}
-      <Text style={[styles.quote, { color: colors.text }]}>
-        &ldquo;{quote}&rdquo;
-      </Text>
+      {!!quote?.trim() && (
+        <Text style={[styles.quote, { color: colors.text }]}>
+          &ldquo;{quote}&rdquo;
+        </Text>
+      )}
     </Pressable>
   );
 }

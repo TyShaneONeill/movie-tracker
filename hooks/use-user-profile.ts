@@ -43,8 +43,7 @@ async function fetchOtherUserCounts(userId: string) {
     supabase
       .from('first_takes')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .like('quote_text', '_%'),
+      .eq('user_id', userId),
     supabase
       .from('reviews')
       .select('*', { count: 'exact', head: true })

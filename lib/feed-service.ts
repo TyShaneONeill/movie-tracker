@@ -277,7 +277,7 @@ export function buildFeedList(params: BuildFeedListParams): FeedListItem[] {
   const filterFn = (item: ActivityFeedItem): boolean => {
     if (filter === 'all') return true;
     if (filter === 'reviews')
-      return item.activityType === 'review' || item.activityType === 'first_take';
+      return item.activityType === 'review';
     // 'friends' filter is handled by only using followingItems (community is excluded below)
     return true;
   };
