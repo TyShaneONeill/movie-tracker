@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/generate-movie-pages.js && npx expo export --platform web",
+  "buildCommand": "node scripts/generate-movie-pages.js && npx expo export --platform web && cp ads.txt dist/ads.txt",
   "outputDirectory": "dist",
   "framework": null,
   "cleanUrls": true,
