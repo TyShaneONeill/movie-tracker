@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { StyleSheet, View, Text, Pressable, Image, RefreshControl, ListRenderItemInfo, ScrollView, useWindowDimensions, Platform } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Image, RefreshControl, ListRenderItemInfo, useWindowDimensions, Platform } from 'react-native';
+import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
@@ -46,7 +47,7 @@ type TabType = 'collection' | 'first-takes' | 'reviews' | 'lists';
 // Constants for header animation
 const HEADER_MAX_HEIGHT = 350; // Full header height (avatar, name, bio, follower stats, achievements)
 const HEADER_MIN_HEIGHT = 0; // Collapsed header height
-const HEADER_SCROLL_DISTANCE = 180; // Scroll distance to fully collapse
+const HEADER_SCROLL_DISTANCE = 280; // Scroll distance to fully collapse
 
 // Grid layout constants
 const COLUMN_COUNT = 3;
@@ -178,21 +179,21 @@ export default function ProfileScreen() {
     // scrolls away naturally to avoid expensive per-frame height reflows).
     const headerAnimatedStyle = useAnimatedStyle(() => {
         if (Platform.OS === 'web') return {};
-        const height = interpolate(
-            scrollY.value,
-            [0, HEADER_SCROLL_DISTANCE],
-            [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
-            Extrapolation.CLAMP
-        );
         const opacity = interpolate(
             scrollY.value,
             [0, HEADER_SCROLL_DISTANCE * 0.7],
             [1, 0],
             Extrapolation.CLAMP
         );
+        const maxHeight = interpolate(
+            scrollY.value,
+            [0, HEADER_SCROLL_DISTANCE],
+            [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+            Extrapolation.CLAMP
+        );
         return {
-            height,
             opacity,
+            maxHeight,
             overflow: 'hidden' as const,
         };
     });
@@ -577,7 +578,7 @@ export default function ProfileScreen() {
                     ACHIEVEMENTS
                 </ThemedText>
             </View>
-            <ScrollView
+            <GHScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.achievementsScrollContent}
@@ -597,7 +598,7 @@ export default function ProfileScreen() {
                         />
                     );
                 })}
-            </ScrollView>
+            </GHScrollView>
         </View>
     );
 
@@ -964,6 +965,7 @@ export default function ProfileScreen() {
                     ListEmptyComponent={renderCollectionListEmpty}
                     onScroll={scrollHandler}
                     scrollEventThrottle={16}
+                    decelerationRate="normal"
                     columnWrapperStyle={groupedMovies?.length && !isLoading && !isError ? styles.columnWrapper : undefined}
                     contentContainerStyle={styles.scrollContent}
                     removeClippedSubviews={true}
@@ -992,6 +994,7 @@ export default function ProfileScreen() {
                     ListEmptyComponent={renderCollectionListEmpty}
                     onScroll={scrollHandler}
                     scrollEventThrottle={16}
+                    decelerationRate="normal"
                     columnWrapperStyle={watchedTvShows?.length && !tvShowsLoading ? styles.columnWrapper : undefined}
                     contentContainerStyle={styles.scrollContent}
                     removeClippedSubviews={true}
@@ -1016,6 +1019,7 @@ export default function ProfileScreen() {
                     ref={scrollViewRef}
                     onScroll={scrollHandler}
                     scrollEventThrottle={16}
+                    decelerationRate="normal"
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                     bounces={Platform.OS !== 'web'}

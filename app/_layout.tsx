@@ -3,6 +3,7 @@ import '@/lib/sentry-init';
 
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, View, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -276,7 +277,7 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={styles.webContainer}>
+    <GestureHandlerRootView style={styles.webContainer}>
       <QueryProvider>
         <NetworkProvider>
           <AdsProvider>
@@ -298,7 +299,7 @@ export default function RootLayout() {
           </AdsProvider>
         </NetworkProvider>
       </QueryProvider>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
