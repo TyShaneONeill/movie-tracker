@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import Svg, { Path } from 'react-native-svg';
 import { Image } from 'expo-image';
 
@@ -90,7 +89,9 @@ export default function LetterboxdImportScreen() {
 
       // Parse CSV
       setState('parsing');
-      const csvContent = await FileSystem.readAsStringAsync(fileUri);
+      const response = await fetch(fileUri);
+      if (!response.ok) throw new Error(`Could not read file (${response.status})`);
+      const csvContent = await response.text();
 
       const csvType = detectLetterboxdCSVType(csvContent);
       if (csvType === 'ratings' || csvType === 'watchlist' || csvType === 'unknown') {
@@ -119,6 +120,7 @@ export default function LetterboxdImportScreen() {
       setMatches(matched);
       setState('review');
     } catch (err) {
+      console.error('[Letterboxd] Import error:', err);
       captureException(err instanceof Error ? err : new Error(String(err)), {
         context: 'letterboxd-import-select-file',
       });
