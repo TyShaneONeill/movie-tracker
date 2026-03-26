@@ -63,9 +63,7 @@ export function AchievementGridCard({
       >
         {achievement.name}
       </ThemedText>
-      <ThemedText style={[styles.progressText, { color: colors.textSecondary }]}>
-        {currentLevel} of {maxLevel}
-      </ThemedText>
+
     </Pressable>
   );
 }
