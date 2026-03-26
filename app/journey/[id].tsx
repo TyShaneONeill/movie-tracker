@@ -44,7 +44,7 @@ import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { usePremium } from '@/hooks/use-premium';
-import { PremiumGate } from '@/components/premium/premium-gate';
+import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -80,6 +80,7 @@ export default function JourneyCardScreen() {
 
   // Poster inspection modal state
   const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
+  const [upgradeSheetVisible, setUpgradeSheetVisible] = useState(false);
 
   // Auth & companion avatars
   const { user } = useAuth();
@@ -323,17 +324,21 @@ export default function JourneyCardScreen() {
           {!hasAiPoster && (
             <View style={styles.posterOptionsSection}>
               {tier === 'free' && hasUsedFreeTrial ? (
-                <PremiumGate featureKey="ai_poster_generation">
-                  <Pressable
-                    style={styles.generateArtButton}
-                    disabled
-                  >
-                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                      <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                    </Svg>
-                    <Text style={styles.generateArtButtonText}>Generate AI Art</Text>
-                  </Pressable>
-                </PremiumGate>
+                <Pressable
+                  style={styles.upgradeNudge}
+                  onPress={() => setUpgradeSheetVisible(true)}
+                >
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.tint} strokeWidth={2}>
+                    <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                  </Svg>
+                  <View style={styles.upgradeNudgeText}>
+                    <Text style={styles.upgradeNudgeTitle}>Free AI poster used</Text>
+                    <Text style={styles.upgradeNudgeSubtitle}>Upgrade to CineTrak+ for unlimited AI art</Text>
+                  </View>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2}>
+                    <Path d="M9 18l6-6-6-6" />
+                  </Svg>
+                </Pressable>
               ) : (
                 <Pressable
                   style={styles.generateArtButton}
@@ -371,6 +376,13 @@ export default function JourneyCardScreen() {
         aiImageUrl={journey.ai_poster_url}
         movieTitle={journey.title}
         onClose={handlePosterModalClose}
+      />
+
+      {/* Upgrade prompt — shown when free AI poster limit is reached */}
+      <UpgradePromptSheet
+        visible={upgradeSheetVisible}
+        featureKey="ai_poster_generation"
+        onClose={() => setUpgradeSheetVisible(false)}
       />
     </View>
   );
@@ -508,6 +520,29 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
   generateArtButtonText: {
     ...Typography.button.primary,
     color: colors.text,
+  },
+  upgradeNudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  upgradeNudgeText: {
+    flex: 1,
+  },
+  upgradeNudgeTitle: {
+    ...Typography.body.smMedium,
+    color: colors.text,
+  },
+  upgradeNudgeSubtitle: {
+    ...Typography.caption.default,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 
   // Loading state styles
