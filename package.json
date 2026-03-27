@@ -94,5 +94,8 @@
     "serve": "^14.2.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "node-forge": ">=1.3.4"
+  }
 }
