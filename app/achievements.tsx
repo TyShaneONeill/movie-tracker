@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { useAuth } from '@/lib/auth-context';
 import { useAchievements } from '@/hooks/use-achievements';
 import { ThemedText } from '@/components/themed-text';
 import { AchievementGridCard } from '@/components/achievement-grid-card';
@@ -47,6 +48,12 @@ export default function AchievementsScreen() {
     const availableWidth = effectiveWidth - (HORIZONTAL_PADDING * 2);
     return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
   }, [screenWidth]);
+
+  const { session } = useAuth();
+  const isDevUser = useMemo(() => {
+    const devIds = (process.env.EXPO_PUBLIC_DEV_USER_IDS ?? '').split(',').map(id => id.trim()).filter(Boolean);
+    return !!session?.user?.id && devIds.includes(session.user.id);
+  }, [session?.user?.id]);
 
   const { progress } = useAchievements();
   const [selectedProgress, setSelectedProgress] = useState<AchievementProgress | null>(null);
@@ -104,17 +111,21 @@ export default function AchievementsScreen() {
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
           Achievements
         </ThemedText>
-        <Pressable
-          onPress={() => setHideUnachieved(prev => !prev)}
-          style={({ pressed }) => [styles.headerSpacer, { opacity: pressed ? 0.7 : 1, alignItems: 'center', justifyContent: 'center' }]}
-          hitSlop={8}
-        >
-          <Ionicons
-            name={hideUnachieved ? 'eye-off-outline' : 'eye-outline'}
-            size={22}
-            color={hideUnachieved ? colors.tint : colors.textSecondary}
-          />
-        </Pressable>
+        {isDevUser ? (
+          <Pressable
+            onPress={() => setHideUnachieved(prev => !prev)}
+            style={({ pressed }) => [styles.headerSpacer, { opacity: pressed ? 0.7 : 1, alignItems: 'center', justifyContent: 'center' }]}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={hideUnachieved ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color={hideUnachieved ? colors.tint : colors.textSecondary}
+            />
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       {/* Grid */}
