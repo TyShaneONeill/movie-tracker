@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
     const earnedIds = new Set((earnedRaw || []).map((e: { achievement_id: string }) => e.achievement_id));
 
     // 3. Fetch user stats for criteria evaluation
-    const [watchedResult, firstTakesResult, genresResult, nightOwlResult] = await Promise.all([
+    const [watchedResult, firstTakesResult, genresResult, nightOwlResult, tvResult, reviewsResult] = await Promise.all([
       supabaseAdmin
         .from('user_movies')
         .select('*', { count: 'exact', head: true })
@@ -102,6 +102,14 @@ Deno.serve(async (req: Request) => {
         .eq('user_id', userId)
         .eq('status', 'watched')
         .not('watched_at', 'is', null),
+      supabaseAdmin
+        .from('user_tv_shows')
+        .select('status, episodes_watched, number_of_episodes, genre_ids')
+        .eq('user_id', userId),
+      supabaseAdmin
+        .from('reviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId),
     ]);
 
     const watchedCount = watchedResult.count ?? 0;
@@ -119,6 +127,27 @@ Deno.serve(async (req: Request) => {
       }
     }
     const genreCount = genreSet.size;
+
+    // TV stats
+    const tvShows = tvResult.data ?? [];
+    const tvWatchedCount = tvShows.filter(s => s.status === 'watched').length;
+    const tvEpisodesCount = tvShows.reduce((sum, s) => sum + (s.episodes_watched ?? 0), 0);
+    const tvCompletedCount = tvShows.filter(s =>
+      s.episodes_watched != null &&
+      s.number_of_episodes != null &&
+      s.number_of_episodes > 0 &&
+      s.episodes_watched >= s.number_of_episodes
+    ).length;
+    const tvGenreSet = new Set<number>();
+    for (const show of tvShows) {
+      if (show.genre_ids && Array.isArray(show.genre_ids)) {
+        for (const id of show.genre_ids) tvGenreSet.add(id);
+      }
+    }
+    const tvGenreCount = tvGenreSet.size;
+
+    // Reviews count (for Critic achievement)
+    const reviewsCount = reviewsResult.count ?? 0;
 
     // Check for night owl (midnight to 5 AM)
     let hasNightOwl = false;
@@ -162,6 +191,21 @@ Deno.serve(async (req: Request) => {
           break;
         case 'genre_count':
           earned = genreCount >= achievement.criteria_value;
+          break;
+        case 'tv_watched_count':
+          earned = tvWatchedCount >= achievement.criteria_value;
+          break;
+        case 'tv_episodes_count':
+          earned = tvEpisodesCount >= achievement.criteria_value;
+          break;
+        case 'tv_completed_count':
+          earned = tvCompletedCount >= achievement.criteria_value;
+          break;
+        case 'tv_genre_count':
+          earned = tvGenreCount >= achievement.criteria_value;
+          break;
+        case 'review_count':
+          earned = reviewsCount >= achievement.criteria_value;
           break;
       }
 
