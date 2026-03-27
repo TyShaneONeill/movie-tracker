@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
         body: JSON.stringify({
           embeds: [
             {
-              title: '🎉 New CineTrak User',
+              title: '🎉 New PocketStubs User',
               description: displayName,
               color: 0xb91c3c,
               fields: [
