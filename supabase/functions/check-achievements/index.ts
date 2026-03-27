@@ -230,11 +230,29 @@ Deno.serve(async (req: Request) => {
           });
 
         if (!insertError) {
+          const unlockedAt = new Date().toISOString();
           newlyAwarded.push({
             achievement,
             level: lvl.level,
             level_description: lvl.description,
-            unlocked_at: new Date().toISOString(),
+            unlocked_at: unlockedAt,
+          });
+
+          // Create a notification — fire and forget, don't fail the response
+          supabaseAdmin.from('notifications').insert({
+            user_id: userId,
+            actor_id: null,
+            type: 'achievement_unlock',
+            data: {
+              achievement_id: achievement.id,
+              achievement_name: achievement.name,
+              achievement_icon: achievement.icon,
+              level: lvl.level,
+              level_description: lvl.description,
+            },
+            read: false,
+          }).then(({ error: notifError }) => {
+            if (notifError) console.error('[check-achievements] Failed to create notification:', notifError.message);
           });
         }
       }
