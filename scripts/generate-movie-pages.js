@@ -25,7 +25,7 @@ if (!TMDB_API_KEY) {
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const IMAGE_BASE = 'https://image.tmdb.org/t/p';
-const SITE_URL = 'https://cinetrak.app';
+const SITE_URL = 'https://pocketstubs.com';
 const ADSENSE_ID = 'ca-pub-5311715630678079';
 const RATE_LIMIT_MS = 300;
 const POPULAR_PAGES = 13;
