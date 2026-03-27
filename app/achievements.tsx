@@ -50,6 +50,12 @@ export default function AchievementsScreen() {
 
   const { progress } = useAchievements();
   const [selectedProgress, setSelectedProgress] = useState<AchievementProgress | null>(null);
+  const [hideUnachieved, setHideUnachieved] = useState(true);
+
+  const displayedProgress = useMemo(
+    () => hideUnachieved ? progress.filter(p => p.currentLevel > 0) : progress,
+    [progress, hideUnachieved]
+  );
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -98,12 +104,22 @@ export default function AchievementsScreen() {
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
           Achievements
         </ThemedText>
-        <View style={styles.headerSpacer} />
+        <Pressable
+          onPress={() => setHideUnachieved(prev => !prev)}
+          style={({ pressed }) => [styles.headerSpacer, { opacity: pressed ? 0.7 : 1, alignItems: 'center', justifyContent: 'center' }]}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={hideUnachieved ? 'eye-off-outline' : 'eye-outline'}
+            size={22}
+            color={hideUnachieved ? colors.tint : colors.textSecondary}
+          />
+        </Pressable>
       </View>
 
       {/* Grid */}
       <FlatList
-        data={progress}
+        data={displayedProgress}
         keyExtractor={(item) => item.achievement.id}
         renderItem={renderCard}
         numColumns={COLUMN_COUNT}
