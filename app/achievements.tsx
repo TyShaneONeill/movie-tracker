@@ -51,7 +51,7 @@ export default function AchievementsScreen() {
 
   const { session } = useAuth();
   const isDevUser = useMemo(() => {
-    const devIds = (process.env.EXPO_PUBLIC_DEV_USER_IDS ?? '').split(',').map(id => id.trim()).filter(Boolean);
+    const devIds = (process.env.EXPO_PUBLIC_DEV_USER_IDS ?? '').split(',').map((id: string) => id.trim()).filter(Boolean);
     return !!session?.user?.id && devIds.includes(session.user.id);
   }, [session?.user?.id]);
 
