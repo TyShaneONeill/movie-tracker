@@ -359,16 +359,16 @@ function generateMovieHTML(movie, credits, trailer) {
 '<head>\n' +
 '    <meta charset="UTF-8">\n' +
 '    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-'    <title>' + title + ' (' + year + ') - CineTrak</title>\n' +
+'    <title>' + title + ' (' + year + ') - PocketStubs</title>\n' +
 '    <meta name="description" content="' + metaDescription + '">\n' +
 '    <link rel="canonical" href="' + canonicalURL + '">\n' +
-'    <meta property="og:title" content="' + title + ' (' + year + ') - CineTrak">\n' +
+'    <meta property="og:title" content="' + title + ' (' + year + ') - PocketStubs">\n' +
 '    <meta property="og:description" content="' + metaDescription + '">\n' +
 '    <meta property="og:type" content="video.movie">\n' +
 '    <meta property="og:url" content="' + canonicalURL + '">\n' +
-'    <meta property="og:site_name" content="CineTrak">' + ogImageTag + '\n' +
+'    <meta property="og:site_name" content="PocketStubs">' + ogImageTag + '\n' +
 '    <meta name="twitter:card" content="summary_large_image">\n' +
-'    <meta name="twitter:title" content="' + title + ' (' + year + ') - CineTrak">\n' +
+'    <meta name="twitter:title" content="' + title + ' (' + year + ') - PocketStubs">\n' +
 '    <meta name="twitter:description" content="' + metaDescription + '">' + twitterImageTag + '\n' +
 '    <!-- Google AdSense -->\n' +
 '    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + ADSENSE_ID + '" crossorigin="anonymous"></script>\n' +
@@ -427,7 +427,7 @@ function generateMovieHTML(movie, credits, trailer) {
 '</head>\n' +
 '<body>\n' +
 '    <div class="container">\n' +
-'        <a href="/" class="back">&larr; Back to CineTrak</a>\n' +
+'        <a href="/" class="back">&larr; Back to PocketStubs</a>\n' +
 '\n' +
 '        <div class="movie-hero">\n' +
 '            ' + posterImgTag + '\n' +
@@ -450,8 +450,8 @@ crewSection +
 '\n' +
 '        <div class="cta-section">\n' +
 '            <h2>Track This Movie</h2>\n' +
-'            <p>Add ' + title + ' to your watchlist or log it as watched on CineTrak. Track every movie you watch, rate your favorites, and build your personal movie journey.</p>\n' +
-'            <a href="/" class="cta-button">Open CineTrak</a>\n' +
+'            <p>Add ' + title + ' to your watchlist or log it as watched on PocketStubs. Track every movie you watch, rate your favorites, and build your personal movie journey.</p>\n' +
+'            <a href="/" class="cta-button">Open PocketStubs</a>\n' +
 '        </div>\n' +
 '\n' +
 '        <footer class="footer">\n' +
@@ -461,7 +461,7 @@ crewSection +
 '                <a href="/terms">Terms</a>\n' +
 '                <a href="/support">Support</a>\n' +
 '            </div>\n' +
-'            <p>&copy; 2026 CineTrak. All rights reserved.</p>\n' +
+'            <p>&copy; 2026 PocketStubs. All rights reserved.</p>\n' +
 '            <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #3f3f46;">Movie data provided by <a href="https://www.themoviedb.org/" style="color: #52525b;">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>\n' +
 '        </footer>\n' +
 '    </div>\n' +

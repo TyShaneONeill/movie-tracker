@@ -33,26 +33,26 @@ function buildFallbackHtml(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CineTrak — Your Movie Companion</title>
+  <title>PocketStubs — Your Movie Companion</title>
 
   <!-- OpenGraph -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="CineTrak — Your Movie Companion">
+  <meta property="og:title" content="PocketStubs — Your Movie Companion">
   <meta property="og:description" content="Track movies, write reviews, and discover what friends are watching.">
-  <meta property="og:url" content="https://cinetrak.app">
-  <meta property="og:site_name" content="CineTrak">
+  <meta property="og:url" content="https://pocketstubs.com">
+  <meta property="og:site_name" content="PocketStubs">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="CineTrak — Your Movie Companion">
+  <meta name="twitter:title" content="PocketStubs — Your Movie Companion">
   <meta name="twitter:description" content="Track movies, write reviews, and discover what friends are watching.">
 
   <!-- Redirect to app -->
-  <meta http-equiv="refresh" content="0;url=https://cinetrak.app">
+  <meta http-equiv="refresh" content="0;url=https://pocketstubs.com">
 </head>
 <body>
-  <p>Redirecting to CineTrak...</p>
-  <p><a href="https://cinetrak.app">Click here if not redirected</a></p>
+  <p>Redirecting to PocketStubs...</p>
+  <p><a href="https://pocketstubs.com">Click here if not redirected</a></p>
 </body>
 </html>`;
 }
@@ -86,8 +86,8 @@ function buildReviewHtml(data: ReviewOgData): string {
   const safeReviewTitle = escapeHtml(reviewTitle);
   const safeDescription = escapeHtml(truncate(reviewText, 200));
   const ogTitle = `${safeReviewTitle} — ${safeMovieTitle}`;
-  const pageTitle = `${safeReviewerName}&#039;s review of ${safeMovieTitle} | CineTrak`;
-  const reviewUrl = `https://cinetrak.app/review/${id}`;
+  const pageTitle = `${safeReviewerName}&#039;s review of ${safeMovieTitle} | PocketStubs`;
+  const reviewUrl = `https://pocketstubs.com/review/${id}`;
   const imageUrl = posterPath
     ? `https://image.tmdb.org/t/p/w500${escapeHtml(posterPath)}`
     : '';
@@ -108,7 +108,7 @@ function buildReviewHtml(data: ReviewOgData): string {
   <meta property="og:title" content="${ogTitle}">
   <meta property="og:description" content="${safeDescription}">
   <meta property="og:url" content="${reviewUrl}">
-  <meta property="og:site_name" content="CineTrak">${imageMetaTags}
+  <meta property="og:site_name" content="PocketStubs">${imageMetaTags}
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
@@ -119,7 +119,7 @@ function buildReviewHtml(data: ReviewOgData): string {
   <meta http-equiv="refresh" content="0;url=${reviewUrl}">
 </head>
 <body>
-  <p>Redirecting to CineTrak...</p>
+  <p>Redirecting to PocketStubs...</p>
   <p><a href="${reviewUrl}">Click here if not redirected</a></p>
 </body>
 </html>`;
@@ -178,7 +178,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', review.user_id)
       .single();
 
-    const reviewerName = profile?.full_name || profile?.username || 'A CineTrak user';
+    const reviewerName = profile?.full_name || profile?.username || 'A PocketStubs user';
 
     const html = buildReviewHtml({
       id: review.id,

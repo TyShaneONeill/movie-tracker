@@ -315,7 +315,7 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify({
             error: 'ai_generation_limit',
-            message: 'Free users get 1 AI art generation. Upgrade to CineTrak+ for unlimited.',
+            message: 'Free users get 1 AI art generation. Upgrade to PocketStubs+ for unlimited.',
             upgrade: true,
           }),
           { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }

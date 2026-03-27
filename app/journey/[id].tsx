@@ -333,7 +333,7 @@ export default function JourneyCardScreen() {
                   </Svg>
                   <View style={styles.upgradeNudgeText}>
                     <Text style={styles.upgradeNudgeTitle}>Free AI poster used</Text>
-                    <Text style={styles.upgradeNudgeSubtitle}>Upgrade to CineTrak+ for unlimited AI art</Text>
+                    <Text style={styles.upgradeNudgeSubtitle}>Upgrade to PocketStubs+ for unlimited AI art</Text>
                   </View>
                   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2}>
                     <Path d="M9 18l6-6-6-6" />

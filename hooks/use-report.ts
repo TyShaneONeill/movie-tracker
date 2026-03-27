@@ -32,7 +32,7 @@ export function useReport() {
       });
       Alert.alert(
         'Report Submitted',
-        "We'll review it shortly. Thank you for helping keep CineTrak safe."
+        "We'll review it shortly. Thank you for helping keep PocketStubs safe."
       );
     },
     onError: (error: Error) => {
