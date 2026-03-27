@@ -6,4 +6,4 @@ Allow: /terms
 Allow: /support
 Allow: /movie/
 
-Sitemap: https://cinetrak.app/sitemap.xml
+Sitemap: https://pocketstubs.com/sitemap.xml
