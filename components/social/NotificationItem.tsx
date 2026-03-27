@@ -130,6 +130,16 @@ function getNotificationMessage(
     }
     case 'mention':
       return `${actorName} mentioned you`;
+    case 'achievement_unlock': {
+      const icon = data.achievement_icon as string | undefined;
+      const name = data.achievement_name as string | undefined;
+      const levelDesc = data.level_description as string | undefined;
+      const level = data.level as number | undefined;
+      const prefix = level && level > 1 ? `Level ${level} — ` : '';
+      return icon && name
+        ? `${icon} You unlocked ${name}! ${prefix}${levelDesc ?? ''}`
+        : 'You unlocked a new achievement!';
+    }
     default:
       return `${actorName} interacted with you`;
   }

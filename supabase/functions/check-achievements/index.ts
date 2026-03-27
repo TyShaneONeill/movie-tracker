@@ -12,8 +12,18 @@ interface Achievement {
   criteria_value: number;
 }
 
+interface AchievementLevel {
+  id: string;
+  achievement_id: string;
+  level: number;
+  criteria_value: number;
+  description: string;
+}
+
 interface AwardedAchievement {
   achievement: Achievement;
+  level: number;
+  level_description: string;
   unlocked_at: string;
 }
 
@@ -60,23 +70,41 @@ Deno.serve(async (req: Request) => {
 
     const userId = user.id;
 
-    // 1. Fetch all achievement definitions
-    const { data: achievements, error: achError } = await supabaseAdmin
-      .from('achievements')
-      .select('*')
-      .order('sort_order');
+    // 1. Fetch all achievement definitions and their levels
+    const [achievementsResult, levelsResult] = await Promise.all([
+      supabaseAdmin.from('achievements').select('*').order('sort_order'),
+      supabaseAdmin.from('achievement_levels').select('*').order('level'),
+    ]);
 
-    if (achError) throw new Error(`Failed to fetch achievements: ${achError.message}`);
+    if (achievementsResult.error) throw new Error(`Failed to fetch achievements: ${achievementsResult.error.message}`);
+    if (levelsResult.error) throw new Error(`Failed to fetch achievement levels: ${levelsResult.error.message}`);
 
-    // 2. Fetch user's already-earned achievements
+    const achievements: Achievement[] = achievementsResult.data ?? [];
+    const allLevels: AchievementLevel[] = levelsResult.data ?? [];
+
+    // 2. Fetch user's already-earned achievement levels
     const { data: earnedRaw, error: earnedError } = await supabaseAdmin
       .from('user_achievements')
-      .select('achievement_id')
+      .select('achievement_id, level')
       .eq('user_id', userId);
 
     if (earnedError) throw new Error(`Failed to fetch earned achievements: ${earnedError.message}`);
 
-    const earnedIds = new Set((earnedRaw || []).map((e: { achievement_id: string }) => e.achievement_id));
+    // Build map: achievement_id → max earned level (0 if none)
+    const earnedMaxLevel = new Map<string, number>();
+    for (const row of (earnedRaw || [])) {
+      const current = earnedMaxLevel.get(row.achievement_id) ?? 0;
+      if (row.level > current) earnedMaxLevel.set(row.achievement_id, row.level);
+    }
+
+    // Group levels by achievement_id
+    const levelsByAchievement = new Map<string, AchievementLevel[]>();
+    for (const lvl of allLevels) {
+      if (!levelsByAchievement.has(lvl.achievement_id)) {
+        levelsByAchievement.set(lvl.achievement_id, []);
+      }
+      levelsByAchievement.get(lvl.achievement_id)!.push(lvl);
+    }
 
     // 3. Fetch user stats for criteria evaluation
     const [watchedResult, firstTakesResult, genresResult, nightOwlResult, tvResult, reviewsResult] = await Promise.all([
@@ -104,7 +132,7 @@ Deno.serve(async (req: Request) => {
         .not('watched_at', 'is', null),
       supabaseAdmin
         .from('user_tv_shows')
-        .select('status, episodes_watched, number_of_episodes, genre_ids')
+        .select('status, episodes_watched, number_of_episodes, number_of_seasons, genre_ids')
         .eq('user_id', userId),
       supabaseAdmin
         .from('reviews')
@@ -115,14 +143,12 @@ Deno.serve(async (req: Request) => {
     const watchedCount = watchedResult.count ?? 0;
     const firstTakesCount = firstTakesResult.count ?? 0;
 
-    // Count distinct genres
+    // Count distinct movie genres
     const genreSet = new Set<number>();
     if (genresResult.data) {
       for (const movie of genresResult.data) {
         if (movie.genre_ids && Array.isArray(movie.genre_ids)) {
-          for (const genreId of movie.genre_ids) {
-            genreSet.add(genreId);
-          }
+          for (const genreId of movie.genre_ids) genreSet.add(genreId);
         }
       }
     }
@@ -130,14 +156,16 @@ Deno.serve(async (req: Request) => {
 
     // TV stats
     const tvShows = tvResult.data ?? [];
-    const tvWatchedCount = tvShows.filter(s => s.status === 'watched').length;
-    const tvEpisodesCount = tvShows.reduce((sum, s) => sum + (s.episodes_watched ?? 0), 0);
-    const tvCompletedCount = tvShows.filter(s =>
+    const completedShows = tvShows.filter(s =>
       s.episodes_watched != null &&
       s.number_of_episodes != null &&
       s.number_of_episodes > 0 &&
       s.episodes_watched >= s.number_of_episodes
-    ).length;
+    );
+    const tvWatchedCount = tvShows.filter(s => s.status === 'watched').length;
+    const tvEpisodesCount = tvShows.reduce((sum, s) => sum + (s.episodes_watched ?? 0), 0);
+    const tvCompletedCount = completedShows.length;
+    const tvSeasonsCount = completedShows.reduce((sum, s) => sum + (s.number_of_seasons ?? 1), 0);
     const tvGenreSet = new Set<number>();
     for (const show of tvShows) {
       if (show.genre_ids && Array.isArray(show.genre_ids)) {
@@ -146,81 +174,85 @@ Deno.serve(async (req: Request) => {
     }
     const tvGenreCount = tvGenreSet.size;
 
-    // Reviews count (for Critic achievement)
-    const reviewsCount = reviewsResult.count ?? 0;
-
-    // Check for night owl (midnight to 5 AM)
-    let hasNightOwl = false;
+    // Night owl: count of movies logged between midnight and 5 AM
+    let nightOwlCount = 0;
     if (nightOwlResult.data) {
       for (const movie of nightOwlResult.data) {
         if (movie.watch_time) {
           const hour = parseInt(movie.watch_time.split(':')[0], 10);
-          if (hour >= 0 && hour < 5) {
-            hasNightOwl = true;
-            break;
-          }
+          if (hour >= 0 && hour < 5) { nightOwlCount++; continue; }
         }
         if (movie.watched_at) {
-          const date = new Date(movie.watched_at);
-          const hour = date.getHours();
-          if (hour >= 0 && hour < 5) {
-            hasNightOwl = true;
-            break;
-          }
+          const hour = new Date(movie.watched_at).getHours();
+          if (hour >= 0 && hour < 5) nightOwlCount++;
         }
       }
     }
 
-    // 4. Evaluate each achievement and award new ones
+    // Reviews count (for Critic achievement)
+    const reviewsCount = reviewsResult.count ?? 0;
+
+    // Helper: return the user's current stat value for a given criteria type
+    function getStatValue(criteriaType: string): number {
+      switch (criteriaType) {
+        case 'watched_count':      return watchedCount;
+        case 'first_take_count':   return firstTakesCount;
+        case 'night_owl':          return nightOwlCount;
+        case 'genre_count':        return genreCount;
+        case 'tv_watched_count':   return tvWatchedCount;
+        case 'tv_episodes_count':  return tvEpisodesCount;
+        case 'tv_completed_count': return tvCompletedCount;
+        case 'tv_seasons_count':   return tvSeasonsCount;
+        case 'tv_genre_count':     return tvGenreCount;
+        case 'review_count':       return reviewsCount;
+        default: return 0;
+      }
+    }
+
+    // 4. Evaluate every unearned level for every achievement and award qualifying ones
     const newlyAwarded: AwardedAchievement[] = [];
 
-    for (const achievement of (achievements || [])) {
-      if (earnedIds.has(achievement.id)) continue;
+    for (const achievement of achievements) {
+      const maxEarned = earnedMaxLevel.get(achievement.id) ?? 0;
+      const levels = levelsByAchievement.get(achievement.id) ?? [];
+      const statValue = getStatValue(achievement.criteria_type);
 
-      let earned = false;
+      for (const lvl of levels) {
+        if (lvl.level <= maxEarned) continue;         // already earned
+        if (statValue < lvl.criteria_value) continue; // not yet qualified
 
-      switch (achievement.criteria_type) {
-        case 'first_take_count':
-          earned = firstTakesCount >= achievement.criteria_value;
-          break;
-        case 'watched_count':
-          earned = watchedCount >= achievement.criteria_value;
-          break;
-        case 'night_owl':
-          earned = hasNightOwl;
-          break;
-        case 'genre_count':
-          earned = genreCount >= achievement.criteria_value;
-          break;
-        case 'tv_watched_count':
-          earned = tvWatchedCount >= achievement.criteria_value;
-          break;
-        case 'tv_episodes_count':
-          earned = tvEpisodesCount >= achievement.criteria_value;
-          break;
-        case 'tv_completed_count':
-          earned = tvCompletedCount >= achievement.criteria_value;
-          break;
-        case 'tv_genre_count':
-          earned = tvGenreCount >= achievement.criteria_value;
-          break;
-        case 'review_count':
-          earned = reviewsCount >= achievement.criteria_value;
-          break;
-      }
-
-      if (earned) {
         const { error: insertError } = await supabaseAdmin
           .from('user_achievements')
           .insert({
             user_id: userId,
             achievement_id: achievement.id,
+            level: lvl.level,
           });
 
         if (!insertError) {
+          const unlockedAt = new Date().toISOString();
           newlyAwarded.push({
             achievement,
-            unlocked_at: new Date().toISOString(),
+            level: lvl.level,
+            level_description: lvl.description,
+            unlocked_at: unlockedAt,
+          });
+
+          // Create a notification — fire and forget, don't fail the response
+          supabaseAdmin.from('notifications').insert({
+            user_id: userId,
+            actor_id: null,
+            type: 'achievement_unlock',
+            data: {
+              achievement_id: achievement.id,
+              achievement_name: achievement.name,
+              achievement_icon: achievement.icon,
+              level: lvl.level,
+              level_description: lvl.description,
+            },
+            read: false,
+          }).then(({ error: notifError }) => {
+            if (notifError) console.error('[check-achievements] Failed to create notification:', notifError.message);
           });
         }
       }

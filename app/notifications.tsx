@@ -174,6 +174,9 @@ export default function NotificationsScreen() {
           return;
         }
         break;
+      case 'achievement_unlock':
+        router.push('/achievements' as any);
+        return;
     }
 
     // Default: navigate to actor's profile
