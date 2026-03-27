@@ -131,7 +131,7 @@ export function useGenerateArt() {
         Toast.show({
           type: 'info',
           text1: 'Free trial used',
-          text2: 'Upgrade to CineTrak+ for unlimited AI art.',
+          text2: 'Upgrade to PocketStubs+ for unlimited AI art.',
         });
         return;
       }

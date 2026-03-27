@@ -1,6 +1,6 @@
 /**
  * UpgradePromptSheet Component
- * Bottom sheet modal that prompts free users to upgrade to CineTrak+.
+ * Bottom sheet modal that prompts free users to upgrade to PocketStubs+.
  * Follows the LoginPromptModal pattern (Modal with animationType="slide").
  *
  * Shows feature-specific messaging from the PREMIUM_FEATURES registry.

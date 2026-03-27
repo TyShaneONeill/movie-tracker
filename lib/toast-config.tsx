@@ -1,6 +1,6 @@
 /**
  * Custom Toast Configuration
- * Styled to match the CineTrak design system
+ * Styled to match the PocketStubs design system
  */
 
 import React from 'react';
