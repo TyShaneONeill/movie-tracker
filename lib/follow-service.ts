@@ -45,6 +45,12 @@ export async function followUser(
     throw new Error(error.message || 'Failed to follow user');
   }
 
+  // Fire-and-forget: create in-app + push notification for the followed user.
+  // Never await — notification failure must not affect the follow result.
+  supabase.functions.invoke('notify-follow', {
+    body: { following_id: targetUserId },
+  }).catch(() => {});
+
   return { type: 'followed' };
 }
 
