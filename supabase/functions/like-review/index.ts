@@ -171,6 +171,38 @@ Deno.serve(async (req: Request) => {
           // Log but don't fail the like operation over a notification error
           console.error('[like-review] Notification insert error:', notifError);
         }
+
+        // NEW: Send push notification alongside in-app
+        // Fire-and-forget — never fail the parent operation over a push error
+        try {
+          const actorName = (user.user_metadata?.full_name as string | undefined) ?? (user.user_metadata?.name as string | undefined) ?? 'Someone';
+          const pushTitle = 'New like';
+          const pushBody = notificationType === 'like_review'
+            ? `${actorName} liked your review of ${targetContent.movie_title}`
+            : `${actorName} liked your First Take on ${targetContent.movie_title}`;
+
+          await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({
+                user_ids: [targetContent.user_id],
+                title: pushTitle,
+                body: pushBody,
+                data: { url: `/movie/${targetContent.tmdb_id}` },
+                feature: 'social',
+                channel_id: 'social',
+              }),
+            }
+          );
+        } catch (err) {
+          console.error('[push] Failed to send push notification:', err);
+          // Never throw — push failure must not fail the parent operation
+        }
       }
     }
 
