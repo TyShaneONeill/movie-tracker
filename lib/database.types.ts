@@ -1583,6 +1583,135 @@ export type Database = {
           },
         ]
       }
+      push_tokens: {
+        Row: {
+          id: string
+          user_id: string
+          token: string
+          platform: 'ios' | 'android'
+          device_name: string | null
+          created_at: string
+          last_used_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          token: string
+          platform: 'ios' | 'android'
+          device_name?: string | null
+          created_at?: string
+          last_used_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          token?: string
+          platform?: 'ios' | 'android'
+          device_name?: string | null
+          created_at?: string
+          last_used_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          feature: string
+          enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          feature: string
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          feature?: string
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_notification_log: {
+        Row: {
+          id: string
+          user_id: string
+          token: string
+          ticket_id: string | null
+          feature: string
+          title: string
+          body: string
+          data: Json | null
+          status: 'pending' | 'sent' | 'delivered' | 'failed' | 'invalid_token'
+          error_message: string | null
+          sent_at: string | null
+          receipt_checked_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          token: string
+          ticket_id?: string | null
+          feature: string
+          title: string
+          body: string
+          data?: Json | null
+          status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'invalid_token'
+          error_message?: string | null
+          sent_at?: string | null
+          receipt_checked_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          token?: string
+          ticket_id?: string | null
+          feature?: string
+          title?: string
+          body?: string
+          data?: Json | null
+          status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'invalid_token'
+          error_message?: string | null
+          sent_at?: string | null
+          receipt_checked_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_notification_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2133,3 +2262,13 @@ export type CommentLikeInsert = Database['public']['Tables']['comment_likes']['I
 
 // Helper types for comment reports
 export type CommentReport = Database['public']['Tables']['comment_reports']['Row'];
+
+// Helper types for push tokens
+export type PushToken = Database['public']['Tables']['push_tokens']['Row'];
+export type PushTokenInsert = Database['public']['Tables']['push_tokens']['Insert'];
+
+// Helper types for push notification log
+export type PushNotificationLog = Database['public']['Tables']['push_notification_log']['Row'];
+
+// Helper types for notification preferences
+export type NotificationPreference = Database['public']['Tables']['notification_preferences']['Row'];

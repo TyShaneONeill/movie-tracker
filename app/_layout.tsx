@@ -43,6 +43,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { AchievementProvider } from '@/lib/achievement-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -178,6 +179,7 @@ function RootLayoutNav() {
   const { isLoading: guestLoading } = useGuest();
   useProtectedRoute();
   useAnalyticsIdentity();
+  usePushNotifications();
 
   // Sync the page background color on web so the area outside the max-width container matches
   useEffect(() => {
