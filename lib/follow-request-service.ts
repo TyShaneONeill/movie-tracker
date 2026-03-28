@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { FollowRequestInsert, FollowInsert } from './database.types';
+import type { FollowInsert } from './database.types';
 
 export type FollowRequestStatus = 'none' | 'pending' | 'following';
 
@@ -16,25 +16,24 @@ export interface FollowRequestWithProfile {
 }
 
 /**
- * Send a follow request to a private profile
+ * Send a follow request to a private profile.
+ * Delegates to the send-follow-request edge function which handles
+ * dedup checks, in-app notification, and push notification.
+ * requester_id is derived from auth inside the edge function.
  */
 export async function sendFollowRequest(
-  requesterId: string,
+  _requesterId: string,
   targetId: string
 ): Promise<void> {
-  const insertData: FollowRequestInsert = {
-    requester_id: requesterId,
-    target_id: targetId,
-  };
-
-  const { error } = await supabase.from('follow_requests').insert(insertData);
+  const { error } = await supabase.functions.invoke('send-follow-request', {
+    body: { target_id: targetId },
+  });
 
   if (error) {
-    // Check for unique constraint violation (already requested)
-    if (error.code === '23505') {
-      throw new Error('ALREADY_REQUESTED');
-    }
-    throw new Error(error.message || 'Failed to send follow request');
+    const message = error.message ?? '';
+    if (message.includes('ALREADY_REQUESTED')) throw new Error('ALREADY_REQUESTED');
+    if (message.includes('ALREADY_FOLLOWING')) throw new Error('ALREADY_FOLLOWING');
+    throw new Error(message || 'Failed to send follow request');
   }
 }
 
