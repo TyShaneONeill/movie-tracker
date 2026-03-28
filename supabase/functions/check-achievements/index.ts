@@ -126,10 +126,10 @@ Deno.serve(async (req: Request) => {
         .not('genre_ids', 'is', null),
       supabaseAdmin
         .from('user_movies')
-        .select('watched_at, watch_time')
+        .select('watch_time')
         .eq('user_id', userId)
         .eq('status', 'watched')
-        .not('watched_at', 'is', null),
+        .not('watch_time', 'is', null),
       supabaseAdmin
         .from('user_tv_shows')
         .select('status, episodes_watched, number_of_episodes, number_of_seasons, genre_ids')
@@ -174,18 +174,14 @@ Deno.serve(async (req: Request) => {
     }
     const tvGenreCount = tvGenreSet.size;
 
-    // Night owl: count of movies logged between midnight and 5 AM
+    // Night owl: count of movies explicitly logged between midnight and 5 AM.
+    // Only uses watch_time (user-set HH:MM) — never falls back to watched_at,
+    // which defaults to midnight UTC for date-only entries and is unreliable.
     let nightOwlCount = 0;
     if (nightOwlResult.data) {
       for (const movie of nightOwlResult.data) {
-        if (movie.watch_time) {
-          const hour = parseInt(movie.watch_time.split(':')[0], 10);
-          if (hour >= 0 && hour < 5) { nightOwlCount++; continue; }
-        }
-        if (movie.watched_at) {
-          const hour = new Date(movie.watched_at).getHours();
-          if (hour >= 0 && hour < 5) nightOwlCount++;
-        }
+        const hour = parseInt(movie.watch_time.split(':')[0], 10);
+        if (hour >= 0 && hour < 5) nightOwlCount++;
       }
     }
 
