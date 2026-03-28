@@ -18,6 +18,7 @@ import {
   StyleSheet,
   ViewStyle,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { hapticImpact } from '@/lib/haptics';
@@ -73,22 +74,27 @@ export function FollowButton({ userId, username, size = 'md', style }: FollowBut
   const handlePress = async () => {
     hapticImpact();
 
-    // If there's a pending request, show confirmation alert to cancel
+    // If there's a pending request, cancel it (with confirmation on native)
     if (isPending) {
-      Alert.alert(
-        'Cancel Follow Request?',
-        'Do you want to cancel your follow request?',
-        [
-          { text: 'Keep Request', style: 'cancel' },
-          {
-            text: 'Cancel Request',
-            style: 'destructive',
-            onPress: async () => {
-              await cancelRequest();
+      if (Platform.OS === 'web') {
+        // Alert.alert is a no-op on web — cancel directly
+        await cancelRequest();
+      } else {
+        Alert.alert(
+          'Cancel Follow Request?',
+          'Do you want to cancel your follow request?',
+          [
+            { text: 'Keep Request', style: 'cancel' },
+            {
+              text: 'Cancel Request',
+              style: 'destructive',
+              onPress: async () => {
+                await cancelRequest();
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
       return;
     }
 
