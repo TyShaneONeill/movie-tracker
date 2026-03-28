@@ -137,6 +137,9 @@ export async function addMovieToLibrary(
   movie: TMDBMovie,
   status: MovieStatus = 'watchlist'
 ): Promise<UserMovie> {
+  const now = new Date();
+  const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
   const insertData: UserMovieInsert = {
     user_id: userId,
     tmdb_id: movie.id,
@@ -148,6 +151,7 @@ export async function addMovieToLibrary(
     release_date: movie.release_date || null,
     vote_average: movie.vote_average || null,
     genre_ids: movie.genre_ids || [],
+    watch_time: status === 'watched' ? currentTime : null,
   };
 
   const { data, error } = (await (supabase
@@ -169,7 +173,12 @@ export async function updateMovieStatus(
   tmdbId: number,
   status: MovieStatus
 ): Promise<UserMovie> {
-  const updateData: UserMovieUpdate = { status };
+  const now = new Date();
+  const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const updateData: UserMovieUpdate = {
+    status,
+    ...(status === 'watched' && { watch_time: currentTime }),
+  };
 
   const { data, error } = (await (supabase
     .from('user_movies') as any)

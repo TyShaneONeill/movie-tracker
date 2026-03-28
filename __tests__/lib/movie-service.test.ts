@@ -437,11 +437,24 @@ describe('updateMovieStatus', () => {
     const result = await updateMovieStatus(USER_ID, TMDB_ID, 'watched');
 
     expect(mockFrom).toHaveBeenCalledWith('user_movies');
-    expect(chain.update).toHaveBeenCalledWith({ status: 'watched' });
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'watched',
+        watch_time: expect.stringMatching(/^\d{2}:\d{2}$/),
+      })
+    );
     expect(chain.eq).toHaveBeenCalledWith('user_id', USER_ID);
     expect(chain.eq).toHaveBeenCalledWith('tmdb_id', TMDB_ID);
     expect(chain.select).toHaveBeenCalled();
     expect(result).toEqual(updated);
+  });
+
+  it('does not set watch_time for non-watched statuses', async () => {
+    const chain = setupQueryChain({ data: updated, error: null });
+
+    await updateMovieStatus(USER_ID, TMDB_ID, 'watching');
+
+    expect(chain.update).toHaveBeenCalledWith({ status: 'watching' });
   });
 
   it('uses user_id and tmdb_id for lookup (not row id)', async () => {
