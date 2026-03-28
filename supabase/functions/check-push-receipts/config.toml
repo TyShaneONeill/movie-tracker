@@ -1,0 +1,2 @@
+[functions.check-push-receipts]
+verify_jwt = false
