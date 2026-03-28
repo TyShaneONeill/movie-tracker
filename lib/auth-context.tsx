@@ -16,6 +16,7 @@ import { supabase } from './supabase';
 import { queryClient } from './query-client';
 import { setSentryUser, captureException } from './sentry';
 import { analytics } from '@/lib/analytics';
+import { unregisterPushToken } from '@/lib/push-notification-service';
 import type { Session, User } from '@supabase/supabase-js';
 
 // Dynamically import Apple Authentication to avoid crash on web (iOS-only native module)
@@ -114,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error.message?.includes('Invalid Refresh Token');
         // Stale or corrupted session — clear state and let user sign in fresh
         console.warn('[auth] getSession failed:', error.message);
+        unregisterPushToken().catch(() => {});
         supabase.auth.signOut().catch(() => {});
         setSession(null);
         setUser(null);
@@ -144,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // surfacing a raw AuthApiError to the user.
       if (event === 'TOKEN_REFRESHED' && !newSession) {
         console.warn('[auth] Token refresh failed — signing out');
+        unregisterPushToken().catch(() => {});
         supabase.auth.signOut().catch(() => {});
         setSession(null);
         setUser(null);
@@ -210,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       userInitiatedSignOut.current = true;
+      await unregisterPushToken();
       const { error } = await supabase.auth.signOut();
       if (error) {
         captureException(error as Error, { context: 'signOut' });

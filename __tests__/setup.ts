@@ -34,4 +34,40 @@ jest.mock('@/lib/sentry', () => ({
   captureException: jest.fn(),
 }));
 
+// Mock expo-router (native module — not available in test environment)
+jest.mock('expo-router', () => ({
+  router: {
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  },
+  useSegments: jest.fn(() => []),
+  useRootNavigationState: jest.fn(() => null),
+  Stack: {
+    Screen: jest.fn(),
+  },
+}));
+
+// Mock expo-notifications (native module — not available in test environment)
+jest.mock('expo-notifications', () => ({
+  getPermissionsAsync: jest.fn(),
+  requestPermissionsAsync: jest.fn(),
+  getExpoPushTokenAsync: jest.fn(),
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  AndroidImportance: {
+    HIGH: 4,
+    DEFAULT: 3,
+    LOW: 2,
+  },
+}));
+
+// Mock expo-device (native module — not available in test environment)
+jest.mock('expo-device', () => ({
+  isDevice: false,
+  modelName: null,
+}));
+
 export {};

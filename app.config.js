@@ -70,6 +70,7 @@ export default {
       "expo-tracking-transparency",
       "expo-secure-store",
       "expo-localization",
+      "expo-notifications",
       [
         "expo-image-picker",
         {

@@ -9,6 +9,7 @@ import {
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { unregisterPushToken } from '@/lib/push-notification-service';
 
 const GUEST_MODE_KEY = 'pocketstubs_is_guest';
 
@@ -67,6 +68,7 @@ export function GuestProvider({ children }: { children: ReactNode }) {
     try {
       // Clear any stale auth session before entering guest mode
       // This prevents "Invalid Refresh Token" errors from leftover sessions
+      await unregisterPushToken();
       await supabase.auth.signOut();
 
       await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
