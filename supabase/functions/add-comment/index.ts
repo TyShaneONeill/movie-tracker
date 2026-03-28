@@ -210,6 +210,38 @@ Deno.serve(async (req: Request) => {
         // Log but don't fail the comment operation over a notification error
         console.error('[add-comment] Notification insert error:', notifError);
       }
+
+      // NEW: Send push notification alongside in-app
+      // Fire-and-forget — never fail the parent operation over a push error
+      try {
+        const actorName = profile?.full_name ?? profile?.username ?? 'Someone';
+        const pushTitle = 'New comment';
+        const pushBody = notificationType === 'comment'
+          ? `${actorName} commented on your review of ${targetContent.movie_title}`
+          : `${actorName} commented on your First Take on ${targetContent.movie_title}`;
+
+        await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              user_ids: [targetContent.user_id],
+              title: pushTitle,
+              body: pushBody,
+              data: { url: `/movie/${targetContent.tmdb_id}` },
+              feature: 'social',
+              channel_id: 'social',
+            }),
+          }
+        );
+      } catch (err) {
+        console.error('[push] Failed to send push notification:', err);
+        // Never throw — push failure must not fail the parent operation
+      }
     }
 
     // 2. If replying, also notify the parent comment author (if different from target author and self)
@@ -231,6 +263,34 @@ Deno.serve(async (req: Request) => {
 
       if (replyNotifError) {
         console.error('[add-comment] Reply notification insert error:', replyNotifError);
+      }
+
+      // NEW: Send push notification alongside in-app
+      // Fire-and-forget — never fail the parent operation over a push error
+      try {
+        const actorName = profile?.full_name ?? profile?.username ?? 'Someone';
+
+        await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({
+              user_ids: [parentComment.user_id],
+              title: 'New reply',
+              body: `${actorName} replied to your comment`,
+              data: { url: '/notifications' },
+              feature: 'social',
+              channel_id: 'social',
+            }),
+          }
+        );
+      } catch (err) {
+        console.error('[push] Failed to send push notification:', err);
+        // Never throw — push failure must not fail the parent operation
       }
     }
 
