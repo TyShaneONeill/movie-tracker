@@ -47,9 +47,16 @@ export async function followUser(
 
   // Fire-and-forget: create in-app + push notification for the followed user.
   // Never await — notification failure must not affect the follow result.
-  supabase.functions.invoke('notify-follow', {
-    body: { following_id: targetUserId },
-  }).catch(() => {});
+  // Explicitly pass the session token to avoid the web race condition where
+  // supabase.functions.invoke sends the anon key instead of the user JWT.
+  supabase.auth.getSession().then(({ data: { session } }) =>
+    supabase.functions.invoke('notify-follow', {
+      body: { following_id: targetUserId },
+      headers: session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {},
+    })
+  ).catch(() => {});
 
   return { type: 'followed' };
 }
