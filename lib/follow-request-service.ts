@@ -25,8 +25,17 @@ export async function sendFollowRequest(
   _requesterId: string,
   targetId: string
 ): Promise<void> {
+  // Explicitly fetch the session token and pass it in the Authorization header.
+  // supabase.functions.invoke relies on an onAuthStateChange listener to update
+  // its internal token, but on web the initial session-restore-from-localStorage
+  // fires before the listener is registered, so the functions client falls back
+  // to the anon key → 401 inside the edge function.
+  const { data: { session } } = await supabase.auth.getSession();
   const { error } = await supabase.functions.invoke('send-follow-request', {
     body: { target_id: targetId },
+    headers: session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : {},
   });
 
   if (error) {
