@@ -14,6 +14,10 @@ interface SendFollowRequestBody {
 
 // ============================================================================
 // Main Handler
+//
+// Notifications-only — the follow_request row is inserted client-side.
+// This function creates the in-app notification and sends the push.
+// Called fire-and-forget; a 401 (web race condition) is silently dropped.
 // ============================================================================
 
 Deno.serve(async (req: Request) => {
@@ -29,7 +33,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Supabase configuration missing');
     }
 
-    // Authenticate user
+    // Authenticate user (the requester)
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
@@ -55,7 +59,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Rate limit: 60 follow requests per hour
+    // Rate limit: 60 notifications per hour (mirrors the insert rate)
     const rateLimited = await enforceRateLimit(user.id, 'send_follow_request', 60, 3600, req);
     if (rateLimited) return rateLimited;
 
@@ -69,62 +73,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Cannot follow yourself
+    // Cannot notify yourself
     if (user.id === target_id) {
       return new Response(
-        JSON.stringify({ error: 'Cannot send a follow request to yourself' }),
-        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Check if already following
-    const { data: existingFollow } = await adminClient
-      .from('follows')
-      .select('follower_id')
-      .eq('follower_id', user.id)
-      .eq('following_id', target_id)
-      .maybeSingle();
-
-    if (existingFollow) {
-      return new Response(
-        JSON.stringify({ error: 'ALREADY_FOLLOWING' }),
-        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if already requested
-    const { data: existingRequest } = await adminClient
-      .from('follow_requests')
-      .select('id')
-      .eq('requester_id', user.id)
-      .eq('target_id', target_id)
-      .maybeSingle();
-
-    if (existingRequest) {
-      return new Response(
-        JSON.stringify({ error: 'ALREADY_REQUESTED' }),
-        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Insert follow request
-    const { error: insertError } = await adminClient
-      .from('follow_requests')
-      .insert({ requester_id: user.id, target_id });
-
-    if (insertError) {
-      // Unique constraint — race condition, treat as already requested
-      if (insertError.code === '23505') {
-        return new Response(
-          JSON.stringify({ error: 'ALREADY_REQUESTED' }),
-          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
-      console.error('[send-follow-request] Insert error:', insertError);
-      throw new Error('Failed to send follow request');
-    }
 
     // Fetch requester's profile for notification body
     const { data: profile } = await adminClient
@@ -147,7 +104,6 @@ Deno.serve(async (req: Request) => {
       });
 
     if (notifError) {
-      // Log but don't fail the follow request over a notification error
       console.error('[send-follow-request] Notification insert error:', notifError);
     }
 
@@ -173,11 +129,10 @@ Deno.serve(async (req: Request) => {
       );
     } catch (err) {
       console.error('[push] Failed to send push notification:', err);
-      // Never throw — push failure must not fail the parent operation
     }
 
     return new Response(
-      JSON.stringify({ success: true, status: 'requested' }),
+      JSON.stringify({ success: true }),
       {
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         status: 200,

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { FollowInsert } from './database.types';
+import type { FollowInsert, FollowRequestInsert } from './database.types';
 
 export type FollowRequestStatus = 'none' | 'pending' | 'following';
 
@@ -17,33 +17,38 @@ export interface FollowRequestWithProfile {
 
 /**
  * Send a follow request to a private profile.
- * Delegates to the send-follow-request edge function which handles
- * dedup checks, in-app notification, and push notification.
- * requester_id is derived from auth inside the edge function.
+ * Inserts directly via the client (RLS ensures requester_id = auth.uid()).
+ * Notifications are sent fire-and-forget via the send-follow-request edge
+ * function, which is notifications-only. A 401 from the edge function on
+ * web is silently dropped — the insert already succeeded.
  */
 export async function sendFollowRequest(
-  _requesterId: string,
+  requesterId: string,
   targetId: string
 ): Promise<void> {
-  // Explicitly fetch the session token and pass it in the Authorization header.
-  // supabase.functions.invoke relies on an onAuthStateChange listener to update
-  // its internal token, but on web the initial session-restore-from-localStorage
-  // fires before the listener is registered, so the functions client falls back
-  // to the anon key → 401 inside the edge function.
-  const { data: { session } } = await supabase.auth.getSession();
-  const { error } = await supabase.functions.invoke('send-follow-request', {
-    body: { target_id: targetId },
-    headers: session?.access_token
-      ? { Authorization: `Bearer ${session.access_token}` }
-      : {},
-  });
+  const insertData: FollowRequestInsert = {
+    requester_id: requesterId,
+    target_id: targetId,
+  };
+
+  const { error } = await supabase.from('follow_requests').insert(insertData);
 
   if (error) {
-    const message = error.message ?? '';
-    if (message.includes('ALREADY_REQUESTED')) throw new Error('ALREADY_REQUESTED');
-    if (message.includes('ALREADY_FOLLOWING')) throw new Error('ALREADY_FOLLOWING');
-    throw new Error(message || 'Failed to send follow request');
+    if (error.code === '23505') throw new Error('ALREADY_REQUESTED');
+    throw new Error(error.message || 'Failed to send follow request');
   }
+
+  // Fire-and-forget: notify the target via in-app + push.
+  // Use explicit getSession() to bypass the Supabase JS race condition on web
+  // where functions.invoke may send the anon key instead of the user JWT.
+  supabase.auth.getSession().then(({ data: { session } }) =>
+    supabase.functions.invoke('send-follow-request', {
+      body: { target_id: targetId },
+      headers: session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {},
+    })
+  ).catch(() => {});
 }
 
 /**
