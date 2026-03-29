@@ -17,7 +17,7 @@ export async function initAnalytics(apiKey: string, host: string) {
     try {
       const posthog = await import('posthog-js');
       posthog.default.init(apiKey, {
-        api_host: '/ingest',
+        api_host: 'https://pocketstubs.com/ingest',
         ui_host: host,
         capture_pageview: true,
         capture_pageleave: true,
