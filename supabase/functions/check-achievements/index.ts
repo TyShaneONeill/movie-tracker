@@ -250,6 +250,28 @@ Deno.serve(async (req: Request) => {
           }).then(({ error: notifError }) => {
             if (notifError) console.error('[check-achievements] Failed to create notification:', notifError.message);
           });
+
+          // Send push notification — fire and forget
+          fetch(
+            `${SUPABASE_URL}/functions/v1/send-push-notification`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                user_ids: [userId],
+                title: 'Achievement unlocked',
+                body: `You unlocked ${achievement.name}`,
+                data: { url: '/achievements' },
+                feature: 'social',
+                channel_id: 'social',
+              }),
+            }
+          ).catch((err) => {
+            console.error('[check-achievements] Failed to send push notification:', err);
+          });
         }
       }
     }
