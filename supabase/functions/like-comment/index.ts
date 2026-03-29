@@ -177,6 +177,31 @@ Deno.serve(async (req: Request) => {
           // Log but don't fail the like operation over a notification error
           console.error('[like-comment] Notification insert error:', notifError);
         }
+
+        // Send push notification (fire-and-forget)
+        try {
+          const actorName = (user.user_metadata?.full_name as string | undefined) ?? (user.user_metadata?.name as string | undefined) ?? 'Someone';
+          await fetch(
+            `${SUPABASE_URL}/functions/v1/send-push-notification`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                user_ids: [comment.user_id],
+                title: 'New like',
+                body: `${actorName} liked your comment on ${movieTitle}`,
+                data: { url: `/movie/${tmdbId}` },
+                feature: 'social',
+                channel_id: 'social',
+              }),
+            }
+          );
+        } catch (err) {
+          console.error('[like-comment] Failed to send push notification:', err);
+        }
       }
     }
 
