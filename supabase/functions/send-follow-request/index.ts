@@ -92,6 +92,16 @@ Deno.serve(async (req: Request) => {
 
     const requesterName = profile?.full_name ?? profile?.username ?? 'Someone';
 
+    // Look up the follow_request row created by the client
+    const { data: followRequest } = await adminClient
+      .from('follow_requests')
+      .select('id')
+      .eq('requester_id', user.id)
+      .eq('target_id', target_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
     // Create in-app notification for the target
     const { error: notifError } = await adminClient
       .from('notifications')
@@ -99,7 +109,10 @@ Deno.serve(async (req: Request) => {
         user_id: target_id,
         actor_id: user.id,
         type: 'follow_request',
-        data: { requester_id: user.id },
+        data: {
+          requester_id: user.id,
+          follow_request_id: followRequest?.id ?? null,
+        },
         read: false,
       });
 
