@@ -28,6 +28,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { useAuth } from '@/hooks/use-auth';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useFollowRequests } from '@/hooks/use-follow-requests';
 import { NotificationItem } from '@/components/social/NotificationItem';
@@ -193,6 +194,7 @@ export default function NotificationsScreen() {
 
   // Follow request handling
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { acceptRequest, declineRequest, isAccepting, isDeclining } = useFollowRequests();
 
   // Track which notification is currently being acted upon
@@ -200,7 +202,20 @@ export default function NotificationsScreen() {
 
   const handleAcceptFollowRequest = useCallback(async (notification: Notification) => {
     const data = (notification.data ?? {}) as Record<string, unknown>;
-    const followRequestId = data.follow_request_id as string | undefined;
+    let followRequestId = data.follow_request_id as string | undefined;
+
+    // Fallback for older notifications that only stored requester_id:
+    // look up the pending follow_request row by requester (actor_id)
+    if (!followRequestId && notification.actor_id && user) {
+      const { data: req } = await supabase
+        .from('follow_requests')
+        .select('id')
+        .eq('requester_id', notification.actor_id)
+        .eq('target_id', user.id)
+        .maybeSingle();
+      followRequestId = req?.id;
+    }
+
     if (!followRequestId) return;
 
     const actorProfile = notification.actor_id
@@ -216,11 +231,24 @@ export default function NotificationsScreen() {
     } finally {
       setActiveRequestNotificationId(null);
     }
-  }, [acceptRequest, actorProfiles, queryClient]);
+  }, [acceptRequest, actorProfiles, queryClient, user]);
 
   const handleDeclineFollowRequest = useCallback(async (notification: Notification) => {
     const data = (notification.data ?? {}) as Record<string, unknown>;
-    const followRequestId = data.follow_request_id as string | undefined;
+    let followRequestId = data.follow_request_id as string | undefined;
+
+    // Fallback for older notifications that only stored requester_id:
+    // look up the pending follow_request row by requester (actor_id)
+    if (!followRequestId && notification.actor_id && user) {
+      const { data: req } = await supabase
+        .from('follow_requests')
+        .select('id')
+        .eq('requester_id', notification.actor_id)
+        .eq('target_id', user.id)
+        .maybeSingle();
+      followRequestId = req?.id;
+    }
+
     if (!followRequestId) return;
 
     const actorProfile = notification.actor_id
@@ -236,7 +264,7 @@ export default function NotificationsScreen() {
     } finally {
       setActiveRequestNotificationId(null);
     }
-  }, [declineRequest, actorProfiles, queryClient]);
+  }, [declineRequest, actorProfiles, queryClient, user]);
 
   const renderNotification = ({ item }: { item: Notification }) => {
     const actorProfile = item.actor_id
