@@ -25,6 +25,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import Toast from 'react-native-toast-message';
+
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -216,7 +218,19 @@ export default function NotificationsScreen() {
       followRequestId = req?.id;
     }
 
-    if (!followRequestId) return;
+    if (!followRequestId) {
+      // Stale notification — the request was cancelled before we could act on it.
+      await supabase.from('notifications').delete().eq('id', notification.id);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+      Toast.show({
+        type: 'info',
+        text1: 'Request no longer pending',
+        text2: 'This follow request was cancelled.',
+        visibilityTime: 3000,
+      });
+      return;
+    }
 
     const actorProfile = notification.actor_id
       ? actorProfiles?.get(notification.actor_id)
@@ -225,7 +239,8 @@ export default function NotificationsScreen() {
     setActiveRequestNotificationId(notification.id);
     try {
       await acceptRequest(followRequestId, actorProfile?.username);
-      // Invalidate notifications to refresh the list
+      // Remove the follow_request notification now that it's been acted on
+      await supabase.from('notifications').delete().eq('id', notification.id);
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
     } finally {
@@ -249,7 +264,13 @@ export default function NotificationsScreen() {
       followRequestId = req?.id;
     }
 
-    if (!followRequestId) return;
+    if (!followRequestId) {
+      // Stale notification — the request was already cancelled. Remove it silently.
+      await supabase.from('notifications').delete().eq('id', notification.id);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+      return;
+    }
 
     const actorProfile = notification.actor_id
       ? actorProfiles?.get(notification.actor_id)
@@ -258,7 +279,8 @@ export default function NotificationsScreen() {
     setActiveRequestNotificationId(notification.id);
     try {
       await declineRequest(followRequestId, actorProfile?.username);
-      // Invalidate notifications to refresh the list
+      // Remove the follow_request notification now that it's been acted on
+      await supabase.from('notifications').delete().eq('id', notification.id);
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
     } finally {
