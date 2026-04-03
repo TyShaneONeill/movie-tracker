@@ -142,6 +142,20 @@ export async function cancelFollowRequest(
   if (error) {
     throw new Error(error.message || 'Failed to cancel follow request');
   }
+
+  // Clean up the follow_request notification from the target's inbox.
+  // Uses the actor_can_delete_own_follow_request_notif RLS policy.
+  // Never throws — notification cleanup must not fail the cancel operation.
+  try {
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('actor_id', requesterId)
+      .eq('user_id', targetId)
+      .eq('type', 'follow_request');
+  } catch (err) {
+    console.error('[cancelFollowRequest] Failed to clean up notification:', err);
+  }
 }
 
 /**
