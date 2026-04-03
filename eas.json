@@ -18,7 +18,8 @@
       "ios": {
         "simulator": true
       },
-      "distribution": "internal"
+      "distribution": "internal",
+      "expoDoctorCheck": false
     }
   },
   "submit": {
