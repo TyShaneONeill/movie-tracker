@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import {
@@ -8,7 +9,7 @@ import {
   markSeasonWatched,
   unmarkSeasonWatched,
 } from '@/lib/tv-show-service';
-import type { UserEpisodeWatch } from '@/lib/database.types';
+import type { UserEpisodeWatch, UserTvShow } from '@/lib/database.types';
 import type { TMDBEpisode } from '@/lib/tmdb.types';
 
 interface UseEpisodeActionsResult {
@@ -34,7 +35,8 @@ interface UseEpisodeActionsResult {
 export function useEpisodeActions(
   userTvShowId: string,
   tmdbShowId: number,
-  seasonNumber: number
+  seasonNumber: number,
+  options?: { onAllWatched?: () => void }
 ): UseEpisodeActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -59,7 +61,20 @@ export function useEpisodeActions(
       if (!user) throw new Error('Not authenticated');
       return markEpisodeWatched(user.id, userTvShowId, tmdbShowId, episode);
     },
-    onSuccess: invalidateRelated,
+    onSuccess: () => {
+      invalidateRelated();
+      if (options?.onAllWatched) {
+        const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
+        if (cachedShow && cachedShow.status !== 'watched') {
+          const total = cachedShow.number_of_episodes ?? 0;
+          const watched = cachedShow.episodes_watched ?? 0;
+          if (total > 0 && watched + 1 >= total) {
+            Toast.show({ type: 'success', text1: '🎉 Series complete!', text2: `${cachedShow.name} has been marked as Watched.`, visibilityTime: 4000 });
+            options.onAllWatched();
+          }
+        }
+      }
+    },
   });
 
   const unmarkWatchedMutation = useMutation({
@@ -75,7 +90,24 @@ export function useEpisodeActions(
       if (!user) throw new Error('Not authenticated');
       return markSeasonWatched(user.id, userTvShowId, tmdbShowId, episodes);
     },
-    onSuccess: invalidateRelated,
+    onSuccess: (_data, episodes) => {
+      invalidateRelated();
+      if (options?.onAllWatched) {
+        const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
+        if (cachedShow && cachedShow.status !== 'watched') {
+          const total = cachedShow.number_of_episodes ?? 0;
+          const watched = cachedShow.episodes_watched ?? 0;
+          const alreadyInSeason = watchedEpisodes.filter(w =>
+            episodes.some(e => e.episode_number === w.episode_number)
+          ).length;
+          const newlyAdded = episodes.length - alreadyInSeason;
+          if (total > 0 && newlyAdded > 0 && watched + newlyAdded >= total) {
+            Toast.show({ type: 'success', text1: '🎉 Series complete!', text2: `${cachedShow.name} has been marked as Watched.`, visibilityTime: 4000 });
+            options.onAllWatched();
+          }
+        }
+      }
+    },
   });
 
   const unmarkAllWatchedMutation = useMutation({

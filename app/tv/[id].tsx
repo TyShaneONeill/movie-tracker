@@ -90,6 +90,7 @@ function SeasonAccordionItem({
   isExpanded,
   onToggle,
   isSaved,
+  onAllWatched,
 }: {
   season: TMDBSeason;
   showId: number;
@@ -97,6 +98,7 @@ function SeasonAccordionItem({
   isExpanded: boolean;
   onToggle: () => void;
   isSaved: boolean;
+  onAllWatched?: () => void;
 }) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -117,7 +119,7 @@ function SeasonAccordionItem({
     unmarkAllWatched,
     isUnmarkingAllWatched,
     allWatched,
-  } = useEpisodeActions(userTvShowId, showId, season.season_number);
+  } = useEpisodeActions(userTvShowId, showId, season.season_number, { onAllWatched });
 
   const isAllWatched = allWatched(episodes.length);
 
@@ -460,11 +462,11 @@ export default function TvShowDetailScreen() {
           // Remove from library - show confirmation if user has First Take
           if (hasFirstTake) {
             Alert.alert(
-              'Remove Show?',
-              'This will also delete your First Take for this show.',
+              'Remove Watched status?',
+              'This will affect your viewing statistics, watch time totals, and any achievements earned for completing this series. Your episode history will be preserved.\n\nAny First Takes you\'ve written will also be removed.',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Remove Both', style: 'destructive', onPress: performRemoval },
+                { text: 'Remove', style: 'destructive', onPress: performRemoval },
               ]
             );
             return;
@@ -514,6 +516,12 @@ export default function TvShowDetailScreen() {
         Alert.alert('Error', 'Failed to update show status. Please try again.');
       }
     }, 'Sign in to track TV shows');
+  };
+
+  const handleAutoPromoteWatched = () => {
+    if (currentStatus !== 'watched') {
+      changeStatus('watched');
+    }
   };
 
   const handleFirstTakeSubmit = async (data: {
@@ -795,6 +803,7 @@ export default function TvShowDetailScreen() {
                       expandedSeason === season.season_number ? null : season.season_number
                     )}
                     isSaved={isSaved}
+                    onAllWatched={handleAutoPromoteWatched}
                   />
                 ))}
               {/* Specials season at the bottom if it exists */}
@@ -809,6 +818,7 @@ export default function TvShowDetailScreen() {
                     expandedSeason === season.season_number ? null : season.season_number
                   )}
                   isSaved={isSaved}
+                  onAllWatched={handleAutoPromoteWatched}
                 />
               ))}
             </>
