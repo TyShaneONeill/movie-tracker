@@ -11,7 +11,7 @@
  * - Barcode footer with ticket ID
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -48,6 +48,7 @@ import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { usePremium } from '@/hooks/use-premium';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
+import { analytics } from '@/lib/analytics';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -102,6 +103,15 @@ export default function JourneyCardScreen() {
   const { data: journeyData, isLoading, isError } = useJourney(id);
   const journey = journeyData;
   const firstTake = journeyData?.firstTake;
+
+  // Track journey view
+  const hasTrackedJourneyView = useRef(false);
+  useEffect(() => {
+    if (journey && !hasTrackedJourneyView.current) {
+      hasTrackedJourneyView.current = true;
+      analytics.track('journey:view', { journey_id: journey.id, tmdb_id: journey.tmdb_id });
+    }
+  }, [journey]);
 
   // AI art generation
   const { tier } = usePremium();

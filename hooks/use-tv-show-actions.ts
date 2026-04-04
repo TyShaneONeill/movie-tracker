@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { analytics } from '@/lib/analytics';
 import {
   getTvShowByTmdbId,
   addTvShowToLibrary,
@@ -113,6 +114,13 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
         triggerAchievementCheck();
       }
     },
+    onSuccess: (_data, variables) => {
+      analytics.track('tv:status_change', {
+        tmdb_id: variables.show.id,
+        status: variables.status,
+        name: variables.show.name,
+      });
+    },
   });
 
   // Mutation to remove show from library (optimistic)
@@ -185,6 +193,14 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
       if (newStatus === 'watched') {
         triggerAchievementCheck();
       }
+    },
+    onSuccess: (_data, newStatus) => {
+      const currentShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbId]);
+      analytics.track('tv:status_change', {
+        tmdb_id: tmdbId,
+        status: newStatus,
+        name: currentShow?.name ?? undefined,
+      });
     },
   });
 

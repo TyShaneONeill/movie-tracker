@@ -19,7 +19,7 @@
  * - First Take modal prompt when marking as Watched
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -66,6 +66,7 @@ import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/
 import type { TvShowStatus } from '@/lib/database.types';
 import { TvWatchedSelectionModal } from '@/components/tv/tv-watched-selection-modal';
 import type { WatchedSelectionResult } from '@/components/tv/tv-watched-selection-modal';
+import { analytics } from '@/lib/analytics';
 
 // Helper to get status badge color
 function getStatusColor(status: string): string {
@@ -276,6 +277,15 @@ export default function TvShowDetailScreen() {
   const showGenres = show?.genres?.map(g => g.name) ?? [];
   const backdropUrl = getTMDBImageUrl(show?.backdrop_path ?? null, 'original');
   const posterUrl = getTMDBImageUrl(show?.poster_path ?? null, 'w342');
+
+  // Track TV show detail view
+  const hasTrackedView = useRef(false);
+  useEffect(() => {
+    if (show && !hasTrackedView.current) {
+      hasTrackedView.current = true;
+      analytics.track('tv:view', { tmdb_id: show.id, name: show.name });
+    }
+  }, [show]);
 
   // Determine user's country for watch providers
   const countryCode = Localization.getLocales()[0]?.regionCode || 'US';

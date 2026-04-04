@@ -3,6 +3,7 @@ import Toast from 'react-native-toast-message';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { MUTATION_KEYS } from '@/lib/query-client';
+import { analytics } from '@/lib/analytics';
 
 interface GenerateArtRequest {
   journeyId: string;
@@ -110,7 +111,8 @@ export function useGenerateArt() {
       const accessToken = sessionData.session.access_token;
       return generateJourneyArt(request, accessToken);
     },
-    onMutate: () => {
+    onMutate: (variables) => {
+      analytics.track('generate:art:attempt', { journey_id: variables.journeyId });
       // Show "generating" toast immediately when mutation starts
       Toast.show({
         type: 'info',
@@ -120,13 +122,15 @@ export function useGenerateArt() {
       });
     },
     onSuccess: (data, variables) => {
+      analytics.track('generate:art:success', { journey_id: variables.journeyId, rarity: data.rarity });
       // Local invalidation for immediate UI update (in addition to global toast)
       queryClient.invalidateQueries({ queryKey: ['journey', variables.journeyId] });
       queryClient.invalidateQueries({ queryKey: ['journeysByMovie'] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
       queryClient.invalidateQueries({ queryKey: ['ai-trial-used'] });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      analytics.track('generate:art:fail', { journey_id: variables.journeyId, error: error.message });
       if (error.message === 'ai_generation_limit') {
         Toast.show({
           type: 'info',
