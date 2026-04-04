@@ -291,13 +291,22 @@ export default function AnalyticsScreen() {
                 </Pressable>
               ))}
               {otherPercentage > 0 && (
-                <View style={styles.legendItem}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.legendItem,
+                    pressed && { backgroundColor: colors.backgroundSecondary },
+                  ]}
+                  onPress={() => {
+                    const otherIds = stats.genres.slice(5).map((g) => g.genreId).join(',');
+                    router.push(`/analytics/other-genres?genreIds=${otherIds}`);
+                  }}
+                >
                   <View style={[styles.legendColor, { backgroundColor: colors.textTertiary }]} />
                   <Text style={[Typography.body.sm, { color: colors.text, flex: 1 }]}>
                     Other ({otherPercentage}%)
                   </Text>
                   <Text style={{ color: colors.textTertiary, fontSize: 14, lineHeight: 18 }}>›</Text>
-                </View>
+                </Pressable>
               )}
             </View>
           </View>

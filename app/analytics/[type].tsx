@@ -58,6 +58,10 @@ const SCREEN_CONFIGS: Record<AnalyticsDetailType, ScreenConfig> = {
     title: '',
     getSubtitle: (n) => `${n} watched`,
   },
+  'other-genres': {
+    title: 'Other Genres',
+    getSubtitle: (n) => `${n} watched`,
+  },
 };
 
 function UpgradePaywall({ colors }: { colors: typeof Colors.dark }) {
@@ -100,15 +104,17 @@ const VALID_TYPES = new Set<AnalyticsDetailType>([
   'ratings',
   'monthly',
   'genre',
+  'other-genres',
 ]);
 
 export default function AnalyticsDetailScreen() {
-  const { type, month, label, genreId, genreName } = useLocalSearchParams<{
+  const { type, month, label, genreId, genreName, genreIds } = useLocalSearchParams<{
     type: string;
     month?: string;
     label?: string;
     genreId?: string;
     genreName?: string;
+    genreIds?: string;
   }>();
 
   const { effectiveTheme } = useTheme();
@@ -125,6 +131,8 @@ export default function AnalyticsDetailScreen() {
       ? { month }
       : detailType === 'genre' && genreId
       ? { genreId: parseInt(genreId, 10) }
+      : detailType === 'other-genres' && genreIds
+      ? { otherGenreIds: genreIds.split(',').map(Number).filter(Boolean) }
       : undefined;
 
   const {

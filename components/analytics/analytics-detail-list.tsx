@@ -8,7 +8,7 @@ import { AnalyticsDetailItemRow } from './analytics-detail-item';
 import type { AnalyticsDetailItem, AnalyticsDetailType } from '@/lib/analytics-detail-service';
 
 // Mixed-type lists show the Movie/TV badge
-const MIXED_TYPES: AnalyticsDetailType[] = ['monthly', 'genre'];
+const MIXED_TYPES: AnalyticsDetailType[] = ['monthly', 'genre', 'other-genres'];
 
 const EMPTY_MESSAGES: Record<AnalyticsDetailType, string> = {
   movies: 'No movies watched yet. Mark some as watched to see them here.',
@@ -19,6 +19,7 @@ const EMPTY_MESSAGES: Record<AnalyticsDetailType, string> = {
   ratings: 'No ratings yet. Rate movies and shows via First Takes.',
   monthly: 'Nothing watched this month.',
   genre: 'No content watched in this genre yet.',
+  'other-genres': 'No content watched outside your top genres yet.',
 };
 
 interface SkeletonItemProps {

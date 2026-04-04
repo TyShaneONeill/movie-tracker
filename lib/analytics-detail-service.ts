@@ -12,11 +12,13 @@ export type AnalyticsDetailType =
   | 'first-takes'
   | 'ratings'
   | 'monthly'
-  | 'genre';
+  | 'genre'
+  | 'other-genres';
 
 export interface AnalyticsDetailFilter {
-  month?: string;    // YYYY-MM
+  month?: string;       // YYYY-MM
   genreId?: number;
+  otherGenreIds?: number[]; // genre IDs beyond the top 5
 }
 
 export interface AnalyticsDetailItem {
@@ -337,6 +339,67 @@ async function fetchGenreDetail(
   return sortByDateDesc(withDates);
 }
 
+// Fetch content from any of the "other" genres (beyond top 5).
+// Fetches all watched content then filters client-side for items that contain
+// at least one of the given genre IDs — avoids needing complex OR queries.
+async function fetchOtherGenresDetail(
+  userId: string,
+  genreIds: number[]
+): Promise<AnalyticsDetailItem[]> {
+  if (genreIds.length === 0) return [];
+
+  const genreSet = new Set(genreIds);
+
+  const [moviesResult, tvResult] = await Promise.all([
+    supabase
+      .from('user_movies')
+      .select('id, tmdb_id, title, poster_path, release_date, watched_at, vote_average, genre_ids')
+      .eq('user_id', userId)
+      .eq('status', 'watched'),
+    supabase
+      .from('user_tv_shows')
+      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, vote_average, genre_ids')
+      .eq('user_id', userId)
+      .eq('status', 'watched'),
+  ]);
+
+  if (moviesResult.error) throw new Error(moviesResult.error.message);
+  if (tvResult.error) throw new Error(tvResult.error.message);
+
+  const withDates: Array<AnalyticsDetailItem & { _sortDate: string }> = [
+    ...(moviesResult.data ?? [])
+      .filter((row) => (row.genre_ids ?? []).some((id) => genreSet.has(id)))
+      .map((row) => ({
+        _sortDate: row.watched_at ?? '',
+        id: `movie-${row.id}`,
+        tmdbId: row.tmdb_id,
+        title: row.title,
+        posterPath: row.poster_path,
+        year: extractYear(row.release_date),
+        mediaType: 'movie' as const,
+        primaryMetric: row.watched_at ? formatDate(row.watched_at) : 'Date unknown',
+        secondaryMetric:
+          row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+      })),
+    ...(tvResult.data ?? [])
+      .filter((row) => (row.genre_ids ?? []).some((id) => genreSet.has(id)))
+      .map((row) => ({
+        _sortDate: row.finished_at ?? '',
+        id: `tv-${row.id}`,
+        tmdbId: row.tmdb_id,
+        title: row.name,
+        posterPath: row.poster_path,
+        year: extractYear(row.first_air_date),
+        mediaType: 'tv' as const,
+        primaryMetric: row.finished_at ? formatDate(row.finished_at) : 'Date unknown',
+        secondaryMetric:
+          row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+      })),
+  ];
+
+  return sortByDateDesc(withDates);
+}
+
 // ============================================================================
 // Main Dispatcher
 // ============================================================================
@@ -368,6 +431,11 @@ export async function fetchAnalyticsDetail(
       const genreId = filter?.genreId;
       if (genreId == null) throw new Error('genreId filter required for genre type');
       return fetchGenreDetail(userId, genreId);
+    }
+    case 'other-genres': {
+      const otherGenreIds = filter?.otherGenreIds;
+      if (!otherGenreIds?.length) throw new Error('otherGenreIds filter required for other-genres type');
+      return fetchOtherGenresDetail(userId, otherGenreIds);
     }
     default: {
       const _exhausted: never = type;
