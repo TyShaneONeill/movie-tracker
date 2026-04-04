@@ -166,13 +166,16 @@ function ModalSeasonRow({
     enabled: isVisible,
   });
 
-  // Report episodes to parent once loaded
+  // Report episodes to parent whenever data is available or the modal reopens.
+  // isVisible is included so that if the modal is dismissed and reopened while
+  // React Query returns the same cached array (same reference → effect doesn't
+  // re-fire on episodes alone), the parent still gets the data it needs.
   useEffect(() => {
     if (episodes.length > 0) {
       onEpisodesLoaded(seasonNumber, episodes);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episodes]);
+  }, [episodes, isVisible]);
 
   const allEpisodeNumbers = useMemo(
     () => episodes.map((ep) => ep.episode_number),
@@ -329,12 +332,14 @@ export function TvWatchedSelectionModal({
   const [expandedSeasons, setExpandedSeasons] = useState<number[]>([]);
   const [seasonEpisodeData, setSeasonEpisodeData] = useState<Record<number, TMDBEpisode[]>>({});
 
-  // Reset state when modal opens
+  // Reset selection state when modal opens.
+  // seasonEpisodeData is intentionally NOT cleared — episode data is stable TMDB
+  // data and must persist so totalSelected can be computed on reopen before the
+  // ModalSeasonRow effects have had a chance to re-fire.
   useEffect(() => {
     if (visible) {
       dispatch({ type: 'CLEAR' });
       setExpandedSeasons([]);
-      setSeasonEpisodeData({});
     }
   }, [visible]);
 
