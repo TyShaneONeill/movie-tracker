@@ -175,8 +175,7 @@ async function fetchTvShowsByWatchTime(userId: string): Promise<AnalyticsDetailI
     const estMinutes = episodes * 45;
     const estHours = Math.floor(estMinutes / 60);
     const estMins = estMinutes % 60;
-    const timeStr =
-      estHours > 0 ? `~${estHours}h ${estMins}m` : `~${estMins}m`;
+    const timeStr = estHours > 0 ? `~${estHours}h ${estMins}m` : `~${estMins}m`;
     return {
       id: row.id,
       tmdbId: row.tmdb_id,
@@ -184,8 +183,8 @@ async function fetchTvShowsByWatchTime(userId: string): Promise<AnalyticsDetailI
       posterPath: row.poster_path,
       year: extractYear(row.first_air_date),
       mediaType: 'tv' as const,
-      primaryMetric: `${episodes} episodes watched`,
-      secondaryMetric: `est. ${timeStr}`,
+      primaryMetric: timeStr,
+      secondaryMetric: `${episodes} episodes`,
     };
   });
 }
