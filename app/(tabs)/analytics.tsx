@@ -116,8 +116,11 @@ export default function AnalyticsScreen() {
 
   // Calculate max count for bar chart scaling
   const maxMonthlyCount = Math.max(...stats.monthlyActivity.map((m) => m.count), 1);
-  // Bar chart area height (container height 150 minus paddingTop)
-  const BAR_AREA_HEIGHT = 150 - Spacing.md;
+  // Container is 180px, paddingTop 16px → 164px usable.
+  // Count text ~18px + label ~18px = 36px reserved, leaving 128px for bars.
+  // This ensures the count label (which floats directly above each bar) can never
+  // overflow the container and collide with the "Monthly Activity" title.
+  const BAR_AREA_HEIGHT = 128;
 
   // Get current month for highlighting
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -323,6 +326,7 @@ function BarColumn({
 }) {
   return (
     <View style={styles.barColumn}>
+      {/* Count hovers directly above the bar */}
       <Text style={[Typography.body.xs, { color: colors.textSecondary, marginBottom: Spacing.xs }]}>
         {count > 0 ? count : ''}
       </Text>
@@ -446,7 +450,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    height: 150,
+    height: 180,
     paddingTop: Spacing.md,
   },
   barColumnWrapper: {
