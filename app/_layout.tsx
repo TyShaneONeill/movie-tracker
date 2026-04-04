@@ -205,6 +205,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false }} />
+        <Stack.Screen name="analytics" options={{ headerShown: false }} />
         <Stack.Screen name="category" options={{ headerShown: false }} />
         <Stack.Screen name="movie" options={{ headerShown: false }} />
         <Stack.Screen name="tv" options={{ headerShown: false }} />

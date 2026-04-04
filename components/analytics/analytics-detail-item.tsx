@@ -1,0 +1,238 @@
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Typography } from '@/constants/typography';
+import { useTheme } from '@/lib/theme-context';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import type { AnalyticsDetailItem } from '@/lib/analytics-detail-service';
+
+interface AnalyticsDetailItemProps {
+  item: AnalyticsDetailItem;
+  showTypeBadge: boolean;
+  compact?: boolean;
+}
+
+export function AnalyticsDetailItemRow({ item, showTypeBadge, compact = false }: AnalyticsDetailItemProps) {
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+
+  const handlePress = () => {
+    if (item.mediaType === 'tv') {
+      router.push(`/tv/${item.tmdbId}`);
+    } else {
+      router.push(`/movie/${item.tmdbId}`);
+    }
+  };
+
+  const imageUri = getTMDBImageUrl(item.posterPath, 'w185') ?? undefined;
+
+  if (compact) {
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.compactRow, { opacity: pressed ? 0.8 : 1 }]}
+        onPress={handlePress}
+      >
+        <Image
+          source={{ uri: imageUri }}
+          style={[styles.compactPoster, { backgroundColor: colors.card }]}
+          contentFit="cover"
+          transition={200}
+        />
+        <Text
+          style={[styles.compactTitle, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {item.title}
+          {item.year ? (
+            <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>
+              {' '}({item.year})
+            </Text>
+          ) : null}
+        </Text>
+        {(() => {
+          // compactMetric overrides primaryMetric when explicitly set (even if null)
+          const hasCompactOverride = 'compactMetric' in item;
+          const rightValue = hasCompactOverride ? item.compactMetric : item.primaryMetric;
+          if (rightValue == null) return null;
+          const isNumeric = /^\d+(\.\d+)?$/.test(rightValue);
+          return (
+            <Text
+              style={[
+                Typography.body.sm,
+                styles.compactDate,
+                { color: isNumeric ? colors.gold : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {isNumeric ? rightValue : rightValue.replace(/^(Watched|Finished|Added)\s/, '')}
+            </Text>
+          );
+        })()}
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.row,
+        { opacity: pressed ? 0.8 : 1 },
+      ]}
+      onPress={handlePress}
+    >
+      {/* Poster */}
+      <Image
+        source={{ uri: imageUri }}
+        style={[styles.poster, { backgroundColor: colors.card }]}
+        contentFit="cover"
+        transition={200}
+      />
+
+      {/* Info */}
+      <View style={styles.info}>
+        <View style={styles.titleRow}>
+          <Text
+            style={[styles.title, { color: colors.text }]}
+            numberOfLines={2}
+          >
+            {item.title}
+            {item.year ? (
+              <Text style={[styles.year, { color: colors.textSecondary }]}>
+                {' '}({item.year})
+              </Text>
+            ) : null}
+          </Text>
+          {showTypeBadge && (
+            <View style={[styles.badge, { backgroundColor: colors.backgroundSecondary }]}>
+              <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
+                {item.mediaType === 'tv' ? 'TV' : 'Movie'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {item.primaryMetric != null ? (
+          <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: 2 }]}>
+            {item.primaryMetric}
+          </Text>
+        ) : (
+          <Pressable
+            style={({ pressed }) => [
+              styles.addDateChip,
+              { borderColor: colors.tint, opacity: pressed ? 0.7 : 1 },
+            ]}
+            onPress={handlePress}
+            hitSlop={8}
+          >
+            <Ionicons name="calendar-outline" size={11} color={colors.tint} />
+            <Text style={[styles.addDateText, { color: colors.tint }]}>Add watch date</Text>
+          </Pressable>
+        )}
+
+        {item.secondaryMetric != null && (
+          <Text
+            style={[
+              Typography.body.sm,
+              {
+                color: /^\d+(\.\d+)?$/.test(item.secondaryMetric)
+                  ? colors.gold
+                  : colors.textSecondary,
+                marginTop: 2,
+              },
+            ]}
+          >
+            {item.secondaryMetric}
+          </Text>
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  // ── Detailed (default) ──────────────────────────────────────────────────────
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+  },
+  poster: {
+    width: 60,
+    height: 90,
+    borderRadius: 6,
+    flexShrink: 0,
+  },
+  info: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingTop: 2,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  title: {
+    ...Typography.body.base,
+    fontWeight: '600',
+    flex: 1,
+  },
+  year: {
+    fontWeight: '400',
+  },
+  badge: {
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+
+  // ── Compact ─────────────────────────────────────────────────────────────────
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  compactPoster: {
+    width: 32,
+    height: 48,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  compactTitle: {
+    ...Typography.body.sm,
+    fontWeight: '600',
+    flex: 1,
+  },
+  compactDate: {
+    flexShrink: 0,
+    textAlign: 'right',
+  },
+  addDateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  addDateText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+});

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import Svg, { Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -115,8 +116,11 @@ export default function AnalyticsScreen() {
 
   // Calculate max count for bar chart scaling
   const maxMonthlyCount = Math.max(...stats.monthlyActivity.map((m) => m.count), 1);
-  // Bar chart area height (container height 150 minus paddingTop)
-  const BAR_AREA_HEIGHT = 150 - Spacing.md;
+  // Container is 180px, paddingTop 16px → 164px usable.
+  // Count text ~18px + label ~18px = 36px reserved, leaving 128px for bars.
+  // This ensures the count label (which floats directly above each bar) can never
+  // overflow the container and collide with the "Monthly Activity" title.
+  const BAR_AREA_HEIGHT = 128;
 
   // Get current month for highlighting
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -145,48 +149,88 @@ export default function AnalyticsScreen() {
 
         {/* Summary Stats Row 1 */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.statCard,
+              { backgroundColor: colors.card, transform: [{ scale: pressed ? 0.97 : 1 }] },
+            ]}
+            onPress={() => router.push('/analytics/movies')}
+          >
             <Text style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>
               {stats.summary.totalWatched}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Movies</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Movies</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.statCard,
+              { backgroundColor: colors.card, transform: [{ scale: pressed ? 0.97 : 1 }] },
+            ]}
+            onPress={() => router.push('/analytics/tv-shows')}
+          >
             <Text style={[Typography.display.h3, { color: colors.accentSecondary, marginBottom: Spacing.xs }]}>
               {stats.summary.totalTvWatched}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>TV Shows</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>TV Shows</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.statCard,
+              { backgroundColor: colors.card, transform: [{ scale: pressed ? 0.97 : 1 }] },
+            ]}
+            onPress={() => router.push('/analytics/episodes')}
+          >
             <Text style={[Typography.display.h3, { color: '#8b5cf6', marginBottom: Spacing.xs }]}>
               {stats.summary.totalEpisodesWatched}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Episodes</Text>
-          </View>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Episodes</Text>
+          </Pressable>
         </View>
 
         {/* Summary Stats Row 2 */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.statCard,
+              { backgroundColor: colors.card, transform: [{ scale: pressed ? 0.97 : 1 }] },
+            ]}
+            onPress={() => router.push('/analytics/tv-watch-time')}
+          >
             <Text style={[Typography.display.h3, { color: '#3b82f6', marginBottom: Spacing.xs }]}>
               {stats.summary.totalWatchTimeMinutes > 0
                 ? `${Math.floor(stats.summary.totalWatchTimeMinutes / 60)}h ${stats.summary.totalWatchTimeMinutes % 60}m`
                 : '--'}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>TV Watch Time</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>TV Watch Time</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.statCard,
+              { backgroundColor: colors.card, transform: [{ scale: pressed ? 0.97 : 1 }] },
+            ]}
+            onPress={() => router.push('/analytics/first-takes')}
+          >
             <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
               {stats.summary.totalFirstTakes}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>First Takes</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>First Takes</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.statCard,
+              { backgroundColor: colors.card, transform: [{ scale: pressed ? 0.97 : 1 }] },
+            ]}
+            onPress={() => router.push('/analytics/ratings')}
+          >
             <Text style={[Typography.display.h3, { color: '#14b8a6', marginBottom: Spacing.xs }]}>
               {stats.summary.averageRating != null ? stats.summary.averageRating.toFixed(1) : '--'}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Avg Rating</Text>
-          </View>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Avg Rating</Text>
+          </Pressable>
         </View>
 
         {/* Monthly Activity Bar Chart */}
@@ -194,14 +238,26 @@ export default function AnalyticsScreen() {
           <Text style={[Typography.body.lg, { color: colors.text, marginBottom: Spacing.sm }]}>Monthly Activity</Text>
           <View style={styles.barChartContainer}>
             {stats.monthlyActivity.map((month) => (
-              <BarColumn
+              <Pressable
                 key={month.month}
-                height={Math.max((month.count / maxMonthlyCount) * BAR_AREA_HEIGHT, 4)}
-                count={month.count}
-                label={month.monthLabel}
-                isActive={month.month === currentMonth}
-                colors={colors}
-              />
+                style={({ pressed }) => [
+                  styles.barColumnWrapper,
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() =>
+                  router.push(
+                    `/analytics/monthly?month=${month.month}&label=${encodeURIComponent(month.monthLabel)}`
+                  )
+                }
+              >
+                <BarColumn
+                  height={Math.max((month.count / maxMonthlyCount) * BAR_AREA_HEIGHT, 4)}
+                  count={month.count}
+                  label={month.monthLabel}
+                  isActive={month.month === currentMonth}
+                  colors={colors}
+                />
+              </Pressable>
             ))}
           </View>
         </View>
@@ -215,20 +271,42 @@ export default function AnalyticsScreen() {
             <View style={styles.legendContainer}>
               <Text style={[Typography.body.lg, { color: colors.text, marginBottom: Spacing.sm }]}>Top Genres</Text>
               {topGenres.map((genre, index) => (
-                <View key={genre.genreId} style={styles.legendItem}>
+                <Pressable
+                  key={genre.genreId}
+                  style={({ pressed }) => [
+                    styles.legendItem,
+                    pressed && { backgroundColor: colors.backgroundSecondary },
+                  ]}
+                  onPress={() =>
+                    router.push(
+                      `/analytics/genre?genreId=${genre.genreId}&genreName=${encodeURIComponent(genre.genreName)}`
+                    )
+                  }
+                >
                   <View style={[styles.legendColor, { backgroundColor: GENRE_COLORS[index % GENRE_COLORS.length] }]} />
-                  <Text style={[Typography.body.sm, { color: colors.text }]}>
+                  <Text style={[Typography.body.sm, { color: colors.text, flex: 1 }]}>
                     {genre.genreName} ({genre.percentage}%)
                   </Text>
-                </View>
+                  <Text style={{ color: colors.textTertiary, fontSize: 14, lineHeight: 18 }}>›</Text>
+                </Pressable>
               ))}
               {otherPercentage > 0 && (
-                <View style={styles.legendItem}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.legendItem,
+                    pressed && { backgroundColor: colors.backgroundSecondary },
+                  ]}
+                  onPress={() => {
+                    const otherIds = stats.genres.slice(5).map((g) => g.genreId).join(',');
+                    router.push(`/analytics/other-genres?genreIds=${otherIds}`);
+                  }}
+                >
                   <View style={[styles.legendColor, { backgroundColor: colors.textTertiary }]} />
-                  <Text style={[Typography.body.sm, { color: colors.text }]}>
+                  <Text style={[Typography.body.sm, { color: colors.text, flex: 1 }]}>
                     Other ({otherPercentage}%)
                   </Text>
-                </View>
+                  <Text style={{ color: colors.textTertiary, fontSize: 14, lineHeight: 18 }}>›</Text>
+                </Pressable>
               )}
             </View>
           </View>
@@ -258,6 +336,7 @@ function BarColumn({
 }) {
   return (
     <View style={styles.barColumn}>
+      {/* Count hovers directly above the bar */}
       <Text style={[Typography.body.xs, { color: colors.textSecondary, marginBottom: Spacing.xs }]}>
         {count > 0 ? count : ''}
       </Text>
@@ -366,6 +445,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
+    height: 90,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: 'center',
@@ -380,14 +460,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    height: 150,
+    height: 180,
     paddingTop: Spacing.md,
+  },
+  barColumnWrapper: {
+    flex: 1,
+    alignItems: 'stretch',
+    justifyContent: 'flex-end',
+    marginHorizontal: 2,
+    height: '100%',
   },
   barColumn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginHorizontal: 2,
   },
   bar: {
     width: '80%',
@@ -415,10 +501,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     marginBottom: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
   },
   legendColor: {
     width: 12,
     height: 12,
     borderRadius: 6,
+    flexShrink: 0,
   },
 });
