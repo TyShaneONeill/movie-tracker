@@ -60,9 +60,12 @@ import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
 import { addMovieToList, createList } from '@/lib/list-service';
+import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/lib/tmdb.types';
 import type { TvShowStatus } from '@/lib/database.types';
+import { TvWatchedSelectionModal } from '@/components/tv/tv-watched-selection-modal';
+import type { WatchedSelectionResult } from '@/components/tv/tv-watched-selection-modal';
 
 // Helper to get status badge color
 function getStatusColor(status: string): string {
@@ -224,6 +227,7 @@ export default function TvShowDetailScreen() {
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const [watchedModalVisible, setWatchedModalVisible] = useState(false);
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
 
   // Fetch TV show details using the hook
@@ -369,12 +373,74 @@ export default function TvShowDetailScreen() {
     }
   };
 
+  // Batched confirm handler for the TV Watched Selection Modal
+  const handleWatchedConfirm = async (result: WatchedSelectionResult) => {
+    if (!user || !show) return;
+    const showData = getShowForSave();
+    if (!showData) return;
+
+    try {
+      // Step 1: Get or create the user TV show record
+      let tvShowId: string;
+      if (isSaved && userTvShow && userTvShow.id !== 'optimistic') {
+        tvShowId = userTvShow.id;
+      } else {
+        // Upsert to library (safe even if already exists due to onConflict)
+        const created = await addTvShowToLibrary(user.id, showData, 'watching');
+        tvShowId = created.id;
+        queryClient.setQueryData(['userTvShow', user.id, show.id], created);
+      }
+
+      // Step 2: Batch mark all selected episodes in one call.
+      // batchMarkEpisodesWatched uses INSERT ON CONFLICT DO NOTHING (no column spec)
+      // which handles the partial unique index on user_episode_watches correctly.
+      const allEpisodes = [
+        ...result.fullySelectedSeasons.flatMap(({ episodes }) => episodes),
+        ...result.partialSeasons.flatMap(({ episodes }) => episodes),
+      ];
+      await batchMarkEpisodesWatched(user.id, tvShowId, show.id, allEpisodes);
+
+      // Step 3: Set final status
+      const finalStatus: TvShowStatus = result.isComplete ? 'watched' : 'watching';
+      await updateTvShowStatus(user.id, show.id, finalStatus);
+
+      // Step 4: Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ['episodeWatches', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['userTvShow', user.id, show.id] });
+      queryClient.invalidateQueries({ queryKey: ['userTvShows'] });
+
+      // Step 5: Close modal and optionally prompt for First Take
+      setWatchedModalVisible(false);
+      if (result.isComplete && !hasFirstTake && firstTakePromptEnabled) {
+        setShowFirstTakeModal(true);
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: result.isComplete ? 'Marked as Watched' : 'Now Watching',
+        visibilityTime: 2000,
+      });
+      hapticNotification(NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error('TV batch watched confirm error:', err);
+      Alert.alert('Error', 'Failed to save your episode progress. Please try again.');
+    }
+  };
+
   const handleStatusChange = async (status: TvShowStatus | null) => {
     if (isSaving) return;
     hapticImpact();
     requireAuth(async () => {
       const showData = getShowForSave();
       if (!showData) return;
+
+      // Intercept "Watched" when not all episodes are tracked — show selection modal
+      const episodesWatched = userTvShow?.episodes_watched ?? 0;
+      const totalEpisodes = show?.number_of_episodes ?? 0;
+      if (status === 'watched' && totalEpisodes > 0 && episodesWatched < totalEpisodes) {
+        setWatchedModalVisible(true);
+        return;
+      }
 
       // Track if we're changing TO watched status (for First Take prompt)
       const isChangingToWatched = status === 'watched' && currentStatus !== 'watched';
@@ -957,6 +1023,23 @@ export default function TvShowDetailScreen() {
           }
         }}
       />
+
+      {/* TV Watched Selection Modal */}
+      {show && (
+        <TvWatchedSelectionModal
+          visible={watchedModalVisible}
+          show={{
+            id: userTvShow?.id ?? '',
+            tmdbId: show.id,
+            name: show.name,
+            numberOfSeasons: show.number_of_seasons ?? 0,
+            numberOfEpisodes: show.number_of_episodes ?? 0,
+            episodesWatched: userTvShow?.episodes_watched ?? 0,
+          }}
+          onClose={() => setWatchedModalVisible(false)}
+          onConfirm={handleWatchedConfirm}
+        />
+      )}
     </View>
   );
 }
