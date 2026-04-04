@@ -229,16 +229,20 @@ async function fetchRatings(userId: string): Promise<AnalyticsDetailItem[]> {
 
   return (data ?? [])
     .filter((row) => row.rating != null)
-    .map((row) => ({
-      id: row.id,
-      tmdbId: row.tmdb_id,
-      title: row.movie_title,
-      posterPath: row.poster_path,
-      year: null,
-      mediaType: (row.media_type === 'tv_show' ? 'tv' : 'movie') as 'movie' | 'tv',
-      primaryMetric: `★ ${row.rating}/5`,
-      secondaryMetric: row.created_at ? formatDate(row.created_at) : undefined,
-    }));
+    .map((row) => {
+      const ratingStr = String(row.rating);
+      return {
+        id: row.id,
+        tmdbId: row.tmdb_id,
+        title: row.movie_title,
+        posterPath: row.poster_path,
+        year: null,
+        mediaType: (row.media_type === 'tv_show' ? 'tv' : 'movie') as 'movie' | 'tv',
+        primaryMetric: ratingStr,
+        secondaryMetric: row.created_at ? formatDate(row.created_at) : undefined,
+        compactMetric: ratingStr, // compact shows rating on the right
+      };
+    });
 }
 
 async function fetchMonthlyDetail(
