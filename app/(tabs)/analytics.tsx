@@ -293,9 +293,10 @@ export default function AnalyticsScreen() {
               {otherPercentage > 0 && (
                 <View style={styles.legendItem}>
                   <View style={[styles.legendColor, { backgroundColor: colors.textTertiary }]} />
-                  <Text style={[Typography.body.sm, { color: colors.text }]}>
+                  <Text style={[Typography.body.sm, { color: colors.text, flex: 1 }]}>
                     Other ({otherPercentage}%)
                   </Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 14, lineHeight: 18 }}>›</Text>
                 </View>
               )}
             </View>
