@@ -28,7 +28,8 @@ export interface AnalyticsDetailItem {
   posterPath: string | null;
   year: string | null;
   mediaType: 'movie' | 'tv';
-  primaryMetric: string;
+  /** Formatted date string, or null when no date exists (shows "Add watch date" CTA) */
+  primaryMetric: string | null;
   secondaryMetric?: string;
 }
 
@@ -76,7 +77,7 @@ function sortByDateDesc(
 async function fetchMoviesWatched(userId: string): Promise<AnalyticsDetailItem[]> {
   const { data, error } = await supabase
     .from('user_movies')
-    .select('id, tmdb_id, title, poster_path, release_date, watched_at, vote_average')
+    .select('id, tmdb_id, title, poster_path, release_date, watched_at, added_at, vote_average')
     .eq('user_id', userId)
     .eq('status', 'watched')
     .order('watched_at', { ascending: false });
@@ -90,7 +91,9 @@ async function fetchMoviesWatched(userId: string): Promise<AnalyticsDetailItem[]
     posterPath: row.poster_path,
     year: extractYear(row.release_date),
     mediaType: 'movie' as const,
-    primaryMetric: row.watched_at ? `Watched ${formatDate(row.watched_at)}` : 'Date unknown',
+    primaryMetric: row.watched_at
+      ? `Watched ${formatDate(row.watched_at)}`
+      : `Added ${formatDate(row.added_at)}`,
     secondaryMetric:
       row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
   }));
@@ -100,7 +103,7 @@ async function fetchTvShowsWatched(userId: string): Promise<AnalyticsDetailItem[
   const { data, error } = await supabase
     .from('user_tv_shows')
     .select(
-      'id, tmdb_id, name, poster_path, first_air_date, finished_at, episodes_watched, number_of_episodes, vote_average'
+      'id, tmdb_id, name, poster_path, first_air_date, finished_at, added_at, episodes_watched, number_of_episodes, vote_average'
     )
     .eq('user_id', userId)
     .eq('status', 'watched')
@@ -122,7 +125,9 @@ async function fetchTvShowsWatched(userId: string): Promise<AnalyticsDetailItem[
       mediaType: 'tv' as const,
       primaryMetric: row.finished_at
         ? `Finished ${formatDate(row.finished_at)}`
-        : 'Date unknown',
+        : row.added_at
+        ? `Added ${formatDate(row.added_at)}`
+        : null,
       secondaryMetric: episodeStr,
     };
   });
@@ -240,14 +245,14 @@ async function fetchMonthlyDetail(
   const [moviesResult, tvResult] = await Promise.all([
     supabase
       .from('user_movies')
-      .select('id, tmdb_id, title, poster_path, release_date, watched_at, vote_average')
+      .select('id, tmdb_id, title, poster_path, release_date, watched_at, added_at, vote_average')
       .eq('user_id', userId)
       .eq('status', 'watched')
       .gte('watched_at', start)
       .lt('watched_at', end),
     supabase
       .from('user_tv_shows')
-      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, vote_average')
+      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, added_at, vote_average')
       .eq('user_id', userId)
       .eq('status', 'watched')
       .gte('finished_at', start)
@@ -259,26 +264,32 @@ async function fetchMonthlyDetail(
 
   const withDates: Array<AnalyticsDetailItem & { _sortDate: string }> = [
     ...(moviesResult.data ?? []).map((row) => ({
-      _sortDate: row.watched_at ?? '',
+      _sortDate: row.watched_at ?? row.added_at ?? '',
       id: `movie-${row.id}`,
       tmdbId: row.tmdb_id,
       title: row.title,
       posterPath: row.poster_path,
       year: extractYear(row.release_date),
       mediaType: 'movie' as const,
-      primaryMetric: row.watched_at ? formatDate(row.watched_at) : 'Date unknown',
+      primaryMetric: row.watched_at
+        ? formatDate(row.watched_at)
+        : `Added ${formatDate(row.added_at)}`,
       secondaryMetric:
         row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
     })),
     ...(tvResult.data ?? []).map((row) => ({
-      _sortDate: row.finished_at ?? '',
+      _sortDate: row.finished_at ?? row.added_at ?? '',
       id: `tv-${row.id}`,
       tmdbId: row.tmdb_id,
       title: row.name,
       posterPath: row.poster_path,
       year: extractYear(row.first_air_date),
       mediaType: 'tv' as const,
-      primaryMetric: row.finished_at ? formatDate(row.finished_at) : 'Date unknown',
+      primaryMetric: row.finished_at
+        ? formatDate(row.finished_at)
+        : row.added_at
+        ? `Added ${formatDate(row.added_at)}`
+        : null,
       secondaryMetric:
         row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
     })),
@@ -294,13 +305,13 @@ async function fetchGenreDetail(
   const [moviesResult, tvResult] = await Promise.all([
     supabase
       .from('user_movies')
-      .select('id, tmdb_id, title, poster_path, release_date, watched_at, vote_average')
+      .select('id, tmdb_id, title, poster_path, release_date, watched_at, added_at, vote_average')
       .eq('user_id', userId)
       .eq('status', 'watched')
       .contains('genre_ids', [genreId]),
     supabase
       .from('user_tv_shows')
-      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, vote_average')
+      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, added_at, vote_average')
       .eq('user_id', userId)
       .eq('status', 'watched')
       .contains('genre_ids', [genreId]),
@@ -311,26 +322,32 @@ async function fetchGenreDetail(
 
   const withDates: Array<AnalyticsDetailItem & { _sortDate: string }> = [
     ...(moviesResult.data ?? []).map((row) => ({
-      _sortDate: row.watched_at ?? '',
+      _sortDate: row.watched_at ?? row.added_at ?? '',
       id: `movie-${row.id}`,
       tmdbId: row.tmdb_id,
       title: row.title,
       posterPath: row.poster_path,
       year: extractYear(row.release_date),
       mediaType: 'movie' as const,
-      primaryMetric: row.watched_at ? formatDate(row.watched_at) : 'Date unknown',
+      primaryMetric: row.watched_at
+        ? formatDate(row.watched_at)
+        : `Added ${formatDate(row.added_at)}`,
       secondaryMetric:
         row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
     })),
     ...(tvResult.data ?? []).map((row) => ({
-      _sortDate: row.finished_at ?? '',
+      _sortDate: row.finished_at ?? row.added_at ?? '',
       id: `tv-${row.id}`,
       tmdbId: row.tmdb_id,
       title: row.name,
       posterPath: row.poster_path,
       year: extractYear(row.first_air_date),
       mediaType: 'tv' as const,
-      primaryMetric: row.finished_at ? formatDate(row.finished_at) : 'Date unknown',
+      primaryMetric: row.finished_at
+        ? formatDate(row.finished_at)
+        : row.added_at
+        ? `Added ${formatDate(row.added_at)}`
+        : null,
       secondaryMetric:
         row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
     })),
@@ -353,12 +370,12 @@ async function fetchOtherGenresDetail(
   const [moviesResult, tvResult] = await Promise.all([
     supabase
       .from('user_movies')
-      .select('id, tmdb_id, title, poster_path, release_date, watched_at, vote_average, genre_ids')
+      .select('id, tmdb_id, title, poster_path, release_date, watched_at, added_at, vote_average, genre_ids')
       .eq('user_id', userId)
       .eq('status', 'watched'),
     supabase
       .from('user_tv_shows')
-      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, vote_average, genre_ids')
+      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, added_at, vote_average, genre_ids')
       .eq('user_id', userId)
       .eq('status', 'watched'),
   ]);
@@ -370,28 +387,34 @@ async function fetchOtherGenresDetail(
     ...(moviesResult.data ?? [])
       .filter((row) => (row.genre_ids ?? []).some((id) => genreSet.has(id)))
       .map((row) => ({
-        _sortDate: row.watched_at ?? '',
+        _sortDate: row.watched_at ?? row.added_at ?? '',
         id: `movie-${row.id}`,
         tmdbId: row.tmdb_id,
         title: row.title,
         posterPath: row.poster_path,
         year: extractYear(row.release_date),
         mediaType: 'movie' as const,
-        primaryMetric: row.watched_at ? formatDate(row.watched_at) : 'Date unknown',
+        primaryMetric: row.watched_at
+          ? formatDate(row.watched_at)
+          : `Added ${formatDate(row.added_at)}`,
         secondaryMetric:
           row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
       })),
     ...(tvResult.data ?? [])
       .filter((row) => (row.genre_ids ?? []).some((id) => genreSet.has(id)))
       .map((row) => ({
-        _sortDate: row.finished_at ?? '',
+        _sortDate: row.finished_at ?? row.added_at ?? '',
         id: `tv-${row.id}`,
         tmdbId: row.tmdb_id,
         title: row.name,
         posterPath: row.poster_path,
         year: extractYear(row.first_air_date),
         mediaType: 'tv' as const,
-        primaryMetric: row.finished_at ? formatDate(row.finished_at) : 'Date unknown',
+        primaryMetric: row.finished_at
+          ? formatDate(row.finished_at)
+          : row.added_at
+          ? `Added ${formatDate(row.added_at)}`
+          : null,
         secondaryMetric:
           row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
       })),

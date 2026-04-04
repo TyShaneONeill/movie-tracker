@@ -1,6 +1,7 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -51,12 +52,16 @@ export function AnalyticsDetailItemRow({ item, showTypeBadge, compact = false }:
             </Text>
           ) : null}
         </Text>
-        <Text
-          style={[Typography.body.sm, styles.compactDate, { color: colors.textSecondary }]}
-          numberOfLines={1}
-        >
-          {item.primaryMetric.replace(/^(Watched|Finished)\s/, '')}
-        </Text>
+        {item.primaryMetric != null ? (
+          <Text
+            style={[Typography.body.sm, styles.compactDate, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            {item.primaryMetric.replace(/^(Watched|Finished|Added)\s/, '')}
+          </Text>
+        ) : (
+          <Text style={[styles.addDateText, { color: colors.tint }]}>Add date</Text>
+        )}
       </Pressable>
     );
   }
@@ -100,9 +105,23 @@ export function AnalyticsDetailItemRow({ item, showTypeBadge, compact = false }:
           )}
         </View>
 
-        <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: 2 }]}>
-          {item.primaryMetric}
-        </Text>
+        {item.primaryMetric != null ? (
+          <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: 2 }]}>
+            {item.primaryMetric}
+          </Text>
+        ) : (
+          <Pressable
+            style={({ pressed }) => [
+              styles.addDateChip,
+              { borderColor: colors.tint, opacity: pressed ? 0.7 : 1 },
+            ]}
+            onPress={handlePress}
+            hitSlop={8}
+          >
+            <Ionicons name="calendar-outline" size={11} color={colors.tint} />
+            <Text style={[styles.addDateText, { color: colors.tint }]}>Add watch date</Text>
+          </Pressable>
+        )}
 
         {item.secondaryMetric != null && (
           <Text
@@ -191,5 +210,20 @@ const styles = StyleSheet.create({
   compactDate: {
     flexShrink: 0,
     textAlign: 'right',
+  },
+  addDateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  addDateText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
 });
