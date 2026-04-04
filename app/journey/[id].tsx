@@ -29,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
+import Toast from 'react-native-toast-message';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -36,6 +37,8 @@ import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourney } from '@/hooks/use-journey';
 import { useGenerateArt } from '@/hooks/use-generate-art';
+import { useGrantAdReward } from '@/hooks/use-grant-ad-reward';
+import { useRewardedAd } from '@/hooks/use-rewarded-ad';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { getGenreNamesByIds } from '@/lib/genre-service';
 import { useAuth } from '@/lib/auth-context';
@@ -103,6 +106,8 @@ export default function JourneyCardScreen() {
   // AI art generation
   const { tier } = usePremium();
   const { generateArt, isGenerating, hasUsedFreeTrial } = useGenerateArt();
+  const { loaded: adLoaded, showAd, reloadAd } = useRewardedAd('ai');
+  const { grantCredit, isGranting } = useGrantAdReward();
 
   // Calculate available height for ticket card
   // Screen height - header - top safe area - bottom safe area - padding
@@ -131,6 +136,28 @@ export default function JourneyCardScreen() {
       router.replace('/');
     }
   };
+
+  // Handle watch ad to earn a generation credit
+  const handleWatchAd = useCallback(async () => {
+    hapticImpact();
+    const earned = await showAd();
+    if (earned) {
+      const granted = await grantCredit();
+      if (granted) {
+        Toast.show({
+          type: 'success',
+          text1: 'Credit earned!',
+          text2: 'Tap Generate AI Art to use it.',
+        });
+      }
+      reloadAd();
+    } else {
+      Toast.show({
+        type: 'info',
+        text1: 'Watch the full ad to earn a credit',
+      });
+    }
+  }, [showAd, grantCredit, reloadAd]);
 
   // Handle generate AI art
   const handleGenerateArt = useCallback(async () => {
@@ -324,21 +351,38 @@ export default function JourneyCardScreen() {
           {!hasAiPoster && (
             <View style={styles.posterOptionsSection}>
               {tier === 'free' && hasUsedFreeTrial ? (
-                <Pressable
-                  style={styles.upgradeNudge}
-                  onPress={() => setUpgradeSheetVisible(true)}
-                >
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.tint} strokeWidth={2}>
-                    <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                  </Svg>
-                  <View style={styles.upgradeNudgeText}>
-                    <Text style={styles.upgradeNudgeTitle}>Free AI poster used</Text>
-                    <Text style={styles.upgradeNudgeSubtitle}>Upgrade to PocketStubs+ for unlimited AI art</Text>
-                  </View>
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2}>
-                    <Path d="M9 18l6-6-6-6" />
-                  </Svg>
-                </Pressable>
+                <>
+                  {/* Primary: Watch ad to earn a generation credit */}
+                  <Pressable
+                    style={[styles.generateArtButton, !adLoaded && styles.generateArtButtonDisabled]}
+                    onPress={handleWatchAd}
+                    disabled={!adLoaded || isGranting}
+                  >
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                      <Path d="M15 10l4.553-2.277A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
+                    </Svg>
+                    <Text style={styles.generateArtButtonText}>
+                      {!adLoaded ? 'Loading ad...' : 'Watch Ad for 1 Generation'}
+                    </Text>
+                  </Pressable>
+
+                  {/* Secondary: Upgrade nudge */}
+                  <Pressable
+                    style={styles.upgradeNudge}
+                    onPress={() => setUpgradeSheetVisible(true)}
+                  >
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.tint} strokeWidth={2}>
+                      <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                    </Svg>
+                    <View style={styles.upgradeNudgeText}>
+                      <Text style={styles.upgradeNudgeTitle}>Free AI poster used</Text>
+                      <Text style={styles.upgradeNudgeSubtitle}>Upgrade to PocketStubs+ for unlimited AI art</Text>
+                    </View>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2}>
+                      <Path d="M9 18l6-6-6-6" />
+                    </Svg>
+                  </Pressable>
+                </>
               ) : (
                 <Pressable
                   style={styles.generateArtButton}
@@ -506,6 +550,7 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
   generateArtButton: {
     flexDirection: 'row',
@@ -520,6 +565,9 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
   generateArtButtonText: {
     ...Typography.button.primary,
     color: colors.text,
+  },
+  generateArtButtonDisabled: {
+    opacity: 0.5,
   },
   upgradeNudge: {
     flexDirection: 'row',

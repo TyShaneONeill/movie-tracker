@@ -297,7 +297,7 @@ Deno.serve(async (req: Request) => {
     // --- Free-tier generation limit ---
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('account_tier')
+      .select('account_tier, rewarded_ad_credits')
       .eq('id', user.id)
       .single();
 
@@ -311,15 +311,26 @@ Deno.serve(async (req: Request) => {
         .eq('user_id', user.id)
         .eq('function_name', 'generate_journey_art');
 
-      if ((count ?? 0) >= 1) {
+      const usageCount = count ?? 0;
+      const adCredits = profile?.rewarded_ad_credits ?? 0;
+
+      if (usageCount >= 1 && adCredits <= 0) {
         return new Response(
           JSON.stringify({
             error: 'ai_generation_limit',
-            message: 'Free users get 1 AI art generation. Upgrade to PocketStubs+ for unlimited.',
+            message: 'Free users get 1 AI art generation. Watch an ad or upgrade to PocketStubs+ for more.',
             upgrade: true,
           }),
           { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
+      }
+
+      // Consume one ad credit if the free trial is already used
+      if (usageCount >= 1 && adCredits > 0) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ rewarded_ad_credits: adCredits - 1 })
+          .eq('id', user.id);
       }
     }
     // --- End free-tier limit ---
