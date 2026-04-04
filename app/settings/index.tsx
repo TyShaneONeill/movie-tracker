@@ -18,6 +18,7 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
+import Constants from 'expo-constants';
 import { acceptAllPendingRequests } from '@/lib/follow-request-service';
 import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
@@ -717,7 +718,7 @@ export default function SettingsScreen() {
 
         {/* App Version */}
         <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.lg }]}>
-          Version 1.0.0
+          Version {Constants.expoConfig?.version ?? '1.0.0'}
         </Text>
       </ScrollView>
     </SafeAreaView>

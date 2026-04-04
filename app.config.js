@@ -3,7 +3,7 @@ export default {
     owner: "tormaj",
     name: "PocketStubs",
     slug: "pocketstubs",
-    version: "1.0.0",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "pocketstubs",
@@ -83,7 +83,7 @@ export default {
         {
           // TODO: Replace with production Android AdMob app ID from console.admob.com
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
-          iosAppId: "ca-app-pub-5311715630678079~6367572841",
+          iosAppId: "ca-app-pub-5311715630678079~5445543222",
         },
       ],
     ],

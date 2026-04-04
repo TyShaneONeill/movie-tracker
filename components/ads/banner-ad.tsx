@@ -11,9 +11,9 @@ import { Spacing } from '@/constants/theme';
 type BannerPlacement = 'home' | 'search' | 'stats';
 
 const BANNER_AD_UNIT_IDS: Record<BannerPlacement, string> = {
-  home: 'ca-app-pub-5311715630678079/5872641021',
-  search: 'ca-app-pub-5311715630678079/2765028314',
-  stats: 'ca-app-pub-5311715630678079/7182785474',
+  home: 'ca-app-pub-5311715630678079/6336892416',
+  search: 'ca-app-pub-5311715630678079/4417306087',
+  stats: 'ca-app-pub-5311715630678079/1492488790',
 };
 
 interface BannerAdProps {

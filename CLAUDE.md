@@ -93,6 +93,29 @@ gh pr create --title "feat: description" --body "Summary..."
 
 5. **Commit incrementally** - Small, focused commits on feature branches
 
+## Versioning
+
+PocketStubs uses semantic versioning. **Do NOT bump the version with every PR.** Version bumps happen intentionally before an App Store release.
+
+| Change | Version bump | Example |
+|--------|-------------|---------|
+| Bug fix, config, copy | `1.0.x` patch | `1.0.0 → 1.0.1` |
+| New feature, meaningful UX change | `1.x.0` minor | `1.0.0 → 1.1.0` |
+| Major product overhaul | `x.0.0` major | `1.x.x → 2.0.0` |
+
+**When bumping a version** (only when explicitly instructed):
+1. Update `version` in `app.config.js`
+2. Update `version` in `package.json` to match
+3. The settings screen reads the version dynamically from `expo-constants` — no other files need changing
+
+## Ad Network Architecture
+
+- **AdMob** (`react-native-google-mobile-ads`) — iOS + Android apps only. Supports banner, native, rewarded ads.
+- **AdSense** — Web only (`pocketstubs.com`). Banner/display only, no rewarded ads.
+- Ad unit IDs live in `components/ads/banner-ad.tsx`, `components/ads/native-feed-ad.tsx`, `hooks/use-rewarded-ad.ts`
+- `app-ads.txt` at `public/app-ads.txt` → deployed to `pocketstubs.com/app-ads.txt` for AdMob verification
+- `ads.txt` at root → deployed to `pocketstubs.com/ads.txt` for AdSense
+
 ## Key Resources
 
 - **PRD**: `docs/PRD-pre-launch.md` - Pre-launch checklist and requirements

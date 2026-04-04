@@ -45,7 +45,7 @@ export function NativeFeedAd() {
   const { BannerAd, BannerAdSize, TestIds } = adComponents;
   const unitId = __DEV__
     ? TestIds.ADAPTIVE_BANNER
-    : 'ca-app-pub-5311715630678079/5869703809';
+    : 'ca-app-pub-5311715630678079/6912336439';
 
   return (
     <View style={styles.container}>
