@@ -143,7 +143,7 @@ export default function AnalyticsDetailScreen() {
     error,
   } = useAnalyticsDetail(detailType, filter, isUnlocked);
 
-  const [compact, setCompact] = useState(false);
+  const [compact, setCompact] = useState(true);
 
   const config = SCREEN_CONFIGS[detailType];
   const title =
