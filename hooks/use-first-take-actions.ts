@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { analytics } from '@/lib/analytics';
 import {
   createFirstTake,
   getFirstTakeByTmdbId,
@@ -45,7 +46,13 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
       if (!user) throw new Error('Not authenticated');
       return createFirstTake(user.id, data);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      analytics.track('first_take:create', {
+        tmdb_id: variables.tmdbId,
+        has_rating: variables.rating != null,
+        has_quote: !!variables.quoteText,
+        media_type: variables.mediaType ?? 'movie',
+      });
       // Invalidate the single movie's first take query
       queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId, mediaType] });
       // Invalidate the profile's first takes feed
