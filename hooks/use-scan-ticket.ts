@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { Image as RNImage, Platform } from 'react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '@/lib/supabase';
 import { captureException } from '@/lib/sentry';
 import type { ExtractedTicket, ProcessedTicket, TMDBMatch } from '@/lib/ticket-processor';
@@ -93,7 +95,7 @@ export type ScanTicketErrorType =
  * Hook result interface
  */
 export interface UseScanTicketResult {
-  scanTicket: (imageBase64: string, mimeType: string) => Promise<ProcessedScanResult>;
+  scanTicket: (imageBase64: string, mimeType: string, imageUri?: string) => Promise<ProcessedScanResult>;
   isScanning: boolean;
   error: string | null;
   errorType: ScanTicketErrorType | null;
@@ -131,7 +133,8 @@ export function useScanTicket(): UseScanTicketResult {
 
   const scanTicket = useCallback(async (
     imageBase64: string,
-    mimeType: string
+    mimeType: string,
+    imageUri?: string
   ): Promise<ProcessedScanResult> => {
     setIsScanning(true);
     setError(null);
@@ -289,9 +292,18 @@ export function useScanTicket(): UseScanTicketResult {
       if (isNewFormat) {
         // New Edge Function format - transform to ProcessedTicket format
         const edgeFunctionTickets = rawTickets as EdgeFunctionTicket[];
+
+        // Capture bounding boxes parallel to processedTickets for cropping step
+        type BoundingBox = { x_min: number; y_min: number; x_max: number; y_max: number };
+        const boundingBoxes: (BoundingBox | null)[] = [];
+
         processedTickets = edgeFunctionTickets.map((ticket): ProcessedTicket => {
           const cleaned = ticket.cleaned;
           const tmdbMatchData = ticket.tmdbMatch;
+
+          // Capture bounding box for cropping step
+          const box = (ticket.extracted as any)?.bounding_box as BoundingBox | null | undefined;
+          boundingBoxes.push(box ?? null);
 
           // Transform Edge Function TMDB match to expected ProcessedTicket format
           let tmdbMatch: TMDBMatch | null = null;
@@ -336,8 +348,65 @@ export function useScanTicket(): UseScanTicketResult {
             tmdbMatch,
             processingErrors: ticket.needsReview ? ['Needs manual review'] : [],
             wasModified: false,
+            ticketPhotoUri: null,
           };
         });
+
+        // Crop and attach ticket photos if we have the original image URI (native only)
+        if (imageUri && Platform.OS !== 'web') {
+          try {
+            const { width: imgWidth, height: imgHeight } = await new Promise<{ width: number; height: number }>(
+              (resolve, reject) => {
+                RNImage.getSize(imageUri, (w, h) => resolve({ width: w, height: h }), reject);
+              }
+            );
+
+            const PADDING = 0.05;
+
+            await Promise.all(
+              processedTickets.map(async (ticket, i) => {
+                const box = boundingBoxes[i];
+
+                if (box) {
+                  const cropX = Math.max(0, (box.x_min / 1000) * imgWidth * (1 - PADDING));
+                  const cropY = Math.max(0, (box.y_min / 1000) * imgHeight * (1 - PADDING));
+                  const cropW = Math.min(
+                    imgWidth - cropX,
+                    ((box.x_max - box.x_min) / 1000) * imgWidth * (1 + PADDING * 2)
+                  );
+                  const cropH = Math.min(
+                    imgHeight - cropY,
+                    ((box.y_max - box.y_min) / 1000) * imgHeight * (1 + PADDING * 2)
+                  );
+
+                  if (cropW > 0 && cropH > 0) {
+                    try {
+                      const cropped = await ImageManipulator.manipulateAsync(
+                        imageUri,
+                        [{ crop: { originX: cropX, originY: cropY, width: cropW, height: cropH } }],
+                        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
+                      );
+                      ticket.ticketPhotoUri = cropped.uri;
+                    } catch {
+                      ticket.ticketPhotoUri = imageUri;
+                    }
+                  } else {
+                    ticket.ticketPhotoUri = imageUri;
+                  }
+                } else {
+                  ticket.ticketPhotoUri = imageUri;
+                }
+              })
+            );
+          } catch (cropErr) {
+            captureException(cropErr instanceof Error ? cropErr : new Error(String(cropErr)), {
+              context: 'scan-ticket-crop',
+            });
+            for (const ticket of processedTickets) {
+              ticket.ticketPhotoUri = imageUri;
+            }
+          }
+        }
 
         // Use duplicates removed from API response if available
         duplicatesRemoved = data.duplicatesRemoved ?? 0;

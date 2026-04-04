@@ -228,7 +228,7 @@ export default function ScannerScreen() {
       const finalMimeType = mimeType || getMimeTypeFromUri(uri);
 
       // Call the scan-ticket API
-      const result = await scanTicket(base64, finalMimeType);
+      const result = await scanTicket(base64, finalMimeType, uri);
 
       // Update scans remaining
       setScansRemaining(result.scansRemaining);

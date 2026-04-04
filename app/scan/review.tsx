@@ -333,22 +333,8 @@ export default function TicketReviewScreen() {
             }
           }
 
-          // 2. Update journey with parsed ticket data
-          if (journeyId) {
-            const journeyData = mapTicketToJourneyData(ticket);
-            try {
-              await updateJourney(journeyId, journeyData);
-              createdJourneyIds.push(journeyId);
-            } catch (journeyError) {
-              // Log but don't fail if journey update fails
-              console.warn('Failed to update journey data:', journeyError);
-              // Still track the ID for navigation
-              createdJourneyIds.push(journeyId);
-            }
-          }
-
-          // 3. Add theater visit record (legacy - keeping for backwards compatibility)
-          const theaterVisitData = {
+          // 3. Build theater visit data (before journey update so we can add ticket_image_url)
+          const theaterVisitData: Record<string, unknown> = {
             user_id: user.id,
             tmdb_id: movie.id,
             movie_title: movie.title,
@@ -366,10 +352,71 @@ export default function TicketReviewScreen() {
             confirmation_number: ticket.confirmationNumber,
             is_verified: true,
             confidence_score: ticket.tmdbMatch?.confidence || null,
+            ticket_image_url: null,
           };
 
-          // Insert theater visit - the table might not exist yet, so we handle errors gracefully
-          // Note: theater_visits table may not be defined in types yet, using 'any' cast
+          // 2. Update journey with parsed ticket data + upload ticket photo
+          if (journeyId) {
+            const journeyData = mapTicketToJourneyData(ticket);
+            try {
+              await updateJourney(journeyId, journeyData);
+              createdJourneyIds.push(journeyId);
+            } catch (journeyError) {
+              // Log but don't fail if journey update fails
+              console.warn('Failed to update journey data:', journeyError);
+              // Still track the ID for navigation
+              createdJourneyIds.push(journeyId);
+            }
+
+            // Upload ticket photo if available (non-blocking on failure)
+            if (ticket.ticketPhotoUri) {
+              try {
+                const fileName = `${user.id}/${journeyId}_ticket.jpg`;
+                const response = await fetch(ticket.ticketPhotoUri);
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+
+                const { error: uploadError } = await supabase.storage
+                  .from('ticket-photos')
+                  .upload(fileName, arrayBuffer, {
+                    contentType: 'image/jpeg',
+                    cacheControl: '86400',
+                    upsert: true,
+                  });
+
+                if (!uploadError) {
+                  const { data: urlData } = supabase.storage
+                    .from('ticket-photos')
+                    .getPublicUrl(fileName);
+                  const ticketPhotoUrl = urlData.publicUrl;
+
+                  theaterVisitData.ticket_image_url = ticketPhotoUrl;
+
+                  // Append to journey_photos[]
+                  const { data: currentJourney } = await supabase
+                    .from('user_movies')
+                    .select('journey_photos')
+                    .eq('id', journeyId)
+                    .single();
+
+                  const existingPhotos: string[] =
+                    (currentJourney?.journey_photos as string[]) ?? [];
+                  await supabase
+                    .from('user_movies')
+                    .update({ journey_photos: [...existingPhotos, ticketPhotoUrl] })
+                    .eq('id', journeyId);
+                }
+              } catch (photoError) {
+                captureException(
+                  photoError instanceof Error ? photoError : new Error(String(photoError)),
+                  { context: 'ticket-review-photo-upload' }
+                );
+                // Non-blocking — ticket data is more important than the photo
+              }
+            }
+          }
+
+          // 4. Insert theater visit record (legacy - keeping for backwards compatibility)
           const { error: visitError } = await (supabase as any)
             .from('theater_visits')
             .insert(theaterVisitData);
