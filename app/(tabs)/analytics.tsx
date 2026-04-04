@@ -153,11 +153,10 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/movies')}
           >
-            <Text style={[styles.statCardChevron, { color: colors.textTertiary }]}>›</Text>
             <Text style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>
               {stats.summary.totalWatched}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Movies</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Movies</Text>
           </Pressable>
 
           <Pressable
@@ -167,11 +166,10 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/tv-shows')}
           >
-            <Text style={[styles.statCardChevron, { color: colors.textTertiary }]}>›</Text>
             <Text style={[Typography.display.h3, { color: colors.accentSecondary, marginBottom: Spacing.xs }]}>
               {stats.summary.totalTvWatched}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>TV Shows</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>TV Shows</Text>
           </Pressable>
 
           <Pressable
@@ -181,11 +179,10 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/episodes')}
           >
-            <Text style={[styles.statCardChevron, { color: colors.textTertiary }]}>›</Text>
             <Text style={[Typography.display.h3, { color: '#8b5cf6', marginBottom: Spacing.xs }]}>
               {stats.summary.totalEpisodesWatched}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Episodes</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Episodes</Text>
           </Pressable>
         </View>
 
@@ -198,13 +195,12 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/tv-watch-time')}
           >
-            <Text style={[styles.statCardChevron, { color: colors.textTertiary }]}>›</Text>
             <Text style={[Typography.display.h3, { color: '#3b82f6', marginBottom: Spacing.xs }]}>
               {stats.summary.totalWatchTimeMinutes > 0
                 ? `${Math.floor(stats.summary.totalWatchTimeMinutes / 60)}h ${stats.summary.totalWatchTimeMinutes % 60}m`
                 : '--'}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>TV Watch Time</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>TV Watch Time</Text>
           </Pressable>
 
           <Pressable
@@ -214,11 +210,10 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/first-takes')}
           >
-            <Text style={[styles.statCardChevron, { color: colors.textTertiary }]}>›</Text>
             <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
               {stats.summary.totalFirstTakes}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>First Takes</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>First Takes</Text>
           </Pressable>
 
           <Pressable
@@ -228,11 +223,10 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/ratings')}
           >
-            <Text style={[styles.statCardChevron, { color: colors.textTertiary }]}>›</Text>
             <Text style={[Typography.display.h3, { color: '#14b8a6', marginBottom: Spacing.xs }]}>
               {stats.summary.averageRating != null ? stats.summary.averageRating.toFixed(1) : '--'}
             </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Avg Rating</Text>
+            <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Avg Rating</Text>
           </Pressable>
         </View>
 
@@ -437,17 +431,11 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
+    height: 90,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  statCardChevron: {
-    position: 'absolute',
-    top: 6,
-    right: 8,
-    fontSize: 16,
-    lineHeight: 20,
   },
   chartCard: {
     borderRadius: BorderRadius.md,
