@@ -165,9 +165,9 @@ async function fetchTvShowsByEpisodes(userId: string): Promise<AnalyticsDetailIt
 async function fetchTvShowsByWatchTime(userId: string): Promise<AnalyticsDetailItem[]> {
   const { data, error } = await supabase
     .from('user_tv_shows')
-    .select('id, tmdb_id, name, poster_path, first_air_date, episodes_watched, number_of_episodes')
+    .select('id, tmdb_id, name, poster_path, first_air_date, episodes_watched, number_of_episodes, status')
     .eq('user_id', userId)
-    .eq('status', 'watched')
+    .gt('episodes_watched', 0)
     .order('episodes_watched', { ascending: false });
 
   if (error) throw new Error(error.message);
