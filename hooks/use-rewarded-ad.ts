@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAds } from '@/lib/ads-context';
 import { captureMessage } from '@/lib/sentry';
 
-export function useRewardedAd() {
+type RewardedAdType = 'scan' | 'ai';
+
+const REWARDED_AD_UNIT_IDS: Record<RewardedAdType, string> = {
+  scan: 'ca-app-pub-5311715630678079/3140612381',
+  ai: 'ca-app-pub-5311715630678079/9584000720',
+};
+
+export function useRewardedAd(type: RewardedAdType = 'scan') {
   const { adsReady } = useAds();
 
   // Lazily require GMA to avoid native module init at module load time (iOS 26 crash fix)
@@ -31,7 +38,7 @@ export function useRewardedAd() {
 
     const adUnitId = __DEV__
       ? adModule.TestIds.REWARDED
-      : 'ca-app-pub-5311715630678079/1683046782';
+      : REWARDED_AD_UNIT_IDS[type];
     const ad = adModule.RewardedAd.createForAdRequest(adUnitId, {
       requestNonPersonalizedAdsOnly: true,
     });
@@ -50,7 +57,7 @@ export function useRewardedAd() {
     unsubscribersRef.current.push(unsubLoaded, unsubError);
     ad.load();
     adRef.current = ad;
-  }, [adsReady, adModule]);
+  }, [adsReady, adModule, type]);
 
   useEffect(() => {
     loadAd();

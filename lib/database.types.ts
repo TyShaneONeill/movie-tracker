@@ -515,6 +515,7 @@ export type Database = {
           is_private: boolean
           onboarding_completed: boolean | null
           pending_followers_count: number
+          rewarded_ad_credits: number
           review_visibility: string
           show_continue_watching: boolean
           theme_preference: string | null
@@ -539,6 +540,7 @@ export type Database = {
           is_private?: boolean
           onboarding_completed?: boolean | null
           pending_followers_count?: number
+          rewarded_ad_credits?: number
           review_visibility?: string
           show_continue_watching?: boolean
           theme_preference?: string | null
@@ -563,6 +565,7 @@ export type Database = {
           is_private?: boolean
           onboarding_completed?: boolean | null
           pending_followers_count?: number
+          rewarded_ad_credits?: number
           review_visibility?: string
           show_continue_watching?: boolean
           theme_preference?: string | null
