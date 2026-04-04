@@ -11,9 +11,10 @@ import type { AnalyticsDetailItem } from '@/lib/analytics-detail-service';
 interface AnalyticsDetailItemProps {
   item: AnalyticsDetailItem;
   showTypeBadge: boolean;
+  compact?: boolean;
 }
 
-export function AnalyticsDetailItemRow({ item, showTypeBadge }: AnalyticsDetailItemProps) {
+export function AnalyticsDetailItemRow({ item, showTypeBadge, compact = false }: AnalyticsDetailItemProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
@@ -26,6 +27,39 @@ export function AnalyticsDetailItemRow({ item, showTypeBadge }: AnalyticsDetailI
   };
 
   const imageUri = getTMDBImageUrl(item.posterPath, 'w185') ?? undefined;
+
+  if (compact) {
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.compactRow, { opacity: pressed ? 0.8 : 1 }]}
+        onPress={handlePress}
+      >
+        <Image
+          source={{ uri: imageUri }}
+          style={[styles.compactPoster, { backgroundColor: colors.card }]}
+          contentFit="cover"
+          transition={200}
+        />
+        <Text
+          style={[styles.compactTitle, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {item.title}
+          {item.year ? (
+            <Text style={{ color: colors.textSecondary, fontWeight: '400' }}>
+              {' '}({item.year})
+            </Text>
+          ) : null}
+        </Text>
+        <Text
+          style={[Typography.body.sm, styles.compactDate, { color: colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {item.primaryMetric.replace(/^(Watched|Finished)\s/, '')}
+        </Text>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -91,6 +125,7 @@ export function AnalyticsDetailItemRow({ item, showTypeBadge }: AnalyticsDetailI
 }
 
 const styles = StyleSheet.create({
+  // ── Detailed (default) ──────────────────────────────────────────────────────
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -133,5 +168,28 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.3,
+  },
+
+  // ── Compact ─────────────────────────────────────────────────────────────────
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  compactPoster: {
+    width: 32,
+    height: 48,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  compactTitle: {
+    ...Typography.body.sm,
+    fontWeight: '600',
+    flex: 1,
+  },
+  compactDate: {
+    flexShrink: 0,
+    textAlign: 'right',
   },
 });

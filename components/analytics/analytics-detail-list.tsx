@@ -45,6 +45,7 @@ interface AnalyticsDetailListProps {
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
+  compact?: boolean;
 }
 
 export function AnalyticsDetailList({
@@ -53,6 +54,7 @@ export function AnalyticsDetailList({
   isLoading,
   isError,
   errorMessage,
+  compact = false,
 }: AnalyticsDetailListProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -108,7 +110,7 @@ export function AnalyticsDetailList({
       data={data}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <AnalyticsDetailItemRow item={item} showTypeBadge={showTypeBadge} />
+        <AnalyticsDetailItemRow item={item} showTypeBadge={showTypeBadge} compact={compact} />
       )}
       ItemSeparatorComponent={() => (
         <View style={[styles.separator, { backgroundColor: colors.backgroundSecondary }]} />

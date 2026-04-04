@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -142,6 +143,8 @@ export default function AnalyticsDetailScreen() {
     error,
   } = useAnalyticsDetail(detailType, filter, isUnlocked);
 
+  const [compact, setCompact] = useState(false);
+
   const config = SCREEN_CONFIGS[detailType];
   const title =
     detailType === 'monthly' ? (label ?? 'Monthly Activity') :
@@ -169,7 +172,22 @@ export default function AnalyticsDetailScreen() {
             </Text>
           ) : null}
         </View>
-        <View style={styles.headerSpacer} />
+        {/* Compact / detailed toggle — only show when there's data */}
+        {isUnlocked && data && data.length > 0 ? (
+          <Pressable
+            onPress={() => setCompact((c) => !c)}
+            style={({ pressed }) => [styles.toggleButton, { opacity: pressed ? 0.6 : 1 }]}
+            accessibilityLabel={compact ? 'Switch to detailed view' : 'Switch to compact view'}
+          >
+            <Ionicons
+              name={compact ? 'albums-outline' : 'list-outline'}
+              size={22}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       {/* Premium loading */}
@@ -187,6 +205,7 @@ export default function AnalyticsDetailScreen() {
             isLoading={dataLoading}
             isError={isError}
             errorMessage={error?.message}
+            compact={compact}
           />
         </View>
       )}
@@ -215,6 +234,11 @@ const styles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+  },
+  toggleButton: {
+    width: 40,
+    alignItems: 'flex-end',
+    padding: Spacing.xs,
   },
   headerSpacer: {
     width: 40,
