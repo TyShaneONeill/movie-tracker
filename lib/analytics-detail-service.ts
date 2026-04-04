@@ -97,7 +97,7 @@ async function fetchMoviesWatched(userId: string): Promise<AnalyticsDetailItem[]
       ? `Watched ${formatDate(row.watched_at)}`
       : `Added ${formatDate(row.added_at)}`,
     secondaryMetric:
-      row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+      row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
   }));
 }
 
@@ -284,7 +284,7 @@ async function fetchMonthlyDetail(
         ? formatDate(row.watched_at)
         : `Added ${formatDate(row.added_at)}`,
       secondaryMetric:
-        row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+        row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
     })),
     ...(tvResult.data ?? []).map((row) => ({
       _sortDate: row.finished_at ?? row.added_at ?? '',
@@ -300,7 +300,7 @@ async function fetchMonthlyDetail(
         ? `Added ${formatDate(row.added_at)}`
         : null,
       secondaryMetric:
-        row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+        row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
     })),
   ];
 
@@ -342,7 +342,7 @@ async function fetchGenreDetail(
         ? formatDate(row.watched_at)
         : `Added ${formatDate(row.added_at)}`,
       secondaryMetric:
-        row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+        row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
     })),
     ...(tvResult.data ?? []).map((row) => ({
       _sortDate: row.finished_at ?? row.added_at ?? '',
@@ -358,7 +358,7 @@ async function fetchGenreDetail(
         ? `Added ${formatDate(row.added_at)}`
         : null,
       secondaryMetric:
-        row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+        row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
     })),
   ];
 
@@ -407,7 +407,7 @@ async function fetchOtherGenresDetail(
           ? formatDate(row.watched_at)
           : `Added ${formatDate(row.added_at)}`,
         secondaryMetric:
-          row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+          row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
       })),
     ...(tvResult.data ?? [])
       .filter((row) => (row.genre_ids ?? []).some((id) => genreSet.has(id)))
@@ -425,7 +425,7 @@ async function fetchOtherGenresDetail(
           ? `Added ${formatDate(row.added_at)}`
           : null,
         secondaryMetric:
-          row.vote_average != null ? `★ ${row.vote_average.toFixed(1)}` : undefined,
+          row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
       })),
   ];
 
