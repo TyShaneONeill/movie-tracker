@@ -429,6 +429,44 @@ export async function unmarkSeasonWatched(
   await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
 }
 
+// Batch mark multiple episodes (across seasons) as watched in a single insert.
+// Uses ON CONFLICT DO NOTHING (no column spec) to silently skip already-watched
+// episodes — required because the unique index on user_episode_watches is partial
+// (WHERE watch_number = 1) and cannot be used with ON CONFLICT (cols) in upsert.
+export async function batchMarkEpisodesWatched(
+  userId: string,
+  userTvShowId: string,
+  tmdbShowId: number,
+  episodes: TMDBEpisode[]
+): Promise<void> {
+  if (episodes.length === 0) return;
+
+  const now = new Date().toISOString();
+  const insertData: UserEpisodeWatchInsert[] = episodes.map((ep) => ({
+    user_id: userId,
+    user_tv_show_id: userTvShowId,
+    tmdb_show_id: tmdbShowId,
+    season_number: ep.season_number,
+    episode_number: ep.episode_number,
+    episode_name: ep.name,
+    episode_runtime: ep.runtime,
+    still_path: ep.still_path,
+    watched_at: now,
+  }));
+
+  // ignoreDuplicates without onConflict → INSERT ... ON CONFLICT DO NOTHING
+  // Works with partial unique indexes unlike the onConflict column-list form.
+  const { error } = await (supabase
+    .from('user_episode_watches') as any)
+    .upsert(insertData, { ignoreDuplicates: true });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to batch mark episodes as watched');
+  }
+
+  await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+}
+
 // Get watched episodes for a specific season
 export async function getWatchedEpisodes(
   userId: string,

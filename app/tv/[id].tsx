@@ -60,7 +60,7 @@ import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
 import { addMovieToList, createList } from '@/lib/list-service';
-import { addTvShowToLibrary, markSeasonWatched, markEpisodeWatched, updateTvShowStatus } from '@/lib/tv-show-service';
+import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/lib/tmdb.types';
 import type { TvShowStatus } from '@/lib/database.types';
@@ -391,19 +391,14 @@ export default function TvShowDetailScreen() {
         queryClient.setQueryData(['userTvShow', user.id, show.id], created);
       }
 
-      // Step 2: Mark all selected episodes in parallel
-      await Promise.all([
-        ...result.fullySelectedSeasons
-          .filter(({ episodes }) => episodes.length > 0)
-          .map(({ episodes }) =>
-            markSeasonWatched(user.id, tvShowId, show.id, episodes)
-          ),
-        ...result.partialSeasons.flatMap(({ episodes }) =>
-          episodes.map((ep) =>
-            markEpisodeWatched(user.id, tvShowId, show.id, ep).then(() => undefined as void)
-          )
-        ),
-      ]);
+      // Step 2: Batch mark all selected episodes in one call.
+      // batchMarkEpisodesWatched uses INSERT ON CONFLICT DO NOTHING (no column spec)
+      // which handles the partial unique index on user_episode_watches correctly.
+      const allEpisodes = [
+        ...result.fullySelectedSeasons.flatMap(({ episodes }) => episodes),
+        ...result.partialSeasons.flatMap(({ episodes }) => episodes),
+      ];
+      await batchMarkEpisodesWatched(user.id, tvShowId, show.id, allEpisodes);
 
       // Step 3: Set final status
       const finalStatus: TvShowStatus = result.isComplete ? 'watched' : 'watching';
