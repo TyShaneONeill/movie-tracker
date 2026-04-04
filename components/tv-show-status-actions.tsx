@@ -71,6 +71,7 @@ interface StatusButtonProps {
   isActive: boolean;
   isLoading: boolean;
   disabled: boolean;
+  locked?: boolean;
   onPress: () => void;
   activeColor: string;
   inactiveColor: string;
@@ -84,6 +85,7 @@ function StatusButton({
   isActive,
   isLoading,
   disabled,
+  locked = false,
   onPress,
   activeColor,
   inactiveColor,
@@ -98,8 +100,8 @@ function StatusButton({
       accessibilityState={{ selected: isActive }}
       style={({ pressed }) => [
         styles.statusButtonContainer,
-        pressed && styles.statusButtonPressed,
-        disabled && { opacity: 0.5 },
+        !locked && pressed && styles.statusButtonPressed,
+        locked ? { opacity: 0.35 } : disabled && { opacity: 0.5 },
       ]}
     >
       <View
@@ -153,7 +155,16 @@ export function TvShowStatusActions({
   const onHoldColor = colors.textSecondary;
   const droppedColor = colors.tint;
 
+  const showLockedToast = () => {
+    Toast.show({
+      type: 'info',
+      text1: 'Show marked as Watched',
+      text2: 'Tap Watched again to change status',
+    });
+  };
+
   const handleWatchlist = () => {
+    if (isWatched) { showLockedToast(); return; }
     hapticImpact();
     if (isWatchlist) {
       onStatusChange(null);
@@ -168,6 +179,7 @@ export function TvShowStatusActions({
   };
 
   const handleWatching = () => {
+    if (isWatched) { showLockedToast(); return; }
     hapticImpact();
     if (isWatching) {
       onStatusChange(null);
@@ -196,6 +208,7 @@ export function TvShowStatusActions({
   };
 
   const handleOnHold = () => {
+    if (isWatched) { showLockedToast(); return; }
     hapticImpact();
     if (isOnHold) {
       onStatusChange(null);
@@ -210,6 +223,7 @@ export function TvShowStatusActions({
   };
 
   const handleDropped = () => {
+    if (isWatched) { showLockedToast(); return; }
     hapticImpact();
     if (isDropped) {
       onStatusChange(null);
@@ -232,6 +246,7 @@ export function TvShowStatusActions({
         isActive={isWatchlist}
         isLoading={isLoading && isWatchlist}
         disabled={disabled}
+        locked={isWatched}
         onPress={handleWatchlist}
         activeColor={watchlistColor}
         inactiveColor={inactiveColor}
@@ -244,6 +259,7 @@ export function TvShowStatusActions({
         isActive={isWatching}
         isLoading={isLoading && isWatching}
         disabled={disabled}
+        locked={isWatched}
         onPress={handleWatching}
         activeColor={watchingColor}
         inactiveColor={inactiveColor}
@@ -268,6 +284,7 @@ export function TvShowStatusActions({
         isActive={isOnHold}
         isLoading={isLoading && isOnHold}
         disabled={disabled}
+        locked={isWatched}
         onPress={handleOnHold}
         activeColor={onHoldColor}
         inactiveColor={inactiveColor}
@@ -280,6 +297,7 @@ export function TvShowStatusActions({
         isActive={isDropped}
         isLoading={isLoading && isDropped}
         disabled={disabled}
+        locked={isWatched}
         onPress={handleDropped}
         activeColor={droppedColor}
         inactiveColor={inactiveColor}
