@@ -52,16 +52,25 @@ export function AnalyticsDetailItemRow({ item, showTypeBadge, compact = false }:
             </Text>
           ) : null}
         </Text>
-        {item.primaryMetric != null ? (
-          <Text
-            style={[Typography.body.sm, styles.compactDate, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {item.primaryMetric.replace(/^(Watched|Finished|Added)\s/, '')}
-          </Text>
-        ) : (
-          <Text style={[styles.addDateText, { color: colors.tint }]}>Add date</Text>
-        )}
+        {(() => {
+          // compactMetric overrides primaryMetric when explicitly set (even if null)
+          const hasCompactOverride = 'compactMetric' in item;
+          const rightValue = hasCompactOverride ? item.compactMetric : item.primaryMetric;
+          if (rightValue == null) return null;
+          const isNumeric = /^\d+(\.\d+)?$/.test(rightValue);
+          return (
+            <Text
+              style={[
+                Typography.body.sm,
+                styles.compactDate,
+                { color: isNumeric ? colors.gold : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {isNumeric ? rightValue : rightValue.replace(/^(Watched|Finished|Added)\s/, '')}
+            </Text>
+          );
+        })()}
       </Pressable>
     );
   }
@@ -128,7 +137,7 @@ export function AnalyticsDetailItemRow({ item, showTypeBadge, compact = false }:
             style={[
               Typography.body.sm,
               {
-                color: item.secondaryMetric.startsWith('★')
+                color: /^\d+(\.\d+)?$/.test(item.secondaryMetric)
                   ? colors.gold
                   : colors.textSecondary,
                 marginTop: 2,

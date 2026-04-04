@@ -31,6 +31,8 @@ export interface AnalyticsDetailItem {
   /** Formatted date string, or null when no date exists (shows "Add watch date" CTA) */
   primaryMetric: string | null;
   secondaryMetric?: string;
+  /** When set, compact view shows this instead of primaryMetric on the right side */
+  compactMetric?: string | null;
 }
 
 // ============================================================================
@@ -199,16 +201,20 @@ async function fetchFirstTakes(userId: string): Promise<AnalyticsDetailItem[]> {
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((row) => ({
+  return (data ?? []).map((row) => {
+    const ratingStr = row.rating != null ? String(row.rating) : undefined;
+    return {
     id: row.id,
     tmdbId: row.tmdb_id,
     title: row.movie_title,
     posterPath: row.poster_path,
     year: null,
     mediaType: (row.media_type === 'tv_show' ? 'tv' : 'movie') as 'movie' | 'tv',
-    primaryMetric: row.created_at ? formatDate(row.created_at) : 'Date unknown',
-    secondaryMetric: row.rating != null ? `★ ${row.rating}/5` : undefined,
-  }));
+    primaryMetric: row.created_at ? formatDate(row.created_at) : null,
+    secondaryMetric: ratingStr,
+    compactMetric: ratingStr ?? null, // compact view shows rating, not date
+    };
+  });
 }
 
 async function fetchRatings(userId: string): Promise<AnalyticsDetailItem[]> {
