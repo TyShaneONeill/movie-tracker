@@ -34,6 +34,7 @@ import { createFirstTake } from '@/lib/first-take-service';
 import { supabase } from '@/lib/supabase';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { JourneyUpdate } from '@/lib/database.types';
+import * as FileSystem from 'expo-file-system/legacy';
 import { captureException } from '@/lib/sentry';
 import { useAchievementCheck } from '@/lib/achievement-context';
 
@@ -372,13 +373,18 @@ export default function TicketReviewScreen() {
             if (ticket.ticketPhotoUri) {
               try {
                 const fileName = `${user.id}/${journeyId}_ticket.jpg`;
-                const response = await fetch(ticket.ticketPhotoUri);
-                const blob = await response.blob();
-                const arrayBuffer = await blob.arrayBuffer();
+                const base64 = await FileSystem.readAsStringAsync(ticket.ticketPhotoUri, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                const binaryString = atob(base64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
 
                 const { error: uploadError } = await supabase.storage
                   .from('ticket-photos')
-                  .upload(fileName, arrayBuffer, {
+                  .upload(fileName, bytes.buffer, {
                     contentType: 'image/jpeg',
                     cacheControl: '86400',
                     upsert: true,
