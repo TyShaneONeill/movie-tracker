@@ -88,6 +88,7 @@ export default function JourneyCardScreen() {
 
   // Active page index for hero photo pager
   const [activeHeroPage, setActiveHeroPage] = useState(0);
+  const heroScrollRef = useRef<ScrollView>(null);
 
   // Auth & companion avatars
   const { user } = useAuth();
@@ -196,17 +197,34 @@ export default function JourneyCardScreen() {
   // Determine poster state
   const hasAiPoster = !!journey?.ai_poster_url;
 
-  // Build hero photo sources array (journey photos or TMDB poster fallback)
+  // Build hero photo carousel: TMDB poster first, then ticket stubs, then AI art
   const heroPhotos = useMemo(() => {
-    if (journey?.journey_photos?.length) {
-      return journey.journey_photos as string[];
-    }
+    const photos: string[] = [];
     const tmdbUrl = getTMDBImageUrl(journey?.poster_path ?? null, 'w780');
-    return tmdbUrl ? [tmdbUrl] : [];
+    if (tmdbUrl) photos.push(tmdbUrl);
+    if (journey?.journey_photos?.length) photos.push(...(journey.journey_photos as string[]));
+    if (journey?.ai_poster_url) photos.push(journey.ai_poster_url);
+    return photos;
   }, [journey]);
 
   // Width of the ticket card (screen minus scroll padding)
   const ticketCardWidth = screenWidth - (Spacing.md * 2);
+
+  const handleHeroPrev = useCallback(() => {
+    if (activeHeroPage > 0) {
+      const newPage = activeHeroPage - 1;
+      heroScrollRef.current?.scrollTo({ x: newPage * ticketCardWidth, animated: true });
+      setActiveHeroPage(newPage);
+    }
+  }, [activeHeroPage, ticketCardWidth]);
+
+  const handleHeroNext = useCallback(() => {
+    if (activeHeroPage < heroPhotos.length - 1) {
+      const newPage = activeHeroPage + 1;
+      heroScrollRef.current?.scrollTo({ x: newPage * ticketCardWidth, animated: true });
+      setActiveHeroPage(newPage);
+    }
+  }, [activeHeroPage, heroPhotos.length, ticketCardWidth]);
 
   // Poster URL for frosted glass background on lower ticket area
   const blurPosterUrl = getTMDBImageUrl(journey?.poster_path ?? null, 'w500');
@@ -299,6 +317,7 @@ export default function JourneyCardScreen() {
             <View style={styles.heroSection}>
               {/* Scrollable photo pager */}
               <ScrollView
+                ref={heroScrollRef}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
@@ -348,18 +367,21 @@ export default function JourneyCardScreen() {
                 </LinearGradient>
               </View>
 
-              {/* Dot indicators */}
-              <View style={styles.heroDots} pointerEvents="none">
-                {heroPhotos.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.heroDot,
-                      i === activeHeroPage ? styles.heroDotActive : styles.heroDotInactive,
-                    ]}
-                  />
-                ))}
-              </View>
+              {/* Navigation arrows */}
+              {activeHeroPage > 0 && (
+                <Pressable onPress={handleHeroPrev} style={styles.heroArrowLeft}>
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
+                    <Path d="M15 18l-6-6 6-6" />
+                  </Svg>
+                </Pressable>
+              )}
+              {activeHeroPage < heroPhotos.length - 1 && (
+                <Pressable onPress={handleHeroNext} style={styles.heroArrowRight}>
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
+                    <Path d="M9 18l6-6-6-6" />
+                  </Svg>
+                </Pressable>
+              )}
             </View>
           ) : (
             <Pressable
@@ -621,28 +643,29 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
     bottom: 16,
     right: 16,
   },
-  heroDots: {
+  heroArrowLeft: {
     position: 'absolute',
-    bottom: 52,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
+    left: 12,
+    top: 155,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    zIndex: 2,
   },
-  heroDot: {},
-  heroDotActive: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.tint,
-  },
-  heroDotInactive: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+  heroArrowRight: {
+    position: 'absolute',
+    right: 12,
+    top: 155,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
   badgeGradient: {
     paddingHorizontal: Spacing.md,
