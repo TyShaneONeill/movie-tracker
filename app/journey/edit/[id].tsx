@@ -77,12 +77,13 @@ export default function EditJourneyScreen() {
   // Fetch real journey data (edit mode only)
   const { data: journeyData, isLoading: isLoadingJourney } = useJourney(isCreateMode ? undefined : id);
 
-  // Fetch existing journeys for movie metadata template (create mode only)
-  const { data: movieJourneys } = useJourneysByMovie(isCreateMode ? parsedTmdbId : undefined);
-  const { createJourney } = useCreateJourney();
-
   // Journey mutations (update + delete)
   const tmdbId = isCreateMode ? parsedTmdbId : journeyData?.tmdb_id;
+
+  // Fetch all journeys for this movie — used for metadata template (create mode)
+  // and to determine if this is the last journey before confirming delete (edit mode)
+  const { data: movieJourneys } = useJourneysByMovie(tmdbId);
+  const { createJourney } = useCreateJourney();
   const { updateJourney: updateJourneyMutation, isUpdating, deleteJourney, isDeleting } =
     useJourneyMutations(tmdbId);
 
@@ -232,9 +233,14 @@ export default function EditJourneyScreen() {
   // Handle delete
   const handleDelete = useCallback(() => {
     hapticNotification(NotificationFeedbackType.Warning);
+    const isLastJourney = (movieJourneys?.journeys.length ?? 1) <= 1;
+    const title = isLastJourney ? 'Remove from Collection' : 'Delete Journey';
+    const message = isLastJourney
+      ? `This is your only record of watching this movie. Deleting it will remove the movie from your collection entirely.`
+      : 'Delete this viewing? Your other journey records for this movie will remain.';
     Alert.alert(
-      'Delete Journey',
-      'Are you sure you want to delete this journey? This action cannot be undone.',
+      title,
+      message,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -244,10 +250,9 @@ export default function EditJourneyScreen() {
             try {
               await deleteJourney(id as string);
               hapticNotification(NotificationFeedbackType.Success);
-              // Show toast before navigation so user sees it
               Toast.show({
                 type: 'info',
-                text1: 'Journey deleted',
+                text1: isLastJourney ? 'Removed from collection' : 'Journey deleted',
                 visibilityTime: 2000,
               });
               if (router.canGoBack()) {
@@ -263,7 +268,7 @@ export default function EditJourneyScreen() {
         },
       ]
     );
-  }, [id, router, deleteJourney]);
+  }, [id, router, deleteJourney, movieJourneys]);
 
   // Handle add friend
   const handleAddFriend = useCallback(() => {
