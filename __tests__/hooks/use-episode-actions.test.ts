@@ -19,6 +19,12 @@ jest.mock('@/lib/tv-show-service', () => ({
   markEpisodeWatched: jest.fn(),
   unmarkEpisodeWatched: jest.fn(),
   markSeasonWatched: jest.fn(),
+  unmarkSeasonWatched: jest.fn(),
+}));
+
+jest.mock('react-native-toast-message', () => ({
+  __esModule: true,
+  default: { show: jest.fn() },
 }));
 
 import { useEpisodeActions } from '@/hooks/use-episode-actions';
@@ -28,8 +34,10 @@ import {
   markEpisodeWatched,
   unmarkEpisodeWatched,
   markSeasonWatched,
+  unmarkSeasonWatched,
 } from '@/lib/tv-show-service';
-import type { UserEpisodeWatch } from '@/lib/database.types';
+import Toast from 'react-native-toast-message';
+import type { UserEpisodeWatch, UserTvShow } from '@/lib/database.types';
 import type { TMDBEpisode } from '@/lib/tmdb.types';
 
 const mockUseAuth = useAuth as jest.Mock;
@@ -37,6 +45,7 @@ const mockGetWatchedEpisodes = getWatchedEpisodes as jest.Mock;
 const mockMarkEpisodeWatched = markEpisodeWatched as jest.Mock;
 const mockUnmarkEpisodeWatched = unmarkEpisodeWatched as jest.Mock;
 const mockMarkSeasonWatched = markSeasonWatched as jest.Mock;
+const mockUnmarkSeasonWatched = unmarkSeasonWatched as jest.Mock;
 
 // ============================================================================
 // Constants & Factories
@@ -104,6 +113,7 @@ describe('useEpisodeActions', () => {
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({ user: { id: USER_ID } });
     mockGetWatchedEpisodes.mockResolvedValue([]);
+    (Toast.show as jest.Mock).mockClear();
   });
 
   // ==========================================================================
@@ -463,6 +473,169 @@ describe('useEpisodeActions', () => {
           queryKey: ['userTvShow', USER_ID],
         })
       );
+    });
+  });
+
+  // ==========================================================================
+  // Auto-demote: unmarkWatched on a 'watched' show
+  // ==========================================================================
+
+  describe('auto-demote on unmarkWatched', () => {
+    function makeUserTvShow(overrides: Partial<UserTvShow> = {}): UserTvShow {
+      return {
+        id: USER_TV_SHOW_ID,
+        user_id: USER_ID,
+        tmdb_id: TMDB_SHOW_ID,
+        status: 'watched',
+        name: 'Game of Thrones',
+        number_of_episodes: 10,
+        episodes_watched: 10,
+        backdrop_path: null,
+        poster_path: null,
+        number_of_seasons: 1,
+        vote_average: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        last_watched_at: null,
+        ...overrides,
+      } as UserTvShow;
+    }
+
+    it('calls onAllUnwatched and shows toast when show status is watched', async () => {
+      mockUnmarkEpisodeWatched.mockResolvedValue(undefined);
+      const onAllUnwatched = jest.fn();
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(['userTvShow', USER_ID, TMDB_SHOW_ID], makeUserTvShow({ status: 'watched' }));
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER, { onAllUnwatched }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.unmarkWatched(1);
+      });
+
+      expect(onAllUnwatched).toHaveBeenCalledTimes(1);
+      expect(Toast.show).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'info', text1: 'Status updated to Watching' })
+      );
+    });
+
+    it('does not call onAllUnwatched when show status is watching', async () => {
+      mockUnmarkEpisodeWatched.mockResolvedValue(undefined);
+      const onAllUnwatched = jest.fn();
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(['userTvShow', USER_ID, TMDB_SHOW_ID], makeUserTvShow({ status: 'watching' }));
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER, { onAllUnwatched }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.unmarkWatched(1);
+      });
+
+      expect(onAllUnwatched).not.toHaveBeenCalled();
+      expect(Toast.show).not.toHaveBeenCalled();
+    });
+
+    it('does not call onAllUnwatched when no onAllUnwatched option provided', async () => {
+      mockUnmarkEpisodeWatched.mockResolvedValue(undefined);
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(['userTvShow', USER_ID, TMDB_SHOW_ID], makeUserTvShow({ status: 'watched' }));
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.unmarkWatched(1);
+      });
+
+      expect(Toast.show).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // Auto-demote: unmarkAllWatched on a 'watched' show
+  // ==========================================================================
+
+  describe('auto-demote on unmarkAllWatched', () => {
+    function makeUserTvShow(overrides: Partial<UserTvShow> = {}): UserTvShow {
+      return {
+        id: USER_TV_SHOW_ID,
+        user_id: USER_ID,
+        tmdb_id: TMDB_SHOW_ID,
+        status: 'watched',
+        name: 'Game of Thrones',
+        number_of_episodes: 10,
+        episodes_watched: 10,
+        backdrop_path: null,
+        poster_path: null,
+        number_of_seasons: 1,
+        vote_average: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        last_watched_at: null,
+        ...overrides,
+      } as UserTvShow;
+    }
+
+    it('calls onAllUnwatched and shows toast when show status is watched', async () => {
+      mockUnmarkSeasonWatched.mockResolvedValue(undefined);
+      const onAllUnwatched = jest.fn();
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(['userTvShow', USER_ID, TMDB_SHOW_ID], makeUserTvShow({ status: 'watched' }));
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER, { onAllUnwatched }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.unmarkAllWatched();
+      });
+
+      expect(onAllUnwatched).toHaveBeenCalledTimes(1);
+      expect(Toast.show).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'info', text1: 'Status updated to Watching' })
+      );
+    });
+
+    it('does not call onAllUnwatched when show status is on_hold', async () => {
+      mockUnmarkSeasonWatched.mockResolvedValue(undefined);
+      const onAllUnwatched = jest.fn();
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(['userTvShow', USER_ID, TMDB_SHOW_ID], makeUserTvShow({ status: 'on_hold' }));
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER, { onAllUnwatched }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.unmarkAllWatched();
+      });
+
+      expect(onAllUnwatched).not.toHaveBeenCalled();
     });
   });
 

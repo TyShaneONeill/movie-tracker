@@ -91,6 +91,7 @@ function SeasonAccordionItem({
   onToggle,
   isSaved,
   onAllWatched,
+  onAllUnwatched,
 }: {
   season: TMDBSeason;
   showId: number;
@@ -99,6 +100,7 @@ function SeasonAccordionItem({
   onToggle: () => void;
   isSaved: boolean;
   onAllWatched?: () => void;
+  onAllUnwatched?: () => void;
 }) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -119,7 +121,7 @@ function SeasonAccordionItem({
     unmarkAllWatched,
     isUnmarkingAllWatched,
     allWatched,
-  } = useEpisodeActions(userTvShowId, showId, season.season_number, { onAllWatched });
+  } = useEpisodeActions(userTvShowId, showId, season.season_number, { onAllWatched, onAllUnwatched });
 
   const isAllWatched = allWatched(episodes.length);
 
@@ -542,6 +544,12 @@ export default function TvShowDetailScreen() {
     }
   };
 
+  const handleAutoDemoteWatching = () => {
+    if (isSaved && currentStatus === 'watched') {
+      changeStatus('watching');
+    }
+  };
+
   const handleFirstTakeSubmit = async (data: {
     rating: number;
     quoteText: string;
@@ -822,6 +830,7 @@ export default function TvShowDetailScreen() {
                     )}
                     isSaved={isSaved}
                     onAllWatched={handleAutoPromoteWatched}
+                    onAllUnwatched={handleAutoDemoteWatching}
                   />
                 ))}
               {/* Specials season at the bottom if it exists */}
@@ -837,6 +846,7 @@ export default function TvShowDetailScreen() {
                   )}
                   isSaved={isSaved}
                   onAllWatched={handleAutoPromoteWatched}
+                  onAllUnwatched={handleAutoDemoteWatching}
                 />
               ))}
             </>
