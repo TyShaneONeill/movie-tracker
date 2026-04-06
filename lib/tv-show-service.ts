@@ -398,7 +398,7 @@ export async function markSeasonWatched(
 
   const { error } = await (supabase
     .from('user_episode_watches') as any)
-    .upsert(insertData, { ignoreDuplicates: true });
+    .upsert(insertData, { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true });
 
   if (error) {
     throw new Error(error.message || 'Failed to mark season as watched');
@@ -454,11 +454,12 @@ export async function batchMarkEpisodesWatched(
     watched_at: now,
   }));
 
-  // ignoreDuplicates without onConflict → INSERT ... ON CONFLICT DO NOTHING
-  // Works with partial unique indexes unlike the onConflict column-list form.
+  // onConflict + ignoreDuplicates → ON CONFLICT (cols) DO NOTHING
+  // PostgreSQL matches the partial unique index (WHERE watch_number = 1) because
+  // inserted rows satisfy the WHERE clause (watch_number defaults to 1).
   const { error } = await (supabase
     .from('user_episode_watches') as any)
-    .upsert(insertData, { ignoreDuplicates: true });
+    .upsert(insertData, { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true });
 
   if (error) {
     throw new Error(error.message || 'Failed to batch mark episodes as watched');
