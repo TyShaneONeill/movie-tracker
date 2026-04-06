@@ -505,6 +505,7 @@ export type Database = {
           calendar_default_filters: Json | null
           content_mode: string
           created_at: string
+          crop_ticket_photos: boolean
           default_collection_view: string
           feed_last_seen_at: string | null
           first_take_prompt_enabled: boolean | null
@@ -530,6 +531,7 @@ export type Database = {
           calendar_default_filters?: Json | null
           content_mode?: string
           created_at?: string
+          crop_ticket_photos?: boolean
           default_collection_view?: string
           feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null
@@ -555,6 +557,7 @@ export type Database = {
           calendar_default_filters?: Json | null
           content_mode?: string
           created_at?: string
+          crop_ticket_photos?: boolean
           default_collection_view?: string
           feed_last_seen_at?: string | null
           first_take_prompt_enabled?: boolean | null

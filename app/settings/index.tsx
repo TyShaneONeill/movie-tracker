@@ -157,6 +157,15 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleCropTicketPhotosToggle = async (value: boolean) => {
+    hapticImpact();
+    try {
+      await updatePreference('cropTicketPhotos', value);
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-crop-ticket-photos-toggle' });
+    }
+  };
+
   const handlePrivacyToggle = (value: boolean) => {
     const currentlyPrivate = preferences?.isPrivate ?? false;
     if (value === currentlyPrivate) return;
@@ -581,8 +590,7 @@ export default function SettingsScreen() {
           <View
             style={[
               styles.settingsItem,
-              styles.lastItem,
-              { backgroundColor: colors.card }
+              { backgroundColor: colors.card, borderBottomColor: colors.border }
             ]}
           >
             <View style={styles.settingsItemContent}>
@@ -592,6 +600,24 @@ export default function SettingsScreen() {
             <ToggleSwitch
               value={preferences?.showContinueWatching ?? true}
               onValueChange={handleContinueWatchingToggle}
+              disabled={isLoadingPreferences || isUpdating}
+            />
+          </View>
+
+          <View
+            style={[
+              styles.settingsItem,
+              styles.lastItem,
+              { backgroundColor: colors.card }
+            ]}
+          >
+            <View style={styles.settingsItemContent}>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Crop ticket photos</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Experimental: crop scanned ticket photos to remove background</Text>
+            </View>
+            <ToggleSwitch
+              value={preferences?.cropTicketPhotos ?? false}
+              onValueChange={handleCropTicketPhotosToggle}
               disabled={isLoadingPreferences || isUpdating}
             />
           </View>
