@@ -84,6 +84,8 @@ export default function JourneyCardScreen() {
 
   // Poster inspection modal state
   const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
+  const [inspectedPhotoUrl, setInspectedPhotoUrl] = useState('');
+  const [inspectingPosterSlot, setInspectingPosterSlot] = useState(false);
   const [upgradeSheetVisible, setUpgradeSheetVisible] = useState(false);
 
   // Active page index for hero photo pager
@@ -229,9 +231,12 @@ export default function JourneyCardScreen() {
   // Poster URL for frosted glass background on lower ticket area
   const blurPosterUrl = getTMDBImageUrl(journey?.poster_path ?? null, 'w500');
 
-  // Handle poster tap for inspection modal (must be after heroImageUrl declaration)
-  const handlePosterTap = useCallback(() => {
+  // Handle poster tap — photoUri is the exact image that was tapped.
+  // isPosterSlot=true only for index 0 (the TMDB poster), which may be overridden by the AI poster in the modal.
+  const handlePosterTap = useCallback((photoUri: string, isPosterSlot: boolean) => {
     hapticImpact(ImpactFeedbackStyle.Medium);
+    setInspectedPhotoUrl(photoUri);
+    setInspectingPosterSlot(isPosterSlot);
     setIsPosterModalVisible(true);
   }, []);
 
@@ -334,7 +339,7 @@ export default function JourneyCardScreen() {
                   return (
                     <Pressable
                       key={index}
-                      onPress={handlePosterTap}
+                      onPress={() => handlePosterTap(photoUri, index === 0)}
                       style={[
                         { width: ticketCardWidth, height: 350 },
                         isTicketPhoto && { backgroundColor: '#0a0a0a' },
@@ -391,7 +396,7 @@ export default function JourneyCardScreen() {
             </View>
           ) : (
             <Pressable
-              onPress={handlePosterTap}
+              onPress={() => handlePosterTap(heroPhotos[0] || '', true)}
               style={({ pressed }) => [
                 styles.heroSection,
                 pressed && { opacity: 0.8 },
@@ -532,8 +537,8 @@ export default function JourneyCardScreen() {
       {/* Poster Inspection Modal */}
       <PosterInspectionModal
         visible={isPosterModalVisible}
-        imageUrl={heroPhotos[activeHeroPage] || ''}
-        aiImageUrl={journey.ai_poster_url}
+        imageUrl={inspectedPhotoUrl}
+        aiImageUrl={inspectingPosterSlot ? journey.ai_poster_url : null}
         movieTitle={journey.title}
         onClose={handlePosterModalClose}
       />
