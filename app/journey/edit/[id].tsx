@@ -40,9 +40,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { FriendPickerModal } from '@/components/social/friend-picker-modal';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 import { pickImage } from '@/lib/image-utils';
 import { usePremium } from '@/lib/premium-context';
+import { captureException } from '@/lib/sentry';
 
 // Watch format options for dropdown
 const WATCH_FORMATS = [
@@ -177,22 +179,40 @@ export default function EditJourneyScreen() {
     setIsUploading(true);
     try {
       const fileName = `${user?.id}/${id}/${Date.now()}.jpg`;
-      const response = await fetch(result.uri);
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
+
+      // Convert URI to ArrayBuffer — native needs FileSystem (blob.arrayBuffer() not available in RN)
+      let uploadBody: ArrayBuffer;
+      if (Platform.OS === 'web') {
+        const response = await fetch(result.uri);
+        uploadBody = await response.arrayBuffer();
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(result.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        uploadBody = bytes.buffer;
+      }
 
       const { error } = await supabase.storage
         .from('journey-photos')
-        .upload(fileName, arrayBuffer, { contentType: 'image/jpeg', cacheControl: '86400', upsert: false });
+        .upload(fileName, uploadBody, { contentType: 'image/jpeg', cacheControl: '86400', upsert: false });
 
       if (error) {
-        Toast.show({ type: 'error', text1: 'Upload failed', text2: 'Please try again', visibilityTime: 3000 });
+        console.error('[journey-photo] upload error:', error.message);
+        captureException(new Error(error.message), { context: 'journey-photo-upload' });
+        Toast.show({ type: 'error', text1: 'Upload failed', text2: error.message, visibilityTime: 3000 });
         return;
       }
 
       const { data } = supabase.storage.from('journey-photos').getPublicUrl(fileName);
       setLocalPhotos((prev) => [...prev, data.publicUrl]);
-    } catch {
+    } catch (err) {
+      console.error('[journey-photo] unexpected error:', err);
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'journey-photo-upload' });
       Toast.show({ type: 'error', text1: 'Upload failed', text2: 'Please try again', visibilityTime: 3000 });
     } finally {
       setIsUploading(false);
