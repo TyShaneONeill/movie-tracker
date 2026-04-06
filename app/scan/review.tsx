@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -34,6 +35,7 @@ import { createFirstTake } from '@/lib/first-take-service';
 import { supabase } from '@/lib/supabase';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { JourneyUpdate } from '@/lib/database.types';
+import * as FileSystem from 'expo-file-system/legacy';
 import { captureException } from '@/lib/sentry';
 import { useAchievementCheck } from '@/lib/achievement-context';
 
@@ -140,6 +142,7 @@ export default function TicketReviewScreen() {
 
   // Achievement check (fire-and-forget after bulk operations)
   const { triggerAchievementCheck } = useAchievementCheck();
+  const queryClient = useQueryClient();
 
   // User preferences hook (for First Take prompt setting)
   const { preferences } = useUserPreferences();
@@ -255,6 +258,17 @@ export default function TicketReviewScreen() {
         router.replace('/(tabs)/profile');
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'DUPLICATE_FIRST_TAKE') {
+        // Already rated this movie — navigate silently, no error needed
+        setShowFirstTakeModal(false);
+        setFirstTakeMovieInfo(null);
+        if (singleJourneyId) {
+          router.replace(`/journey/${singleJourneyId}`);
+        } else {
+          router.replace('/(tabs)/profile');
+        }
+        return;
+      }
       captureException(error instanceof Error ? error : new Error(String(error)), { context: 'ticket-review-first-take-submit' });
       Alert.alert('Error', 'Failed to save your first take. Please try again.');
     } finally {
@@ -333,22 +347,8 @@ export default function TicketReviewScreen() {
             }
           }
 
-          // 2. Update journey with parsed ticket data
-          if (journeyId) {
-            const journeyData = mapTicketToJourneyData(ticket);
-            try {
-              await updateJourney(journeyId, journeyData);
-              createdJourneyIds.push(journeyId);
-            } catch (journeyError) {
-              // Log but don't fail if journey update fails
-              console.warn('Failed to update journey data:', journeyError);
-              // Still track the ID for navigation
-              createdJourneyIds.push(journeyId);
-            }
-          }
-
-          // 3. Add theater visit record (legacy - keeping for backwards compatibility)
-          const theaterVisitData = {
+          // 3. Build theater visit data (before journey update so we can add ticket_image_url)
+          const theaterVisitData: Record<string, unknown> = {
             user_id: user.id,
             tmdb_id: movie.id,
             movie_title: movie.title,
@@ -366,10 +366,76 @@ export default function TicketReviewScreen() {
             confirmation_number: ticket.confirmationNumber,
             is_verified: true,
             confidence_score: ticket.tmdbMatch?.confidence || null,
+            ticket_image_url: null,
           };
 
-          // Insert theater visit - the table might not exist yet, so we handle errors gracefully
-          // Note: theater_visits table may not be defined in types yet, using 'any' cast
+          // 2. Update journey with parsed ticket data + upload ticket photo
+          if (journeyId) {
+            const journeyData = mapTicketToJourneyData(ticket);
+            try {
+              await updateJourney(journeyId, journeyData);
+              createdJourneyIds.push(journeyId);
+            } catch (journeyError) {
+              // Log but don't fail if journey update fails
+              console.warn('Failed to update journey data:', journeyError);
+              // Still track the ID for navigation
+              createdJourneyIds.push(journeyId);
+            }
+
+            // Upload ticket photo if available (non-blocking on failure)
+            if (ticket.ticketPhotoUri) {
+              try {
+                const fileName = `${user.id}/${journeyId}_ticket.jpg`;
+                const base64 = await FileSystem.readAsStringAsync(ticket.ticketPhotoUri, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                const binaryString = atob(base64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                const { error: uploadError } = await supabase.storage
+                  .from('ticket-photos')
+                  .upload(fileName, bytes.buffer, {
+                    contentType: 'image/jpeg',
+                    cacheControl: '86400',
+                    upsert: true,
+                  });
+
+                if (!uploadError) {
+                  const { data: urlData } = supabase.storage
+                    .from('ticket-photos')
+                    .getPublicUrl(fileName);
+                  const ticketPhotoUrl = urlData.publicUrl;
+
+                  theaterVisitData.ticket_image_url = ticketPhotoUrl;
+
+                  // Append to journey_photos[]
+                  const { data: currentJourney } = await supabase
+                    .from('user_movies')
+                    .select('journey_photos')
+                    .eq('id', journeyId)
+                    .single();
+
+                  const existingPhotos: string[] =
+                    (currentJourney?.journey_photos as string[]) ?? [];
+                  await supabase
+                    .from('user_movies')
+                    .update({ journey_photos: [...existingPhotos, ticketPhotoUrl] })
+                    .eq('id', journeyId);
+                }
+              } catch (photoError) {
+                captureException(
+                  photoError instanceof Error ? photoError : new Error(String(photoError)),
+                  { context: 'ticket-review-photo-upload' }
+                );
+                // Non-blocking — ticket data is more important than the photo
+              }
+            }
+          }
+
+          // 4. Insert theater visit record (legacy - keeping for backwards compatibility)
           const { error: visitError } = await (supabase as any)
             .from('theater_visits')
             .insert(theaterVisitData);
@@ -392,6 +458,14 @@ export default function TicketReviewScreen() {
 
       // Trigger achievement check once for the entire bulk operation
       triggerAchievementCheck();
+
+      // Bust caches so profile + journey carousel reflect the new rows immediately
+      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      for (const ticket of validTickets) {
+        if (ticket.tmdbMatch?.movie.id) {
+          queryClient.invalidateQueries({ queryKey: ['journeysByMovie', ticket.tmdbMatch.movie.id] });
+        }
+      }
 
       // Only show First Take modals if the preference is enabled
       if (firstTakePromptEnabled) {

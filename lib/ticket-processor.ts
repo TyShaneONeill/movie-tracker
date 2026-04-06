@@ -25,6 +25,12 @@ export interface ExtractedTicket {
   confirmation_number: string | null;
   barcode_data: string | null;
   auditorium: string | null;
+  bounding_box: {
+    x_min: number;
+    y_min: number;
+    x_max: number;
+    y_max: number;
+  } | null;
 }
 
 /**
@@ -66,6 +72,9 @@ export interface ProcessedTicket {
   // Processing metadata
   processingErrors: string[];
   wasModified: boolean;
+
+  // Local URI of cropped ticket photo (set by the scan hook after processing)
+  ticketPhotoUri: string | null;
 }
 
 // ============================================================================
@@ -640,6 +649,7 @@ export function deduplicateTickets(
       confirmation_number: confirmationNumber,
       barcode_data: existing.barcode_data || ticket.barcode_data,
       auditorium: existing.auditorium || ticket.auditorium,
+      bounding_box: existing.bounding_box ?? ticket.bounding_box ?? null,
     };
 
     ticketMap.set(confirmationNumber, merged);
@@ -739,6 +749,7 @@ export async function processExtractedTickets(
         tmdbMatch,
         processingErrors: errors,
         wasModified,
+        ticketPhotoUri: null,
       };
     })
   );

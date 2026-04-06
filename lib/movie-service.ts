@@ -268,6 +268,8 @@ export async function getMovieByTmdbId(
     .select('*')
     .eq('user_id', userId)
     .eq('tmdb_id', tmdbId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {

@@ -18,6 +18,7 @@ import {
   Image,
   Platform,
   Pressable,
+  ScrollView,
   ActivityIndicator,
   useWindowDimensions,
   ViewToken,
@@ -204,17 +205,39 @@ function JourneyTicket({
   isGenerating,
   onPosterTap,
 }: JourneyTicketProps) {
-  // Determine which poster to show
   const showAiPoster = journey.display_poster === 'ai_generated' && journey.ai_poster_url;
-  const heroImageUrl = showAiPoster
-    ? journey.ai_poster_url
-    : journey.journey_photos?.[0]
-      ? journey.journey_photos[0]
-      : getTMDBImageUrl(journey.poster_path ?? null, 'w780');
-
   const hasAiPoster = !!journey.ai_poster_url;
   const isHolographic = journey.ai_poster_rarity === 'holographic';
   const blurPosterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w500');
+
+  // Build hero photo carousel: TMDB poster first, then ticket stubs, then AI art
+  const heroPhotos = useMemo(() => {
+    const photos: string[] = [];
+    const tmdbUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w780');
+    if (tmdbUrl) photos.push(tmdbUrl);
+    if (journey.journey_photos?.length) photos.push(...(journey.journey_photos as string[]));
+    if (journey.ai_poster_url) photos.push(journey.ai_poster_url);
+    return photos;
+  }, [journey]);
+
+  const [activeHeroPage, setActiveHeroPage] = useState(0);
+  const heroScrollRef = useRef<ScrollView>(null);
+
+  const handleHeroPrev = useCallback(() => {
+    if (activeHeroPage > 0) {
+      const newPage = activeHeroPage - 1;
+      heroScrollRef.current?.scrollTo({ x: newPage * ticketWidth, animated: true });
+      setActiveHeroPage(newPage);
+    }
+  }, [activeHeroPage, ticketWidth]);
+
+  const handleHeroNext = useCallback(() => {
+    if (activeHeroPage < heroPhotos.length - 1) {
+      const newPage = activeHeroPage + 1;
+      heroScrollRef.current?.scrollTo({ x: newPage * ticketWidth, animated: true });
+      setActiveHeroPage(newPage);
+    }
+  }, [activeHeroPage, heroPhotos.length, ticketWidth]);
 
   const isDark = effectiveTheme === 'dark';
   const styles = useMemo(() => createTicketStyles(colors, ticketHeight, ticketWidth, infoPageWidth, isDark), [colors, ticketHeight, ticketWidth, infoPageWidth, isDark]);
@@ -225,14 +248,52 @@ function JourneyTicket({
     <View style={styles.ticketCard}>
       {/* Hero Image Area — top 50% */}
       <View style={styles.heroSection}>
-        <Image
-          source={{ uri: heroImageUrl || undefined }}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
+        {heroPhotos.length > 1 ? (
+          <ScrollView
+            ref={heroScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={(event) => {
+              const x = event.nativeEvent.contentOffset.x;
+              const page = Math.round(x / ticketWidth);
+              setActiveHeroPage(Math.max(0, Math.min(page, heroPhotos.length - 1)));
+            }}
+            style={StyleSheet.absoluteFill}
+          >
+            {heroPhotos.map((photoUri, index) => {
+              const isTicketPhoto = photoUri.includes('/ticket-photos/');
+              return (
+                <Pressable
+                  key={index}
+                  onPress={onPosterTap}
+                  style={[{ width: ticketWidth, height: '100%' as any }, isTicketPhoto && { backgroundColor: '#0a0a0a' }]}
+                >
+                  <Image
+                    source={{ uri: photoUri }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode={isTicketPhoto ? 'contain' : 'cover'}
+                  />
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <>
+            <Image
+              source={{ uri: heroPhotos[0] || undefined }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+            {/* Poster tap overlay — single photo only */}
+            <Pressable onPress={onPosterTap} style={StyleSheet.absoluteFill} />
+          </>
+        )}
         <LinearGradient
           colors={['transparent', isDark ? 'rgba(26, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.8)']}
           style={styles.heroGradient}
+          pointerEvents="none"
         />
 
         {/* Location Badge */}
@@ -250,7 +311,7 @@ function JourneyTicket({
         </View>
 
         {/* Holographic Rarity Badge */}
-        {isHolographic && showAiPoster && (
+        {isHolographic && hasAiPoster && (
           <View style={styles.rarityBadge} pointerEvents="none">
             <LinearGradient
               colors={['#FFD700', '#FFA500', '#FFD700']}
@@ -263,11 +324,21 @@ function JourneyTicket({
           </View>
         )}
 
-        {/* Poster tap overlay — catches taps on the hero image area */}
-        <Pressable
-          onPress={onPosterTap}
-          style={StyleSheet.absoluteFill}
-        />
+        {/* Navigation arrows — multi-photo only */}
+        {heroPhotos.length > 1 && activeHeroPage > 0 && (
+          <Pressable onPress={handleHeroPrev} style={styles.heroArrowLeft}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
+              <Path d="M15 18l-6-6 6-6" />
+            </Svg>
+          </Pressable>
+        )}
+        {heroPhotos.length > 1 && activeHeroPage < heroPhotos.length - 1 && (
+          <Pressable onPress={handleHeroNext} style={styles.heroArrowRight}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
+              <Path d="M9 18l6-6-6-6" />
+            </Svg>
+          </Pressable>
+        )}
 
         {/* Edit button — rendered after poster overlay so it sits on top in z-order */}
         <View style={styles.heroButtonsRow} pointerEvents="box-none">
@@ -917,6 +988,32 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     left: 0,
     right: 0,
     height: 100,
+  },
+  heroArrowLeft: {
+    position: 'absolute',
+    left: 12,
+    top: '50%' as any,
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  heroArrowRight: {
+    position: 'absolute',
+    right: 12,
+    top: '50%' as any,
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
   },
   locationBadge: {
     position: 'absolute',

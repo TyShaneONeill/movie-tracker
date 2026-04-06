@@ -27,6 +27,12 @@ interface ExtractedTicket {
   ticket_type: string | null; // Adult/Child/Senior
   confirmation_number: string | null;
   barcode_visible: boolean;
+  bounding_box: {
+    x_min: number;
+    y_min: number;
+    x_max: number;
+    y_max: number;
+  } | null;
 }
 
 interface GeminiExtraction {
@@ -174,7 +180,10 @@ Important:
 - Use the FULL movie title (reconstruct truncated titles when possible)
 - Date must be YYYY-MM-DD format
 - Showtime must be HH:MM in 24-hour format
-- If year is missing, infer from movie release dates`;
+- If year is missing, infer from movie release dates
+
+## Step 4: Provide Bounding Boxes
+For each ticket found, provide its bounding_box coordinates (0-1000 normalized scale) so the ticket can be cropped from the image. If multiple tickets are visible, each must have its own bounding_box. If only one ticket fills the frame, bounding_box may be omitted.`;
 
 // ============================================================================
 // Post-Processing Functions
@@ -600,10 +609,21 @@ async function extractWithGemini(
                       },
                       ticket_type: { type: "string" },
                       confirmation_number: { type: "string" },
-                      barcode_visible: { type: "boolean" }
+                      barcode_visible: { type: "boolean" },
+                      bounding_box: {
+                        type: "object",
+                        description: "Normalized pixel coordinates (0-1000 scale) of this ticket's boundaries in the image. Return null if only one ticket or cannot determine.",
+                        properties: {
+                          x_min: { type: "number" },
+                          y_min: { type: "number" },
+                          x_max: { type: "number" },
+                          y_max: { type: "number" }
+                        },
+                        propertyOrdering: ["x_min", "y_min", "x_max", "y_max"]
+                      }
                     },
                     required: ["movie_title"],
-                    propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "confirmation_number", "barcode_visible"]
+                    propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "confirmation_number", "barcode_visible", "bounding_box"]
                   }
                 },
                 image_quality: {

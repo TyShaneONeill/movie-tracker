@@ -86,6 +86,10 @@ export default function JourneyCardScreen() {
   const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
   const [upgradeSheetVisible, setUpgradeSheetVisible] = useState(false);
 
+  // Active page index for hero photo pager
+  const [activeHeroPage, setActiveHeroPage] = useState(0);
+  const heroScrollRef = useRef<ScrollView>(null);
+
   // Auth & companion avatars
   const { user } = useAuth();
   const { mutualFollows } = useMutualFollows(user?.id ?? '');
@@ -193,10 +197,34 @@ export default function JourneyCardScreen() {
   // Determine poster state
   const hasAiPoster = !!journey?.ai_poster_url;
 
-  // Hero image - use journey photo if available, otherwise poster
-  const heroImageUrl = journey?.journey_photos?.[0]
-    ? journey.journey_photos[0]
-    : getTMDBImageUrl(journey?.poster_path ?? null, 'w780');
+  // Build hero photo carousel: TMDB poster first, then ticket stubs, then AI art
+  const heroPhotos = useMemo(() => {
+    const photos: string[] = [];
+    const tmdbUrl = getTMDBImageUrl(journey?.poster_path ?? null, 'w780');
+    if (tmdbUrl) photos.push(tmdbUrl);
+    if (journey?.journey_photos?.length) photos.push(...(journey.journey_photos as string[]));
+    if (journey?.ai_poster_url) photos.push(journey.ai_poster_url);
+    return photos;
+  }, [journey]);
+
+  // Width of the ticket card (screen minus scroll padding)
+  const ticketCardWidth = screenWidth - (Spacing.md * 2);
+
+  const handleHeroPrev = useCallback(() => {
+    if (activeHeroPage > 0) {
+      const newPage = activeHeroPage - 1;
+      heroScrollRef.current?.scrollTo({ x: newPage * ticketCardWidth, animated: true });
+      setActiveHeroPage(newPage);
+    }
+  }, [activeHeroPage, ticketCardWidth]);
+
+  const handleHeroNext = useCallback(() => {
+    if (activeHeroPage < heroPhotos.length - 1) {
+      const newPage = activeHeroPage + 1;
+      heroScrollRef.current?.scrollTo({ x: newPage * ticketCardWidth, animated: true });
+      setActiveHeroPage(newPage);
+    }
+  }, [activeHeroPage, heroPhotos.length, ticketCardWidth]);
 
   // Poster URL for frosted glass background on lower ticket area
   const blurPosterUrl = getTMDBImageUrl(journey?.poster_path ?? null, 'w500');
@@ -285,25 +313,51 @@ export default function JourneyCardScreen() {
         {/* Ticket Card */}
         <View style={styles.ticketCard}>
           {/* Hero Image Area */}
-          <Pressable
-            onPress={handlePosterTap}
-            style={({ pressed }) => [
-              styles.heroSection,
-              pressed && { opacity: 0.8 }
-            ]}
-            android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
-          >
-              <Image
-                source={{ uri: heroImageUrl || undefined }}
-                style={styles.heroImage}
-                resizeMode="cover"
-              />
-              <View style={styles.heroGradient} pointerEvents="none">
-              <LinearGradient
-                colors={['transparent', isDark ? 'rgba(26, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.8)']}
+          {heroPhotos.length > 1 ? (
+            <View style={styles.heroSection}>
+              {/* Scrollable photo pager */}
+              <ScrollView
+                ref={heroScrollRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={(event) => {
+                  const x = event.nativeEvent.contentOffset.x;
+                  const page = Math.round(x / ticketCardWidth);
+                  setActiveHeroPage(Math.max(0, Math.min(page, heroPhotos.length - 1)));
+                }}
                 style={StyleSheet.absoluteFill}
-              />
-            </View>
+              >
+                {heroPhotos.map((photoUri, index) => {
+                  const isTicketPhoto = photoUri.includes('/ticket-photos/');
+                  return (
+                    <Pressable
+                      key={index}
+                      onPress={handlePosterTap}
+                      style={[
+                        { width: ticketCardWidth, height: 350 },
+                        isTicketPhoto && { backgroundColor: '#0a0a0a' },
+                      ]}
+                      android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
+                    >
+                      <Image
+                        source={{ uri: photoUri }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode={isTicketPhoto ? 'contain' : 'cover'}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Gradient overlay */}
+              <View style={styles.heroGradient} pointerEvents="none">
+                <LinearGradient
+                  colors={['transparent', isDark ? 'rgba(26, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.8)']}
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
 
               {/* Location Badge */}
               <View style={styles.locationBadge} pointerEvents="none">
@@ -318,7 +372,59 @@ export default function JourneyCardScreen() {
                   </Text>
                 </LinearGradient>
               </View>
-          </Pressable>
+
+              {/* Navigation arrows */}
+              {activeHeroPage > 0 && (
+                <Pressable onPress={handleHeroPrev} style={styles.heroArrowLeft}>
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
+                    <Path d="M15 18l-6-6 6-6" />
+                  </Svg>
+                </Pressable>
+              )}
+              {activeHeroPage < heroPhotos.length - 1 && (
+                <Pressable onPress={handleHeroNext} style={styles.heroArrowRight}>
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
+                    <Path d="M9 18l6-6-6-6" />
+                  </Svg>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            <Pressable
+              onPress={handlePosterTap}
+              style={({ pressed }) => [
+                styles.heroSection,
+                pressed && { opacity: 0.8 },
+              ]}
+              android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
+            >
+              <Image
+                source={{ uri: heroPhotos[0] || undefined }}
+                style={styles.heroImage}
+                resizeMode="cover"
+              />
+              <View style={styles.heroGradient} pointerEvents="none">
+                <LinearGradient
+                  colors={['transparent', isDark ? 'rgba(26, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.8)']}
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
+
+              {/* Location Badge */}
+              <View style={styles.locationBadge} pointerEvents="none">
+                <LinearGradient
+                  colors={['rgba(225, 29, 72, 0.9)', 'rgba(190, 18, 60, 0.9)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.badgeGradient}
+                >
+                  <Text style={styles.badgeText}>
+                    {getLocationBadgeText(journey.location_type)}
+                  </Text>
+                </LinearGradient>
+              </View>
+            </Pressable>
+          )}
 
           {/* Perforated edge — between hero and bottom section so blur starts below it */}
           <PerforatedEdge colors={colors} dashColor="rgba(255, 255, 255, 0.5)" />
@@ -426,7 +532,7 @@ export default function JourneyCardScreen() {
       {/* Poster Inspection Modal */}
       <PosterInspectionModal
         visible={isPosterModalVisible}
-        imageUrl={heroImageUrl || ''}
+        imageUrl={heroPhotos[activeHeroPage] || ''}
         aiImageUrl={journey.ai_poster_url}
         movieTitle={journey.title}
         onClose={handlePosterModalClose}
@@ -542,6 +648,30 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
     position: 'absolute',
     bottom: 16,
     right: 16,
+  },
+  heroArrowLeft: {
+    position: 'absolute',
+    left: 12,
+    top: 155,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  heroArrowRight: {
+    position: 'absolute',
+    right: 12,
+    top: 155,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
   badgeGradient: {
     paddingHorizontal: Spacing.md,

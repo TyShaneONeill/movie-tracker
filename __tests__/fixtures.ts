@@ -50,6 +50,7 @@ export function makeExtractedTicket(
     confirmation_number: 'ABC123',
     barcode_data: null,
     auditorium: '7',
+    bounding_box: null,
     ...overrides,
   };
 }
@@ -76,6 +77,7 @@ export function makeProcessedTicket(
     tmdbMatch: null,
     processingErrors: [],
     wasModified: false,
+    ticketPhotoUri: null,
     ...overrides,
   };
 }
