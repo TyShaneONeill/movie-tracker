@@ -364,23 +364,39 @@ export function useScanTicket(): UseScanTicketResult {
                 }
               );
 
-              const PADDING = 0.05;
+              // Pad outward by 15% of the box's own dimensions on each side.
+              // Gemini's bounding boxes are approximate, so generous symmetric
+              // padding prevents clipping the ticket edges.
+              const PAD_FRAC = 0.15;
+              // Minimum fraction of image that the crop must cover; if smaller
+              // the bounding box is unreliable — fall back to the full image.
+              const MIN_COVERAGE = 0.25;
 
               await Promise.all(
                 processedTickets.map(async (ticket, i) => {
                   const box = boundingBoxes[i];
 
                   if (box) {
-                    const cropX = Math.max(0, (box.x_min / 1000) * imgWidth * (1 - PADDING));
-                    const cropY = Math.max(0, (box.y_min / 1000) * imgHeight * (1 - PADDING));
-                    const cropW = Math.min(
-                      imgWidth - cropX,
-                      ((box.x_max - box.x_min) / 1000) * imgWidth * (1 + PADDING * 2)
-                    );
-                    const cropH = Math.min(
-                      imgHeight - cropY,
-                      ((box.y_max - box.y_min) / 1000) * imgHeight * (1 + PADDING * 2)
-                    );
+                    const x0 = (box.x_min / 1000) * imgWidth;
+                    const y0 = (box.y_min / 1000) * imgHeight;
+                    const x1 = (box.x_max / 1000) * imgWidth;
+                    const y1 = (box.y_max / 1000) * imgHeight;
+
+                    const padX = (x1 - x0) * PAD_FRAC;
+                    const padY = (y1 - y0) * PAD_FRAC;
+
+                    const cropX = Math.max(0, x0 - padX);
+                    const cropY = Math.max(0, y0 - padY);
+                    const cropRight = Math.min(imgWidth, x1 + padX);
+                    const cropBottom = Math.min(imgHeight, y1 + padY);
+                    const cropW = cropRight - cropX;
+                    const cropH = cropBottom - cropY;
+
+                    // Fall back to full image if the crop is suspiciously small
+                    if (cropW < imgWidth * MIN_COVERAGE || cropH < imgHeight * MIN_COVERAGE) {
+                      ticket.ticketPhotoUri = imageUri;
+                      return;
+                    }
 
                     if (cropW > 0 && cropH > 0) {
                       try {
