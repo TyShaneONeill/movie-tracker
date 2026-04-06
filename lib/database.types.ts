@@ -2213,6 +2213,9 @@ export interface JourneyUpdate {
   watched_with?: string[] | null;
   journey_notes?: string | null;
   journey_tagline?: string | null;
+  journey_photos?: string[] | null;
+  ai_poster_url?: string | null;
+  ai_poster_rarity?: string | null;
   display_poster?: 'original' | 'ai_generated';
 }
 

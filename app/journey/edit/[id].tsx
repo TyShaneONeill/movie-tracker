@@ -27,7 +27,6 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
-import Svg, { Path } from 'react-native-svg';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
 
@@ -41,6 +40,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { FriendPickerModal } from '@/components/social/friend-picker-modal';
+import { supabase } from '@/lib/supabase';
+import { pickImage } from '@/lib/image-utils';
+import { usePremium } from '@/lib/premium-context';
 
 // Watch format options for dropdown
 const WATCH_FORMATS = [
@@ -69,6 +71,7 @@ export default function EditJourneyScreen() {
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
   const { mutualFollows } = useMutualFollows(user?.id ?? '');
+  const { tier } = usePremium();
 
   // Create mode: id === 'new' with tmdbId query param
   const isCreateMode = id === 'new';
@@ -101,6 +104,12 @@ export default function EditJourneyScreen() {
   const [ticketId, setTicketId] = useState('');
   const [watchedWith, setWatchedWith] = useState<string[]>([]);
 
+  // Photo management state
+  const [localPhotos, setLocalPhotos] = useState<string[]>([]);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [aiPosterDeleted, setAiPosterDeleted] = useState(false);
+
   // TextInput refs for keyboard navigation
   const taglineRef = useRef<TextInput>(null);
   const locationRef = useRef<TextInput>(null);
@@ -132,6 +141,8 @@ export default function EditJourneyScreen() {
     setTicketPrice(journeyData.ticket_price?.toString() || '');
     setTicketId(journeyData.ticket_id || '');
     setWatchedWith(journeyData.watched_with || []);
+    setLocalPhotos(journeyData.journey_photos ?? []);
+    setAiPosterDeleted(false);
   }, [journeyData]);
 
   // Format picker visibility
@@ -158,6 +169,45 @@ export default function EditJourneyScreen() {
     return value % 1 === 0 ? value.toString() : value.toFixed(1);
   };
 
+  // Handle add photo
+  const handleAddPhoto = useCallback(async () => {
+    const result = await pickImage();
+    if (!result) return;
+
+    setIsUploading(true);
+    try {
+      const fileName = `${user?.id}/${id}/${Date.now()}.jpg`;
+      const response = await fetch(result.uri);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+
+      const { error } = await supabase.storage
+        .from('journey-photos')
+        .upload(fileName, arrayBuffer, { contentType: 'image/jpeg', cacheControl: '86400', upsert: false });
+
+      if (error) {
+        Toast.show({ type: 'error', text1: 'Upload failed', text2: 'Please try again', visibilityTime: 3000 });
+        return;
+      }
+
+      const { data } = supabase.storage.from('journey-photos').getPublicUrl(fileName);
+      setLocalPhotos((prev) => [...prev, data.publicUrl]);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Upload failed', text2: 'Please try again', visibilityTime: 3000 });
+    } finally {
+      setIsUploading(false);
+    }
+  }, [user?.id, id]);
+
+  // Handle delete photo (optimistic — URL removed from local state immediately)
+  const handleDeletePhoto = useCallback((photoUrl: string) => {
+    setLocalPhotos((prev) => prev.filter((url) => url !== photoUrl));
+    const path = photoUrl.split('/journey-photos/')[1];
+    if (path) {
+      supabase.storage.from('journey-photos').remove([path]).catch(() => {});
+    }
+  }, []);
+
   // Handle cancel
   const handleCancel = useCallback(() => {
     hapticImpact();
@@ -181,7 +231,9 @@ export default function EditJourneyScreen() {
     ticket_price: ticketPrice ? parseFloat(ticketPrice) : null,
     ticket_id: ticketId.trim() || null,
     watched_with: watchedWith.length > 0 ? watchedWith : null,
-  }), [tagline, notes, watchedAt, watchTime, locationName, seatLocation, watchFormat, auditorium, ticketPrice, ticketId, watchedWith]);
+    journey_photos: localPhotos.length > 0 ? localPhotos : null,
+    ...(aiPosterDeleted ? { ai_poster_url: null, ai_poster_rarity: null, display_poster: 'original' as const } : {}),
+  }), [tagline, notes, watchedAt, watchTime, locationName, seatLocation, watchFormat, auditorium, ticketPrice, ticketId, watchedWith, localPhotos, aiPosterDeleted]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -362,22 +414,81 @@ export default function EditJourneyScreen() {
               <Text style={styles.sectionSubtitle}>
                 Add photos of your ticket, poster, or friends. First photo will be the cover.
               </Text>
-              <View style={styles.memoriesPlaceholder}>
-                <View style={styles.comingSoonBadge}>
-                  <Svg
-                    width={24}
-                    height={24}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={colors.textTertiary}
-                    strokeWidth={1.5}
+
+              {/* Photo grid */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.photoRow}
+              >
+                {/* Journey photos */}
+                {localPhotos.map((photoUrl) => (
+                  <View key={photoUrl} style={styles.photoTile}>
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={styles.photoTileImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                    {isDeleteMode && (
+                      <Pressable
+                        style={styles.photoDeleteBadge}
+                        onPress={() => handleDeletePhoto(photoUrl)}
+                      >
+                        <Text style={styles.photoDeleteX}>✕</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+
+                {/* AI poster tile */}
+                {!aiPosterDeleted && journeyData?.ai_poster_url && (
+                  <View style={styles.photoTile}>
+                    <Image
+                      source={{ uri: journeyData.ai_poster_url }}
+                      style={styles.photoTileImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                    <View style={styles.aiPosterBadge}>
+                      <Text style={styles.aiPosterBadgeText}>AI ✨</Text>
+                    </View>
+                    {isDeleteMode && tier === 'dev' && (
+                      <Pressable
+                        style={styles.photoDeleteBadge}
+                        onPress={() => setAiPosterDeleted(true)}
+                      >
+                        <Text style={styles.photoDeleteX}>✕</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+
+                {/* Add photo tile — hidden in delete mode */}
+                {!isDeleteMode && (
+                  <Pressable
+                    style={styles.addPhotoTile}
+                    onPress={handleAddPhoto}
+                    disabled={isUploading}
                   >
-                    <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <Path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-                  </Svg>
-                  <Text style={styles.comingSoonText}>Photo Upload Coming Soon</Text>
-                </View>
-              </View>
+                    {isUploading ? (
+                      <ActivityIndicator size="small" color={colors.textTertiary} />
+                    ) : (
+                      <Text style={styles.addPhotoIcon}>+</Text>
+                    )}
+                  </Pressable>
+                )}
+              </ScrollView>
+
+              {/* Edit Photos toggle */}
+              <Pressable
+                style={styles.editPhotosButton}
+                onPress={() => setIsDeleteMode((prev) => !prev)}
+              >
+                <Text style={styles.editPhotosButtonText}>
+                  {isDeleteMode ? 'Done' : 'Edit Photos'}
+                </Text>
+              </Pressable>
             </View>
           </View>
 
@@ -840,23 +951,78 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: Spacing.md,
     },
 
-    // Memories placeholder
-    memoriesPlaceholder: {
-      borderWidth: 2,
-      borderColor: colors.border,
-      borderStyle: 'dashed',
-      borderRadius: BorderRadius.md,
-      padding: Spacing.xl,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    comingSoonBadge: {
-      alignItems: 'center',
+    // Photo grid
+    photoRow: {
+      flexDirection: 'row',
       gap: Spacing.sm,
+      paddingBottom: Spacing.xs,
     },
-    comingSoonText: {
-      ...Typography.body.sm,
+    photoTile: {
+      width: 100,
+      height: 140,
+      borderRadius: 8,
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    photoTileImage: {
+      width: 100,
+      height: 140,
+    },
+    photoDeleteBadge: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: colors.tint,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    photoDeleteX: {
+      color: '#fff',
+      fontSize: 12,
+      fontFamily: Fonts.inter.semibold,
+      lineHeight: 14,
+    },
+    aiPosterBadge: {
+      position: 'absolute',
+      bottom: 6,
+      left: 6,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    aiPosterBadgeText: {
+      color: '#fff',
+      fontSize: 10,
+      fontFamily: Fonts.inter.semibold,
+    },
+    addPhotoTile: {
+      width: 100,
+      height: 140,
+      borderRadius: 8,
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: colors.textTertiary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addPhotoIcon: {
+      fontSize: 28,
       color: colors.textTertiary,
+      lineHeight: 32,
+    },
+    editPhotosButton: {
+      marginTop: Spacing.sm,
+      alignSelf: 'flex-end',
+      paddingVertical: Spacing.xs,
+      paddingHorizontal: Spacing.sm,
+    },
+    editPhotosButtonText: {
+      ...Typography.body.sm,
+      color: colors.tint,
     },
 
     // Input styles
