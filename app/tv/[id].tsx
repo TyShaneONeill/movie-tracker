@@ -231,6 +231,7 @@ export default function TvShowDetailScreen() {
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
   const [watchedModalVisible, setWatchedModalVisible] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
 
   // Fetch TV show details using the hook
@@ -387,10 +388,11 @@ export default function TvShowDetailScreen() {
 
   // Batched confirm handler for the TV Watched Selection Modal
   const handleWatchedConfirm = async (result: WatchedSelectionResult) => {
-    if (!user || !show) return;
+    if (!user || !show || isConfirming) return;
     const showData = getShowForSave();
     if (!showData) return;
 
+    setIsConfirming(true);
     try {
       // Step 1: Get or create the user TV show record
       let tvShowId: string;
@@ -412,17 +414,31 @@ export default function TvShowDetailScreen() {
       ];
       await batchMarkEpisodesWatched(user.id, tvShowId, show.id, allEpisodes);
 
+      // Close modal immediately — don't make user wait for status write
+      setWatchedModalVisible(false);
+
       // Step 3: Set final status
       const finalStatus: TvShowStatus = result.isComplete ? 'watched' : 'watching';
       await updateTvShowStatus(user.id, show.id, finalStatus);
 
-      // Step 4: Invalidate relevant queries
+      // Write correct values to cache immediately so stale reads can't re-trigger the modal
+      queryClient.setQueryData(['userTvShow', user.id, show.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          status: finalStatus,
+          episodes_watched: result.isComplete
+            ? (show.number_of_episodes ?? old.episodes_watched)
+            : old.episodes_watched + result.totalEpisodesSelected,
+        };
+      });
+
+      // Step 4: Invalidate relevant queries for eventual consistency
       queryClient.invalidateQueries({ queryKey: ['episodeWatches', user.id] });
       queryClient.invalidateQueries({ queryKey: ['userTvShow', user.id, show.id] });
       queryClient.invalidateQueries({ queryKey: ['userTvShows'] });
 
-      // Step 5: Close modal and optionally prompt for First Take
-      setWatchedModalVisible(false);
+      // Step 5: Optionally prompt for First Take
       if (result.isComplete && !hasFirstTake && firstTakePromptEnabled) {
         setShowFirstTakeModal(true);
       }
@@ -436,11 +452,13 @@ export default function TvShowDetailScreen() {
     } catch (err) {
       console.error('TV batch watched confirm error:', err);
       Alert.alert('Error', 'Failed to save your episode progress. Please try again.');
+    } finally {
+      setIsConfirming(false);
     }
   };
 
   const handleStatusChange = async (status: TvShowStatus | null) => {
-    if (isSaving) return;
+    if (isSaving || isConfirming) return;
     hapticImpact();
     requireAuth(async () => {
       const showData = getShowForSave();
@@ -723,8 +741,8 @@ export default function TvShowDetailScreen() {
           <View style={dynamicStyles.statusActionsContainer}>
             <TvShowStatusActions
               currentStatus={currentStatus}
-              isLoading={isSaving}
-              disabled={isSaving}
+              isLoading={isSaving || isConfirming}
+              disabled={isSaving || isConfirming}
               onStatusChange={handleStatusChange}
             />
           </View>
