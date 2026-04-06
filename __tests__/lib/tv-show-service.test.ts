@@ -815,7 +815,7 @@ describe('markSeasonWatched', () => {
           episode_number: 3,
         }),
       ]),
-      { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true }
+      { ignoreDuplicates: true }
     );
   });
 

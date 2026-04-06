@@ -410,10 +410,18 @@ export default function TvShowDetailScreen() {
       // Step 2: Batch mark all selected episodes in one call.
       // batchMarkEpisodesWatched uses INSERT ON CONFLICT DO NOTHING (no column spec)
       // which handles the partial unique index on user_episode_watches correctly.
+      // Deduplicate by (season_number, episode_number) — prevents within-batch duplicate key
+      // errors if the same episode somehow appears in both fullySelectedSeasons and partialSeasons.
+      const seen = new Set<string>();
       const allEpisodes = [
         ...result.fullySelectedSeasons.flatMap(({ episodes }) => episodes),
         ...result.partialSeasons.flatMap(({ episodes }) => episodes),
-      ];
+      ].filter((ep) => {
+        const key = `${ep.season_number}:${ep.episode_number}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       await batchMarkEpisodesWatched(user.id, tvShowId, show.id, allEpisodes);
 
       // Close modal immediately — don't make user wait for status write

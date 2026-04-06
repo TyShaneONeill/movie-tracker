@@ -398,7 +398,7 @@ export async function markSeasonWatched(
 
   const { error } = await (supabase
     .from('user_episode_watches') as any)
-    .upsert(insertData, { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true });
+    .upsert(insertData, { ignoreDuplicates: true });
 
   if (error) {
     throw new Error(error.message || 'Failed to mark season as watched');
