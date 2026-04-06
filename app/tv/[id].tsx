@@ -91,6 +91,7 @@ function SeasonAccordionItem({
   onToggle,
   isSaved,
   onAllWatched,
+  onAllUnwatched,
 }: {
   season: TMDBSeason;
   showId: number;
@@ -99,6 +100,7 @@ function SeasonAccordionItem({
   onToggle: () => void;
   isSaved: boolean;
   onAllWatched?: () => void;
+  onAllUnwatched?: () => void;
 }) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -119,7 +121,7 @@ function SeasonAccordionItem({
     unmarkAllWatched,
     isUnmarkingAllWatched,
     allWatched,
-  } = useEpisodeActions(userTvShowId, showId, season.season_number, { onAllWatched });
+  } = useEpisodeActions(userTvShowId, showId, season.season_number, { onAllWatched, onAllUnwatched });
 
   const isAllWatched = allWatched(episodes.length);
 
@@ -408,10 +410,18 @@ export default function TvShowDetailScreen() {
       // Step 2: Batch mark all selected episodes in one call.
       // batchMarkEpisodesWatched uses INSERT ON CONFLICT DO NOTHING (no column spec)
       // which handles the partial unique index on user_episode_watches correctly.
+      // Deduplicate by (season_number, episode_number) — prevents within-batch duplicate key
+      // errors if the same episode somehow appears in both fullySelectedSeasons and partialSeasons.
+      const seen = new Set<string>();
       const allEpisodes = [
         ...result.fullySelectedSeasons.flatMap(({ episodes }) => episodes),
         ...result.partialSeasons.flatMap(({ episodes }) => episodes),
-      ];
+      ].filter((ep) => {
+        const key = `${ep.season_number}:${ep.episode_number}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       await batchMarkEpisodesWatched(user.id, tvShowId, show.id, allEpisodes);
 
       // Close modal immediately — don't make user wait for status write
@@ -539,6 +549,12 @@ export default function TvShowDetailScreen() {
   const handleAutoPromoteWatched = () => {
     if (currentStatus !== 'watched') {
       changeStatus('watched');
+    }
+  };
+
+  const handleAutoDemoteWatching = () => {
+    if (isSaved && currentStatus === 'watched') {
+      changeStatus('watching');
     }
   };
 
@@ -822,6 +838,7 @@ export default function TvShowDetailScreen() {
                     )}
                     isSaved={isSaved}
                     onAllWatched={handleAutoPromoteWatched}
+                    onAllUnwatched={handleAutoDemoteWatching}
                   />
                 ))}
               {/* Specials season at the bottom if it exists */}
@@ -837,6 +854,7 @@ export default function TvShowDetailScreen() {
                   )}
                   isSaved={isSaved}
                   onAllWatched={handleAutoPromoteWatched}
+                  onAllUnwatched={handleAutoDemoteWatching}
                 />
               ))}
             </>

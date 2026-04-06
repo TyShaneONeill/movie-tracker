@@ -36,7 +36,7 @@ export function useEpisodeActions(
   userTvShowId: string,
   tmdbShowId: number,
   seasonNumber: number,
-  options?: { onAllWatched?: () => void }
+  options?: { onAllWatched?: () => void; onAllUnwatched?: () => void }
 ): UseEpisodeActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -82,7 +82,21 @@ export function useEpisodeActions(
       if (!user) throw new Error('Not authenticated');
       return unmarkEpisodeWatched(user.id, userTvShowId, seasonNumber, episodeNumber);
     },
-    onSuccess: invalidateRelated,
+    onSuccess: () => {
+      invalidateRelated();
+      if (options?.onAllUnwatched) {
+        const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
+        if (cachedShow && cachedShow.status === 'watched') {
+          Toast.show({
+            type: 'info',
+            text1: 'Status updated to Watching',
+            text2: 'You have unwatched episodes remaining.',
+            visibilityTime: 3000,
+          });
+          options.onAllUnwatched();
+        }
+      }
+    },
   });
 
   const markAllWatchedMutation = useMutation({
@@ -115,7 +129,21 @@ export function useEpisodeActions(
       if (!user) throw new Error('Not authenticated');
       return unmarkSeasonWatched(user.id, userTvShowId, seasonNumber);
     },
-    onSuccess: invalidateRelated,
+    onSuccess: () => {
+      invalidateRelated();
+      if (options?.onAllUnwatched) {
+        const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
+        if (cachedShow && cachedShow.status === 'watched') {
+          Toast.show({
+            type: 'info',
+            text1: 'Status updated to Watching',
+            text2: 'You have unwatched episodes remaining.',
+            visibilityTime: 3000,
+          });
+          options.onAllUnwatched();
+        }
+      }
+    },
   });
 
   const allWatched = (episodeCount: number): boolean => {
