@@ -7,6 +7,7 @@ import type { ExtractedTicket, ProcessedTicket, TMDBMatch } from '@/lib/ticket-p
 import { processExtractedTickets } from '@/lib/ticket-processor';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 
 // Debug flag - set to true to enable detailed logging
 const DEBUG_AUTH = __DEV__;
@@ -125,6 +126,7 @@ export function useScanTicket(): UseScanTicketResult {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<ScanTicketErrorType | null>(null);
+  const { preferences } = useUserPreferences();
 
   const clearError = useCallback(() => {
     setError(null);
@@ -302,8 +304,8 @@ export function useScanTicket(): UseScanTicketResult {
           const tmdbMatchData = ticket.tmdbMatch;
 
           // Capture bounding box for cropping step
-          const box = (ticket.extracted as any)?.bounding_box as BoundingBox | null | undefined;
-          boundingBoxes.push(box ?? null);
+          const box = ticket.extracted.bounding_box ?? null;
+          boundingBoxes.push(box);
 
           // Transform Edge Function TMDB match to expected ProcessedTicket format
           let tmdbMatch: TMDBMatch | null = null;
@@ -354,54 +356,61 @@ export function useScanTicket(): UseScanTicketResult {
 
         // Crop and attach ticket photos if we have the original image URI (native only)
         if (imageUri && Platform.OS !== 'web') {
-          try {
-            const { width: imgWidth, height: imgHeight } = await new Promise<{ width: number; height: number }>(
-              (resolve, reject) => {
-                RNImage.getSize(imageUri, (w, h) => resolve({ width: w, height: h }), reject);
-              }
-            );
+          if (preferences?.cropTicketPhotos !== false) {
+            try {
+              const { width: imgWidth, height: imgHeight } = await new Promise<{ width: number; height: number }>(
+                (resolve, reject) => {
+                  RNImage.getSize(imageUri, (w, h) => resolve({ width: w, height: h }), reject);
+                }
+              );
 
-            const PADDING = 0.05;
+              const PADDING = 0.05;
 
-            await Promise.all(
-              processedTickets.map(async (ticket, i) => {
-                const box = boundingBoxes[i];
+              await Promise.all(
+                processedTickets.map(async (ticket, i) => {
+                  const box = boundingBoxes[i];
 
-                if (box) {
-                  const cropX = Math.max(0, (box.x_min / 1000) * imgWidth * (1 - PADDING));
-                  const cropY = Math.max(0, (box.y_min / 1000) * imgHeight * (1 - PADDING));
-                  const cropW = Math.min(
-                    imgWidth - cropX,
-                    ((box.x_max - box.x_min) / 1000) * imgWidth * (1 + PADDING * 2)
-                  );
-                  const cropH = Math.min(
-                    imgHeight - cropY,
-                    ((box.y_max - box.y_min) / 1000) * imgHeight * (1 + PADDING * 2)
-                  );
+                  if (box) {
+                    const cropX = Math.max(0, (box.x_min / 1000) * imgWidth * (1 - PADDING));
+                    const cropY = Math.max(0, (box.y_min / 1000) * imgHeight * (1 - PADDING));
+                    const cropW = Math.min(
+                      imgWidth - cropX,
+                      ((box.x_max - box.x_min) / 1000) * imgWidth * (1 + PADDING * 2)
+                    );
+                    const cropH = Math.min(
+                      imgHeight - cropY,
+                      ((box.y_max - box.y_min) / 1000) * imgHeight * (1 + PADDING * 2)
+                    );
 
-                  if (cropW > 0 && cropH > 0) {
-                    try {
-                      const cropped = await ImageManipulator.manipulateAsync(
-                        imageUri,
-                        [{ crop: { originX: cropX, originY: cropY, width: cropW, height: cropH } }],
-                        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
-                      );
-                      ticket.ticketPhotoUri = cropped.uri;
-                    } catch {
+                    if (cropW > 0 && cropH > 0) {
+                      try {
+                        const cropped = await ImageManipulator.manipulateAsync(
+                          imageUri,
+                          [{ crop: { originX: cropX, originY: cropY, width: cropW, height: cropH } }],
+                          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
+                        );
+                        ticket.ticketPhotoUri = cropped.uri;
+                      } catch {
+                        ticket.ticketPhotoUri = imageUri;
+                      }
+                    } else {
                       ticket.ticketPhotoUri = imageUri;
                     }
                   } else {
                     ticket.ticketPhotoUri = imageUri;
                   }
-                } else {
-                  ticket.ticketPhotoUri = imageUri;
-                }
-              })
-            );
-          } catch (cropErr) {
-            captureException(cropErr instanceof Error ? cropErr : new Error(String(cropErr)), {
-              context: 'scan-ticket-crop',
-            });
+                })
+              );
+            } catch (cropErr) {
+              captureException(cropErr instanceof Error ? cropErr : new Error(String(cropErr)), {
+                context: 'scan-ticket-crop',
+              });
+              for (const ticket of processedTickets) {
+                ticket.ticketPhotoUri = imageUri;
+              }
+            }
+          } else {
+            // Crop disabled — attach full image to all tickets
             for (const ticket of processedTickets) {
               ticket.ticketPhotoUri = imageUri;
             }

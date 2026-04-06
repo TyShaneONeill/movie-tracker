@@ -183,7 +183,7 @@ Important:
 - If year is missing, infer from movie release dates
 
 ## Step 4: Provide Bounding Boxes
-For each ticket found, provide its bounding_box coordinates (0-1000 normalized scale) so the ticket can be cropped from the image. If multiple tickets are visible, each must have its own bounding_box. If only one ticket fills the frame, bounding_box may be omitted.`;
+For every ticket found in the image, you MUST provide its bounding_box coordinates using the 0-1000 normalized scale (where 0,0 is top-left and 1000,1000 is bottom-right). Include the full rectangular boundary of the ticket document itself, cropping out hands, table surfaces, and background. Even if only one ticket is visible, always return its bounding_box.`;
 
 // ============================================================================
 // Post-Processing Functions
@@ -612,7 +612,7 @@ async function extractWithGemini(
                       barcode_visible: { type: "boolean" },
                       bounding_box: {
                         type: "object",
-                        description: "Normalized pixel coordinates (0-1000 scale) of this ticket's boundaries in the image. Return null if only one ticket or cannot determine.",
+                        description: "Normalized pixel coordinates (0-1000 scale) of this ticket's boundaries in the image. Always required — include even for single tickets.",
                         properties: {
                           x_min: { type: "number" },
                           y_min: { type: "number" },
@@ -622,7 +622,7 @@ async function extractWithGemini(
                         propertyOrdering: ["x_min", "y_min", "x_max", "y_max"]
                       }
                     },
-                    required: ["movie_title"],
+                    required: ["movie_title", "bounding_box"],
                     propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "confirmation_number", "barcode_visible", "bounding_box"]
                   }
                 },

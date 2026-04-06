@@ -10,6 +10,7 @@ export interface UserPreferences {
   defaultCollectionView: 'movies' | 'tv';
   showContinueWatching: boolean;
   isPrivate: boolean;
+  cropTicketPhotos: boolean;
 }
 
 export interface UseUserPreferencesResult {
@@ -28,6 +29,7 @@ const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
   defaultCollectionView: 'default_collection_view',
   showContinueWatching: 'show_continue_watching',
   isPrivate: 'is_private',
+  cropTicketPhotos: 'crop_ticket_photos',
 };
 
 /**
@@ -36,7 +38,7 @@ const preferenceToColumnMap: Record<keyof UserPreferences, string> = {
 async function fetchUserPreferences(userId: string): Promise<UserPreferences | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('first_take_prompt_enabled, review_visibility, default_collection_view, show_continue_watching, is_private')
+    .select('first_take_prompt_enabled, review_visibility, default_collection_view, show_continue_watching, is_private, crop_ticket_photos')
     .eq('id', userId)
     .single();
 
@@ -49,7 +51,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     throw error;
   }
 
-  const profileData = data as { first_take_prompt_enabled: boolean | null; review_visibility: ReviewVisibility | null; default_collection_view: string | null; show_continue_watching: boolean | null; is_private: boolean | null } | null;
+  const profileData = data as { first_take_prompt_enabled: boolean | null; review_visibility: ReviewVisibility | null; default_collection_view: string | null; show_continue_watching: boolean | null; is_private: boolean | null; crop_ticket_photos: boolean | null } | null;
 
   return {
     // Default to true for backwards compatibility (existing users without preference set)
@@ -59,6 +61,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     defaultCollectionView: profileData?.default_collection_view === 'tv' ? 'tv' : 'movies',
     showContinueWatching: profileData?.show_continue_watching ?? true,
     isPrivate: profileData?.is_private ?? false,
+    cropTicketPhotos: profileData?.crop_ticket_photos ?? true,
   };
 }
 
@@ -85,6 +88,8 @@ async function updateUserPreference(
     updateData.show_continue_watching = value as boolean;
   } else if (key === 'isPrivate') {
     updateData.is_private = value as boolean;
+  } else if (key === 'cropTicketPhotos') {
+    (updateData as Record<string, unknown>).crop_ticket_photos = value as boolean;
   }
 
   // Use type assertion to work around Supabase client generic inference issue
