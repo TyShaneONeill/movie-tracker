@@ -189,7 +189,7 @@ interface JourneyTicketProps {
   onGenerateArt: () => void;
   onTogglePoster: () => void;
   isGenerating: boolean;
-  onPosterTap: () => void;
+  onPosterTap: (photoUri: string, isPosterSlot: boolean) => void;
 }
 
 function JourneyTicket({
@@ -267,7 +267,7 @@ function JourneyTicket({
               return (
                 <Pressable
                   key={index}
-                  onPress={onPosterTap}
+                  onPress={() => onPosterTap(photoUri, index === 0)}
                   style={[{ width: ticketWidth, height: '100%' as any }, isTicketPhoto && { backgroundColor: '#0a0a0a' }]}
                 >
                   <Image
@@ -287,7 +287,7 @@ function JourneyTicket({
               resizeMode="cover"
             />
             {/* Poster tap overlay — single photo only */}
-            <Pressable onPress={onPosterTap} style={StyleSheet.absoluteFill} />
+            <Pressable onPress={() => onPosterTap(heroPhotos[0] || '', true)} style={StyleSheet.absoluteFill} />
           </>
         )}
         <LinearGradient
@@ -504,10 +504,14 @@ export default function JourneyCarouselScreen() {
   // Poster inspection modal state
   const [isPosterModalVisible, setIsPosterModalVisible] = useState(false);
   const [selectedPosterJourney, setSelectedPosterJourney] = useState<UserMovie | null>(null);
+  const [inspectedPhotoUrl, setInspectedPhotoUrl] = useState('');
+  const [inspectingPosterSlot, setInspectingPosterSlot] = useState(false);
 
   // Handle poster tap for inspection modal
-  const handlePosterTap = useCallback((journey: UserMovie) => {
+  const handlePosterTap = useCallback((journey: UserMovie, photoUri: string, isPosterSlot: boolean) => {
     setSelectedPosterJourney(journey);
+    setInspectedPhotoUrl(photoUri);
+    setInspectingPosterSlot(isPosterSlot);
     setIsPosterModalVisible(true);
     hapticImpact(ImpactFeedbackStyle.Medium);
   }, []);
@@ -675,7 +679,7 @@ export default function JourneyCarouselScreen() {
             onGenerateArt={() => handleGenerateArt(item.journey)}
             onTogglePoster={() => handleTogglePoster(item.journey)}
             isGenerating={generatingJourneyId === item.journey.id}
-            onPosterTap={() => handlePosterTap(item.journey)}
+            onPosterTap={(photoUri, isPosterSlot) => handlePosterTap(item.journey, photoUri, isPosterSlot)}
           />
         </View>
       );
@@ -806,8 +810,8 @@ export default function JourneyCarouselScreen() {
       {/* Poster Inspection Modal */}
       <PosterInspectionModal
         visible={isPosterModalVisible}
-        imageUrl={getTMDBImageUrl(selectedPosterJourney?.poster_path ?? null, 'w780') || ''}
-        aiImageUrl={selectedPosterJourney?.display_poster === 'ai_generated' ? selectedPosterJourney?.ai_poster_url : null}
+        imageUrl={inspectedPhotoUrl}
+        aiImageUrl={inspectingPosterSlot && selectedPosterJourney?.display_poster === 'ai_generated' ? selectedPosterJourney?.ai_poster_url : null}
         movieTitle={selectedPosterJourney?.title || ''}
         onClose={() => {
           setIsPosterModalVisible(false);
