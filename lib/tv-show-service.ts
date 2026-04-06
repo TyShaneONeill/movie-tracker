@@ -384,7 +384,30 @@ export async function markSeasonWatched(
   tmdbShowId: number,
   episodes: TMDBEpisode[]
 ): Promise<void> {
-  const insertData: UserEpisodeWatchInsert[] = episodes.map((episode) => ({
+  // Pre-filter: skip episodes already recorded as watch_number=1 to avoid
+  // conflict errors with the partial unique index (PostgREST cannot express
+  // ON CONFLICT ... WHERE watch_number=1 through the upsert API).
+  const { data: existing } = await supabase
+    .from('user_episode_watches')
+    .select('season_number, episode_number')
+    .eq('user_id', userId)
+    .eq('user_tv_show_id', userTvShowId)
+    .eq('watch_number', 1);
+
+  const watchedKeys = new Set(
+    (existing ?? []).map((w) => `${w.season_number}:${w.episode_number}`)
+  );
+
+  const toInsert = episodes.filter(
+    (ep) => !watchedKeys.has(`${ep.season_number}:${ep.episode_number}`)
+  );
+
+  if (toInsert.length === 0) {
+    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    return;
+  }
+
+  const insertData: UserEpisodeWatchInsert[] = toInsert.map((episode) => ({
     user_id: userId,
     user_tv_show_id: userTvShowId,
     tmdb_show_id: tmdbShowId,
@@ -396,15 +419,14 @@ export async function markSeasonWatched(
     watched_at: new Date().toISOString(),
   }));
 
-  const { error } = await (supabase
-    .from('user_episode_watches') as any)
-    .upsert(insertData, { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true });
+  const { error } = await supabase
+    .from('user_episode_watches')
+    .insert(insertData);
 
   if (error) {
     throw new Error(error.message || 'Failed to mark season as watched');
   }
 
-  // Sync TV show progress
   await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
 }
 
@@ -430,9 +452,9 @@ export async function unmarkSeasonWatched(
 }
 
 // Batch mark multiple episodes (across seasons) as watched in a single insert.
-// Uses ON CONFLICT DO NOTHING (no column spec) to silently skip already-watched
-// episodes — required because the unique index on user_episode_watches is partial
-// (WHERE watch_number = 1) and cannot be used with ON CONFLICT (cols) in upsert.
+// Pre-filters already-watched episodes to avoid conflicts with the partial unique
+// index (WHERE watch_number = 1) — PostgREST cannot express ON CONFLICT ... WHERE
+// through its upsert API, so we avoid the conflict entirely instead.
 export async function batchMarkEpisodesWatched(
   userId: string,
   userTvShowId: string,
@@ -441,8 +463,29 @@ export async function batchMarkEpisodesWatched(
 ): Promise<void> {
   if (episodes.length === 0) return;
 
+  // Fetch existing first-watch records to exclude already-watched episodes
+  const { data: existing } = await supabase
+    .from('user_episode_watches')
+    .select('season_number, episode_number')
+    .eq('user_id', userId)
+    .eq('user_tv_show_id', userTvShowId)
+    .eq('watch_number', 1);
+
+  const watchedKeys = new Set(
+    (existing ?? []).map((w) => `${w.season_number}:${w.episode_number}`)
+  );
+
+  const toInsert = episodes.filter(
+    (ep) => !watchedKeys.has(`${ep.season_number}:${ep.episode_number}`)
+  );
+
+  if (toInsert.length === 0) {
+    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    return;
+  }
+
   const now = new Date().toISOString();
-  const insertData: UserEpisodeWatchInsert[] = episodes.map((ep) => ({
+  const insertData: UserEpisodeWatchInsert[] = toInsert.map((ep) => ({
     user_id: userId,
     user_tv_show_id: userTvShowId,
     tmdb_show_id: tmdbShowId,
@@ -454,12 +497,9 @@ export async function batchMarkEpisodesWatched(
     watched_at: now,
   }));
 
-  // onConflict + ignoreDuplicates → ON CONFLICT (cols) DO NOTHING
-  // PostgreSQL matches the partial unique index (WHERE watch_number = 1) because
-  // inserted rows satisfy the WHERE clause (watch_number defaults to 1).
-  const { error } = await (supabase
-    .from('user_episode_watches') as any)
-    .upsert(insertData, { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true });
+  const { error } = await supabase
+    .from('user_episode_watches')
+    .insert(insertData);
 
   if (error) {
     throw new Error(error.message || 'Failed to batch mark episodes as watched');

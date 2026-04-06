@@ -794,33 +794,42 @@ describe('markSeasonWatched', () => {
     makeTMDBEpisode({ episode_number: 3, id: 62087, name: '...And the Bag\'s in the River' }),
   ];
 
-  it('inserts all episodes for the season', async () => {
-    const chain = setupQueryChain({ data: null, error: null });
+  it('inserts all episodes when none are already watched', async () => {
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
 
     await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
 
-    expect(mockFrom).toHaveBeenCalledWith('user_episode_watches');
-    expect(chain.upsert).toHaveBeenCalledWith(
+    expect(insertChain.insert).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({
-          user_id: USER_ID,
-          user_tv_show_id: USER_TV_SHOW_ID,
-          tmdb_show_id: TMDB_ID,
-          episode_number: 1,
-        }),
-        expect.objectContaining({
-          episode_number: 2,
-        }),
-        expect.objectContaining({
-          episode_number: 3,
-        }),
-      ]),
-      { onConflict: 'user_id,tmdb_show_id,season_number,episode_number', ignoreDuplicates: true }
+        expect.objectContaining({ user_id: USER_ID, user_tv_show_id: USER_TV_SHOW_ID, episode_number: 1 }),
+        expect.objectContaining({ episode_number: 2 }),
+        expect.objectContaining({ episode_number: 3 }),
+      ])
     );
   });
 
-  it('calls sync_tv_show_progress RPC after insert', async () => {
-    setupQueryChain({ data: null, error: null });
+  it('skips episodes already recorded as watch_number=1', async () => {
+    // Episode 1 already watched — only 2 and 3 should be inserted
+    const selectChain = mockSupabaseQuery({
+      data: [{ season_number: 1, episode_number: 1 }],
+      error: null,
+    });
+    const insertChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
+
+    await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    const inserted = insertChain.insert.mock.calls[0][0] as Array<{ episode_number: number }>;
+    expect(inserted.map((r) => r.episode_number)).not.toContain(1);
+    expect(inserted.map((r) => r.episode_number)).toEqual(expect.arrayContaining([2, 3]));
+  });
+
+  it('calls sync_tv_show_progress after insert', async () => {
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
 
     await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
 
@@ -829,8 +838,29 @@ describe('markSeasonWatched', () => {
     });
   });
 
-  it('throws on error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Batch insert failed' } });
+  it('calls sync_tv_show_progress even when all episodes already watched', async () => {
+    // All three already watched — nothing to insert
+    const selectChain = mockSupabaseQuery({
+      data: [
+        { season_number: 1, episode_number: 1 },
+        { season_number: 1, episode_number: 2 },
+        { season_number: 1, episode_number: 3 },
+      ],
+      error: null,
+    });
+    mockFrom.mockReturnValueOnce(selectChain);
+
+    await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', {
+      p_user_tv_show_id: USER_TV_SHOW_ID,
+    });
+  });
+
+  it('throws on insert error', async () => {
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: { message: 'Batch insert failed' } });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
 
     await expect(
       markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes)
@@ -838,7 +868,9 @@ describe('markSeasonWatched', () => {
   });
 
   it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: {} });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
 
     await expect(
       markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes)
