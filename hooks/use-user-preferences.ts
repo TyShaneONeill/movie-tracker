@@ -61,7 +61,7 @@ async function fetchUserPreferences(userId: string): Promise<UserPreferences | n
     defaultCollectionView: profileData?.default_collection_view === 'tv' ? 'tv' : 'movies',
     showContinueWatching: profileData?.show_continue_watching ?? true,
     isPrivate: profileData?.is_private ?? false,
-    cropTicketPhotos: profileData?.crop_ticket_photos ?? true,
+    cropTicketPhotos: profileData?.crop_ticket_photos ?? false,
   };
 }
 

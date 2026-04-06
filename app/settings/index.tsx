@@ -613,10 +613,10 @@ export default function SettingsScreen() {
           >
             <View style={styles.settingsItemContent}>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Crop ticket photos</Text>
-              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Automatically removes background noise when saving scanned tickets</Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Experimental: crop scanned ticket photos to remove background</Text>
             </View>
             <ToggleSwitch
-              value={preferences?.cropTicketPhotos ?? true}
+              value={preferences?.cropTicketPhotos ?? false}
               onValueChange={handleCropTicketPhotosToggle}
               disabled={isLoadingPreferences || isUpdating}
             />

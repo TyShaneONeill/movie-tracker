@@ -356,7 +356,7 @@ export function useScanTicket(): UseScanTicketResult {
 
         // Crop and attach ticket photos if we have the original image URI (native only)
         if (imageUri && Platform.OS !== 'web') {
-          if (preferences?.cropTicketPhotos !== false) {
+          if (preferences?.cropTicketPhotos === true) {
             try {
               const { width: imgWidth, height: imgHeight } = await new Promise<{ width: number; height: number }>(
                 (resolve, reject) => {
