@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -141,6 +142,7 @@ export default function TicketReviewScreen() {
 
   // Achievement check (fire-and-forget after bulk operations)
   const { triggerAchievementCheck } = useAchievementCheck();
+  const queryClient = useQueryClient();
 
   // User preferences hook (for First Take prompt setting)
   const { preferences } = useUserPreferences();
@@ -256,6 +258,17 @@ export default function TicketReviewScreen() {
         router.replace('/(tabs)/profile');
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'DUPLICATE_FIRST_TAKE') {
+        // Already rated this movie — navigate silently, no error needed
+        setShowFirstTakeModal(false);
+        setFirstTakeMovieInfo(null);
+        if (singleJourneyId) {
+          router.replace(`/journey/${singleJourneyId}`);
+        } else {
+          router.replace('/(tabs)/profile');
+        }
+        return;
+      }
       captureException(error instanceof Error ? error : new Error(String(error)), { context: 'ticket-review-first-take-submit' });
       Alert.alert('Error', 'Failed to save your first take. Please try again.');
     } finally {
@@ -445,6 +458,14 @@ export default function TicketReviewScreen() {
 
       // Trigger achievement check once for the entire bulk operation
       triggerAchievementCheck();
+
+      // Bust caches so profile + journey carousel reflect the new rows immediately
+      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      for (const ticket of validTickets) {
+        if (ticket.tmdbMatch?.movie.id) {
+          queryClient.invalidateQueries({ queryKey: ['journeysByMovie', ticket.tmdbMatch.movie.id] });
+        }
+      }
 
       // Only show First Take modals if the preference is enabled
       if (firstTakePromptEnabled) {
