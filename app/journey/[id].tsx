@@ -329,20 +329,26 @@ export default function JourneyCardScreen() {
                 }}
                 style={StyleSheet.absoluteFill}
               >
-                {heroPhotos.map((photoUri, index) => (
-                  <Pressable
-                    key={index}
-                    onPress={handlePosterTap}
-                    style={{ width: ticketCardWidth, height: 350 }}
-                    android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
-                  >
-                    <Image
-                      source={{ uri: photoUri }}
-                      style={StyleSheet.absoluteFill}
-                      resizeMode="cover"
-                    />
-                  </Pressable>
-                ))}
+                {heroPhotos.map((photoUri, index) => {
+                  const isTicketPhoto = photoUri.includes('/ticket-photos/');
+                  return (
+                    <Pressable
+                      key={index}
+                      onPress={handlePosterTap}
+                      style={[
+                        { width: ticketCardWidth, height: 350 },
+                        isTicketPhoto && { backgroundColor: '#0a0a0a' },
+                      ]}
+                      android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
+                    >
+                      <Image
+                        source={{ uri: photoUri }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode={isTicketPhoto ? 'contain' : 'cover'}
+                      />
+                    </Pressable>
+                  );
+                })}
               </ScrollView>
 
               {/* Gradient overlay */}
