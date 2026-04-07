@@ -69,8 +69,6 @@ function getLocationBadgeText(locationType: string | null): string {
   }
 }
 
-// Header height constant
-const HEADER_HEIGHT = 100; // paddingTop (60) + content (~40)
 const MAX_JOURNEY_WIDTH = 480;
 
 export default function JourneyCardScreen() {
@@ -78,7 +76,7 @@ export default function JourneyCardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  const { height: screenHeight, width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
   const insets = useSafeAreaInsets();
 
@@ -125,10 +123,6 @@ export default function JourneyCardScreen() {
   const { loaded: adLoaded, showAd, reloadAd } = useRewardedAd('ai');
   const { grantCredit, isGranting } = useGrantAdReward();
 
-  // Calculate available height for ticket card
-  // Screen height - header - top safe area - bottom safe area - padding
-  const ticketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
-
   // Calculate info carousel page width (screen width - horizontal paddings)
   // Info page width = container width (screen - scroll padding - container margins)
   const infoPageWidth = screenWidth - (Spacing.md * 4);
@@ -137,7 +131,7 @@ export default function JourneyCardScreen() {
   const isDark = effectiveTheme === 'dark';
 
   // Dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors, ticketHeight, insets.top, isDark), [colors, ticketHeight, insets.top, isDark]);
+  const styles = useMemo(() => createStyles(colors, insets.top, isDark), [colors, insets.top, isDark]);
 
   // Handle poster modal close
   const handlePosterModalClose = useCallback(() => {
@@ -554,7 +548,7 @@ export default function JourneyCardScreen() {
 }
 
 // Create styles function that takes theme colors, ticket height, info page width, and theme
-const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: number, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, topInset: number, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -609,13 +603,12 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, topInset: numbe
     borderRadius: BorderRadius.full,
   },
 
-  // Ticket Card - fills available height
+  // Ticket Card - sizes to content
   ticketCard: {
     backgroundColor: colors.card,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     marginTop: Spacing.md,
-    minHeight: ticketHeight,
   },
   bottomSection: {
     overflow: 'hidden',

@@ -181,8 +181,9 @@ export default function TicketReviewScreen() {
   const [showMultiFirstTakeModal, setShowMultiFirstTakeModal] = useState(false);
   const [multiFirstTakeMovies, setMultiFirstTakeMovies] = useState<MovieInfo[]>([]);
 
-  // Journey ID for navigation after single movie scan
+  // Journey ID and TMDB ID for navigation after single movie scan
   const [singleJourneyId, setSingleJourneyId] = useState<string | null>(null);
+  const [singleTmdbId, setSingleTmdbId] = useState<number | null>(null);
 
   // Count movies found
   const moviesFound = tickets.filter((t) => t.tmdbMatch !== null).length;
@@ -251,9 +252,9 @@ export default function TicketReviewScreen() {
       setShowFirstTakeModal(false);
       setFirstTakeMovieInfo(null);
       triggerAchievementCheck();
-      // Navigate to journey card if we have a journey ID, otherwise profile
-      if (singleJourneyId) {
-        router.replace(`/journey/${singleJourneyId}`);
+      // Navigate to the carousel screen using TMDB ID so rating + date are visible immediately
+      if (singleTmdbId) {
+        router.replace(`/journey/movie/${singleTmdbId}`);
       } else {
         router.replace('/(tabs)/profile');
       }
@@ -262,8 +263,8 @@ export default function TicketReviewScreen() {
         // Already rated this movie — navigate silently, no error needed
         setShowFirstTakeModal(false);
         setFirstTakeMovieInfo(null);
-        if (singleJourneyId) {
-          router.replace(`/journey/${singleJourneyId}`);
+        if (singleTmdbId) {
+          router.replace(`/journey/movie/${singleTmdbId}`);
         } else {
           router.replace('/(tabs)/profile');
         }
@@ -274,19 +275,19 @@ export default function TicketReviewScreen() {
     } finally {
       setIsSubmittingFirstTake(false);
     }
-  }, [user, firstTakeMovieInfo, router, singleJourneyId, triggerAchievementCheck]);
+  }, [user, firstTakeMovieInfo, router, singleTmdbId, triggerAchievementCheck]);
 
   // Handle First Take modal close (skip without submitting)
   const handleFirstTakeClose = useCallback(() => {
     setShowFirstTakeModal(false);
     setFirstTakeMovieInfo(null);
-    // Navigate to journey card if we have a journey ID, otherwise profile
-    if (singleJourneyId) {
-      router.replace(`/journey/${singleJourneyId}`);
+    // Navigate to the carousel screen using TMDB ID so rating + date are visible immediately
+    if (singleTmdbId) {
+      router.replace(`/journey/movie/${singleTmdbId}`);
     } else {
       router.replace('/(tabs)/profile');
     }
-  }, [router, singleJourneyId]);
+  }, [router, singleTmdbId]);
 
   // Handle Multi First Take modal complete
   const handleMultiFirstTakeComplete = useCallback(() => {
@@ -472,9 +473,10 @@ export default function TicketReviewScreen() {
         // If exactly 1 movie was added successfully, show First Take modal
         if (succeeded === 1 && validTickets.length === 1) {
           const movie = validTickets[0].tmdbMatch!.movie;
-          // Set journey ID for navigation after First Take modal
+          // Set journey ID + TMDB ID for navigation after First Take modal
           if (createdJourneyIds.length > 0) {
             setSingleJourneyId(createdJourneyIds[0]);
+            setSingleTmdbId(movie.id);
           }
           setFirstTakeMovieInfo({
             tmdbId: movie.id,
@@ -523,7 +525,7 @@ export default function TicketReviewScreen() {
             text: navigateToJourney ? 'View Journey' : 'OK',
             onPress: () => {
               if (navigateToJourney) {
-                router.replace(`/journey/${createdJourneyIds[0]}`);
+                router.replace(`/journey/movie/${validTickets[0].tmdbMatch!.movie.id}`);
               } else {
                 router.replace('/(tabs)/profile');
               }
