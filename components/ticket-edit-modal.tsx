@@ -30,6 +30,8 @@ import type { TMDBMovie } from '@/lib/tmdb.types';
 import { useMovieSearch } from '@/hooks/use-movie-search';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { TicketMovieSearchResult } from './ticket-movie-search-result';
+import { DatePickerField } from './DatePickerField';
+import { TimePickerField } from './TimePickerField';
 
 // ============================================================================
 // Types
@@ -93,8 +95,6 @@ export function TicketEditModal({
   // Typed as `any` to bridge react-native TextInput and BottomSheetTextInput (android) ref incompatibility
   const theaterRef = useRef<any>(null);
   const auditoriumRef = useRef<any>(null);
-  const dateRef = useRef<any>(null);
-  const timeRef = useRef<any>(null);
   const rowRef = useRef<any>(null);
   const seatRef = useRef<any>(null);
   const priceRef = useRef<any>(null);
@@ -238,14 +238,30 @@ export function TicketEditModal({
   const handleSave = () => {
     if (!ticket) return;
 
-    // Parse price from formatted string (e.g., "$22.99" -> 22.99)
+    // Sanitize text fields
+    const sanitizedTheater = formData.theater.trim().slice(0, 100) || null;
+    const sanitizedAuditorium = formData.auditorium.trim().slice(0, 10) || null;
+    const sanitizedRow = formData.row.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || null;
+    const sanitizedSeat = formData.seat.trim().replace(/[^A-Z0-9]/g, '').slice(0, 5) || null;
+
+    // Validate date — must be YYYY-MM-DD and a real date
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    const sanitizedDate =
+      formData.date && dateRegex.test(formData.date) && !isNaN(Date.parse(formData.date))
+        ? formData.date
+        : null;
+
+    // Validate time
+    const sanitizedTime = formData.time?.trim() || null;
+
+    // Parse and validate price (positive number under $9999, preserving currency)
     let priceAmount: number | null = null;
     let priceCurrency = ticket.priceCurrency || 'USD';
     if (formData.price) {
       const priceMatch = formData.price.match(/([£€$]?)(\d+\.?\d*)/);
       if (priceMatch) {
-        priceAmount = parseFloat(priceMatch[2]) || null;
-        // Detect currency from symbol
+        const val = parseFloat(priceMatch[2]);
+        priceAmount = !isNaN(val) && val >= 0 && val < 9999 ? val : null;
         if (priceMatch[1] === '£') priceCurrency = 'GBP';
         else if (priceMatch[1] === '€') priceCurrency = 'EUR';
         else if (priceMatch[1] === '$') priceCurrency = 'USD';
@@ -266,19 +282,19 @@ export function TicketEditModal({
       };
     }
 
-    // Create updated ticket with form data
+    // Create updated ticket with sanitized values
     const updatedTicket: ProcessedTicket = {
       ...ticket,
       movieTitle: formData.movieTitle || null,
-      theaterName: formData.theater || null,
-      date: formData.date || null,
-      showtime: formData.time || null,
-      seatRow: formData.row || null,
-      seatNumber: formData.seat || null,
+      theaterName: sanitizedTheater,
+      date: sanitizedDate,
+      showtime: sanitizedTime,
+      seatRow: sanitizedRow,
+      seatNumber: sanitizedSeat,
       format: formData.format !== 'Standard' ? formData.format : null,
       priceAmount,
       priceCurrency,
-      auditorium: formData.auditorium || null,
+      auditorium: sanitizedAuditorium,
       mpaaRating,
       tmdbMatch: updatedTmdbMatch,
       wasModified: true,
@@ -460,42 +476,25 @@ export function TicketEditModal({
                     returnKeyType="next"
                     blurOnSubmit={false}
                     onFocus={() => handleFieldFocus('theater')}
-                    onSubmitEditing={() => dateRef.current?.focus()}
+                    onSubmitEditing={() => rowRef.current?.focus()}
                   />
                 </View>
               </View>
 
               {/* Date and Time row */}
-              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.date = e.nativeEvent.layout.y; }}>
+              <View style={styles.formRow}>
                 <View style={[styles.formGroup, styles.formGroupFlex2]}>
                   <Text style={styles.label}>Date</Text>
-                  <FormTextInput
-                    ref={dateRef}
-                    style={styles.input}
+                  <DatePickerField
                     value={formData.date}
-                    onChangeText={(value) => handleChange('date', value)}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={Colors.dark.textTertiary}
-                    keyboardType="default"
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                    onFocus={() => handleFieldFocus('date')}
-                    onSubmitEditing={() => timeRef.current?.focus()}
+                    onChange={(value) => handleChange('date', value)}
                   />
                 </View>
                 <View style={[styles.formGroup, styles.formGroupFlex1]}>
                   <Text style={styles.label}>Time</Text>
-                  <FormTextInput
-                    ref={timeRef}
-                    style={styles.input}
+                  <TimePickerField
                     value={formData.time}
-                    onChangeText={(value) => handleChange('time', value)}
-                    placeholder="7:00 PM"
-                    placeholderTextColor={Colors.dark.textTertiary}
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                    onFocus={() => handleFieldFocus('date')}
-                    onSubmitEditing={() => rowRef.current?.focus()}
+                    onChange={(value) => handleChange('time', value)}
                   />
                 </View>
               </View>
