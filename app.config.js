@@ -78,6 +78,7 @@ export default {
           cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to take a profile picture.",
         },
       ],
+      "@react-native-community/datetimepicker",
       [
         "react-native-google-mobile-ads",
         {
