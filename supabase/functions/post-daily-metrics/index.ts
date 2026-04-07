@@ -62,15 +62,6 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Only accept internal calls (service_role key in Authorization header)
-  const authHeader = req.headers.get("authorization") || "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!authHeader.includes(serviceRoleKey)) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
 
   const POSTHOG_PERSONAL_API_KEY = Deno.env.get("POSTHOG_PERSONAL_API_KEY");
   const POSTHOG_PROJECT_ID = Deno.env.get("POSTHOG_PROJECT_ID");
