@@ -3,8 +3,14 @@ export default {
     owner: "tormaj",
     name: "PocketStubs",
     slug: "pocketstubs",
-    version: "1.1.0",
+    version: "1.1.1",
     orientation: "portrait",
+    updates: {
+      url: "https://u.expo.dev/d71c1a95-3697-4a03-b485-813c803573f9",
+    },
+    runtimeVersion: {
+      policy: "appVersion",
+    },
     icon: "./assets/images/icon.png",
     scheme: "pocketstubs",
     userInterfaceStyle: "automatic",
