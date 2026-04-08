@@ -37,7 +37,11 @@ import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourneysByMovie, useJourneyMutations } from '@/hooks/use-journey';
 import { useGenerateArt } from '@/hooks/use-generate-art';
+import { useGrantAdReward } from '@/hooks/use-grant-ad-reward';
+import { useRewardedAd } from '@/hooks/use-rewarded-ad';
+import { usePremium } from '@/hooks/use-premium';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import { getGenreNamesByIds } from '@/lib/genre-service';
 import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
@@ -190,6 +194,12 @@ interface JourneyTicketProps {
   onTogglePoster: () => void;
   isGenerating: boolean;
   onPosterTap: (photoUri: string, isPosterSlot: boolean) => void;
+  hasUsedFreeTrial: boolean;
+  tier: string;
+  adLoaded: boolean;
+  isGranting: boolean;
+  onWatchAd: () => void;
+  onUpgradePress: () => void;
 }
 
 function JourneyTicket({
@@ -204,6 +214,12 @@ function JourneyTicket({
   onTogglePoster,
   isGenerating,
   onPosterTap,
+  hasUsedFreeTrial,
+  tier,
+  adLoaded,
+  isGranting,
+  onWatchAd,
+  onUpgradePress,
 }: JourneyTicketProps) {
   const showAiPoster = journey.display_poster === 'ai_generated' && journey.ai_poster_url;
   const hasAiPoster = !!journey.ai_poster_url;
@@ -403,25 +419,56 @@ function JourneyTicket({
           />
         ) : (
           <View style={styles.generateArtSection}>
-            <Pressable
-              style={styles.generateArtButton}
-              onPress={onGenerateArt}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.text} />
-                  <Text style={styles.generateArtButtonText}>Generating...</Text>
-                </>
-              ) : (
-                <>
+            {tier === 'free' && hasUsedFreeTrial ? (
+              <>
+                <Pressable
+                  style={[styles.generateArtButton, !adLoaded && styles.generateArtButtonDisabled]}
+                  onPress={onWatchAd}
+                  disabled={!adLoaded || isGranting}
+                >
                   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                    <Path d="M15 10l4.553-2.277A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
+                  </Svg>
+                  <Text style={styles.generateArtButtonText}>
+                    {!adLoaded ? 'Loading ad...' : 'Watch Ad for 1 Generation'}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.upgradeNudge} onPress={onUpgradePress}>
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.tint} strokeWidth={2}>
                     <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                   </Svg>
-                  <Text style={styles.generateArtButtonText}>Generate AI Art</Text>
-                </>
-              )}
-            </Pressable>
+                  <View style={styles.upgradeNudgeText}>
+                    <Text style={styles.upgradeNudgeTitle}>Free AI poster used</Text>
+                    <Text style={styles.upgradeNudgeSubtitle}>Upgrade to PocketStubs+ for unlimited AI art</Text>
+                  </View>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2}>
+                    <Path d="M9 18l6-6-6-6" />
+                  </Svg>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                style={styles.generateArtButton}
+                onPress={onGenerateArt}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.text} />
+                    <Text style={styles.generateArtButtonText}>Generating...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
+                      <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                    </Svg>
+                    <Text style={styles.generateArtButtonText}>
+                      {tier === 'free' ? 'Generate AI Art (1 free trial)' : 'Generate AI Art'}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            )}
           </View>
         )}
       </View>
@@ -494,8 +541,25 @@ export default function JourneyCarouselScreen() {
   const journeys = useMemo(() => journeyData?.journeys ?? [], [journeyData?.journeys]);
   const firstTake = journeyData?.firstTake ?? null;
 
-  // AI art generation
-  const { generateArt } = useGenerateArt();
+  // AI art generation + rewarded ad
+  const { generateArt, hasUsedFreeTrial } = useGenerateArt();
+  const { tier } = usePremium();
+  const { loaded: adLoaded, showAd, reloadAd } = useRewardedAd('ai');
+  const { grantCredit, isGranting } = useGrantAdReward();
+  const [upgradeSheetVisible, setUpgradeSheetVisible] = useState(false);
+
+  const handleWatchAd = useCallback(async () => {
+    const earned = await showAd();
+    if (earned) {
+      const granted = await grantCredit();
+      if (granted) {
+        Toast.show({ type: 'success', text1: 'Credit earned!', text2: 'Tap Generate AI Art to use it.', visibilityTime: 3000 });
+        reloadAd();
+      }
+    } else {
+      Toast.show({ type: 'info', text1: 'Watch the full ad to earn a credit', visibilityTime: 2500 });
+    }
+  }, [showAd, grantCredit, reloadAd]);
   const { updateJourney } = useJourneyMutations(parsedTmdbId);
 
   // Track which journey is currently generating
@@ -680,13 +744,20 @@ export default function JourneyCarouselScreen() {
             onTogglePoster={() => handleTogglePoster(item.journey)}
             isGenerating={generatingJourneyId === item.journey.id}
             onPosterTap={(photoUri, isPosterSlot) => handlePosterTap(item.journey, photoUri, isPosterSlot)}
+            hasUsedFreeTrial={hasUsedFreeTrial}
+            tier={tier ?? 'free'}
+            adLoaded={adLoaded}
+            isGranting={isGranting}
+            onWatchAd={handleWatchAd}
+            onUpgradePress={() => setUpgradeSheetVisible(true)}
           />
         </View>
       );
     },
     [colors, effectiveTheme, ticketHeight, ticketWidth, infoPageWidth, pageWidth,
      firstTake, generatingJourneyId, handleGenerateArt, handleTogglePoster,
-     handlePosterTap, handleCreateJourney],
+     handlePosterTap, handleCreateJourney, hasUsedFreeTrial, tier, adLoaded,
+     isGranting, handleWatchAd],
   );
 
   // Show loading state
@@ -824,6 +895,11 @@ export default function JourneyCarouselScreen() {
         visible={isLoginPromptVisible}
         onClose={hideLoginPrompt}
         message={loginPromptMessage}
+      />
+      <UpgradePromptSheet
+        visible={upgradeSheetVisible}
+        featureKey="ai_poster_generation"
+        onClose={() => setUpgradeSheetVisible(false)}
       />
     </View>
   );
@@ -1059,6 +1135,33 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
   generateArtButtonText: {
     ...Typography.button.primary,
     color: colors.text,
+  },
+  generateArtButtonDisabled: {
+    opacity: 0.6,
+  },
+  upgradeNudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    backgroundColor: colors.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  upgradeNudgeText: {
+    flex: 1,
+  },
+  upgradeNudgeTitle: {
+    ...Typography.body.smMedium,
+    color: colors.text,
+  },
+  upgradeNudgeSubtitle: {
+    ...Typography.caption.default,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   editButton: {
     width: 36,
