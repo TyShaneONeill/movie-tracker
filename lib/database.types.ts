@@ -1313,6 +1313,9 @@ export type Database = {
           watch_time: string | null
           watched_at: string | null
           watched_with: string[] | null
+          theater_chain: string | null
+          ticket_type: string | null
+          mpaa_rating: string | null
         }
         Insert: {
           added_at?: string
@@ -1349,6 +1352,9 @@ export type Database = {
           watch_time?: string | null
           watched_at?: string | null
           watched_with?: string[] | null
+          theater_chain?: string | null
+          ticket_type?: string | null
+          mpaa_rating?: string | null
         }
         Update: {
           added_at?: string
@@ -1385,6 +1391,9 @@ export type Database = {
           watch_time?: string | null
           watched_at?: string | null
           watched_with?: string[] | null
+          theater_chain?: string | null
+          ticket_type?: string | null
+          mpaa_rating?: string | null
         }
         Relationships: []
       }
@@ -2220,6 +2229,25 @@ export interface JourneyUpdate {
   ai_poster_url?: string | null;
   ai_poster_rarity?: string | null;
   display_poster?: 'original' | 'ai_generated';
+  theater_chain?: string | null;
+  ticket_type?: string | null;
+  mpaa_rating?: string | null;
+}
+
+// Helper types for ticket scans (private — barcode data, own-user-only)
+export interface TicketScan {
+  id: string;
+  user_id: string;
+  journey_id: string | null;
+  barcode_data: string | null;
+  created_at: string;
+}
+export interface TicketScanInsert {
+  id?: string;
+  user_id: string;
+  journey_id?: string | null;
+  barcode_data?: string | null;
+  created_at?: string;
 }
 
 // AI poster rarity type

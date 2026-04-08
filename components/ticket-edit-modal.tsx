@@ -55,6 +55,7 @@ interface FormData {
   price: string;
   auditorium: string;
   rating: string;
+  ticketType: string;
 }
 
 // ============================================================================
@@ -75,6 +76,8 @@ const FORMAT_OPTIONS = [
 ];
 
 const MPAA_RATING_OPTIONS = ['G', 'PG', 'PG-13', 'R', 'NC-17', 'NR'];
+
+const TICKET_TYPE_OPTIONS = ['Adult', 'Child', 'Senior', 'Student', 'Matinee', 'Other'];
 
 // ============================================================================
 // Component
@@ -119,10 +122,12 @@ export function TicketEditModal({
     price: '',
     auditorium: '',
     rating: '',
+    ticketType: '',
   });
 
   const [showFormatPicker, setShowFormatPicker] = useState(false);
   const [showRatingPicker, setShowRatingPicker] = useState(false);
+  const [showTicketTypePicker, setShowTicketTypePicker] = useState(false);
 
   // Movie search state
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -158,6 +163,7 @@ export function TicketEditModal({
         price: priceDisplay,
         auditorium: ticket.auditorium || '',
         rating: ticket.mpaaRating || '',
+        ticketType: ticket.ticketType || '',
       });
 
       // Reset search state when modal opens with new ticket
@@ -282,6 +288,9 @@ export function TicketEditModal({
       };
     }
 
+    // Validate ticketType
+    const ticketType = TICKET_TYPE_OPTIONS.includes(formData.ticketType) ? formData.ticketType : (formData.ticketType.trim() || null);
+
     // Create updated ticket with sanitized values
     const updatedTicket: ProcessedTicket = {
       ...ticket,
@@ -296,6 +305,7 @@ export function TicketEditModal({
       priceCurrency,
       auditorium: sanitizedAuditorium,
       mpaaRating,
+      ticketType,
       tmdbMatch: updatedTmdbMatch,
       wasModified: true,
     };
@@ -547,6 +557,7 @@ export function TicketEditModal({
                       Keyboard.dismiss();
                       setShowFormatPicker(!showFormatPicker);
                       setShowRatingPicker(false);
+                      setShowTicketTypePicker(false);
                     }}
                   >
                     <Text style={styles.selectButtonText}>{formData.format}</Text>
@@ -577,10 +588,32 @@ export function TicketEditModal({
                       Keyboard.dismiss();
                       setShowRatingPicker(!showRatingPicker);
                       setShowFormatPicker(false);
+                      setShowTicketTypePicker(false);
                     }}
                   >
                     <Text style={styles.selectButtonText}>
                       {formData.rating || 'NR'}
+                    </Text>
+                    <Text style={styles.selectButtonIcon}>▼</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Ticket Type row */}
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, styles.formGroupFlex1]}>
+                  <Text style={styles.label}>Ticket Type</Text>
+                  <Pressable
+                    style={styles.selectButton}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowTicketTypePicker(!showTicketTypePicker);
+                      setShowFormatPicker(false);
+                      setShowRatingPicker(false);
+                    }}
+                  >
+                    <Text style={styles.selectButtonText}>
+                      {formData.ticketType || 'Select'}
                     </Text>
                     <Text style={styles.selectButtonIcon}>▼</Text>
                   </Pressable>
@@ -642,6 +675,37 @@ export function TicketEditModal({
                         {rating}
                       </Text>
                       {formData.rating === rating && (
+                        <Text style={styles.formatOptionCheck}>✓</Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {/* Ticket Type Picker (inline dropdown) */}
+              {showTicketTypePicker && (
+                <View style={styles.formatPicker}>
+                  {TICKET_TYPE_OPTIONS.map((type) => (
+                    <Pressable
+                      key={type}
+                      style={[
+                        styles.formatOption,
+                        formData.ticketType === type && styles.formatOptionSelected,
+                      ]}
+                      onPress={() => {
+                        handleChange('ticketType', type);
+                        setShowTicketTypePicker(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.formatOptionText,
+                          formData.ticketType === type && styles.formatOptionTextSelected,
+                        ]}
+                      >
+                        {type}
+                      </Text>
+                      {formData.ticketType === type && (
                         <Text style={styles.formatOptionCheck}>✓</Text>
                       )}
                     </Pressable>

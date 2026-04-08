@@ -25,6 +25,7 @@ interface ExtractedTicket {
   format: string | null; // IMAX/Dolby/3D/Standard
   price: { amount: number | null; currency: string } | null;
   ticket_type: string | null; // Adult/Child/Senior
+  mpaa_rating: string | null; // G, PG, PG-13, R, NC-17, NR
   confirmation_number: string | null;
   barcode_visible: boolean;
   bounding_box: {
@@ -55,6 +56,7 @@ interface CleanedTicket {
   format: string | null;
   price: { amount: number; currency: string } | null;
   ticketType: string | null;
+  mpaaRating: string | null;
   confirmationNumber: string | null;
   barcodeVisible: boolean;
 }
@@ -71,6 +73,7 @@ interface ProcessedTicket {
   extracted: ExtractedTicket;
   cleaned: CleanedTicket;
   tmdbMatch: TMDBMatch | null;
+  mpaaRating: string | null;
   needsReview: boolean;
 }
 
@@ -181,6 +184,7 @@ Important:
 - Date must be YYYY-MM-DD format
 - Showtime must be HH:MM in 24-hour format
 - If year is missing, infer from movie release dates
+- If the ticket shows a content rating (e.g. "Rated PG-13", "Rating: R", "PG", "NR"), extract it as mpaa_rating. Look near the movie title, at the bottom of the ticket, or in the fine print.
 
 ## Step 4: Provide Bounding Boxes
 For every ticket found in the image, you MUST provide its bounding_box coordinates using the 0-1000 normalized scale (where 0,0 is top-left and 1000,1000 is bottom-right). Include the full rectangular boundary of the ticket document itself, cropping out hands, table surfaces, and background. Even if only one ticket is visible, always return its bounding_box.`;
@@ -328,6 +332,9 @@ function normalizeShowtime(timeStr: string | null): string | null {
  * Clean a single extracted ticket
  */
 function cleanTicket(extracted: ExtractedTicket): CleanedTicket {
+  const VALID_MPAA = ['G', 'PG', 'PG-13', 'R', 'NC-17', 'NR'];
+  const rawRating = extracted.mpaa_rating?.trim().toUpperCase() || null;
+
   return {
     movieTitle: cleanMovieTitle(extracted.movie_title),
     theaterName: extracted.theater_name?.trim() || null,
@@ -339,6 +346,7 @@ function cleanTicket(extracted: ExtractedTicket): CleanedTicket {
     format: extracted.format?.toUpperCase().trim() || null,
     price: normalizePrice(extracted.price),
     ticketType: extracted.ticket_type?.trim() || null,
+    mpaaRating: rawRating && VALID_MPAA.includes(rawRating) ? rawRating : null,
     confirmationNumber: extracted.confirmation_number?.trim() || null,
     barcodeVisible: extracted.barcode_visible ?? false,
   };
@@ -608,6 +616,11 @@ async function extractWithGemini(
                         propertyOrdering: ["amount", "currency"]
                       },
                       ticket_type: { type: "string" },
+                      mpaa_rating: {
+                        type: "string",
+                        description: "MPAA/content rating if visible on ticket (G, PG, PG-13, R, NC-17, NR)",
+                        enum: ["G", "PG", "PG-13", "R", "NC-17", "NR"]
+                      },
                       confirmation_number: { type: "string" },
                       barcode_visible: { type: "boolean" },
                       bounding_box: {
@@ -623,7 +636,7 @@ async function extractWithGemini(
                       }
                     },
                     required: ["movie_title", "bounding_box"],
-                    propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "confirmation_number", "barcode_visible", "bounding_box"]
+                    propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "mpaa_rating", "confirmation_number", "barcode_visible", "bounding_box"]
                   }
                 },
                 image_quality: {
@@ -703,6 +716,8 @@ Deno.serve(async (req: Request) => {
     // Get API keys from environment
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const TMDB_API_KEY = Deno.env.get('TMDB_API_KEY');
+    const TMDB_READ_ACCESS_TOKEN = Deno.env.get('TMDB_READ_ACCESS_TOKEN');
+    const OMDB_API_KEY = Deno.env.get('OMDB_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -881,10 +896,76 @@ Deno.serve(async (req: Request) => {
         extraction.confidence_score < 0.7 ||
         extraction.image_quality === 'poor';
 
+      // MPAA rating — 4-tier cascading fallback
+      let mpaaRating: string | null = cleaned.mpaaRating; // Tier 1: Gemini extraction
+
+      // Tiers 2-4: only when TMDB match is confident and Tier 1 missed
+      if (!mpaaRating && tmdbMatch && tmdbMatch.confidence >= 0.8) {
+        // Tier 2: TMDB release_dates — start in parallel with needsReview computation (already done)
+        const tier2Promise = (async (): Promise<string | null> => {
+          try {
+            const releaseDatesUrl = TMDB_READ_ACCESS_TOKEN
+              ? `https://api.themoviedb.org/3/movie/${tmdbMatch!.id}/release_dates`
+              : `https://api.themoviedb.org/3/movie/${tmdbMatch!.id}/release_dates?api_key=${TMDB_API_KEY}`;
+            const headers: Record<string, string> = TMDB_READ_ACCESS_TOKEN
+              ? { Authorization: `Bearer ${TMDB_READ_ACCESS_TOKEN}` }
+              : {};
+            const res = await fetch(releaseDatesUrl, { headers });
+            if (!res.ok) return null;
+            const releaseDates = await res.json();
+            const usRelease = releaseDates.results?.find((r: any) => r.iso_3166_1 === 'US');
+            const certification = usRelease?.release_dates?.find((d: any) => d.certification)?.certification;
+            return certification || null;
+          } catch {
+            return null;
+          }
+        })();
+
+        const tier2Result = await tier2Promise;
+        if (tier2Result) {
+          mpaaRating = tier2Result;
+        } else {
+          // Tier 3: OMDB lookup
+          if (OMDB_API_KEY) {
+            try {
+              const omdbUrl = `https://www.omdbapi.com/?t=${encodeURIComponent(cleaned.movieTitle)}&y=${year || ''}&apikey=${OMDB_API_KEY}`;
+              const omdbRes = await fetch(omdbUrl);
+              if (omdbRes.ok) {
+                const omdb = await omdbRes.json();
+                if (omdb.Rated && omdb.Rated !== 'N/A') {
+                  mpaaRating = omdb.Rated;
+                }
+              }
+            } catch {
+              // Non-blocking
+            }
+          }
+
+          // Tier 4: DB cache — check if we've seen this tmdb_id with an mpaa_rating before
+          if (!mpaaRating) {
+            try {
+              const { data: cached } = await supabaseClient
+                .from('user_movies')
+                .select('mpaa_rating')
+                .eq('tmdb_id', tmdbMatch.id)
+                .not('mpaa_rating', 'is', null)
+                .limit(1)
+                .maybeSingle();
+              if (cached?.mpaa_rating) {
+                mpaaRating = cached.mpaa_rating as string;
+              }
+            } catch {
+              // Non-blocking
+            }
+          }
+        }
+      }
+
       processedTickets.push({
         extracted: extractedTicket,
         cleaned,
         tmdbMatch,
+        mpaaRating,
         needsReview,
       });
     }

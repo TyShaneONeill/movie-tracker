@@ -48,6 +48,7 @@ interface EdgeFunctionCleanedTicket {
   confirmationNumber: string | null;
   barcodeData: string | null;
   auditorium: string | null;
+  mpaaRating: string | null;
 }
 
 /**
@@ -58,6 +59,7 @@ interface EdgeFunctionTicket {
   extracted: ExtractedTicket;
   cleaned: EdgeFunctionCleanedTicket;
   tmdbMatch: EdgeFunctionTMDBMatch | null;
+  mpaaRating: string | null;
   needsReview: boolean;
 }
 
@@ -346,7 +348,7 @@ export function useScanTicket(): UseScanTicketResult {
             confirmationNumber: cleaned.confirmationNumber,
             barcodeData: cleaned.barcodeData,
             auditorium: cleaned.auditorium,
-            mpaaRating: null,
+            mpaaRating: ticket.mpaaRating ?? cleaned.mpaaRating ?? null,
             tmdbMatch,
             processingErrors: ticket.needsReview ? ['Needs manual review'] : [],
             wasModified: false,
