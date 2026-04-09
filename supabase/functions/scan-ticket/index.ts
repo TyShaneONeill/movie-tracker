@@ -635,7 +635,7 @@ async function extractWithGemini(
                         propertyOrdering: ["x_min", "y_min", "x_max", "y_max"]
                       }
                     },
-                    required: ["movie_title", "bounding_box"],
+                    required: ["movie_title", "theater_name", "date", "showtime", "bounding_box"],
                     propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "mpaa_rating", "confirmation_number", "barcode_visible", "bounding_box"]
                   }
                 },
