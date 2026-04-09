@@ -720,6 +720,7 @@ Deno.serve(async (req: Request) => {
     const OMDB_API_KEY = Deno.env.get('OMDB_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY not configured');
@@ -727,7 +728,7 @@ Deno.serve(async (req: Request) => {
     if (!TMDB_API_KEY) {
       throw new Error('TMDB_API_KEY not configured');
     }
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
       throw new Error('Supabase configuration missing');
     }
 
@@ -746,7 +747,7 @@ Deno.serve(async (req: Request) => {
     // Create user client to get user info
     const supabaseUserClient = createClient(
       SUPABASE_URL,
-      Deno.env.get('SUPABASE_ANON_KEY') || '',
+      SUPABASE_ANON_KEY,
       {
         global: { headers: { Authorization: authHeader } }
       }
