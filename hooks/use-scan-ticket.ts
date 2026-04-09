@@ -48,6 +48,7 @@ interface EdgeFunctionCleanedTicket {
   confirmationNumber: string | null;
   barcodeData: string | null;
   auditorium: string | null;
+  mpaaRating: string | null;
 }
 
 /**
@@ -58,6 +59,7 @@ interface EdgeFunctionTicket {
   extracted: ExtractedTicket;
   cleaned: EdgeFunctionCleanedTicket;
   tmdbMatch: EdgeFunctionTMDBMatch | null;
+  mpaaRating: string | null;
   needsReview: boolean;
 }
 
@@ -154,7 +156,8 @@ export function useScanTicket(): UseScanTicketResult {
         throw new Error(ERROR_MESSAGES.auth_error);
       }
 
-      // Check if token is expired or about to expire (within 60 seconds)
+      // Get the access token — refresh first if expired or within 60 seconds of expiry
+      let accessToken = sessionData.session.access_token;
       const expiresAt = sessionData.session.expires_at;
       const now = Math.floor(Date.now() / 1000);
       if (expiresAt && expiresAt - now < 60) {
@@ -164,10 +167,8 @@ export function useScanTicket(): UseScanTicketResult {
           setError(ERROR_MESSAGES.auth_error);
           throw new Error(ERROR_MESSAGES.auth_error);
         }
+        accessToken = refreshData.session.access_token;
       }
-
-      // Get the access token to pass explicitly
-      const accessToken = sessionData.session.access_token;
 
       const { data, error: fnError } = await supabase.functions.invoke<ScanTicketResponse>(
         'scan-ticket',
@@ -346,7 +347,7 @@ export function useScanTicket(): UseScanTicketResult {
             confirmationNumber: cleaned.confirmationNumber,
             barcodeData: cleaned.barcodeData,
             auditorium: cleaned.auditorium,
-            mpaaRating: null,
+            mpaaRating: ticket.mpaaRating ?? cleaned.mpaaRating ?? null,
             tmdbMatch,
             processingErrors: ticket.needsReview ? ['Needs manual review'] : [],
             wasModified: false,

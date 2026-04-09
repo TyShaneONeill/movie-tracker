@@ -89,6 +89,9 @@ function makeUserMovie(overrides: Partial<UserMovie> = {}): UserMovie {
     ai_poster_rarity: null,
     display_poster: null,
     cover_photo_index: null,
+    theater_chain: null,
+    ticket_type: null,
+    mpaa_rating: null,
     ...overrides,
   };
 }

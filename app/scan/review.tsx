@@ -34,7 +34,7 @@ import { addMovieToLibrary, updateJourney, getMovieByTmdbId } from '@/lib/movie-
 import { createFirstTake } from '@/lib/first-take-service';
 import { supabase } from '@/lib/supabase';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { JourneyUpdate } from '@/lib/database.types';
+import type { JourneyUpdate, TicketScanInsert } from '@/lib/database.types';
 import * as FileSystem from 'expo-file-system/legacy';
 import { captureException } from '@/lib/sentry';
 import { useAchievementCheck } from '@/lib/achievement-context';
@@ -120,6 +120,9 @@ function mapTicketToJourneyData(ticket: ProcessedTicket): JourneyUpdate {
     auditorium: ticket.auditorium,
     watch_format: mapWatchFormat(ticket.format),
     ticket_id: ticket.confirmationNumber,
+    theater_chain: ticket.theaterChain ?? null,
+    ticket_type: ticket.ticketType ?? null,
+    mpaa_rating: ticket.mpaaRating ?? null,
   };
 }
 
@@ -381,6 +384,20 @@ export default function TicketReviewScreen() {
               console.warn('Failed to update journey data:', journeyError);
               // Still track the ID for navigation
               createdJourneyIds.push(journeyId);
+            }
+
+            // Persist barcode data privately (non-blocking on failure)
+            if (ticket.barcodeData) {
+              try {
+                const scanRecord: TicketScanInsert = {
+                  user_id: user.id,
+                  journey_id: journeyId,
+                  barcode_data: ticket.barcodeData,
+                };
+                await (supabase as any).from('ticket_scans').insert(scanRecord);
+              } catch {
+                // Non-blocking — barcode persistence is best-effort
+              }
             }
 
             // Upload ticket photo if available (non-blocking on failure)
