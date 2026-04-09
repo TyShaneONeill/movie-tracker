@@ -16,6 +16,18 @@ npm run web        # Run in web browser
 npm run lint       # Run ESLint
 ```
 
+## Edge Function Deploy Commands
+
+⚠️ **Always use these exact commands** — flags matter:
+
+```bash
+# scan-ticket MUST use --no-verify-jwt (Supabase CLI v2.84.2+ does not apply config.toml)
+supabase functions deploy scan-ticket --no-verify-jwt --project-ref wliblwulvsrfgqcnbzeh
+
+# All other functions (standard JWT verification via Supabase gateway)
+supabase functions deploy <function-name> --project-ref wliblwulvsrfgqcnbzeh
+```
+
 ## Tech Stack
 
 - **Framework**: Expo ~54.0, React Native 0.81.5, React 19.1
