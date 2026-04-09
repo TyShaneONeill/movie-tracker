@@ -14,21 +14,42 @@ export interface TimePickerFieldProps {
 function parseTimeStr(timeStr: string): Date {
   const d = new Date();
   d.setSeconds(0, 0);
-  if (!timeStr) {
-    d.setHours(19, 0);
+  if (!timeStr) { d.setHours(19, 0); return d; }
+
+  // Strip trailing timezone info (e.g. "7:00 PM EST" -> "7:00 PM")
+  const clean = timeStr.trim().replace(/\s+[A-Z]{2,4}$/, '');
+
+  // H:MM AM/PM or H:MMAM/PM (with or without space before meridiem)
+  const ampm = clean.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampm) {
+    let hours = parseInt(ampm[1], 10);
+    const minutes = parseInt(ampm[2], 10);
+    const meridiem = ampm[3].toUpperCase();
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    d.setHours(hours, minutes);
     return d;
   }
-  const match = timeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
-  if (!match) {
-    d.setHours(19, 0);
+
+  // HH:MM 24-hour (e.g. "19:00")
+  const h24 = clean.match(/^(\d{1,2}):(\d{2})$/);
+  if (h24) {
+    d.setHours(parseInt(h24[1], 10), parseInt(h24[2], 10));
     return d;
   }
-  let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const meridiem = match[3].toUpperCase();
-  if (meridiem === 'PM' && hours !== 12) hours += 12;
-  if (meridiem === 'AM' && hours === 12) hours = 0;
-  d.setHours(hours, minutes);
+
+  // H AM/PM no minutes (e.g. "7PM")
+  const noMin = clean.match(/^(\d{1,2})\s*(AM|PM)$/i);
+  if (noMin) {
+    let hours = parseInt(noMin[1], 10);
+    const meridiem = noMin[2].toUpperCase();
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    d.setHours(hours, 0);
+    return d;
+  }
+
+  d.setHours(19, 0);
   return d;
 }
 

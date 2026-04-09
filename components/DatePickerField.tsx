@@ -13,10 +13,22 @@ export interface DatePickerFieldProps {
 
 function parseDateStr(dateStr: string): Date {
   if (!dateStr) return new Date();
-  const parts = dateStr.split('-').map(Number);
-  if (parts.length !== 3) return new Date();
-  const d = new Date(parts[0], parts[1] - 1, parts[2]);
-  return isNaN(d.getTime()) ? new Date() : d;
+  // YYYY-MM-DD (Gemini standard output)
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  // MM/DD/YYYY or M/D/YY
+  const mdy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (mdy) {
+    const year = Number(mdy[3]) < 100 ? 2000 + Number(mdy[3]) : Number(mdy[3]);
+    const d = new Date(year, Number(mdy[1]) - 1, Number(mdy[2]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  // Let JS try anything else (handles "Feb 21, 2025" etc.)
+  const fallback = new Date(dateStr);
+  return isNaN(fallback.getTime()) ? new Date() : fallback;
 }
 
 function formatDateDisplay(dateStr: string): string {
