@@ -3,7 +3,6 @@
  *
  * Bottom sheet modal for editing ticket details.
  * Uses @gorhom/bottom-sheet for smooth gestures.
- * Matches ui-mocks/ticket_review.html modal styling.
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -23,8 +22,6 @@ import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorho
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BlurView } from 'expo-blur';
 
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
-import { Typography } from '@/constants/typography';
 import type { ProcessedTicket, TMDBMatch } from '@/lib/ticket-processor';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 import { useMovieSearch } from '@/hooks/use-movie-search';
@@ -80,6 +77,21 @@ const MPAA_RATING_OPTIONS = ['G', 'PG', 'PG-13', 'R', 'NC-17', 'NR'];
 const TICKET_TYPE_OPTIONS = ['Adult', 'Child', 'Senior', 'Student', 'Matinee', 'Other'];
 
 // ============================================================================
+// Design tokens
+// ============================================================================
+
+const COLOR = {
+  bg: '#1C1C1E',
+  card: '#2C2C2E',
+  input: '#3A3A3C',
+  label: '#8E8E93',
+  red: '#FF3B5C',
+  green: '#30D158',
+  white: '#FFFFFF',
+  textSecondary: '#EBEBF599',
+};
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -95,7 +107,6 @@ export function TicketEditModal({
   const bottomSheetRef = useRef<BottomSheet>(null);
 
   // TextInput refs for keyboard navigation
-  // Typed as `any` to bridge react-native TextInput and BottomSheetTextInput (android) ref incompatibility
   const theaterRef = useRef<any>(null);
   const auditoriumRef = useRef<any>(null);
   const rowRef = useRef<any>(null);
@@ -142,12 +153,11 @@ export function TicketEditModal({
   });
 
   // Snap points for the bottom sheet
-  const snapPoints = useMemo(() => ['85%'], []);
+  const snapPoints = useMemo(() => ['90%'], []);
 
   // Initialize form data when ticket changes
   useEffect(() => {
     if (ticket) {
-      // Format price with currency symbol
       const priceDisplay = ticket.priceAmount
         ? `${ticket.priceCurrency === 'USD' ? '$' : ticket.priceCurrency}${ticket.priceAmount.toFixed(2)}`
         : '';
@@ -166,7 +176,6 @@ export function TicketEditModal({
         ticketType: ticket.ticketType || '',
       });
 
-      // Reset search state when modal opens with new ticket
       setIsSearchMode(false);
       setSearchQuery('');
       setSelectedMovie(null);
@@ -189,8 +198,7 @@ export function TicketEditModal({
     }
   }, [onClose]);
 
-  // Keyboard listeners — scroll to focused field manually since keyboardBehavior
-  // prop doesn't fire reliably when BottomSheet is inside a React Native Modal.
+  // Keyboard listeners
   const scrollToKey = useCallback((key: string) => {
     const y = formOffset.current + (rowOffsets.current[key] ?? 0);
     scrollRef.current?.scrollTo({ y: Math.max(0, y - 100), animated: true });
@@ -213,7 +221,6 @@ export function TicketEditModal({
 
   const handleFieldFocus = useCallback((key: string) => {
     focusedFieldKey.current = key;
-    // If keyboard is already up (switching fields), scroll immediately
     if (kbHeightRef.current > 0) scrollToKey(key);
   }, [scrollToKey]);
 
@@ -244,23 +251,19 @@ export function TicketEditModal({
   const handleSave = () => {
     if (!ticket) return;
 
-    // Sanitize text fields
     const sanitizedTheater = formData.theater.trim().slice(0, 100) || null;
     const sanitizedAuditorium = formData.auditorium.trim().slice(0, 10) || null;
     const sanitizedRow = formData.row.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || null;
     const sanitizedSeat = formData.seat.trim().replace(/[^A-Z0-9]/g, '').slice(0, 5) || null;
 
-    // Validate date — must be YYYY-MM-DD and a real date
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     const sanitizedDate =
       formData.date && dateRegex.test(formData.date) && !isNaN(Date.parse(formData.date))
         ? formData.date
         : null;
 
-    // Validate time
     const sanitizedTime = formData.time?.trim() || null;
 
-    // Parse and validate price (positive number under $9999, preserving currency)
     let priceAmount: number | null = null;
     let priceCurrency = ticket.priceCurrency || 'USD';
     if (formData.price) {
@@ -274,10 +277,8 @@ export function TicketEditModal({
       }
     }
 
-    // Get MPAA rating (validate it's one of the valid options)
     const mpaaRating = MPAA_RATING_OPTIONS.includes(formData.rating) ? formData.rating : null;
 
-    // Update TMDB match if a new movie was selected
     let updatedTmdbMatch: TMDBMatch | null = ticket.tmdbMatch;
     if (selectedMovie) {
       updatedTmdbMatch = {
@@ -288,10 +289,8 @@ export function TicketEditModal({
       };
     }
 
-    // Validate ticketType
     const ticketType = TICKET_TYPE_OPTIONS.includes(formData.ticketType) ? formData.ticketType : (formData.ticketType.trim() || null);
 
-    // Create updated ticket with sanitized values
     const updatedTicket: ProcessedTicket = {
       ...ticket,
       movieTitle: formData.movieTitle || null,
@@ -315,17 +314,14 @@ export function TicketEditModal({
 
   if (!visible) return null;
 
-  // Limit search results to 5
   const searchResults = movies.slice(0, 5);
 
-  // Determine match info for display
   const hasMatch = ticket?.tmdbMatch || selectedMovie;
   const matchConfidence = selectedMovie
     ? 100
     : ticket?.tmdbMatch
       ? Math.round(ticket.tmdbMatch.confidence * 100)
       : null;
-  const searchButtonText = hasMatch ? 'Change' : 'Search';
 
   return (
     <Modal
@@ -336,7 +332,7 @@ export function TicketEditModal({
       onRequestClose={onClose}
     >
       <GestureHandlerRootView style={styles.container}>
-        {/* Custom blur backdrop */}
+        {/* Blur backdrop */}
         <Pressable style={styles.backdrop} onPress={onClose}>
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.backdropOverlay} />
@@ -352,379 +348,403 @@ export function TicketEditModal({
           backgroundStyle={styles.bottomSheetBackground}
           handleIndicatorStyle={styles.handleIndicator}
         >
-          <BottomSheetScrollView
-            ref={scrollRef}
-            style={styles.scrollView}
-            contentContainerStyle={[styles.scrollContent, kbHeight > 0 && { paddingBottom: kbHeight + 34 }]}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-          >
-            {/* Title */}
-            <Text style={styles.modalTitle}>Edit Ticket Details</Text>
+          {/* Fixed header */}
+          <View style={styles.header}>
+            <Pressable onPress={onClose} hitSlop={12}>
+              <Text style={styles.headerCancel}>Cancel</Text>
+            </Pressable>
+            <Text style={styles.headerTitle}>Edit Ticket Details</Text>
+            {/* Spacer to balance the Cancel button */}
+            <View style={styles.headerSpacer} />
+          </View>
 
-            {/* Form */}
-            <View style={styles.form} onLayout={(e) => { formOffset.current = e.nativeEvent.layout.y; }}>
-              {/* Movie Title */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Movie Title</Text>
-                {isSearchMode ? (
-                  // Search Mode UI
-                  <View style={styles.searchModeContainer}>
-                    <View style={styles.searchInputRow}>
-                      <TextInput
-                        style={[styles.input, styles.searchInput]}
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        placeholder="Search for movie..."
-                        placeholderTextColor={Colors.dark.textTertiary}
-                        autoCapitalize="words"
-                        autoFocus
-                        returnKeyType="search"
-                      />
+          {/* Scrollable form + pinned footer */}
+          <View style={styles.sheetBody}>
+            <BottomSheetScrollView
+              ref={scrollRef}
+              style={styles.scrollView}
+              contentContainerStyle={[
+                styles.scrollContent,
+                kbHeight > 0 && { paddingBottom: kbHeight + 16 },
+              ]}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <View style={styles.cardStack} onLayout={(e) => { formOffset.current = e.nativeEvent.layout.y; }}>
+
+                {/* ── Section 1: Movie Info ── */}
+                <View style={styles.card}>
+                  <Text style={styles.sectionHeader}>Movie Info</Text>
+
+                  {isSearchMode ? (
+                    /* Search mode — shown inside the card */
+                    <View style={styles.searchModeContainer}>
+                      <View style={styles.searchInputRow}>
+                        <TextInput
+                          style={[styles.inputField, styles.searchInput]}
+                          value={searchQuery}
+                          onChangeText={setSearchQuery}
+                          placeholder="Search for movie..."
+                          placeholderTextColor={COLOR.label}
+                          autoCapitalize="words"
+                          autoFocus
+                          returnKeyType="search"
+                        />
+                        <Pressable
+                          style={styles.cancelSearchButton}
+                          onPress={() => {
+                            Keyboard.dismiss();
+                            handleCancelSearch();
+                          }}
+                        >
+                          <Text style={styles.cancelSearchButtonText}>Cancel</Text>
+                        </Pressable>
+                      </View>
+
+                      <View style={styles.searchResultsList}>
+                        {isLoading ? (
+                          <View style={styles.searchLoadingContainer}>
+                            <ActivityIndicator size="small" color={COLOR.red} />
+                            <Text style={styles.searchHintText}>Searching...</Text>
+                          </View>
+                        ) : debouncedSearchQuery.length < 2 ? (
+                          <Text style={styles.searchHintText}>
+                            Type at least 2 characters to search
+                          </Text>
+                        ) : searchResults.length === 0 ? (
+                          <Text style={styles.searchHintText}>No movies found</Text>
+                        ) : (
+                          <ScrollView
+                            style={styles.searchResultsScroll}
+                            keyboardShouldPersistTaps="handled"
+                            nestedScrollEnabled
+                          >
+                            {searchResults.map((movie) => (
+                              <TicketMovieSearchResult
+                                key={movie.id}
+                                movie={movie}
+                                onSelect={handleMovieSelect}
+                              />
+                            ))}
+                          </ScrollView>
+                        )}
+                      </View>
+                    </View>
+                  ) : (
+                    /* Title display mode */
+                    <View style={styles.movieInfoRow}>
+                      <View style={styles.movieInfoText}>
+                        <Text
+                          style={[
+                            styles.movieTitle,
+                            !formData.movieTitle && styles.movieTitlePlaceholder,
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {formData.movieTitle || 'No movie selected'}
+                        </Text>
+                        {hasMatch && matchConfidence !== null && (
+                          <View style={styles.matchBadge}>
+                            <Text style={styles.matchBadgeText}>
+                              Matched ({matchConfidence}%)
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Pressable
-                        style={styles.cancelSearchButton}
+                        style={({ pressed }) => [
+                          styles.changeButton,
+                          pressed && styles.buttonPressed,
+                        ]}
                         onPress={() => {
                           Keyboard.dismiss();
-                          handleCancelSearch();
+                          handleEnterSearchMode();
                         }}
                       >
-                        <Text style={styles.cancelSearchButtonText}>Cancel</Text>
+                        <Text style={styles.changeButtonText}>Change</Text>
                       </Pressable>
                     </View>
+                  )}
+                </View>
 
-                    {/* Search Results */}
-                    <View style={styles.searchResultsList}>
-                      {isLoading ? (
-                        <View style={styles.searchLoadingContainer}>
-                          <ActivityIndicator size="small" color={Colors.dark.tint} />
-                          <Text style={styles.searchLoadingText}>Searching...</Text>
-                        </View>
-                      ) : debouncedSearchQuery.length < 2 ? (
-                        <Text style={styles.searchHintText}>
-                          Type at least 2 characters to search
+                {/* ── Section 2: Show Details ── */}
+                <View style={styles.card}>
+                  <Text style={styles.sectionHeader}>Show Details</Text>
+
+                  <View
+                    style={styles.fieldRow}
+                    onLayout={(e) => { rowOffsets.current.theater = e.nativeEvent.layout.y; }}
+                  >
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Theater</Text>
+                      <FormTextInput
+                        ref={theaterRef}
+                        style={styles.inputField}
+                        value={formData.theater}
+                        onChangeText={(value) => handleChange('theater', value)}
+                        placeholder="Theater name"
+                        placeholderTextColor={COLOR.label}
+                        autoCapitalize="words"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onFocus={() => handleFieldFocus('theater')}
+                        onSubmitEditing={() => auditoriumRef.current?.focus()}
+                      />
+                    </View>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Auditorium</Text>
+                      <FormTextInput
+                        ref={auditoriumRef}
+                        style={styles.inputField}
+                        value={formData.auditorium}
+                        onChangeText={(value) => handleChange('auditorium', value)}
+                        placeholder="1"
+                        placeholderTextColor={COLOR.label}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onFocus={() => handleFieldFocus('theater')}
+                        onSubmitEditing={() => rowRef.current?.focus()}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.fieldRow}>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Date</Text>
+                      <DatePickerField
+                        value={formData.date}
+                        onChange={(value) => handleChange('date', value)}
+                      />
+                    </View>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Time</Text>
+                      <TimePickerField
+                        value={formData.time}
+                        onChange={(value) => handleChange('time', value)}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                {/* ── Section 3: Seat Info ── */}
+                <View style={styles.card}>
+                  <Text style={styles.sectionHeader}>Seat Info</Text>
+
+                  <View
+                    style={styles.fieldRow}
+                    onLayout={(e) => { rowOffsets.current.row = e.nativeEvent.layout.y; }}
+                  >
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Row</Text>
+                      <FormTextInput
+                        ref={rowRef}
+                        style={styles.inputField}
+                        value={formData.row}
+                        onChangeText={(value) => handleChange('row', value.toUpperCase())}
+                        placeholder="A"
+                        placeholderTextColor={COLOR.label}
+                        autoCapitalize="characters"
+                        maxLength={3}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onFocus={() => handleFieldFocus('row')}
+                        onSubmitEditing={() => seatRef.current?.focus()}
+                      />
+                    </View>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Seat</Text>
+                      <FormTextInput
+                        ref={seatRef}
+                        style={styles.inputField}
+                        value={formData.seat}
+                        onChangeText={(value) => handleChange('seat', value)}
+                        placeholder="1"
+                        placeholderTextColor={COLOR.label}
+                        keyboardType="number-pad"
+                        maxLength={3}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onFocus={() => handleFieldFocus('row')}
+                        onSubmitEditing={() => priceRef.current?.focus()}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                {/* ── Section 4: Ticket Options ── */}
+                <View style={styles.card}>
+                  <Text style={styles.sectionHeader}>Ticket Options</Text>
+
+                  {/* Row 1: Format | Rated */}
+                  <View style={styles.fieldRow}>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Format</Text>
+                      <Pressable
+                        style={styles.selectButton}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setShowFormatPicker(!showFormatPicker);
+                          setShowRatingPicker(false);
+                          setShowTicketTypePicker(false);
+                        }}
+                      >
+                        <Text style={styles.selectButtonText}>{formData.format}</Text>
+                        <Text style={styles.selectButtonChevron}>▼</Text>
+                      </Pressable>
+                    </View>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Rated</Text>
+                      <Pressable
+                        style={styles.selectButton}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setShowRatingPicker(!showRatingPicker);
+                          setShowFormatPicker(false);
+                          setShowTicketTypePicker(false);
+                        }}
+                      >
+                        <Text style={styles.selectButtonText}>{formData.rating || 'NR'}</Text>
+                        <Text style={styles.selectButtonChevron}>▼</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {/* Row 2: Price | Ticket Type */}
+                  <View
+                    style={styles.fieldRow}
+                    onLayout={(e) => { rowOffsets.current.price = e.nativeEvent.layout.y; }}
+                  >
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Price</Text>
+                      <FormTextInput
+                        ref={priceRef}
+                        style={styles.inputField}
+                        value={formData.price}
+                        onChangeText={(value) => handleChange('price', value)}
+                        placeholder="$22.99"
+                        placeholderTextColor={COLOR.label}
+                        keyboardType="decimal-pad"
+                        returnKeyType="done"
+                        blurOnSubmit
+                        onFocus={() => handleFieldFocus('price')}
+                        onSubmitEditing={() => Keyboard.dismiss()}
+                      />
+                    </View>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Ticket Type</Text>
+                      <Pressable
+                        style={styles.selectButton}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setShowTicketTypePicker(!showTicketTypePicker);
+                          setShowFormatPicker(false);
+                          setShowRatingPicker(false);
+                        }}
+                      >
+                        <Text style={styles.selectButtonText}>
+                          {formData.ticketType || 'Select'}
                         </Text>
-                      ) : searchResults.length === 0 ? (
-                        <Text style={styles.searchHintText}>
-                          No movies found
-                        </Text>
-                      ) : (
-                        <ScrollView
-                          style={styles.searchResultsScroll}
-                          keyboardShouldPersistTaps="handled"
-                          nestedScrollEnabled
+                        <Text style={styles.selectButtonChevron}>▼</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {/* Inline pickers */}
+                  {showFormatPicker && (
+                    <View style={styles.pickerDropdown}>
+                      {FORMAT_OPTIONS.map((format) => (
+                        <Pressable
+                          key={format}
+                          style={[
+                            styles.pickerOption,
+                            formData.format === format && styles.pickerOptionSelected,
+                          ]}
+                          onPress={() => {
+                            handleChange('format', format);
+                            setShowFormatPicker(false);
+                          }}
                         >
-                          {searchResults.map((movie) => (
-                            <TicketMovieSearchResult
-                              key={movie.id}
-                              movie={movie}
-                              onSelect={handleMovieSelect}
-                            />
-                          ))}
-                        </ScrollView>
-                      )}
+                          <Text
+                            style={[
+                              styles.pickerOptionText,
+                              formData.format === format && styles.pickerOptionTextSelected,
+                            ]}
+                          >
+                            {format}
+                          </Text>
+                          {formData.format === format && (
+                            <Text style={styles.pickerCheck}>✓</Text>
+                          )}
+                        </Pressable>
+                      ))}
                     </View>
-                  </View>
-                ) : (
-                  // Title Display Mode UI
-                  <View style={styles.titleDisplayRow}>
-                    <View style={styles.titleDisplayContainer}>
-                      <Text
-                        style={[
-                          styles.titleDisplayText,
-                          !formData.movieTitle && styles.titleDisplayPlaceholder,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {formData.movieTitle || 'No movie selected'}
-                      </Text>
-                      {hasMatch && matchConfidence !== null && (
-                        <Text style={styles.matchInfo}>
-                          Matched ({matchConfidence}%)
-                        </Text>
-                      )}
+                  )}
+
+                  {showRatingPicker && (
+                    <View style={styles.pickerDropdown}>
+                      {MPAA_RATING_OPTIONS.map((rating) => (
+                        <Pressable
+                          key={rating}
+                          style={[
+                            styles.pickerOption,
+                            formData.rating === rating && styles.pickerOptionSelected,
+                          ]}
+                          onPress={() => {
+                            handleChange('rating', rating);
+                            setShowRatingPicker(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.pickerOptionText,
+                              formData.rating === rating && styles.pickerOptionTextSelected,
+                            ]}
+                          >
+                            {rating}
+                          </Text>
+                          {formData.rating === rating && (
+                            <Text style={styles.pickerCheck}>✓</Text>
+                          )}
+                        </Pressable>
+                      ))}
                     </View>
-                    <Pressable
-                      style={styles.searchButton}
-                      onPress={() => {
-                        Keyboard.dismiss();
-                        handleEnterSearchMode();
-                      }}
-                    >
-                      <Text style={styles.searchButtonText}>{searchButtonText}</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
+                  )}
 
-              {/* Theater and Auditorium row */}
-              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.theater = e.nativeEvent.layout.y; }}>
-                <View style={[styles.formGroup, styles.formGroupFlex2]}>
-                  <Text style={styles.label}>Theater</Text>
-                  <FormTextInput
-                    ref={theaterRef}
-                    style={styles.input}
-                    value={formData.theater}
-                    onChangeText={(value) => handleChange('theater', value)}
-                    placeholder="Theater name"
-                    placeholderTextColor={Colors.dark.textTertiary}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                    onFocus={() => handleFieldFocus('theater')}
-                    onSubmitEditing={() => auditoriumRef.current?.focus()}
-                  />
-                </View>
-                <View style={[styles.formGroup, styles.formGroupFlex1]}>
-                  <Text style={styles.label}>Auditorium</Text>
-                  <FormTextInput
-                    ref={auditoriumRef}
-                    style={[styles.input, styles.inputCenter]}
-                    value={formData.auditorium}
-                    onChangeText={(value) => handleChange('auditorium', value)}
-                    placeholder="1"
-                    placeholderTextColor={Colors.dark.textTertiary}
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                    onFocus={() => handleFieldFocus('theater')}
-                    onSubmitEditing={() => rowRef.current?.focus()}
-                  />
+                  {showTicketTypePicker && (
+                    <View style={styles.pickerDropdown}>
+                      {TICKET_TYPE_OPTIONS.map((type) => (
+                        <Pressable
+                          key={type}
+                          style={[
+                            styles.pickerOption,
+                            formData.ticketType === type && styles.pickerOptionSelected,
+                          ]}
+                          onPress={() => {
+                            handleChange('ticketType', type);
+                            setShowTicketTypePicker(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.pickerOptionText,
+                              formData.ticketType === type && styles.pickerOptionTextSelected,
+                            ]}
+                          >
+                            {type}
+                          </Text>
+                          {formData.ticketType === type && (
+                            <Text style={styles.pickerCheck}>✓</Text>
+                          )}
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
                 </View>
               </View>
+            </BottomSheetScrollView>
 
-              {/* Date and Time row */}
-              <View style={styles.formRow}>
-                <View style={[styles.formGroup, styles.formGroupFlex2]}>
-                  <Text style={styles.label}>Date</Text>
-                  <DatePickerField
-                    value={formData.date}
-                    onChange={(value) => handleChange('date', value)}
-                  />
-                </View>
-                <View style={[styles.formGroup, styles.formGroupFlex1]}>
-                  <Text style={styles.label}>Time</Text>
-                  <TimePickerField
-                    value={formData.time}
-                    onChange={(value) => handleChange('time', value)}
-                  />
-                </View>
-              </View>
-
-              {/* Row and Seat row */}
-              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.row = e.nativeEvent.layout.y; }}>
-                <View style={[styles.formGroup, styles.formGroupFlex1]}>
-                  <Text style={styles.label}>Row</Text>
-                  <FormTextInput
-                    ref={rowRef}
-                    style={[styles.input, styles.inputCenter]}
-                    value={formData.row}
-                    onChangeText={(value) => handleChange('row', value.toUpperCase())}
-                    placeholder="A"
-                    placeholderTextColor={Colors.dark.textTertiary}
-                    autoCapitalize="characters"
-                    maxLength={3}
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                    onFocus={() => handleFieldFocus('row')}
-                    onSubmitEditing={() => seatRef.current?.focus()}
-                  />
-                </View>
-                <View style={[styles.formGroup, styles.formGroupFlex1]}>
-                  <Text style={styles.label}>Seat</Text>
-                  <FormTextInput
-                    ref={seatRef}
-                    style={[styles.input, styles.inputCenter]}
-                    value={formData.seat}
-                    onChangeText={(value) => handleChange('seat', value)}
-                    placeholder="1"
-                    placeholderTextColor={Colors.dark.textTertiary}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                    onFocus={() => handleFieldFocus('row')}
-                    onSubmitEditing={() => priceRef.current?.focus()}
-                  />
-                </View>
-              </View>
-
-              {/* Format, Price, and Rated row */}
-              <View style={styles.formRow} onLayout={(e) => { rowOffsets.current.price = e.nativeEvent.layout.y; }}>
-                <View style={[styles.formGroup, styles.formGroupFlex1]}>
-                  <Text style={styles.label}>Format</Text>
-                  <Pressable
-                    style={styles.selectButton}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setShowFormatPicker(!showFormatPicker);
-                      setShowRatingPicker(false);
-                      setShowTicketTypePicker(false);
-                    }}
-                  >
-                    <Text style={styles.selectButtonText}>{formData.format}</Text>
-                    <Text style={styles.selectButtonIcon}>▼</Text>
-                  </Pressable>
-                </View>
-                <View style={[styles.formGroup, styles.formGroupFlex2]}>
-                  <Text style={styles.label}>Price</Text>
-                  <FormTextInput
-                    ref={priceRef}
-                    style={styles.input}
-                    value={formData.price}
-                    onChangeText={(value) => handleChange('price', value)}
-                    placeholder="$22.99"
-                    placeholderTextColor={Colors.dark.textTertiary}
-                    keyboardType="decimal-pad"
-                    returnKeyType="done"
-                    blurOnSubmit={true}
-                    onFocus={() => handleFieldFocus('price')}
-                    onSubmitEditing={() => Keyboard.dismiss()}
-                  />
-                </View>
-                <View style={[styles.formGroup, styles.formGroupFlex1]}>
-                  <Text style={styles.label}>Rated</Text>
-                  <Pressable
-                    style={styles.selectButton}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setShowRatingPicker(!showRatingPicker);
-                      setShowFormatPicker(false);
-                      setShowTicketTypePicker(false);
-                    }}
-                  >
-                    <Text style={styles.selectButtonText}>
-                      {formData.rating || 'NR'}
-                    </Text>
-                    <Text style={styles.selectButtonIcon}>▼</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Ticket Type row */}
-              <View style={styles.formRow}>
-                <View style={[styles.formGroup, styles.formGroupFlex1]}>
-                  <Text style={styles.label}>Ticket Type</Text>
-                  <Pressable
-                    style={styles.selectButton}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setShowTicketTypePicker(!showTicketTypePicker);
-                      setShowFormatPicker(false);
-                      setShowRatingPicker(false);
-                    }}
-                  >
-                    <Text style={styles.selectButtonText}>
-                      {formData.ticketType || 'Select'}
-                    </Text>
-                    <Text style={styles.selectButtonIcon}>▼</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Format Picker (inline dropdown) */}
-              {showFormatPicker && (
-                <View style={styles.formatPicker}>
-                  {FORMAT_OPTIONS.map((format) => (
-                    <Pressable
-                      key={format}
-                      style={[
-                        styles.formatOption,
-                        formData.format === format && styles.formatOptionSelected,
-                      ]}
-                      onPress={() => {
-                        handleChange('format', format);
-                        setShowFormatPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.formatOptionText,
-                          formData.format === format && styles.formatOptionTextSelected,
-                        ]}
-                      >
-                        {format}
-                      </Text>
-                      {formData.format === format && (
-                        <Text style={styles.formatOptionCheck}>✓</Text>
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-
-              {/* MPAA Rating Picker (inline dropdown) */}
-              {showRatingPicker && (
-                <View style={styles.formatPicker}>
-                  {MPAA_RATING_OPTIONS.map((rating) => (
-                    <Pressable
-                      key={rating}
-                      style={[
-                        styles.formatOption,
-                        formData.rating === rating && styles.formatOptionSelected,
-                      ]}
-                      onPress={() => {
-                        handleChange('rating', rating);
-                        setShowRatingPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.formatOptionText,
-                          formData.rating === rating && styles.formatOptionTextSelected,
-                        ]}
-                      >
-                        {rating}
-                      </Text>
-                      {formData.rating === rating && (
-                        <Text style={styles.formatOptionCheck}>✓</Text>
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-
-              {/* Ticket Type Picker (inline dropdown) */}
-              {showTicketTypePicker && (
-                <View style={styles.formatPicker}>
-                  {TICKET_TYPE_OPTIONS.map((type) => (
-                    <Pressable
-                      key={type}
-                      style={[
-                        styles.formatOption,
-                        formData.ticketType === type && styles.formatOptionSelected,
-                      ]}
-                      onPress={() => {
-                        handleChange('ticketType', type);
-                        setShowTicketTypePicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.formatOptionText,
-                          formData.ticketType === type && styles.formatOptionTextSelected,
-                        ]}
-                      >
-                        {type}
-                      </Text>
-                      {formData.ticketType === type && (
-                        <Text style={styles.formatOptionCheck}>✓</Text>
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Action buttons */}
-            <View style={styles.actions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cancelButton,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={onClose}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
+            {/* Pinned save button */}
+            <View style={styles.footer}>
               <Pressable
                 style={({ pressed }) => [
                   styles.saveButton,
@@ -735,7 +755,7 @@ export function TicketEditModal({
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </Pressable>
             </View>
-          </BottomSheetScrollView>
+          </View>
         </BottomSheet>
       </GestureHandlerRootView>
     </Modal>
@@ -762,205 +782,224 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   bottomSheetBackground: {
-    backgroundColor: Colors.dark.card,
-    borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
+    backgroundColor: COLOR.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   handleIndicator: {
-    width: 40,
+    width: 36,
     height: 4,
-    backgroundColor: Colors.dark.textTertiary,
-    borderRadius: BorderRadius.full,
+    backgroundColor: COLOR.label,
+    borderRadius: 2,
     opacity: 0.5,
+  },
+
+  // Header nav bar
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  headerCancel: {
+    color: COLOR.white,
+    fontSize: 17,
+    fontWeight: '400',
+    minWidth: 60,
+  },
+  headerTitle: {
+    flex: 1,
+    color: COLOR.white,
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    minWidth: 60,
+  },
+
+  // Sheet body (scroll + footer)
+  sheetBody: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: 34, // Safe area bottom
-    paddingTop: Spacing.md,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
 
-  // Title
-  modalTitle: {
-    ...Typography.display.h4,
-    color: Colors.dark.text,
-    marginBottom: Spacing.lg,
+  cardStack: {
+    gap: 10,
   },
 
-  // Form
-  form: {
-    gap: Spacing.md,
+  // Card sections
+  card: {
+    backgroundColor: COLOR.card,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.10)',
+    padding: 12,
+    gap: 8,
   },
-  formGroup: {
-    gap: Spacing.xs,
+  sectionHeader: {
+    color: COLOR.white,
+    fontSize: 17,
+    fontWeight: '700',
   },
-  formRow: {
+
+  // Movie Info section
+  movieInfoRow: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    alignItems: 'center',
+    gap: 12,
   },
-  formGroupFlex1: {
+  movieInfoText: {
     flex: 1,
+    gap: 6,
   },
-  formGroupFlex2: {
-    flex: 2,
+  movieTitle: {
+    color: COLOR.white,
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 26,
   },
-  label: {
-    ...Typography.body.xs,
-    color: Colors.dark.textTertiary,
-    fontWeight: '500',
+  movieTitlePlaceholder: {
+    color: COLOR.label,
+    fontWeight: '400',
+    fontSize: 16,
   },
-  input: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
+  matchBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(48, 209, 88, 0.18)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  matchBadgeText: {
+    color: COLOR.green,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  changeButton: {
+    backgroundColor: COLOR.red,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 90,
+  },
+  changeButtonText: {
+    color: COLOR.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Field layout
+  fieldRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  fieldGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  fieldLabel: {
+    color: COLOR.label,
+    fontSize: 13,
+    fontWeight: '400',
+  },
+
+  // Input field
+  inputField: {
+    backgroundColor: COLOR.input,
+    borderRadius: 8,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    color: Colors.dark.text,
+    color: COLOR.white,
     fontSize: 15,
   },
-  inputCenter: {
-    textAlign: 'center',
-  },
-  inputWithIcon: {
-    position: 'relative',
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: 12,
-    top: 12,
-    fontSize: 16,
-    zIndex: 1,
-  },
-  inputWithIconPadding: {
-    paddingLeft: 40,
-  },
 
-  // Select button (for format dropdown)
+  // Select / dropdown button
   selectButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
+    backgroundColor: COLOR.input,
+    borderRadius: 8,
+    paddingHorizontal: 12,
     paddingVertical: 12,
   },
   selectButtonText: {
-    color: Colors.dark.text,
+    color: COLOR.white,
     fontSize: 15,
+    flex: 1,
   },
-  selectButtonIcon: {
-    color: Colors.dark.textTertiary,
+  selectButtonChevron: {
+    color: COLOR.label,
     fontSize: 10,
   },
 
-  // Format picker
-  formatPicker: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    borderRadius: BorderRadius.sm,
-    marginTop: -Spacing.sm,
+  // Inline picker dropdown
+  pickerDropdown: {
+    backgroundColor: COLOR.input,
+    borderRadius: 8,
     overflow: 'hidden',
   },
-  formatOption: {
+  pickerOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
-  formatOptionSelected: {
-    backgroundColor: 'rgba(225, 29, 72, 0.1)',
+  pickerOptionSelected: {
+    backgroundColor: 'rgba(255, 59, 92, 0.12)',
   },
-  formatOptionText: {
-    color: Colors.dark.text,
+  pickerOptionText: {
+    color: COLOR.white,
     fontSize: 15,
   },
-  formatOptionTextSelected: {
-    color: Colors.dark.tint,
+  pickerOptionTextSelected: {
+    color: COLOR.red,
     fontWeight: '600',
   },
-  formatOptionCheck: {
-    color: Colors.dark.tint,
+  pickerCheck: {
+    color: COLOR.red,
     fontSize: 16,
     fontWeight: '600',
   },
 
-  // Actions
-  actions: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.xl,
-  },
-  cancelButton: {
-    flex: 0,
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    ...Typography.body.base,
-    color: Colors.dark.textSecondary,
-    fontWeight: '500',
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: Colors.dark.tint,
-    paddingVertical: 14,
-    borderRadius: BorderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.dark.tint,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  saveButtonText: {
-    ...Typography.button.primary,
-    color: '#fff',
-  },
-  buttonPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.98 }],
-  },
-
-  // Movie Search Styles
+  // Search mode
   searchModeContainer: {
-    gap: Spacing.sm,
+    gap: 10,
   },
   searchInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
   },
   cancelSearchButton: {
     paddingVertical: 12,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 4,
   },
   cancelSearchButtonText: {
-    ...Typography.body.sm,
-    color: Colors.dark.textSecondary,
+    color: COLOR.label,
+    fontSize: 15,
     fontWeight: '500',
   },
   searchResultsList: {
     maxHeight: 200,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: COLOR.input,
+    borderRadius: 8,
     overflow: 'hidden',
   },
   searchResultsScroll: {
@@ -970,58 +1009,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  searchLoadingText: {
-    ...Typography.body.sm,
-    color: Colors.dark.textSecondary,
+    paddingVertical: 20,
+    gap: 8,
   },
   searchHintText: {
-    ...Typography.body.sm,
-    color: Colors.dark.textTertiary,
+    color: COLOR.label,
+    fontSize: 14,
     textAlign: 'center',
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
   },
 
-  // Title Display Styles
-  titleDisplayRow: {
-    flexDirection: 'row',
+  // Pinned footer
+  footer: {
+    paddingHorizontal: 16,
+    paddingBottom: 34,
+    paddingTop: 12,
+    backgroundColor: COLOR.bg,
+  },
+  saveButton: {
+    backgroundColor: COLOR.red,
+    height: 56,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.sm,
   },
-  titleDisplayContainer: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-  },
-  titleDisplayText: {
-    color: Colors.dark.text,
-    fontSize: 15,
-  },
-  titleDisplayPlaceholder: {
-    color: Colors.dark.textTertiary,
-  },
-  matchInfo: {
-    ...Typography.body.xs,
-    color: Colors.dark.accentSecondary,
-    marginTop: 2,
-  },
-  searchButton: {
-    backgroundColor: Colors.dark.tint,
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-  },
-  searchButtonText: {
-    ...Typography.body.sm,
-    color: '#fff',
+  saveButtonText: {
+    color: COLOR.white,
+    fontSize: 17,
     fontWeight: '600',
+  },
+  buttonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
 });
 
