@@ -181,9 +181,9 @@ If no chain matches: "Unknown"
 For EACH ticket visible, extract the fields into the required JSON schema.
 Important:
 - Use the FULL movie title (reconstruct truncated titles when possible)
-- Date must be YYYY-MM-DD format
-- Showtime must be HH:MM in 24-hour format
-- If year is missing, infer from movie release dates
+- Date must be YYYY-MM-DD format. If date and time appear on the same line (e.g. "February 22, 1:15 pm"), split them — date goes in date field, time in showtime field.
+- If year is missing from the date, infer it from the movie release year or use the most recent plausible year.
+- Showtime must be HH:MM in 24-hour format (e.g. "1:15 pm" → "13:15", "7:30 PM" → "19:30")
 - If the ticket shows a content rating (e.g. "Rated PG-13", "Rating: R", "PG", "NR"), extract it as mpaa_rating. Look near the movie title, at the bottom of the ticket, or in the fine print.
 
 ## Step 4: Provide Bounding Boxes
@@ -635,7 +635,7 @@ async function extractWithGemini(
                         propertyOrdering: ["x_min", "y_min", "x_max", "y_max"]
                       }
                     },
-                    required: ["movie_title", "bounding_box"],
+                    required: ["movie_title", "date", "showtime", "bounding_box"],
                     propertyOrdering: ["movie_title", "theater_name", "theater_chain", "date", "showtime", "seat", "auditorium", "format", "price", "ticket_type", "mpaa_rating", "confirmation_number", "barcode_visible", "bounding_box"]
                   }
                 },
