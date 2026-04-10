@@ -15,7 +15,20 @@
       "permanent": false
     }
   ],
+  "functions": {
+    "api/og.js": {
+      "includeFiles": "dist/index.html"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/movie/:id",
+      "destination": "/api/og?type=movie&id=:id"
+    },
+    {
+      "source": "/tv/:id",
+      "destination": "/api/og?type=tv&id=:id"
+    },
     { "source": "/ingest/static/:path*", "destination": "https://us-assets.i.posthog.com/static/:path*" },
     { "source": "/ingest/:path*", "destination": "https://us.i.posthog.com/:path*" },
     { "source": "/about", "destination": "/about.html" },
