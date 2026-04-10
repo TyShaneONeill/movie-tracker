@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import React, { useRef, useState, useMemo } from 'react';
+import { View, Text, Pressable, StyleSheet, ViewStyle, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { hapticImpact } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -25,6 +26,7 @@ export interface ReviewCardProps {
   likeCount?: number;
   isLiked?: boolean;
   onPress: () => void;
+  onDelete?: () => void;
   style?: ViewStyle;
 }
 
@@ -58,15 +60,33 @@ export function ReviewCard({
   likeCount,
   isLiked,
   onPress,
+  onDelete,
   style,
 }: ReviewCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
   const handlePress = () => {
     hapticImpact();
     onPress();
+  };
+
+  const handleDeletePress = () => {
+    swipeableRef.current?.close();
+    Alert.alert(
+      'Delete Review',
+      'This will permanently delete your review. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDelete?.(),
+        },
+      ]
+    );
   };
 
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
@@ -76,7 +96,7 @@ export function ReviewCard({
 
   const showContent = !isSpoiler || spoilerRevealed;
 
-  return (
+  const cardContent = (
     <Pressable style={[styles.card, style]} onPress={handlePress}>
       <View style={styles.header}>
         <Image
@@ -146,6 +166,26 @@ export function ReviewCard({
         </View>
       )}
     </Pressable>
+  );
+
+  if (!onDelete) {
+    return cardContent;
+  }
+
+  return (
+    <ReanimatedSwipeable
+      ref={swipeableRef}
+      renderRightActions={() => (
+        <Pressable style={styles.deleteAction} onPress={handleDeletePress}>
+          <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+          <Text style={styles.deleteActionText}>Delete</Text>
+        </Pressable>
+      )}
+      rightThreshold={40}
+      overshootRight={false}
+    >
+      {cardContent}
+    </ReanimatedSwipeable>
   );
 }
 
@@ -236,5 +276,17 @@ const createStyles = (colors: typeof Colors.dark) =>
     pillText: {
       ...Typography.body.xs,
       color: colors.textSecondary,
+    },
+    deleteAction: {
+      backgroundColor: '#EF4444',
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: 80,
+      gap: 4,
+    },
+    deleteActionText: {
+      ...Typography.body.xs,
+      color: '#FFFFFF',
+      fontWeight: '600',
     },
   });
