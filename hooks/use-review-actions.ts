@@ -43,7 +43,7 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
   const createMutation = useMutation({
     mutationFn: async (data: CreateReviewData) => {
       if (!user) throw new Error('Not authenticated');
-      return createReview(user.id, data);
+      return createReview(user.id, { ...data, mediaType: mediaType as 'movie' | 'tv_show' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['review', user?.id, tmdbId, mediaType] });

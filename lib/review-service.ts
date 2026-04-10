@@ -11,6 +11,7 @@ export interface CreateReviewData {
   isSpoiler: boolean;
   isRewatch: boolean;
   visibility: ReviewVisibility;
+  mediaType?: 'movie' | 'tv_show';
 }
 
 export interface ReviewerInfo {
@@ -89,12 +90,12 @@ export async function createReview(
   const insertData: ReviewInsert = {
     user_id: userId,
     tmdb_id: data.tmdbId,
-    media_type: 'movie',
+    media_type: data.mediaType ?? 'movie',
     movie_title: data.movieTitle,
     poster_path: data.posterPath,
     title: data.title.trim(),
     review_text: data.reviewText.trim(),
-    rating: Math.round(data.rating),
+    rating: data.rating,
     is_spoiler: data.isSpoiler,
     is_rewatch: data.isRewatch,
     visibility: data.visibility,
