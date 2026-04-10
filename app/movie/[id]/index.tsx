@@ -233,7 +233,7 @@ export default function MovieDetailScreen() {
   const handleShare = async () => {
     if (!movie) return;
     try {
-      await shareTitle(movie.id, 'movie', movie.title);
+      await shareTitle(movie.id, 'movie', movie.title, movie.poster_path);
       analytics.track('movie:share', { tmdb_id: movie.id });
     } catch {
       // user cancelled
