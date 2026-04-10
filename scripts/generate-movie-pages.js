@@ -30,6 +30,7 @@ const ADSENSE_ID = 'ca-pub-5311715630678079';
 const RATE_LIMIT_MS = 300;
 const POPULAR_PAGES = 13;
 const OUTPUT_DIR = path.resolve(__dirname, '..', 'public', 'movie');
+const TV_OUTPUT_DIR = path.resolve(__dirname, '..', 'public', 'tv');
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 
 // ---------------------------------------------------------------------------
@@ -471,14 +472,301 @@ crewSection +
   return { html: html, slug: slug + '-' + movie.id };
 }
 
+/**
+ * Generate the full HTML string for a TV show page.
+ */
+function generateTVHTML(show, credits) {
+  var title = escapeHTML(show.name || 'Unknown Title');
+  var year = show.first_air_date ? show.first_air_date.substring(0, 4) : '';
+  var slug = slugify(show.name || 'tv-show');
+  var canonicalURL = SITE_URL + '/tv/' + slug + '-' + show.id;
+
+  // Overview / description
+  var genreNames = (show.genres || []).map(function (g) { return g.name; });
+  var rawOverview = show.overview || '';
+  var overview = rawOverview
+    ? rawOverview
+    : (show.name || 'Unknown Title') + ' (' + year + ') \u2014 a ' + (genreNames.join(', ') || 'TV series') + '.';
+  var truncatedOverview = overview.length > 160 ? overview.substring(0, 157) + '...' : overview;
+  var metaDescription = escapeHTML(truncatedOverview);
+
+  // Poster
+  var posterPath = show.poster_path
+    ? IMAGE_BASE + '/w500' + show.poster_path
+    : '';
+
+  // Seasons / episodes
+  var seasonsStr = show.number_of_seasons ? show.number_of_seasons + (show.number_of_seasons === 1 ? ' Season' : ' Seasons') : '';
+  var episodesStr = show.number_of_episodes ? show.number_of_episodes + ' Episodes' : '';
+  var metaParts = [year, seasonsStr, episodesStr].filter(Boolean);
+  var metaLine = metaParts.join(' &bull; ');
+
+  // Tagline
+  var tagline = show.tagline ? escapeHTML(show.tagline) : '';
+
+  // Rating
+  var rating = show.vote_average ? show.vote_average.toFixed(1) : '0.0';
+  var voteCount = show.vote_count || 0;
+
+  // Cast (top 20)
+  var cast = credits && credits.cast ? credits.cast.slice(0, 20) : [];
+
+  // Creators
+  var creators = (show.created_by || []).map(function (c) { return c.name; });
+  var creatorStr = creators.length > 0 ? creators.join(' and ') : 'an unknown creator';
+
+  // Crew - producers and writers
+  var crewRoles = ['Executive Producer', 'Producer', 'Writer', 'Showrunner'];
+  var crewMap = new Map();
+  if (credits && credits.crew) {
+    for (var ci = 0; ci < credits.crew.length; ci++) {
+      var member = credits.crew[ci];
+      if (crewRoles.indexOf(member.job) !== -1) {
+        var key = member.name + '-' + member.job;
+        if (!crewMap.has(key)) {
+          crewMap.set(key, { name: member.name, job: member.job });
+        }
+      }
+    }
+  }
+  var crewList = Array.from(crewMap.values());
+
+  // Genre string
+  var genreStr = genreNames.length > 0 ? genreNames.join(', ').toLowerCase() : 'TV series';
+
+  // Top 5 actors for "About" paragraph
+  var topActors = cast.slice(0, 5).map(function (c) { return c.name; });
+  var actorStr = topActors.length > 0 ? topActors.join(', ') : 'various actors';
+  var totalCast = credits && credits.cast ? credits.cast.length : 0;
+
+  // JSON-LD structured data
+  var jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TVSeries',
+    'name': show.name || 'Unknown Title',
+    'description': overview
+  };
+  if (posterPath) jsonLd.image = posterPath;
+  if (show.first_air_date) jsonLd.startDate = show.first_air_date;
+  if (show.last_air_date) jsonLd.endDate = show.last_air_date;
+  if (genreNames.length > 0) jsonLd.genre = genreNames;
+  if (show.number_of_seasons) jsonLd.numberOfSeasons = show.number_of_seasons;
+  if (show.number_of_episodes) jsonLd.numberOfEpisodes = show.number_of_episodes;
+  if (voteCount > 0 && show.vote_average > 0) {
+    jsonLd.aggregateRating = {
+      '@type': 'AggregateRating',
+      'ratingValue': rating,
+      'bestRating': '10',
+      'worstRating': '0',
+      'ratingCount': voteCount
+    };
+  }
+  if (creators.length > 0) {
+    jsonLd.creator = creators.length === 1
+      ? { '@type': 'Person', 'name': creators[0] }
+      : creators.map(function (d) { return { '@type': 'Person', 'name': d }; });
+  }
+  jsonLd.url = canonicalURL;
+  var topActorsForSchema = cast.slice(0, 10);
+  if (topActorsForSchema.length > 0) {
+    jsonLd.actor = topActorsForSchema.map(function (a) { return { '@type': 'Person', 'name': a.name }; });
+  }
+
+  // Build cast HTML
+  var castHTML = '';
+  for (var i = 0; i < cast.length; i++) {
+    var c = cast[i];
+    var actorName = escapeHTML(c.name);
+    var character = escapeHTML(c.character || '');
+    var photoHTML;
+    if (c.profile_path) {
+      photoHTML = '<img class="cast-photo" src="' + IMAGE_BASE + '/w185' + c.profile_path + '" alt="' + actorName + '" width="48" height="48" loading="lazy">';
+    } else {
+      photoHTML = '<div class="cast-photo" aria-label="' + actorName + '"></div>';
+    }
+    castHTML +=
+      '\n            <div class="cast-member">\n' +
+      '              ' + photoHTML + '\n' +
+      '              <div>\n' +
+      '                <div class="cast-name">' + actorName + '</div>\n' +
+      '                <div class="cast-character">as ' + character + '</div>\n' +
+      '              </div>\n' +
+      '            </div>';
+  }
+
+  // Build crew HTML — prepend creators
+  var crewHTML = '';
+  for (var k = 0; k < (show.created_by || []).length; k++) {
+    crewHTML += '\n            <div class="crew-item"><strong>' + escapeHTML(show.created_by[k].name) + '</strong> <span class="crew-role">&mdash; Creator</span></div>';
+  }
+  for (var j = 0; j < crewList.length; j++) {
+    var cm = crewList[j];
+    crewHTML += '\n            <div class="crew-item"><strong>' + escapeHTML(cm.name) + '</strong> <span class="crew-role">&mdash; ' + escapeHTML(cm.job) + '</span></div>';
+  }
+
+  // Build genres HTML
+  var genresHTML = '';
+  for (var g = 0; g < (show.genres || []).length; g++) {
+    genresHTML += '\n              <span class="genre-tag">' + escapeHTML(show.genres[g].name) + '</span>';
+  }
+
+  // Poster img tag
+  var posterImgTag = posterPath
+    ? '<img class="movie-poster" src="' + posterPath + '" alt="' + title + ' poster" width="200" loading="lazy">'
+    : '';
+
+  // Tagline block
+  var taglineBlock = tagline
+    ? '\n            <p class="tagline">&ldquo;' + tagline + '&rdquo;</p>'
+    : '';
+
+  // About paragraph
+  var aboutParagraph = title + ' is a ' + year + ' ' + genreStr + ' series created by ' + escapeHTML(creatorStr) + '. ';
+  if (seasonsStr) {
+    aboutParagraph += 'The series spans ' + seasonsStr.toLowerCase();
+    if (episodesStr) aboutParagraph += ' and ' + episodesStr.toLowerCase();
+    aboutParagraph += '. ';
+  }
+  aboutParagraph += 'It has earned an audience rating of ' + rating + ' out of 10 based on ' + formatNumber(voteCount) + ' votes on TMDB. The series stars ' + escapeHTML(actorStr) + ' among its cast of ' + totalCast + ' credited actors.';
+
+  // OG image
+  var ogImage = posterPath || '';
+  var ogImageTag = ogImage ? '\n    <meta property="og:image" content="' + ogImage + '">' : '';
+  var twitterImageTag = ogImage ? '\n    <meta name="twitter:image" content="' + ogImage + '">' : '';
+
+  // Cast / crew sections
+  var castSection = cast.length > 0
+    ? '\n        <h2>Cast</h2>\n        <div class="cast-grid">' + castHTML + '\n        </div>\n'
+    : '';
+  var crewSection = crewHTML
+    ? '\n        <h2>Crew</h2>\n        <div class="crew-list">' + crewHTML + '\n        </div>\n'
+    : '';
+
+  var html =
+'<!DOCTYPE html>\n' +
+'<html lang="en">\n' +
+'<head>\n' +
+'    <meta charset="UTF-8">\n' +
+'    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+'    <title>' + title + ' (' + year + ') - PocketStubs</title>\n' +
+'    <meta name="description" content="' + metaDescription + '">\n' +
+'    <link rel="canonical" href="' + canonicalURL + '">\n' +
+'    <meta property="og:title" content="' + title + ' (' + year + ') - PocketStubs">\n' +
+'    <meta property="og:description" content="' + metaDescription + '">\n' +
+'    <meta property="og:type" content="video.tv_show">\n' +
+'    <meta property="og:url" content="' + canonicalURL + '">\n' +
+'    <meta property="og:site_name" content="PocketStubs">' + ogImageTag + '\n' +
+'    <meta name="twitter:card" content="summary_large_image">\n' +
+'    <meta name="twitter:title" content="' + title + ' (' + year + ') - PocketStubs">\n' +
+'    <meta name="twitter:description" content="' + metaDescription + '">' + twitterImageTag + '\n' +
+'    <!-- Google AdSense -->\n' +
+'    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + ADSENSE_ID + '" crossorigin="anonymous"></script>\n' +
+'    <style>\n' +
+'        * { margin: 0; padding: 0; box-sizing: border-box; }\n' +
+'        body {\n' +
+'            font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;\n' +
+'            background: #09090b;\n' +
+'            color: #fafafa;\n' +
+'            min-height: 100vh;\n' +
+'            padding: 40px 20px;\n' +
+'            line-height: 1.7;\n' +
+'        }\n' +
+'        .container { max-width: 700px; margin: 0 auto; }\n' +
+'        h1 { font-size: 2rem; margin-bottom: 0.5rem; }\n' +
+'        h2 { font-size: 1.25rem; margin: 2rem 0 1rem; color: #e11d48; }\n' +
+'        p, li { color: #d4d4d8; margin-bottom: 1rem; }\n' +
+'        ul { padding-left: 1.5rem; margin-bottom: 1rem; }\n' +
+'        a { color: #e11d48; text-decoration: none; }\n' +
+'        a:hover { text-decoration: underline; }\n' +
+'        .back { display: inline-block; margin-bottom: 2rem; color: #a1a1aa; }\n' +
+'        .footer { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; }\n' +
+'        .footer-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 1rem; }\n' +
+'        .footer-links a { color: #a1a1aa; font-size: 0.9rem; }\n' +
+'        .footer-links a:hover { color: #e11d48; }\n' +
+'        .footer p { color: #52525b; font-size: 0.8rem; }\n' +
+'        .movie-hero { display: flex; gap: 24px; margin-bottom: 2rem; }\n' +
+'        .movie-poster { width: 200px; border-radius: 8px; flex-shrink: 0; }\n' +
+'        .movie-meta { color: #a1a1aa; margin-bottom: 0.5rem; }\n' +
+'        .tagline { font-style: italic; color: #a1a1aa; margin-bottom: 1rem; }\n' +
+'        .rating { display: inline-flex; align-items: center; gap: 6px; background: rgba(225,29,72,0.15); color: #e11d48; padding: 4px 12px; border-radius: 16px; font-weight: 600; margin-bottom: 1rem; }\n' +
+'        .vote-count { font-weight: 400; font-size: 0.85rem; color: #a1a1aa; }\n' +
+'        .genres { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }\n' +
+'        .genre-tag { background: rgba(255,255,255,0.08); color: #d4d4d8; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; }\n' +
+'        .cast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 2rem; }\n' +
+'        .cast-member { display: flex; align-items: center; gap: 10px; }\n' +
+'        .cast-photo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: #27272a; }\n' +
+'        .cast-name { font-weight: 500; color: #fafafa; }\n' +
+'        .cast-character { font-size: 0.85rem; color: #a1a1aa; }\n' +
+'        .crew-list { margin-bottom: 2rem; }\n' +
+'        .crew-item { margin-bottom: 0.5rem; }\n' +
+'        .crew-role { color: #a1a1aa; font-size: 0.9rem; }\n' +
+'        .cta-section { text-align: center; margin: 3rem 0; }\n' +
+'        .cta-button { display: inline-block; background: #e11d48; color: #fff; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 1rem; text-decoration: none; }\n' +
+'        .cta-button:hover { background: #be123c; text-decoration: none; }\n' +
+'        @media (max-width: 600px) {\n' +
+'            .movie-hero { flex-direction: column; align-items: center; text-align: center; }\n' +
+'            .movie-poster { width: 160px; }\n' +
+'            .cast-grid { grid-template-columns: 1fr; }\n' +
+'        }\n' +
+'    </style>\n' +
+'    <script type="application/ld+json">\n' +
+'    ' + JSON.stringify(jsonLd, null, 2).replace(/\n/g, '\n    ') + '\n' +
+'    </script>\n' +
+'</head>\n' +
+'<body>\n' +
+'    <div class="container">\n' +
+'        <a href="/" class="back">&larr; Back to PocketStubs</a>\n' +
+'\n' +
+'        <div class="movie-hero">\n' +
+'            ' + posterImgTag + '\n' +
+'            <div>\n' +
+'                <h1>' + title + '</h1>\n' +
+'                <p class="movie-meta">' + metaLine + '</p>' + taglineBlock + '\n' +
+'                <div class="rating">&#9733; ' + rating + ' / 10 <span class="vote-count">(' + formatNumber(voteCount) + ' votes)</span></div>\n' +
+'                <div class="genres">' + genresHTML + '\n' +
+'                </div>\n' +
+'            </div>\n' +
+'        </div>\n' +
+'\n' +
+'        <h2>Synopsis</h2>\n' +
+'        <p>' + escapeHTML(overview) + '</p>\n' +
+'\n' +
+'        <h2>About This Series</h2>\n' +
+'        <p>' + aboutParagraph + '</p>\n' +
+castSection +
+crewSection +
+'\n' +
+'        <div class="cta-section">\n' +
+'            <h2>Track This TV Show</h2>\n' +
+'            <p>Add ' + title + ' to your watchlist or log it as watched on PocketStubs. Track every show you watch, rate your favorites, and build your personal TV journey.</p>\n' +
+'            <a href="/" class="cta-button">Open PocketStubs</a>\n' +
+'        </div>\n' +
+'\n' +
+'        <footer class="footer">\n' +
+'            <div class="footer-links">\n' +
+'                <a href="/about">About</a>\n' +
+'                <a href="/privacy">Privacy</a>\n' +
+'                <a href="/terms">Terms</a>\n' +
+'                <a href="/support">Support</a>\n' +
+'            </div>\n' +
+'            <p>&copy; 2026 PocketStubs. All rights reserved.</p>\n' +
+'            <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #3f3f46;">TV data provided by <a href="https://www.themoviedb.org/" style="color: #52525b;">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>\n' +
+'        </footer>\n' +
+'    </div>\n' +
+'</body>\n' +
+'</html>';
+
+  return { html: html, slug: slug + '-' + show.id };
+}
+
 // ---------------------------------------------------------------------------
 // Sitemap update
 // ---------------------------------------------------------------------------
 
 /**
- * Update the sitemap with movie page URLs, preserving existing non-movie entries.
+ * Update the sitemap with movie and TV page URLs, preserving existing static entries.
  */
-function updateSitemap(generatedPages) {
+function updateSitemap(generatedMoviePages, generatedTVPages) {
   var sitemapPath = path.join(PUBLIC_DIR, 'sitemap.xml');
   var existingContent = '';
 
@@ -488,22 +776,22 @@ function updateSitemap(generatedPages) {
     existingContent = '';
   }
 
-  // Extract non-movie <url> blocks from existing sitemap
-  var nonMovieEntries = [];
+  // Extract non-movie, non-TV <url> blocks from existing sitemap
+  var staticEntries = [];
   if (existingContent) {
     var urlBlockRegex = /<url>[\s\S]*?<\/url>/g;
     var match;
     while ((match = urlBlockRegex.exec(existingContent)) !== null) {
       var block = match[0];
-      if (block.indexOf('/movie/') === -1) {
-        nonMovieEntries.push(block);
+      if (block.indexOf('/movie/') === -1 && block.indexOf('/tv/') === -1) {
+        staticEntries.push(block);
       }
     }
   }
 
-  // Generate movie <url> entries
+  // Generate movie and TV <url> entries
   var today = todayISO();
-  var movieEntries = generatedPages.map(function (slug) {
+  var movieEntries = generatedMoviePages.map(function (slug) {
     return '  <url>\n' +
       '    <loc>' + SITE_URL + '/movie/' + slug + '</loc>\n' +
       '    <lastmod>' + today + '</lastmod>\n' +
@@ -511,9 +799,17 @@ function updateSitemap(generatedPages) {
       '    <priority>0.7</priority>\n' +
       '  </url>';
   });
+  var tvEntries = generatedTVPages.map(function (slug) {
+    return '  <url>\n' +
+      '    <loc>' + SITE_URL + '/tv/' + slug + '</loc>\n' +
+      '    <lastmod>' + today + '</lastmod>\n' +
+      '    <changefreq>monthly</changefreq>\n' +
+      '    <priority>0.7</priority>\n' +
+      '  </url>';
+  });
 
   // Re-format existing entries consistently
-  var formattedNonMovie = nonMovieEntries.map(function (block) {
+  var formattedStatic = staticEntries.map(function (block) {
     var lines = block.trim().split('\n').map(function (line) {
       return '    ' + line.trim();
     });
@@ -524,12 +820,13 @@ function updateSitemap(generatedPages) {
 
   var sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    formattedNonMovie.join('\n') + '\n' +
+    formattedStatic.join('\n') + '\n' +
     movieEntries.join('\n') + '\n' +
+    tvEntries.join('\n') + '\n' +
     '</urlset>\n';
 
   fs.writeFileSync(sitemapPath, sitemap, 'utf-8');
-  console.log('Sitemap updated with ' + generatedPages.length + ' movie pages and ' + nonMovieEntries.length + ' existing entries.');
+  console.log('Sitemap updated with ' + generatedMoviePages.length + ' movie pages, ' + generatedTVPages.length + ' TV pages, and ' + staticEntries.length + ' existing entries.');
 }
 
 // ---------------------------------------------------------------------------
@@ -573,7 +870,7 @@ async function main() {
   console.log('Found ' + movieIds.size + ' unique popular movies.');
 
   // Step 2: Fetch details for each movie and generate HTML
-  var generatedPages = [];
+  var generatedMoviePages = [];
   var movieIdArray = Array.from(movieIds);
   var successCount = 0;
   var skipCount = 0;
@@ -601,7 +898,7 @@ async function main() {
 
       var filePath = path.join(OUTPUT_DIR, result.slug + '.html');
       fs.writeFileSync(filePath, result.html, 'utf-8');
-      generatedPages.push(result.slug);
+      generatedMoviePages.push(result.slug);
       successCount++;
     } catch (err) {
       console.warn('  Warning: Failed to process movie ' + movieId + ' (' + basicTitle + '): ' + err.message);
@@ -611,15 +908,84 @@ async function main() {
     await sleep(RATE_LIMIT_MS);
   }
 
-  // Step 3: Update sitemap
+  // Step 3: Fetch popular TV shows
+  if (!fs.existsSync(TV_OUTPUT_DIR)) {
+    fs.mkdirSync(TV_OUTPUT_DIR, { recursive: true });
+    console.log('Created TV output directory: ' + TV_OUTPUT_DIR);
+  }
+
+  console.log('\nFetching ' + POPULAR_PAGES + ' pages of popular TV shows from TMDB...');
+  var tvIds = new Set();
+  var tvBasicInfo = new Map();
+
+  for (var tvPage = 1; tvPage <= POPULAR_PAGES; tvPage++) {
+    console.log('Fetching popular TV page ' + tvPage + '/' + POPULAR_PAGES + '...');
+    try {
+      var tvUrl = TMDB_BASE + '/tv/popular?api_key=' + TMDB_API_KEY + '&language=en-US&page=' + tvPage;
+      var tvPageData = await fetchJSON(tvUrl);
+      if (tvPageData.results) {
+        for (var tr = 0; tr < tvPageData.results.length; tr++) {
+          var show = tvPageData.results[tr];
+          if (!tvIds.has(show.id)) {
+            tvIds.add(show.id);
+            tvBasicInfo.set(show.id, show.name);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Warning: Failed to fetch popular TV page ' + tvPage + ': ' + err.message);
+    }
+    await sleep(RATE_LIMIT_MS);
+  }
+
+  console.log('Found ' + tvIds.size + ' unique popular TV shows.');
+
+  // Step 4: Fetch details for each TV show and generate HTML
+  var generatedTVPages = [];
+  var tvIdArray = Array.from(tvIds);
+  var tvSuccessCount = 0;
+  var tvSkipCount = 0;
+
+  for (var ti = 0; ti < tvIdArray.length; ti++) {
+    var tvId = tvIdArray[ti];
+    var tvBasicTitle = tvBasicInfo.get(tvId) || ('ID ' + tvId);
+    console.log('[' + (ti + 1) + '/' + tvIdArray.length + '] ' + tvBasicTitle + ' (ID: ' + tvId + ')');
+
+    try {
+      var tvDetailUrl = TMDB_BASE + '/tv/' + tvId + '?api_key=' + TMDB_API_KEY + '&language=en-US&append_to_response=credits,videos';
+      var tvData = await fetchJSON(tvDetailUrl);
+
+      if (!tvData || !tvData.id) {
+        console.warn('  Warning: No data returned for TV show ' + tvId + ', skipping.');
+        tvSkipCount++;
+        await sleep(RATE_LIMIT_MS);
+        continue;
+      }
+
+      var tvCredits = tvData.credits || { cast: [], crew: [] };
+      var tvResult = generateTVHTML(tvData, tvCredits);
+
+      var tvFilePath = path.join(TV_OUTPUT_DIR, tvResult.slug + '.html');
+      fs.writeFileSync(tvFilePath, tvResult.html, 'utf-8');
+      generatedTVPages.push(tvResult.slug);
+      tvSuccessCount++;
+    } catch (err) {
+      console.warn('  Warning: Failed to process TV show ' + tvId + ' (' + tvBasicTitle + '): ' + err.message);
+      tvSkipCount++;
+    }
+
+    await sleep(RATE_LIMIT_MS);
+  }
+
+  // Step 5: Update sitemap
   console.log('\nUpdating sitemap...');
-  updateSitemap(generatedPages);
+  updateSitemap(generatedMoviePages, generatedTVPages);
 
   // Summary
   var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-  console.log('\nGenerated ' + successCount + ' movie pages in ' + elapsed + 's');
-  if (skipCount > 0) {
-    console.log('Skipped ' + skipCount + ' movies due to errors.');
+  console.log('\nGenerated ' + successCount + ' movie pages and ' + tvSuccessCount + ' TV pages in ' + elapsed + 's');
+  if (skipCount > 0 || tvSkipCount > 0) {
+    console.log('Skipped ' + skipCount + ' movies and ' + tvSkipCount + ' TV shows due to errors.');
   }
 }
 
