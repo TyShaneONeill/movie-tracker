@@ -1,9 +1,8 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { hapticImpact } from '@/lib/haptics';
+import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -66,25 +65,20 @@ export function ReviewCard({
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const swipeableRef = useRef<SwipeableMethods>(null);
-
   const handlePress = () => {
     hapticImpact();
     onPress();
   };
 
-  const handleDeletePress = () => {
-    swipeableRef.current?.close();
+  const handleLongPress = () => {
+    if (!onDelete) return;
+    hapticNotification(NotificationFeedbackType.Warning);
     Alert.alert(
       'Delete Review',
       'This will permanently delete your review. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDelete?.(),
-        },
+        { text: 'Delete', style: 'destructive', onPress: () => onDelete() },
       ]
     );
   };
@@ -97,7 +91,7 @@ export function ReviewCard({
   const showContent = !isSpoiler || spoilerRevealed;
 
   const cardContent = (
-    <Pressable style={[styles.card, style]} onPress={handlePress}>
+    <Pressable style={[styles.card, style]} onPress={handlePress} onLongPress={onDelete ? handleLongPress : undefined} delayLongPress={400}>
       <View style={styles.header}>
         <Image
           source={{ uri: getTMDBImageUrl(posterPath, 'w92') ?? undefined }}
@@ -168,25 +162,7 @@ export function ReviewCard({
     </Pressable>
   );
 
-  if (!onDelete) {
-    return cardContent;
-  }
-
-  return (
-    <ReanimatedSwipeable
-      ref={swipeableRef}
-      renderRightActions={() => (
-        <Pressable style={styles.deleteAction} onPress={handleDeletePress}>
-          <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
-          <Text style={styles.deleteActionText}>Delete</Text>
-        </Pressable>
-      )}
-      rightThreshold={40}
-      overshootRight={false}
-    >
-      {cardContent}
-    </ReanimatedSwipeable>
-  );
+  return cardContent;
 }
 
 const createStyles = (colors: typeof Colors.dark) =>
@@ -276,17 +252,5 @@ const createStyles = (colors: typeof Colors.dark) =>
     pillText: {
       ...Typography.body.xs,
       color: colors.textSecondary,
-    },
-    deleteAction: {
-      backgroundColor: '#EF4444',
-      justifyContent: 'center',
-      alignItems: 'center',
-      width: 80,
-      gap: 4,
-    },
-    deleteActionText: {
-      ...Typography.body.xs,
-      color: '#FFFFFF',
-      fontWeight: '600',
     },
   });
