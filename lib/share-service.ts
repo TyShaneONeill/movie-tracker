@@ -127,9 +127,10 @@ export async function shareTitle(
     return;
   }
 
-  // Native: use React Native Share API (URL-only, no file needed)
+  // Native: pass url separately so iOS fetches OG tags for rich link preview
+  // (Android ignores the url param and falls back to message only)
   try {
-    await Share.share({ message: `${message}\n${url}` });
+    await Share.share({ message, url });
   } catch {
     // user cancelled — not an error
   }
