@@ -44,6 +44,8 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { FirstTakeModal } from '@/components/first-take-modal';
+import { ReviewModal } from '@/components/review-modal';
+import { CommunityReviews } from '@/components/movie-detail/community-reviews';
 import { TvShowStatusActions } from '@/components/tv-show-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { TrailerModal } from '@/components/modals/trailer-modal';
@@ -54,12 +56,14 @@ import { useTvShowActions } from '@/hooks/use-tv-show-actions';
 import { useSeasonEpisodes } from '@/hooks/use-season-episodes';
 import { useEpisodeActions } from '@/hooks/use-episode-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
+import { useReviewActions } from '@/hooks/use-review-actions';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
 import { addMovieToList, createList } from '@/lib/list-service';
+import { shareTitle } from '@/lib/share-service';
 import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/lib/tmdb.types';
@@ -229,6 +233,7 @@ export default function TvShowDetailScreen() {
 
   // Modal state
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
@@ -263,6 +268,16 @@ export default function TvShowDetailScreen() {
     createTake,
     deleteTake,
   } = useFirstTakeActions(Number(tmdbId) || 0, 'tv_show');
+
+  // Review actions hook
+  const {
+    existingReview,
+    hasReview,
+    isCreating: isCreatingReview,
+    isUpdating: isUpdatingReview,
+    createReview: createReviewAction,
+    updateReview: updateReviewAction,
+  } = useReviewActions(Number(tmdbId) || 0, 'tv_show');
 
   // User preferences hook (for First Take prompt setting)
   const { preferences } = useUserPreferences();
@@ -368,6 +383,60 @@ export default function TvShowDetailScreen() {
         }
       }
     }, 'Sign in to like TV shows');
+  };
+
+  const handleShare = async () => {
+    if (!show) return;
+    try {
+      await shareTitle(show.id, 'tv_show', show.name);
+      analytics.track('tv:share', { tmdb_id: show.id });
+    } catch {
+      // user cancelled
+    }
+  };
+
+  const handleReview = () => {
+    hapticImpact();
+    requireAuth(() => {
+      setShowReviewModal(true);
+    }, 'Sign in to write reviews');
+  };
+
+  const handleReviewSubmit = async (data: {
+    rating: number;
+    title: string;
+    reviewText: string;
+    isSpoiler: boolean;
+    visibility: import('@/lib/database.types').ReviewVisibility;
+  }) => {
+    if (!show) return;
+
+    try {
+      if (hasReview && existingReview) {
+        await updateReviewAction({
+          rating: data.rating,
+          title: data.title,
+          reviewText: data.reviewText,
+          isSpoiler: data.isSpoiler,
+          isRewatch: false,
+          visibility: data.visibility,
+        });
+      } else {
+        await createReviewAction({
+          movieTitle: show.name,
+          posterPath: show.poster_path,
+          title: data.title,
+          reviewText: data.reviewText,
+          rating: data.rating,
+          isSpoiler: data.isSpoiler,
+          isRewatch: false,
+          visibility: data.visibility,
+        });
+      }
+      setShowReviewModal(false);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Failed to save your review', visibilityTime: 3000 });
+    }
   };
 
   // Helper function to perform the actual removal
@@ -801,22 +870,41 @@ export default function TvShowDetailScreen() {
               </Svg>
               <Text style={dynamicStyles.actionLabel}>Lists</Text>
             </Pressable>
-            <View style={dynamicStyles.actionItemDisabled}>
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </Svg>
-              <Text style={dynamicStyles.actionLabelDisabled}>Review</Text>
-              <Text style={dynamicStyles.comingSoonText}>Soon</Text>
-            </View>
-            <View style={dynamicStyles.actionItemDisabled}>
+            <Pressable
+              onPress={handleReview}
+              disabled={isCreatingReview || isUpdatingReview}
+              accessibilityRole="button"
+              accessibilityLabel={hasReview ? 'Edit your review' : 'Write a review'}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
+              {(isCreatingReview || isUpdatingReview) ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={hasReview ? colors.tint : colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </Svg>
+              )}
+              <Text style={[dynamicStyles.actionLabel, hasReview && dynamicStyles.actionLabelActive]}>
+                {hasReview ? 'Reviewed' : 'Review'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleShare}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                 <Polyline points="16 6 12 2 8 6" />
                 <Line x1={12} y1={2} x2={12} y2={15} />
               </Svg>
-              <Text style={dynamicStyles.actionLabelDisabled}>Share</Text>
-              <Text style={dynamicStyles.comingSoonText}>Soon</Text>
-            </View>
+              <Text style={dynamicStyles.actionLabel}>Share</Text>
+            </Pressable>
           </View>
 
           {/* Seasons & Episodes */}
@@ -885,6 +973,9 @@ export default function TvShowDetailScreen() {
               </ScrollView>
             </>
           )}
+
+          {/* Community Reviews */}
+          <CommunityReviews tmdbId={show.id} mediaType="tv_show" />
 
           {/* Where to Watch Section */}
           {countryProviders && (countryProviders.flatrate?.length || countryProviders.rent?.length || countryProviders.buy?.length) ? (
@@ -1019,6 +1110,23 @@ export default function TvShowDetailScreen() {
         movieTitle={show?.name ?? ''}
         moviePosterUrl={posterUrl ?? undefined}
         isSubmitting={isCreatingFirstTake}
+      />
+
+      {/* Review Modal */}
+      <ReviewModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSubmit={handleReviewSubmit}
+        movieTitle={show?.name ?? ''}
+        moviePosterUrl={posterUrl ?? undefined}
+        existingReview={existingReview ? {
+          rating: existingReview.rating,
+          title: existingReview.title,
+          reviewText: existingReview.review_text,
+          isSpoiler: existingReview.is_spoiler,
+          visibility: existingReview.visibility as 'public' | 'followers_only' | 'private',
+        } : null}
+        isSubmitting={isCreatingReview || isUpdatingReview}
       />
 
       {/* Login Prompt Modal */}

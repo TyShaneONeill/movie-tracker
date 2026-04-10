@@ -62,6 +62,7 @@ import { CommunityReviews } from '@/components/movie-detail/community-reviews';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { addMovieToList, createList } from '@/lib/list-service';
+import { shareTitle } from '@/lib/share-service';
 import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
 import type { MovieStatus } from '@/lib/database.types';
@@ -228,6 +229,16 @@ export default function MovieDetailScreen() {
     }, 'Sign in to like movies');
   };
 
+
+  const handleShare = async () => {
+    if (!movie) return;
+    try {
+      await shareTitle(movie.id, 'movie', movie.title);
+      analytics.track('movie:share', { tmdb_id: movie.id });
+    } catch {
+      // user cancelled
+    }
+  };
 
   // Helper function to perform the actual removal
   const performRemoval = async () => {
@@ -733,15 +744,20 @@ export default function MovieDetailScreen() {
                 {hasReview ? 'Reviewed' : 'Review'}
               </Text>
             </Pressable>
-            <View style={dynamicStyles.actionItemDisabled}>
+            <Pressable
+              onPress={handleShare}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                 <Polyline points="16 6 12 2 8 6" />
                 <Line x1={12} y1={2} x2={12} y2={15} />
               </Svg>
-              <Text style={dynamicStyles.actionLabelDisabled}>Share</Text>
-              <Text style={dynamicStyles.comingSoonText}>Soon</Text>
-            </View>
+              <Text style={dynamicStyles.actionLabel}>Share</Text>
+            </Pressable>
           </View>
 
           {/* Community Reviews */}

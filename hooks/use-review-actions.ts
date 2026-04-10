@@ -43,7 +43,7 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
   const createMutation = useMutation({
     mutationFn: async (data: CreateReviewData) => {
       if (!user) throw new Error('Not authenticated');
-      return createReview(user.id, data);
+      return createReview(user.id, { ...data, mediaType: mediaType as 'movie' | 'tv_show' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['review', user?.id, tmdbId, mediaType] });
@@ -51,6 +51,7 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
       queryClient.invalidateQueries({ queryKey: ['friendsRatings', tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
       queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userReviews', user?.id] });
       triggerAchievementCheck();
     },
   });
@@ -65,6 +66,7 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
       queryClient.invalidateQueries({ queryKey: ['review', user?.id, tmdbId, mediaType] });
       queryClient.invalidateQueries({ queryKey: ['movieReviews', tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['friendsRatings', tmdbId] });
+      queryClient.invalidateQueries({ queryKey: ['userReviews', user?.id] });
     },
   });
 
@@ -79,6 +81,7 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
       queryClient.invalidateQueries({ queryKey: ['movieReviews', tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['friendsRatings', tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userReviews', user?.id] });
     },
   });
 

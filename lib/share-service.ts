@@ -1,5 +1,5 @@
 import { RefObject } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Share } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -99,5 +99,39 @@ export async function shareReviewUrl(
 async function copyToClipboard(text: string): Promise<void> {
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
     await navigator.clipboard.writeText(text);
+  }
+}
+
+/**
+ * Share a movie or TV show page URL via native share sheet or web share
+ */
+export async function shareTitle(
+  tmdbId: number,
+  mediaType: 'movie' | 'tv_show',
+  title: string
+): Promise<void> {
+  const path = mediaType === 'tv_show' ? 'tv' : 'movie';
+  const url = `https://pocketstubs.com/${path}/${tmdbId}`;
+  const message = `Check out ${title} on PocketStubs`;
+
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: message, url });
+        return;
+      } catch {
+        // user cancelled or not supported — fall through to clipboard
+      }
+    }
+    await copyToClipboard(url);
+    return;
+  }
+
+  // Native: pass url separately so iOS fetches OG tags for rich link preview
+  // (Android ignores the url param and falls back to message only)
+  try {
+    await Share.share({ message, url });
+  } catch {
+    // user cancelled — not an error
   }
 }

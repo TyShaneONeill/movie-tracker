@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ViewStyle, Alert, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { hapticImpact } from '@/lib/haptics';
+import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -25,6 +25,7 @@ export interface ReviewCardProps {
   likeCount?: number;
   isLiked?: boolean;
   onPress: () => void;
+  onDelete?: () => void;
   style?: ViewStyle;
 }
 
@@ -58,15 +59,37 @@ export function ReviewCard({
   likeCount,
   isLiked,
   onPress,
+  onDelete,
   style,
 }: ReviewCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
-
   const handlePress = () => {
     hapticImpact();
     onPress();
+  };
+
+  const handleLongPress = () => {
+    if (!onDelete) return;
+
+    if (Platform.OS === 'web') {
+      // Alert.alert is a no-op on RN Web — use the browser's native confirm dialog
+      if (window.confirm('Delete this review? This cannot be undone.')) {
+        onDelete();
+      }
+      return;
+    }
+
+    hapticNotification(NotificationFeedbackType.Warning);
+    Alert.alert(
+      'Delete Review',
+      'This will permanently delete your review. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => onDelete() },
+      ]
+    );
   };
 
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
@@ -76,8 +99,13 @@ export function ReviewCard({
 
   const showContent = !isSpoiler || spoilerRevealed;
 
-  return (
-    <Pressable style={[styles.card, style]} onPress={handlePress}>
+  const cardContent = (
+    <Pressable
+      style={[styles.card, style]}
+      onPress={handlePress}
+      onLongPress={onDelete ? handleLongPress : undefined}
+      delayLongPress={400}
+    >
       <View style={styles.header}>
         <Image
           source={{ uri: getTMDBImageUrl(posterPath, 'w92') ?? undefined }}
@@ -97,6 +125,15 @@ export function ReviewCard({
         <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(rating, colors.tint) }]}>
           <Text style={styles.ratingText}>{formatRating(rating)}</Text>
         </View>
+        {Platform.OS === 'web' && onDelete && (
+          <Pressable
+            onPress={(e: any) => { e.stopPropagation?.(); handleLongPress(); }}
+            style={styles.webTrashButton}
+            hitSlop={8}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.textTertiary} />
+          </Pressable>
+        )}
       </View>
 
       {showContent ? (
@@ -147,6 +184,8 @@ export function ReviewCard({
       )}
     </Pressable>
   );
+
+  return cardContent;
 }
 
 const createStyles = (colors: typeof Colors.dark) =>
@@ -236,5 +275,11 @@ const createStyles = (colors: typeof Colors.dark) =>
     pillText: {
       ...Typography.body.xs,
       color: colors.textSecondary,
+    },
+    webTrashButton: {
+      padding: 4,
+      marginLeft: Spacing.xs,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
   });

@@ -5,11 +5,12 @@ export function useMovieReviews(
   tmdbId: number,
   page: number = 1,
   enabled: boolean = true,
-  sort: ReviewSortMode = 'recent'
+  sort: ReviewSortMode = 'recent',
+  mediaType: 'movie' | 'tv_show' = 'movie'
 ) {
   return useQuery<MovieReviewsResponse, Error>({
-    queryKey: ['movieReviews', tmdbId, page, sort],
-    queryFn: () => fetchMovieReviews(tmdbId, page, 20, sort),
+    queryKey: ['movieReviews', tmdbId, page, sort, mediaType],
+    queryFn: () => fetchMovieReviews(tmdbId, page, 20, sort, mediaType),
     enabled: enabled && tmdbId > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes

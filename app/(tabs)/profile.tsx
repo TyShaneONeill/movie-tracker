@@ -25,6 +25,9 @@ import { ListCard } from '@/components/cards/list-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { ReviewCard } from '@/components/cards/review-card';
 import { CreateListModal } from '@/components/modals/create-list-modal';
+import { useQueryClient } from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
+import { deleteReview } from '@/lib/review-service';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -56,6 +59,7 @@ const GRID_GAP = Spacing.sm;
 export default function ProfileScreen() {
     const { effectiveTheme } = useTheme();
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('collection');
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -161,6 +165,17 @@ export default function ProfileScreen() {
         }
         return list;
     }, [userReviews, reviewSort, reviewFilter]);
+
+    const handleDeleteReview = useCallback(async (reviewId: string) => {
+        try {
+            await deleteReview(reviewId);
+            queryClient.invalidateQueries({ queryKey: ['userReviews', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
+            Toast.show({ type: 'success', text1: 'Review deleted' });
+        } catch {
+            Toast.show({ type: 'error', text1: 'Failed to delete review' });
+        }
+    }, [queryClient, user?.id]);
 
     // Scroll handler for tracking scroll position (native only needs the
     // sticky-bar visibility bridge; web uses CSS position:sticky instead).
@@ -814,6 +829,7 @@ export default function ProfileScreen() {
                                 visibility={review.visibility}
                                 createdAt={review.created_at}
                                 onPress={() => router.push(`/review/${review.id}`)}
+                                onDelete={() => handleDeleteReview(review.id)}
                             />
                         ))
                     )}

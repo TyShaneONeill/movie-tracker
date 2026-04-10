@@ -11,6 +11,7 @@ export interface CreateReviewData {
   isSpoiler: boolean;
   isRewatch: boolean;
   visibility: ReviewVisibility;
+  mediaType?: 'movie' | 'tv_show';
 }
 
 export interface ReviewerInfo {
@@ -49,17 +50,18 @@ export interface FriendsRatingsResponse {
   totalFriendsWhoRated: number;
 }
 
-// Fetch community reviews for a movie
+// Fetch community reviews for a movie or TV show
 export async function fetchMovieReviews(
   tmdbId: number,
   page: number = 1,
   limit: number = 20,
-  sort: ReviewSortMode = 'recent'
+  sort: ReviewSortMode = 'recent',
+  mediaType: 'movie' | 'tv_show' = 'movie'
 ): Promise<MovieReviewsResponse> {
   const { data, error } = await supabase.functions.invoke<MovieReviewsResponse>(
     'get-movie-reviews',
     {
-      body: { tmdb_id: tmdbId, page, limit, sort },
+      body: { tmdb_id: tmdbId, page, limit, sort, media_type: mediaType },
     }
   );
 
@@ -88,12 +90,12 @@ export async function createReview(
   const insertData: ReviewInsert = {
     user_id: userId,
     tmdb_id: data.tmdbId,
-    media_type: 'movie',
+    media_type: data.mediaType ?? 'movie',
     movie_title: data.movieTitle,
     poster_path: data.posterPath,
     title: data.title.trim(),
     review_text: data.reviewText.trim(),
-    rating: Math.round(data.rating),
+    rating: data.rating,
     is_spoiler: data.isSpoiler,
     is_rewatch: data.isRewatch,
     visibility: data.visibility,
