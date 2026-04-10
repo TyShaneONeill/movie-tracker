@@ -72,9 +72,16 @@ export function ReviewCard({
 
   const handleLongPress = () => {
     if (!onDelete) return;
-    if (Platform.OS !== 'web') {
-      hapticNotification(NotificationFeedbackType.Warning);
+
+    if (Platform.OS === 'web') {
+      // Alert.alert is a no-op on RN Web — use the browser's native confirm dialog
+      if (window.confirm('Delete this review? This cannot be undone.')) {
+        onDelete();
+      }
+      return;
     }
+
+    hapticNotification(NotificationFeedbackType.Warning);
     Alert.alert(
       'Delete Review',
       'This will permanently delete your review. This cannot be undone.',
