@@ -1,5 +1,5 @@
 import { RefObject } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Share } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -128,7 +128,6 @@ export async function shareTitle(
   }
 
   // Native: use React Native Share API (URL-only, no file needed)
-  const { Share } = await import('react-native');
   try {
     await Share.share({ message: `${message}\n${url}` });
   } catch {
