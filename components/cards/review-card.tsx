@@ -72,7 +72,9 @@ export function ReviewCard({
 
   const handleLongPress = () => {
     if (!onDelete) return;
-    hapticNotification(NotificationFeedbackType.Warning);
+    if (Platform.OS !== 'web') {
+      hapticNotification(NotificationFeedbackType.Warning);
+    }
     Alert.alert(
       'Delete Review',
       'This will permanently delete your review. This cannot be undone.',
@@ -118,7 +120,7 @@ export function ReviewCard({
         </View>
         {Platform.OS === 'web' && onDelete && (
           <Pressable
-            onPress={handleLongPress}
+            onPress={(e: any) => { e.stopPropagation?.(); handleLongPress(); }}
             style={styles.webTrashButton}
             hitSlop={8}
           >
