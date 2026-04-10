@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ViewStyle, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ViewStyle, Alert, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
@@ -91,7 +91,15 @@ export function ReviewCard({
   const showContent = !isSpoiler || spoilerRevealed;
 
   const cardContent = (
-    <Pressable style={[styles.card, style]} onPress={handlePress} onLongPress={onDelete ? handleLongPress : undefined} delayLongPress={400}>
+    <Pressable
+      style={[styles.card, style]}
+      onPress={handlePress}
+      onLongPress={onDelete ? handleLongPress : undefined}
+      delayLongPress={400}
+      {...(Platform.OS === 'web' && onDelete ? {
+        onContextMenu: (e: any) => { e.preventDefault(); handleLongPress(); },
+      } : {})}
+    >
       <View style={styles.header}>
         <Image
           source={{ uri: getTMDBImageUrl(posterPath, 'w92') ?? undefined }}
