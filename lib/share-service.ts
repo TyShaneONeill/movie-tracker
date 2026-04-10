@@ -101,3 +101,37 @@ async function copyToClipboard(text: string): Promise<void> {
     await navigator.clipboard.writeText(text);
   }
 }
+
+/**
+ * Share a movie or TV show page URL via native share sheet or web share
+ */
+export async function shareTitle(
+  tmdbId: number,
+  mediaType: 'movie' | 'tv_show',
+  title: string
+): Promise<void> {
+  const path = mediaType === 'tv_show' ? 'tv' : 'movie';
+  const url = `https://pocketstubs.com/${path}/${tmdbId}`;
+  const message = `Check out ${title} on PocketStubs`;
+
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: message, url });
+        return;
+      } catch {
+        // user cancelled or not supported — fall through to clipboard
+      }
+    }
+    await copyToClipboard(url);
+    return;
+  }
+
+  // Native: use React Native Share API (URL-only, no file needed)
+  const { Share } = await import('react-native');
+  try {
+    await Share.share({ message: `${message}\n${url}` });
+  } catch {
+    // user cancelled — not an error
+  }
+}

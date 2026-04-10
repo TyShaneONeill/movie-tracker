@@ -60,6 +60,7 @@ import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
 import { addMovieToList, createList } from '@/lib/list-service';
+import { shareTitle } from '@/lib/share-service';
 import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/lib/tmdb.types';
@@ -368,6 +369,16 @@ export default function TvShowDetailScreen() {
         }
       }
     }, 'Sign in to like TV shows');
+  };
+
+  const handleShare = async () => {
+    if (!show) return;
+    try {
+      await shareTitle(show.id, 'tv_show', show.name);
+      analytics.track('tv:share', { tmdb_id: show.id });
+    } catch {
+      // user cancelled
+    }
   };
 
   // Helper function to perform the actual removal
@@ -808,15 +819,20 @@ export default function TvShowDetailScreen() {
               <Text style={dynamicStyles.actionLabelDisabled}>Review</Text>
               <Text style={dynamicStyles.comingSoonText}>Soon</Text>
             </View>
-            <View style={dynamicStyles.actionItemDisabled}>
+            <Pressable
+              onPress={handleShare}
+              style={({ pressed }) => [
+                dynamicStyles.actionItem,
+                pressed && dynamicStyles.actionItemPressed,
+              ]}
+            >
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                 <Polyline points="16 6 12 2 8 6" />
                 <Line x1={12} y1={2} x2={12} y2={15} />
               </Svg>
-              <Text style={dynamicStyles.actionLabelDisabled}>Share</Text>
-              <Text style={dynamicStyles.comingSoonText}>Soon</Text>
-            </View>
+              <Text style={dynamicStyles.actionLabel}>Share</Text>
+            </Pressable>
           </View>
 
           {/* Seasons & Episodes */}
