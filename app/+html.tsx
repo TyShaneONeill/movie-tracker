@@ -12,30 +12,34 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no"
         />
 
-        <title>PocketStubs - Track Your Movie Journey</title>
+        <title>PocketStubs - Track Movies & TV Shows</title>
         <meta
           name="description"
-          content="Your personal movie tracker. Log films, rate them, build your collection, and track your cinematic journey."
+          content="Your personal movie and TV tracker. Scan ticket stubs, log films and shows, rate them, and track your journey."
         />
         <meta name="theme-color" content="#09090b" />
 
         {/* Open Graph */}
-        <meta property="og:title" content="PocketStubs - Track Your Movie Journey" />
+        <meta property="og:title" content="PocketStubs - Track Movies & TV Shows" />
         <meta
           property="og:description"
-          content="Your personal movie tracker. Log films, rate them, build your collection, and track your cinematic journey."
+          content="Your personal movie and TV tracker. Scan ticket stubs, log films and shows, rate them, and track your journey."
         />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="PocketStubs" />
         <meta property="og:url" content="https://pocketstubs.com" />
+        <meta property="og:image" content="https://pocketstubs.com/pwa-icon-512.png" />
+        <meta property="og:image:width" content="1024" />
+        <meta property="og:image:height" content="1024" />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="PocketStubs - Track Your Movie Journey" />
+        <meta name="twitter:title" content="PocketStubs - Track Movies & TV Shows" />
         <meta
           name="twitter:description"
-          content="Your personal movie tracker. Log films, rate them, build your collection, and track your cinematic journey."
+          content="Your personal movie and TV tracker. Scan ticket stubs, log films and shows, rate them, and track your journey."
         />
+        <meta name="twitter:image" content="https://pocketstubs.com/pwa-icon-512.png" />
 
         {/* PWA */}
         <link rel="manifest" href="/manifest.json" />
