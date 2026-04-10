@@ -15,15 +15,18 @@
       "permanent": false
     }
   ],
+  "functions": {
+    "api/og.js": {
+      "includeFiles": "dist/index.html"
+    }
+  },
   "rewrites": [
     {
       "source": "/movie/:id",
-      "has": [{ "type": "header", "key": "user-agent", "value": "(?i).*(bot|facebookexternalhit|facebot|twitterbot|whatsapp|slackbot|discordbot|linkedinbot|telegrambot|applebot|iframely|preview|embed|crawler|spider).*" }],
       "destination": "/api/og?type=movie&id=:id"
     },
     {
       "source": "/tv/:id",
-      "has": [{ "type": "header", "key": "user-agent", "value": "(?i).*(bot|facebookexternalhit|facebot|twitterbot|whatsapp|slackbot|discordbot|linkedinbot|telegrambot|applebot|iframely|preview|embed|crawler|spider).*" }],
       "destination": "/api/og?type=tv&id=:id"
     },
     { "source": "/ingest/static/:path*", "destination": "https://us-assets.i.posthog.com/static/:path*" },

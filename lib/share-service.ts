@@ -108,8 +108,7 @@ async function copyToClipboard(text: string): Promise<void> {
 export async function shareTitle(
   tmdbId: number,
   mediaType: 'movie' | 'tv_show',
-  title: string,
-  posterPath?: string | null,
+  title: string
 ): Promise<void> {
   const path = mediaType === 'tv_show' ? 'tv' : 'movie';
   const url = `https://pocketstubs.com/${path}/${tmdbId}`;
@@ -118,21 +117,6 @@ export async function shareTitle(
   if (Platform.OS === 'web') {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        // Try sharing with the poster image (Web Share API Level 2)
-        if (posterPath) {
-          try {
-            const posterUrl = `https://image.tmdb.org/t/p/w500${posterPath}`;
-            const response = await fetch(posterUrl);
-            const blob = await response.blob();
-            const file = new File([blob], `${tmdbId}.jpg`, { type: blob.type });
-            if (navigator.canShare?.({ files: [file] })) {
-              await navigator.share({ title: message, url, files: [file] });
-              return;
-            }
-          } catch {
-            // Image fetch failed — fall through to URL-only share
-          }
-        }
         await navigator.share({ title: message, url });
         return;
       } catch {

@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const https = require('https');
 
 function fetchJSON(url) {
@@ -39,6 +41,8 @@ module.exports = async function handler(req, res) {
   const tmdbType = type === 'tv' ? 'tv' : 'movie';
   const tmdbUrl = `https://api.themoviedb.org/3/${tmdbType}/${id}?api_key=${apiKey}`;
 
+  const template = fs.readFileSync(path.join(__dirname, '../dist/index.html'), 'utf-8');
+
   try {
     const data = await fetchJSON(tmdbUrl);
 
@@ -54,39 +58,37 @@ module.exports = async function handler(req, res) {
     const pageUrl = `https://pocketstubs.com/${tmdbType}/${id}`;
     const pageTitle = `${title} - PocketStubs`;
 
+    const ogTags = `
+    <meta property="og:title" content="${pageTitle}">
+    <meta property="og:description" content="${description}">
+    <meta property="og:image" content="${escapeHtml(image)}">
+    <meta property="og:url" content="${escapeHtml(pageUrl)}">
+    <meta property="og:type" content="${tmdbType === 'tv' ? 'video.tv_show' : 'video.movie'}">
+    <meta property="og:site_name" content="PocketStubs">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${pageTitle}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${escapeHtml(image)}">
+    <title>${pageTitle}</title>`;
+
+    const html = template
+      .replace(/<title>[^<]*<\/title>/, '')
+      .replace('</head>', `${ogTags}\n</head>`);
+
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=3600');
-    res.status(200).send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>${pageTitle}</title>
-  <meta property="og:title" content="${pageTitle}">
-  <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${escapeHtml(image)}">
-  <meta property="og:url" content="${escapeHtml(pageUrl)}">
-  <meta property="og:type" content="${tmdbType === 'tv' ? 'video.tv_show' : 'video.movie'}">
-  <meta property="og:site_name" content="PocketStubs">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${pageTitle}">
-  <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${escapeHtml(image)}">
-  <meta http-equiv="refresh" content="0;url=${escapeHtml(pageUrl)}">
-</head>
-<body>
-  <p>Redirecting to <a href="${escapeHtml(pageUrl)}">${title} on PocketStubs</a>\u2026</p>
-</body>
-</html>`);
+    res.status(200).send(html);
   } catch (err) {
-    // TMDB fetch failed — serve fallback OG rather than erroring
+    // TMDB fetch failed — serve template with generic OG tags
+    const ogTags = `
+    <meta property="og:title" content="PocketStubs - Track Movies &amp; TV Shows">
+    <meta property="og:image" content="https://pocketstubs.com/pwa-icon-512.png">
+    <meta property="og:site_name" content="PocketStubs">`;
+
+    const html = template.replace('</head>', `${ogTags}\n</head>`);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).send(`<!DOCTYPE html>
-<html><head>
-  <meta charset="utf-8">
-  <meta property="og:title" content="PocketStubs - Track Movies &amp; TV Shows">
-  <meta property="og:image" content="https://pocketstubs.com/pwa-icon-512.png">
-  <meta property="og:site_name" content="PocketStubs">
-  <meta http-equiv="refresh" content="0;url=https://pocketstubs.com">
-</head><body></body></html>`);
+    res.status(200).send(html);
   }
 };

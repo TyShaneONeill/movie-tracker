@@ -388,7 +388,7 @@ export default function TvShowDetailScreen() {
   const handleShare = async () => {
     if (!show) return;
     try {
-      await shareTitle(show.id, 'tv_show', show.name, show.poster_path);
+      await shareTitle(show.id, 'tv_show', show.name);
       analytics.track('tv:share', { tmdb_id: show.id });
     } catch {
       // user cancelled
