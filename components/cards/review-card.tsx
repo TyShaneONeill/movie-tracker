@@ -96,9 +96,6 @@ export function ReviewCard({
       onPress={handlePress}
       onLongPress={onDelete ? handleLongPress : undefined}
       delayLongPress={400}
-      {...(Platform.OS === 'web' && onDelete ? {
-        onContextMenu: (e: any) => { e.preventDefault(); handleLongPress(); },
-      } : {})}
     >
       <View style={styles.header}>
         <Image
@@ -119,6 +116,15 @@ export function ReviewCard({
         <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(rating, colors.tint) }]}>
           <Text style={styles.ratingText}>{formatRating(rating)}</Text>
         </View>
+        {Platform.OS === 'web' && onDelete && (
+          <Pressable
+            onPress={handleLongPress}
+            style={styles.webTrashButton}
+            hitSlop={8}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.textTertiary} />
+          </Pressable>
+        )}
       </View>
 
       {showContent ? (
@@ -260,5 +266,11 @@ const createStyles = (colors: typeof Colors.dark) =>
     pillText: {
       ...Typography.body.xs,
       color: colors.textSecondary,
+    },
+    webTrashButton: {
+      padding: 4,
+      marginLeft: Spacing.xs,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
   });
