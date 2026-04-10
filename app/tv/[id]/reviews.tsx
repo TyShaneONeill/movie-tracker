@@ -1,29 +1,26 @@
-import React, { useRef, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, LayoutAnimation, UIManager, Platform } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useMovieReviews } from '@/hooks/use-movie-reviews';
+import React, { useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
+import { useLocalSearchParams, Stack, router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import { useMovieReviews } from '@/hooks/use-movie-reviews';
+import { useTvShowDetail } from '@/hooks/use-tv-show-detail';
+import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import type { ReviewItem, ReviewSortMode } from '@/lib/review-service';
 import { LikeButton } from '@/components/like-button';
 import { LikedByIndicator } from '@/components/liked-by-indicator';
-import { useBlockedUsers } from '@/hooks/use-blocked-users';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-interface CommunityReviewsProps {
-  tmdbId: number;
-  movieTitle?: string;
-  mediaType?: 'movie' | 'tv_show';
-}
-
-const REVIEWS_LIMIT = 3;
-const COLLAPSIBLE_LIMIT = 7;
 const AVATAR_SIZE = 36;
 
 const RATING_COLORS = {
@@ -53,93 +50,11 @@ function formatRelativeTime(dateStr: string): string {
   return `${diffMo}mo ago`;
 }
 
-function SkeletonCard({ shimmerColor }: { shimmerColor: string }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.7,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
-
-  return (
-    <View style={skeletonCardStyles.card}>
-      <View style={skeletonCardStyles.headerRow}>
-        <Animated.View
-          style={[skeletonCardStyles.avatar, { backgroundColor: shimmerColor, opacity }]}
-        />
-        <View style={skeletonCardStyles.headerText}>
-          <Animated.View
-            style={[skeletonCardStyles.nameLine, { backgroundColor: shimmerColor, opacity }]}
-          />
-          <Animated.View
-            style={[skeletonCardStyles.timeLine, { backgroundColor: shimmerColor, opacity }]}
-          />
-        </View>
-      </View>
-      <Animated.View
-        style={[skeletonCardStyles.bodyLine, { backgroundColor: shimmerColor, opacity }]}
-      />
-      <Animated.View
-        style={[skeletonCardStyles.bodyLineShort, { backgroundColor: shimmerColor, opacity }]}
-      />
-    </View>
-  );
-}
-
-const skeletonCardStyles = StyleSheet.create({
-  card: {
-    paddingVertical: Spacing.md,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-  },
-  headerText: {
-    marginLeft: Spacing.sm,
-    gap: 4,
-  },
-  nameLine: {
-    width: 100,
-    height: 12,
-    borderRadius: 4,
-  },
-  timeLine: {
-    width: 60,
-    height: 10,
-    borderRadius: 4,
-  },
-  bodyLine: {
-    width: '100%',
-    height: 12,
-    borderRadius: 4,
-    marginTop: Spacing.sm,
-  },
-  bodyLineShort: {
-    width: '70%',
-    height: 12,
-    borderRadius: 4,
-    marginTop: Spacing.xs,
-  },
-});
+const SORT_OPTIONS: { value: ReviewSortMode; label: string }[] = [
+  { value: 'recent', label: 'Recent' },
+  { value: 'popular', label: 'Popular' },
+  { value: 'friends_first', label: 'Friends' },
+];
 
 function ReviewCard({
   review,
@@ -394,57 +309,52 @@ const createReviewCardStyles = (colors: typeof Colors.dark) =>
     },
   });
 
-const SORT_OPTIONS: { value: ReviewSortMode; label: string }[] = [
-  { value: 'recent', label: 'Recent' },
-  { value: 'popular', label: 'Popular' },
-  { value: 'friends_first', label: 'Friends' },
-];
-
-export function CommunityReviews({ tmdbId, mediaType = 'movie' }: CommunityReviewsProps) {
+export default function TvReviewsScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [sort, setSort] = useState<ReviewSortMode>('popular');
-  const { data, isLoading } = useMovieReviews(tmdbId, 1, true, sort, mediaType);
-  const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(new Set());
-  const [showMore, setShowMore] = useState(false);
+
+  const numericId = parseInt(id ?? '0', 10);
+  const isValidId = !isNaN(numericId) && numericId > 0;
+
+  const { show } = useTvShowDetail({ showId: numericId, enabled: isValidId });
   const { blockedIds } = useBlockedUsers();
+
+  const [sort, setSort] = useState<ReviewSortMode>('popular');
+  const [page, setPage] = useState(1);
+  const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(new Set());
+  const [allReviews, setAllReviews] = useState<ReviewItem[]>([]);
+
+  const { data, isLoading, isFetching } = useMovieReviews(numericId, page, isValidId, sort, 'tv_show');
+
+  // When sort changes, reset to page 1 and clear accumulated reviews
+  React.useEffect(() => {
+    setPage(1);
+    setAllReviews([]);
+  }, [sort]);
+
+  // Accumulate reviews as pages load
+  React.useEffect(() => {
+    if (!data) return;
+    if (page === 1) {
+      setAllReviews(data.reviews);
+    } else {
+      setAllReviews((prev) => {
+        const existingIds = new Set(prev.map((r) => r.id));
+        const newReviews = data.reviews.filter((r) => !existingIds.has(r.id));
+        return [...prev, ...newReviews];
+      });
+    }
+  }, [data, page]);
 
   const revealSpoiler = (id: string) => {
     setRevealedSpoilers((prev) => new Set(prev).add(id));
   };
 
-  const toggleShowMore = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setShowMore((prev) => !prev);
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Community Reviews</Text>
-        <SkeletonCard shimmerColor={colors.backgroundSecondary} />
-        <SkeletonCard shimmerColor={colors.backgroundSecondary} />
-      </View>
-    );
-  }
-
-  if (!data || data.reviews.length === 0) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Community Reviews</Text>
-        <Text style={styles.emptyText}>
-          No reviews yet — be the first to share your thoughts!
-        </Text>
-      </View>
-    );
-  }
-
-  const { reviews: allReviews, totalCount } = data;
   const reviews = allReviews.filter((r) => !blockedIds.includes(r.userId));
-  const topReviews = reviews.slice(0, REVIEWS_LIMIT);
-  const moreReviews = reviews.slice(REVIEWS_LIMIT, REVIEWS_LIMIT + COLLAPSIBLE_LIMIT);
-  const hasMore = reviews.length > REVIEWS_LIMIT;
+  const hasMorePages = data ? page < data.totalPages : false;
+  const showTitle = show?.name ?? '';
 
   const renderReviewItem = (review: ReviewItem) =>
     review.source === 'review' ? (
@@ -472,122 +382,125 @@ export function CommunityReviews({ tmdbId, mediaType = 'movie' }: CommunityRevie
     );
 
   return (
-    <View style={styles.container} accessibilityRole="summary" accessibilityLabel="Community reviews">
-      <View style={styles.titleRow}>
-        <Text style={styles.sectionTitle}>Community Reviews</Text>
-        <View style={styles.sortRow}>
-          {SORT_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt.value}
-              style={[styles.sortPill, sort === opt.value && styles.sortPillActive]}
-              onPress={() => setSort(opt.value)}
-            >
-              <Text style={[styles.sortPillText, sort === opt.value && styles.sortPillTextActive]}>
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: showTitle ? `${showTitle} Reviews` : 'Reviews',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerTitleStyle: { ...Typography.body.lg, color: colors.text },
+        }}
+      />
+
+      {/* Sort tabs */}
+      <View style={[styles.sortBar, { borderBottomColor: colors.border }]}>
+        {SORT_OPTIONS.map((opt) => (
+          <Pressable
+            key={opt.value}
+            style={[styles.sortTab, sort === opt.value && styles.sortTabActive]}
+            onPress={() => setSort(opt.value)}
+          >
+            <Text style={[styles.sortTabText, sort === opt.value && { color: colors.tint }]}>
+              {opt.label}
+            </Text>
+            {sort === opt.value && <View style={[styles.sortTabUnderline, { backgroundColor: colors.tint }]} />}
+          </Pressable>
+        ))}
       </View>
 
-      {topReviews.map(renderReviewItem)}
-
-      {hasMore && (
-        <Pressable
-          style={styles.showMoreButton}
-          onPress={toggleShowMore}
-          accessibilityRole="button"
-          accessibilityLabel={showMore ? 'Hide reviews' : 'Show more reviews'}
-        >
-          <Text style={styles.showMoreText}>
-            {showMore ? 'Hide reviews' : 'Show more reviews'}
-          </Text>
-          <Ionicons
-            name={showMore ? 'chevron-up' : 'chevron-down'}
-            size={16}
-            color={colors.textSecondary}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {isLoading && page === 1 ? (
+          <ActivityIndicator
+            size="large"
+            color={colors.tint}
+            style={styles.loadingSpinner}
           />
-        </Pressable>
-      )}
-
-      {showMore && moreReviews.map(renderReviewItem)}
-
-      {totalCount > REVIEWS_LIMIT && (
-        <Pressable
-          style={styles.viewAllButton}
-          onPress={() => router.push((mediaType === 'tv_show' ? `/tv/${tmdbId}/reviews` : `/movie/${tmdbId}/reviews`) as any)}
-          accessibilityRole="button"
-          accessibilityLabel={`View all ${totalCount} reviews`}
-        >
-          <Text style={styles.viewAllText}>
-            View all {totalCount} reviews
+        ) : reviews.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No reviews yet. Be the first to review this show.
           </Text>
-        </Pressable>
-      )}
-    </View>
+        ) : (
+          <>
+            {reviews.map(renderReviewItem)}
+
+            {hasMorePages && (
+              <Pressable
+                style={[styles.loadMoreButton, { borderColor: colors.border }]}
+                onPress={() => setPage((p) => p + 1)}
+                disabled={isFetching}
+                accessibilityRole="button"
+                accessibilityLabel="Load more reviews"
+              >
+                {isFetching ? (
+                  <ActivityIndicator size="small" color={colors.tint} />
+                ) : (
+                  <Text style={[styles.loadMoreText, { color: colors.tint }]}>Load more</Text>
+                )}
+              </Pressable>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const createStyles = (colors: typeof Colors.dark) =>
   StyleSheet.create({
     container: {
-      marginTop: Spacing.lg,
+      flex: 1,
     },
-    titleRow: {
+    sortBar: {
       flexDirection: 'row',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    sortTab: {
+      flex: 1,
       alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: Spacing.xs,
+      paddingVertical: Spacing.sm,
+      position: 'relative',
     },
-    sectionTitle: {
-      ...Typography.body.lg,
-      color: colors.text,
-    },
-    sortRow: {
-      flexDirection: 'row',
-      gap: Spacing.xs,
-    },
-    sortPill: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: BorderRadius.full,
-      backgroundColor: colors.backgroundSecondary,
-    },
-    sortPillActive: {
-      backgroundColor: colors.tint,
-    },
-    sortPillText: {
-      ...Typography.body.xs,
+    sortTabActive: {},
+    sortTabText: {
+      ...Typography.body.smMedium,
       color: colors.textSecondary,
     },
-    sortPillTextActive: {
-      color: '#FFFFFF',
+    sortTabUnderline: {
+      position: 'absolute',
+      bottom: 0,
+      left: Spacing.md,
+      right: Spacing.md,
+      height: 2,
+      borderRadius: 1,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: Spacing.md,
+      paddingBottom: Spacing.xl,
+    },
+    loadingSpinner: {
+      marginTop: Spacing.xl,
     },
     emptyText: {
       ...Typography.body.sm,
       color: colors.textTertiary,
       textAlign: 'center',
-      paddingVertical: Spacing.lg,
+      paddingVertical: Spacing.xl,
     },
-    showMoreButton: {
-      flexDirection: 'row',
+    loadMoreButton: {
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: Spacing.xs,
-      paddingVertical: Spacing.sm,
-      marginTop: Spacing.xs,
+      paddingVertical: Spacing.md,
+      marginTop: Spacing.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: BorderRadius.sm,
     },
-    showMoreText: {
-      ...Typography.body.sm,
-      color: colors.textSecondary,
-    },
-    viewAllButton: {
-      alignItems: 'center',
-      paddingVertical: Spacing.sm,
-      marginTop: 0,
-    },
-    viewAllText: {
+    loadMoreText: {
       ...Typography.body.smMedium,
-      color: colors.tint,
     },
   });

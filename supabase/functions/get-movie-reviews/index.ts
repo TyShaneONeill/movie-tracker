@@ -15,6 +15,7 @@ interface GetMovieReviewsRequest {
   page?: number;
   limit?: number;
   sort?: SortMode;
+  media_type?: string;
 }
 
 interface FirstTakeRow {
@@ -93,8 +94,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request body
-    const { tmdb_id, page: rawPage, limit: rawLimit, sort: rawSort }: GetMovieReviewsRequest = await req.json();
+    const { tmdb_id, page: rawPage, limit: rawLimit, sort: rawSort, media_type: rawMediaType }: GetMovieReviewsRequest = await req.json();
     const sort: SortMode = rawSort === 'popular' ? 'popular' : rawSort === 'friends_first' ? 'friends_first' : 'recent';
+    const mediaType = rawMediaType ?? 'movie';
 
     if (!tmdb_id || typeof tmdb_id !== 'number' || tmdb_id <= 0) {
       return new Response(
@@ -151,7 +153,7 @@ Deno.serve(async (req: Request) => {
           )
         `)
         .eq('tmdb_id', tmdb_id)
-        .eq('media_type', 'movie')
+        .eq('media_type', mediaType)
         .eq('visibility', 'public'),
       supabaseClient
         .from('reviews')
@@ -172,7 +174,7 @@ Deno.serve(async (req: Request) => {
           )
         `)
         .eq('tmdb_id', tmdb_id)
-        .eq('media_type', 'movie')
+        .eq('media_type', mediaType)
         .eq('visibility', 'public'),
     ]);
 
