@@ -1176,9 +1176,11 @@ export default function ProfileScreen() {
                     ]}
                     pointerEvents={stickyBarVisible ? "box-none" : "none"}
                 >
-                    <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
-                        {renderStatTabBar()}
-                    </View>
+                    <ContentContainer>
+                        <View style={[styles.stickyStatTabBarContainer, { borderBottomColor: colors.border }]}>
+                            {renderStatTabBar()}
+                        </View>
+                    </ContentContainer>
                 </Animated.View>
             )}
 
