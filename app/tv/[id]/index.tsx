@@ -39,6 +39,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -665,7 +666,7 @@ export default function TvShowDetailScreen() {
         <View style={dynamicStyles.loadingBackButton}>
           <Pressable onPress={handleGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={dynamicStyles.iconButton}>
             <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-              <Text style={dynamicStyles.backIcon}>{'\u2190'}</Text>
+              <Ionicons name="arrow-back" size={22} color={colors.text} />
             </BlurView>
           </Pressable>
         </View>
@@ -734,9 +735,15 @@ export default function TvShowDetailScreen() {
           {/* Top Buttons */}
           <View style={[dynamicStyles.topButtons, { paddingTop: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
             <Pressable onPress={handleGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={dynamicStyles.iconButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-                <Text style={dynamicStyles.backIcon}>{'\u2190'}</Text>
-              </BlurView>
+              {Platform.OS === 'android' ? (
+                <View style={dynamicStyles.blurContainer}>
+                  <Ionicons name="arrow-back" size={22} color={colors.text} />
+                </View>
+              ) : (
+                <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
+                  <Ionicons name="arrow-back" size={22} color={colors.text} />
+                </BlurView>
+              )}
             </Pressable>
             {/* More options button hidden - Coming Soon */}
           </View>
@@ -752,9 +759,15 @@ export default function TvShowDetailScreen() {
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
-                <Text style={dynamicStyles.playIcon}>{'\u25B6'}</Text>
-              </BlurView>
+              {Platform.OS === 'android' ? (
+                <View style={dynamicStyles.playButtonBlur}>
+                  <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
+                </View>
+              ) : (
+                <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
+                  <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
+                </BlurView>
+              )}
             </Pressable>
           )}
         </View>
@@ -1242,7 +1255,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 40,
     overflow: 'hidden',
     borderRadius: BorderRadius.full,
-    ...(Platform.OS === 'android' ? { elevation: 4 } : {}),
   },
   blurContainer: {
     flex: 1,
@@ -1271,7 +1283,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
     zIndex: 20,
-    ...(Platform.OS === 'android' ? { elevation: 6 } : {}),
   },
   playButtonBlur: {
     flex: 1,
