@@ -197,8 +197,17 @@ function RootLayoutNav() {
     );
   }
 
+  // Override the nav theme background so the Stack container's
+  // "letterbox" gutters beside ContentContainer use the app's palette
+  // instead of React Navigation's default near-black / off-white.
+  const baseNavTheme = effectiveTheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navTheme = {
+    ...baseNavTheme,
+    colors: { ...baseNavTheme.colors, background: Colors[effectiveTheme].background },
+  };
+
   return (
-    <NavigationThemeProvider value={effectiveTheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider value={navTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
