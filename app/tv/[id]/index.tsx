@@ -735,9 +735,15 @@ export default function TvShowDetailScreen() {
           {/* Top Buttons */}
           <View style={[dynamicStyles.topButtons, { paddingTop: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
             <Pressable onPress={handleGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={dynamicStyles.iconButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-                <Ionicons name="arrow-back" size={22} color={colors.text} />
-              </BlurView>
+              {Platform.OS === 'android' ? (
+                <View style={dynamicStyles.blurContainer}>
+                  <Ionicons name="arrow-back" size={22} color={colors.text} />
+                </View>
+              ) : (
+                <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
+                  <Ionicons name="arrow-back" size={22} color={colors.text} />
+                </BlurView>
+              )}
             </Pressable>
             {/* More options button hidden - Coming Soon */}
           </View>
@@ -753,9 +759,15 @@ export default function TvShowDetailScreen() {
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
-                <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
-              </BlurView>
+              {Platform.OS === 'android' ? (
+                <View style={dynamicStyles.playButtonBlur}>
+                  <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
+                </View>
+              ) : (
+                <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
+                  <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
+                </BlurView>
+              )}
             </Pressable>
           )}
         </View>
