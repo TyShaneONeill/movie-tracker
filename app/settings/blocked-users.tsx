@@ -20,6 +20,7 @@ import { useBlockedUsersWithProfiles } from '@/hooks/use-blocked-users-with-prof
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { Ionicons } from '@expo/vector-icons';
 import type { Profile } from '@/lib/database.types';
+import { ContentContainer } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -110,6 +111,7 @@ export default function BlockedUsersScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ContentContainer style={styles.contentContainer}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
@@ -131,6 +133,7 @@ export default function BlockedUsersScreen() {
           contentContainerStyle={styles.listContent}
         />
       )}
+      </ContentContainer>
     </SafeAreaView>
   );
 }
@@ -138,6 +141,9 @@ export default function BlockedUsersScreen() {
 function createStyles(colors: typeof Colors.dark) {
   return StyleSheet.create({
     container: {
+      flex: 1,
+    },
+    contentContainer: {
       flex: 1,
     },
     header: {

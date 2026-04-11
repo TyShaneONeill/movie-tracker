@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { captureException } from '@/lib/sentry';
+import { ContentContainer } from '@/components/content-container';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import {
   parseLetterboxdCSV,
@@ -392,6 +393,7 @@ export default function LetterboxdImportScreen() {
 
   return (
     <SafeAreaView style={dynamicStyles.container}>
+      <ContentContainer style={dynamicStyles.contentContainer}>
       {/* Header */}
       <View style={dynamicStyles.header}>
         <Pressable
@@ -405,6 +407,7 @@ export default function LetterboxdImportScreen() {
       </View>
 
       {renderContent()}
+      </ContentContainer>
     </SafeAreaView>
   );
 }
@@ -414,6 +417,9 @@ const createStyles = (colors: ThemeColors) =>
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    contentContainer: {
+      flex: 1,
     },
     header: {
       flexDirection: 'row',

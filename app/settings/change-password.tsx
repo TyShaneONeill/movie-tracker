@@ -19,6 +19,7 @@ import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import Svg, { Path } from 'react-native-svg';
+import { ContentContainer } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -98,6 +99,7 @@ export default function ChangePasswordScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <ContentContainer>
           {/* Header */}
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
@@ -218,6 +220,7 @@ export default function ChangePasswordScreen() {
           <Text style={[Typography.body.sm, { color: colors.textTertiary, textAlign: 'center', marginTop: Spacing.xl }]}>
             You will remain signed in after changing your password.
           </Text>
+          </ContentContainer>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

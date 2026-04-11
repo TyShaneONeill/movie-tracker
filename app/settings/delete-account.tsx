@@ -18,6 +18,7 @@ import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import Svg, { Path, Polyline } from 'react-native-svg';
+import { ContentContainer } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -127,6 +128,7 @@ export default function DeleteAccountScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
+        <ContentContainer>
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
@@ -238,6 +240,7 @@ export default function DeleteAccountScreen() {
         <Text style={[Typography.body.sm, { color: colors.textTertiary, textAlign: 'center', marginTop: Spacing.lg }]}>
           If you have any concerns or need help, please contact support before deleting your account.
         </Text>
+        </ContentContainer>
       </ScrollView>
     </SafeAreaView>
   );

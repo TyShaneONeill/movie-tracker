@@ -26,6 +26,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
 import { captureException } from '@/lib/sentry';
+import { ContentContainer } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -210,6 +211,7 @@ export default function EditProfileScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <ContentContainer>
           {/* Profile Picture */}
           <View style={styles.avatarSection}>
             <ProfilePicturePicker
@@ -343,6 +345,7 @@ export default function EditProfileScreen() {
               )}
             </View>
           </View>
+          </ContentContainer>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

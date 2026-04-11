@@ -22,6 +22,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useGuest } from '@/lib/guest-context';
 import { getFriendlyErrorMessage } from '@/lib/error-messages';
+import { ContentContainer } from '@/components/content-container';
 
 export default function SignInScreen() {
   const { effectiveTheme } = useTheme();
@@ -109,6 +110,7 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+          <ContentContainer>
           {/* Logo & Title */}
           <View style={styles.header}>
             <Image
@@ -285,6 +287,7 @@ export default function SignInScreen() {
               </ThemedText>
             </Pressable>
           </View>
+          </ContentContainer>
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
