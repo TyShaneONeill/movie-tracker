@@ -1017,7 +1017,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 40,
     overflow: 'hidden',
     borderRadius: BorderRadius.full,
-    ...(Platform.OS === 'android' ? { elevation: 4 } : {}),
   },
   blurContainer: {
     flex: 1,
@@ -1046,7 +1045,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
     zIndex: 20,
-    ...(Platform.OS === 'android' ? { elevation: 6 } : {}),
   },
   playButtonBlur: {
     flex: 1,
