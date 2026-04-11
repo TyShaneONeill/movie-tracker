@@ -1,8 +1,8 @@
 // Initialize Sentry first (side-effect import)
 import '@/lib/sentry-init';
 
-import { useEffect, useRef } from 'react';
-import { ActivityIndicator, Platform, View, StyleSheet } from 'react-native';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, useColorScheme, View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
@@ -48,6 +48,10 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+const RootBackgroundContext = createContext<{
+  setBg: (color: string) => void;
+}>({ setBg: () => {} });
 
 function useProtectedRoute() {
   const { user, isLoading: authLoading } = useAuth();
@@ -177,9 +181,14 @@ function RootLayoutNav() {
   const { isLoading: authLoading } = useAuth();
   const { isLoading: onboardingLoading } = useOnboarding();
   const { isLoading: guestLoading } = useGuest();
+  const { setBg } = useContext(RootBackgroundContext);
   useProtectedRoute();
   useAnalyticsIdentity();
   usePushNotifications();
+
+  useEffect(() => {
+    setBg(Colors[effectiveTheme].background);
+  }, [effectiveTheme, setBg]);
 
   // Sync the page background color on web so the area outside the max-width container matches
   useEffect(() => {
@@ -245,6 +254,11 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const systemScheme = useColorScheme();
+  const [rootBg, setRootBg] = useState(
+    () => Colors[systemScheme === 'dark' ? 'dark' : 'light'].background
+  );
+
   useEffect(() => {
     SplashScreen.preventAutoHideAsync();
     preloadGenres();
@@ -293,29 +307,36 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.webContainer}>
-      <QueryProvider>
-        <NetworkProvider>
-          <AdsProvider>
-            <GuestProvider>
-              <AuthProvider>
-                <OnboardingProvider>
-                  <ThemeProvider>
-                    <PremiumProvider>
-                      <AchievementProvider>
-                        <ErrorBoundary>
-                          <RootLayoutNav />
-                        </ErrorBoundary>
-                      </AchievementProvider>
-                    </PremiumProvider>
-                  </ThemeProvider>
-                </OnboardingProvider>
-              </AuthProvider>
-            </GuestProvider>
-          </AdsProvider>
-        </NetworkProvider>
-      </QueryProvider>
-    </GestureHandlerRootView>
+    <RootBackgroundContext.Provider value={{ setBg: setRootBg }}>
+      <GestureHandlerRootView
+        style={[
+          styles.webContainer,
+          Platform.OS === 'android' && { backgroundColor: rootBg },
+        ]}
+      >
+        <QueryProvider>
+          <NetworkProvider>
+            <AdsProvider>
+              <GuestProvider>
+                <AuthProvider>
+                  <OnboardingProvider>
+                    <ThemeProvider>
+                      <PremiumProvider>
+                        <AchievementProvider>
+                          <ErrorBoundary>
+                            <RootLayoutNav />
+                          </ErrorBoundary>
+                        </AchievementProvider>
+                      </PremiumProvider>
+                    </ThemeProvider>
+                  </OnboardingProvider>
+                </AuthProvider>
+              </GuestProvider>
+            </AdsProvider>
+          </NetworkProvider>
+        </QueryProvider>
+      </GestureHandlerRootView>
+    </RootBackgroundContext.Provider>
   );
 }
 
