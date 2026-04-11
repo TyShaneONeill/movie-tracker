@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRewardedAd } from '@/hooks/use-rewarded-ad';
 import { useTheme } from '@/lib/theme-context';
@@ -14,8 +14,11 @@ export function RewardedAdButton({ onRewardEarned }: RewardedAdButtonProps) {
   const colors = Colors[effectiveTheme];
   const { loaded, showAd, reloadAd } = useRewardedAd();
   const [showing, setShowing] = useState(false);
-
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // Rewarded ads are mobile-only (AdMob). On web, hide this button
+  // and let the upgrade prompt be the only option.
+  if (Platform.OS === 'web') return null;
 
   const handlePress = async () => {
     if (!loaded || showing) return;
