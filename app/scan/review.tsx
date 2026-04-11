@@ -38,6 +38,7 @@ import type { JourneyUpdate, TicketScanInsert } from '@/lib/database.types';
 import * as FileSystem from 'expo-file-system/legacy';
 import { captureException } from '@/lib/sentry';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { ContentContainer } from '@/components/content-container';
 
 // ============================================================================
 // Helpers
@@ -615,63 +616,65 @@ export default function TicketReviewScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {tickets.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>Unable to Scan Ticket</Text>
-            <Text style={styles.emptyStateSubtitle}>
-              We could not find ticket information in this image.{' '}
-              {scansRemaining > 0
-                ? `You have ${scansRemaining} scan${scansRemaining === 1 ? '' : 's'} left today.`
-                : 'You have no scans left today.'}
-            </Text>
-            <Text style={styles.emptyStateTip}>
-              Tip: Make sure the ticket is well-lit and text is clearly visible.
-            </Text>
-            {scansRemaining > 0 ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.retryButton,
-                  pressed && styles.retryButtonPressed,
-                ]}
-                onPress={handleGoBack}
-              >
-                <Text style={styles.retryButtonText}>Try Again</Text>
-              </Pressable>
-            ) : (
-              <View style={styles.emptyStateButtons}>
+        <ContentContainer>
+          {tickets.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>Unable to Scan Ticket</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                We could not find ticket information in this image.{' '}
+                {scansRemaining > 0
+                  ? `You have ${scansRemaining} scan${scansRemaining === 1 ? '' : 's'} left today.`
+                  : 'You have no scans left today.'}
+              </Text>
+              <Text style={styles.emptyStateTip}>
+                Tip: Make sure the ticket is well-lit and text is clearly visible.
+              </Text>
+              {scansRemaining > 0 ? (
                 <Pressable
                   style={({ pressed }) => [
                     styles.retryButton,
                     pressed && styles.retryButtonPressed,
                   ]}
-                  onPress={() => router.push('/search')}
-                >
-                  <Text style={styles.retryButtonText}>Manually Add Movie</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && styles.secondaryButtonPressed,
-                  ]}
                   onPress={handleGoBack}
                 >
-                  <Text style={styles.secondaryButtonText}>Go Back</Text>
+                  <Text style={styles.retryButtonText}>Try Again</Text>
                 </Pressable>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={styles.ticketList}>
-            {tickets.map((ticket, index) => (
-              <TicketReviewCard
-                key={ticket.confirmationNumber || `ticket-${index}`}
-                ticket={ticket}
-                onEdit={() => handleEditTicket(ticket, index)}
-                onSearchTMDB={() => handleSearchTMDB(ticket, index)}
-              />
-            ))}
-          </View>
-        )}
+              ) : (
+                <View style={styles.emptyStateButtons}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.retryButton,
+                      pressed && styles.retryButtonPressed,
+                    ]}
+                    onPress={() => router.push('/search')}
+                  >
+                    <Text style={styles.retryButtonText}>Manually Add Movie</Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.secondaryButtonPressed,
+                    ]}
+                    onPress={handleGoBack}
+                  >
+                    <Text style={styles.secondaryButtonText}>Go Back</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.ticketList}>
+              {tickets.map((ticket, index) => (
+                <TicketReviewCard
+                  key={ticket.confirmationNumber || `ticket-${index}`}
+                  ticket={ticket}
+                  onEdit={() => handleEditTicket(ticket, index)}
+                  onSearchTMDB={() => handleSearchTMDB(ticket, index)}
+                />
+              ))}
+            </View>
+          )}
+        </ContentContainer>
       </ScrollView>
 
       {/* Bottom action bar */}

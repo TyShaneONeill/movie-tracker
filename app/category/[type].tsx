@@ -19,6 +19,7 @@ import { useTvShowList } from '@/hooks/use-tv-show-lists';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl, type TMDBMovie, type TMDBTvShow, type MovieListType, type TvShowListType } from '@/lib/tmdb.types';
+import { ContentContainer } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -166,38 +167,40 @@ export default function CategoryScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backButton,
-            { opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <ChevronLeftIcon color={colors.text} />
-        </Pressable>
-        <Text style={[Typography.display.h4, { color: colors.text }]}>{title}</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ContentContainer style={{ flex: 1 }}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <ChevronLeftIcon color={colors.text} />
+          </Pressable>
+          <Text style={[Typography.display.h4, { color: colors.text }]}>{title}</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      {/* Content Grid */}
-      <FlatList
-        data={allItems}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderItem}
-        numColumns={NUM_COLUMNS}
-        contentContainerStyle={styles.gridContent}
-        columnWrapperStyle={styles.row}
-        showsVerticalScrollIndicator={false}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={renderEmpty}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-      />
+        {/* Content Grid */}
+        <FlatList
+          data={allItems}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderItem}
+          numColumns={NUM_COLUMNS}
+          contentContainerStyle={styles.gridContent}
+          columnWrapperStyle={styles.row}
+          showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+          ListEmptyComponent={renderEmpty}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+        />
+      </ContentContainer>
     </SafeAreaView>
   );
 }

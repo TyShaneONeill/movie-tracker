@@ -68,6 +68,7 @@ import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
 import type { MovieStatus } from '@/lib/database.types';
 import { isUnreleased } from '@/lib/utils';
+import { ContentContainer } from '@/components/content-container';
 
 // Helper to format runtime from minutes to "Xh Ym" format
 function formatRuntime(minutes: number | null): string {
@@ -622,6 +623,7 @@ export default function MovieDetailScreen() {
         </View>
 
         {/* Content Container - Overlaps hero by 120px */}
+        <ContentContainer>
         <View style={dynamicStyles.contentContainer}>
           {/* Poster + Title Section */}
           <View style={dynamicStyles.posterSection}>
@@ -881,6 +883,7 @@ export default function MovieDetailScreen() {
             </>
           )}
         </View>
+        </ContentContainer>
       </ScrollView>
 
       {/* First Take Modal */}

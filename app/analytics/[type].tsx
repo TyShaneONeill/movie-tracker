@@ -12,6 +12,7 @@ import { usePremiumGate } from '@/hooks/use-premium';
 import { useAnalyticsDetail } from '@/hooks/use-analytics-detail';
 import { AnalyticsDetailList } from '@/components/analytics/analytics-detail-list';
 import type { AnalyticsDetailType } from '@/lib/analytics-detail-service';
+import { ContentContainer } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -154,6 +155,7 @@ export default function AnalyticsDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={[styles.header, Platform.OS === 'web' && styles.headerWeb]}>
         <Pressable
@@ -209,6 +211,7 @@ export default function AnalyticsDetailScreen() {
           />
         </View>
       )}
+      </ContentContainer>
     </SafeAreaView>
   );
 }

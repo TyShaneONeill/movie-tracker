@@ -72,6 +72,7 @@ import type { TvShowStatus } from '@/lib/database.types';
 import { TvWatchedSelectionModal } from '@/components/tv/tv-watched-selection-modal';
 import type { WatchedSelectionResult } from '@/components/tv/tv-watched-selection-modal';
 import { analytics } from '@/lib/analytics';
+import { ContentContainer } from '@/components/content-container';
 
 // Helper to get status badge color
 function getStatusColor(status: string): string {
@@ -773,6 +774,7 @@ export default function TvShowDetailScreen() {
         </View>
 
         {/* Content Container - Overlaps hero by 120px */}
+        <ContentContainer>
         <View style={dynamicStyles.contentContainer}>
           {/* Poster + Title Section */}
           <View style={dynamicStyles.posterSection}>
@@ -1113,6 +1115,7 @@ export default function TvShowDetailScreen() {
             </>
           )}
         </View>
+        </ContentContainer>
       </ScrollView>
 
       {/* First Take Modal */}

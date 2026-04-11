@@ -20,6 +20,7 @@ import { LikeButton } from '@/components/like-button';
 import { LikedByIndicator } from '@/components/liked-by-indicator';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { ContentContainer } from '@/components/content-container';
 
 const AVATAR_SIZE = 36;
 
@@ -413,37 +414,39 @@ export default function MovieReviewsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {isLoading && page === 1 ? (
-          <ActivityIndicator
-            size="large"
-            color={colors.tint}
-            style={styles.loadingSpinner}
-          />
-        ) : reviews.length === 0 ? (
-          <Text style={styles.emptyText}>
-            No reviews yet. Be the first to review this movie.
-          </Text>
-        ) : (
-          <>
-            {reviews.map(renderReviewItem)}
+        <ContentContainer>
+          {isLoading && page === 1 ? (
+            <ActivityIndicator
+              size="large"
+              color={colors.tint}
+              style={styles.loadingSpinner}
+            />
+          ) : reviews.length === 0 ? (
+            <Text style={styles.emptyText}>
+              No reviews yet. Be the first to review this movie.
+            </Text>
+          ) : (
+            <>
+              {reviews.map(renderReviewItem)}
 
-            {hasMorePages && (
-              <Pressable
-                style={[styles.loadMoreButton, { borderColor: colors.border }]}
-                onPress={() => setPage((p) => p + 1)}
-                disabled={isFetching}
-                accessibilityRole="button"
-                accessibilityLabel="Load more reviews"
-              >
-                {isFetching ? (
-                  <ActivityIndicator size="small" color={colors.tint} />
-                ) : (
-                  <Text style={[styles.loadMoreText, { color: colors.tint }]}>Load more</Text>
-                )}
-              </Pressable>
-            )}
-          </>
-        )}
+              {hasMorePages && (
+                <Pressable
+                  style={[styles.loadMoreButton, { borderColor: colors.border }]}
+                  onPress={() => setPage((p) => p + 1)}
+                  disabled={isFetching}
+                  accessibilityRole="button"
+                  accessibilityLabel="Load more reviews"
+                >
+                  {isFetching ? (
+                    <ActivityIndicator size="small" color={colors.tint} />
+                  ) : (
+                    <Text style={[styles.loadMoreText, { color: colors.tint }]}>Load more</Text>
+                  )}
+                </Pressable>
+              )}
+            </>
+          )}
+        </ContentContainer>
       </ScrollView>
     </SafeAreaView>
   );

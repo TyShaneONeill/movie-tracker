@@ -24,6 +24,7 @@ import Toast from 'react-native-toast-message';
 import Svg, { Path } from 'react-native-svg';
 
 import { useTheme } from '@/lib/theme-context';
+import { ContentContainer } from '@/components/content-container';
 import { usePremium } from '@/hooks/use-premium';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -194,6 +195,7 @@ export default function UpgradeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <ContentContainer>
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={handleBack} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
@@ -370,6 +372,7 @@ export default function UpgradeScreen() {
             </Pressable>
           </View>
         </View>
+        </ContentContainer>
       </ScrollView>
     </SafeAreaView>
   );

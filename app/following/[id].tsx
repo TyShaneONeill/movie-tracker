@@ -28,6 +28,7 @@ import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import { FollowButton } from '@/components/social/FollowButton';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import type { Profile } from '@/lib/database.types';
+import { ContentContainer } from '@/components/content-container';
 
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
   <Svg
@@ -131,6 +132,7 @@ export default function FollowingScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ContentContainer style={{ flex: 1 }}>
         <View style={styles.header}>
           <Pressable
             onPress={handleBack}
@@ -144,6 +146,7 @@ export default function FollowingScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.tint} />
         </View>
+        </ContentContainer>
       </SafeAreaView>
     );
   }
@@ -152,6 +155,7 @@ export default function FollowingScreen() {
   if (isError) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ContentContainer style={{ flex: 1 }}>
         <View style={styles.header}>
           <Pressable
             onPress={handleBack}
@@ -171,12 +175,14 @@ export default function FollowingScreen() {
             Please try again later
           </Text>
         </View>
+        </ContentContainer>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable
@@ -203,6 +209,7 @@ export default function FollowingScreen() {
         maxToRenderPerBatch={10}
         windowSize={5}
       />
+      </ContentContainer>
     </SafeAreaView>
   );
 }

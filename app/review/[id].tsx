@@ -19,6 +19,7 @@ import { CommentThread } from '@/components/comments/comment-thread';
 import { ShareableReviewCard } from '@/components/share/shareable-review-card';
 import { captureReviewCard, shareReview, shareReviewUrl } from '@/lib/share-service';
 import { analytics } from '@/lib/analytics';
+import { ContentContainer } from '@/components/content-container';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -234,6 +235,7 @@ export default function ReviewDetailScreen() {
             showsVerticalScrollIndicator={false}
             automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
+            <ContentContainer>
             {/* Movie Info Section */}
             <View style={styles.movieInfoRow}>
               {posterUri ? (
@@ -312,6 +314,7 @@ export default function ReviewDetailScreen() {
 
             {/* Comments Section */}
             <CommentThread targetType="review" targetId={review.id} />
+            </ContentContainer>
           </ScrollView>
         </View>
 

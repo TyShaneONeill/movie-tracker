@@ -27,6 +27,7 @@ import { supabase } from '@/lib/supabase';
 import { uploadAvatar, updateProfileAvatarUrl } from '@/lib/avatar-service';
 import { captureException } from '@/lib/sentry';
 import { useUsernameValidation } from '@/hooks/use-username-validation';
+import { ContentContainer } from '@/components/content-container';
 
 export default function ProfileSetupScreen() {
   const { effectiveTheme } = useTheme();
@@ -144,6 +145,7 @@ export default function ProfileSetupScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <ContentContainer>
           {/* Title */}
           <View style={styles.titleContainer}>
             <ThemedText style={[styles.title, { color: colors.text }]}>
@@ -257,6 +259,7 @@ export default function ProfileSetupScreen() {
               )}
             </View>
           </View>
+          </ContentContainer>
         </ScrollView>
 
         {/* Footer */}

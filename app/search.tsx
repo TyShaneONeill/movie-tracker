@@ -47,6 +47,7 @@ import { SearchSkeletonList } from '@/components/search-skeleton';
 import { useNetwork } from '@/lib/network-context';
 import { analytics } from '@/lib/analytics';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
+import { ContentContainer } from '@/components/content-container';
 
 // SVG Icons
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
@@ -391,6 +392,7 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <ContentContainer>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background }]}>
         <View style={styles.topRow}>
@@ -876,6 +878,7 @@ export default function SearchScreen() {
           <BannerAdComponent placement="search" />
         </ScrollView>
       )}
+      </ContentContainer>
     </SafeAreaView>
   );
 }

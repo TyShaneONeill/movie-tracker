@@ -49,6 +49,7 @@ import { PosterInspectionModal } from '@/components/poster-inspection';
 import { usePremium } from '@/hooks/use-premium';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import { analytics } from '@/lib/analytics';
+import { ContentContainer } from '@/components/content-container';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -77,7 +78,7 @@ export default function JourneyCardScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { width: windowWidth } = useWindowDimensions();
-  const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
+  const screenWidth = Math.min(windowWidth, MAX_JOURNEY_WIDTH);
   const insets = useSafeAreaInsets();
 
   // Poster inspection modal state
@@ -277,6 +278,7 @@ export default function JourneyCardScreen() {
     <View style={styles.container}>
       {/* Solid background — no ambient blur so ticket punch-hole divots match cleanly */}
 
+      <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleGoBack} style={styles.iconButton}>
@@ -527,6 +529,7 @@ export default function JourneyCardScreen() {
         </View>
 
       </ScrollView>
+      </ContentContainer>
 
       {/* Poster Inspection Modal */}
       <PosterInspectionModal

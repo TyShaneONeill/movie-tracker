@@ -22,6 +22,8 @@ import { useAchievements } from '@/hooks/use-achievements';
 import { ThemedText } from '@/components/themed-text';
 import { AchievementGridCard } from '@/components/achievement-grid-card';
 import type { AchievementProgress } from '@/lib/achievement-service';
+import { ContentContainer } from '@/components/content-container';
+import { MAX_CONTENT_WIDTH } from '@/hooks/use-wide-layout';
 
 const COLUMN_COUNT = 3;
 const GRID_GAP = Spacing.sm;
@@ -44,7 +46,7 @@ export default function AchievementsScreen() {
   const { width: screenWidth } = useWindowDimensions();
 
   const cardWidth = useMemo(() => {
-    const effectiveWidth = Platform.OS === 'web' ? Math.min(screenWidth, MAX_GRID_WIDTH) : screenWidth;
+    const effectiveWidth = Math.min(screenWidth, MAX_CONTENT_WIDTH);
     const availableWidth = effectiveWidth - (HORIZONTAL_PADDING * 2);
     return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
   }, [screenWidth]);
@@ -97,6 +99,7 @@ export default function AchievementsScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable
@@ -138,6 +141,7 @@ export default function AchievementsScreen() {
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
       />
+      </ContentContainer>
 
       {/* Detail Modal */}
       {selectedProgress && (

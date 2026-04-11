@@ -49,6 +49,7 @@ import { PosterInspectionModal } from '@/components/poster-inspection';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
+import { ContentContainer } from '@/components/content-container';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -523,7 +524,7 @@ export default function JourneyCarouselScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { height: screenHeight, width: windowWidth } = useWindowDimensions();
-  const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
+  const screenWidth = Math.min(windowWidth, MAX_JOURNEY_WIDTH);
   const insets = useSafeAreaInsets();
 
   // Auth gating hook
@@ -803,6 +804,7 @@ export default function JourneyCarouselScreen() {
     <View style={styles.container}>
       {/* Solid background — no ambient blur so ticket punch-hole divots match cleanly */}
 
+      <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleGoBack} style={styles.iconButton}>
@@ -877,6 +879,7 @@ export default function JourneyCarouselScreen() {
           />
         ))}
       </View>
+      </ContentContainer>
 
       {/* Poster Inspection Modal */}
       <PosterInspectionModal

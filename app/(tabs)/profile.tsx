@@ -15,6 +15,8 @@ import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
+import { ContentContainer } from '@/components/content-container';
+import { MAX_CONTENT_WIDTH } from '@/hooks/use-wide-layout';
 import { useAuth } from '@/hooks/use-auth';
 import { useAchievements } from '@/hooks/use-achievements';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
@@ -71,9 +73,8 @@ export default function ProfileScreen() {
     const colors = Colors[effectiveTheme];
     const { width: screenWidth } = useWindowDimensions();
 
-    const MAX_APP_WIDTH = 768;
     const cardWidth = useMemo(() => {
-        const effectiveWidth = Platform.OS === 'web' ? Math.min(screenWidth, MAX_APP_WIDTH) : screenWidth;
+        const effectiveWidth = Math.min(screenWidth, MAX_CONTENT_WIDTH);
         const availableWidth = effectiveWidth - (Spacing.lg * 2);
         return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
     }, [screenWidth]);
@@ -1050,6 +1051,7 @@ export default function ProfileScreen() {
                         ) : undefined
                     }
                 >
+                    <ContentContainer>
                     {/* Profile Header */}
                     <Animated.View style={[styles.header, headerAnimatedStyle]}>
                         <Image
@@ -1155,6 +1157,7 @@ export default function ProfileScreen() {
                             )
                         ) : renderTabContent()}
                     </View>
+                    </ContentContainer>
                 </Animated.ScrollView>
             )}
 

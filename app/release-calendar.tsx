@@ -22,6 +22,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import CalendarGrid from '@/components/calendar/calendar-grid';
 import { ReleaseDayList } from '@/components/calendar/release-day-list';
 import { useReleaseCalendar, useWatchlistIds } from '@/hooks/use-release-calendar';
+import { ContentContainer } from '@/components/content-container';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -199,61 +200,63 @@ export default function ReleaseCalendarScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.headerButton}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          hitSlop={8}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </Pressable>
+      <ContentContainer style={{ flex: 1 }}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          </Pressable>
 
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Release Calendar
-        </Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Release Calendar
+          </Text>
 
-        <Pressable
-          onPress={() => setShowFilters(true)}
-          style={styles.headerButton}
-          accessibilityRole="button"
-          accessibilityLabel="Open filters"
-          hitSlop={8}
-        >
-          <Ionicons name="options-outline" size={22} color={colors.text} />
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={() => setShowFilters(true)}
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Open filters"
+            hitSlop={8}
+          >
+            <Ionicons name="options-outline" size={22} color={colors.text} />
+          </Pressable>
+        </View>
 
-      {/* Calendar Grid */}
-      <CalendarGrid
-        year={year}
-        month={month}
-        selectedDate={selectedDate}
-        datesWithReleases={data?.dates_with_releases ?? []}
-        watchlistDates={watchlistDates}
-        personalizedDates={personalizedDates}
-        onSelectDate={setSelectedDate}
-        onMonthChange={handleMonthChange}
-        isLoading={isLoading}
-      />
-
-      {/* Divider */}
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-      {/* Release List */}
-      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
-        <ReleaseDayList
-          date={selectedDate || ''}
-          releases={selectedDayReleases}
-          watchlistIds={watchlistIds ?? new Set()}
-          onMoviePress={handleMoviePress}
-          onToggleWatchlist={handleToggleWatchlist}
-          tasteScores={tasteScores}
+        {/* Calendar Grid */}
+        <CalendarGrid
+          year={year}
+          month={month}
+          selectedDate={selectedDate}
+          datesWithReleases={data?.dates_with_releases ?? []}
+          watchlistDates={watchlistDates}
+          personalizedDates={personalizedDates}
+          onSelectDate={setSelectedDate}
+          onMonthChange={handleMonthChange}
           isLoading={isLoading}
         />
-      </ScrollView>
+
+        {/* Divider */}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* Release List */}
+        <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
+          <ReleaseDayList
+            date={selectedDate || ''}
+            releases={selectedDayReleases}
+            watchlistIds={watchlistIds ?? new Set()}
+            onMoviePress={handleMoviePress}
+            onToggleWatchlist={handleToggleWatchlist}
+            tasteScores={tasteScores}
+            isLoading={isLoading}
+          />
+        </ScrollView>
+      </ContentContainer>
 
       {/* Filter Bottom Sheet — positioned within page layout, not a Modal */}
       {showFilters && (
