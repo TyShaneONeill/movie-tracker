@@ -136,7 +136,7 @@ export default function ProfileSetupScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
