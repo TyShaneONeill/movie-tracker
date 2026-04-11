@@ -536,8 +536,8 @@ export default function MovieDetailScreen() {
         {/* Back button even during loading */}
         <View style={dynamicStyles.loadingBackButton}>
           <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-            <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-              <Ionicons name="arrow-back" size={22} color={colors.text} />
+            <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
+              <Ionicons name="arrow-back" size={22} color="#ffffff" />
             </BlurView>
           </Pressable>
         </View>
@@ -589,11 +589,11 @@ export default function MovieDetailScreen() {
             <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
               {Platform.OS === 'android' ? (
                 <View style={dynamicStyles.blurContainer}>
-                  <Ionicons name="arrow-back" size={22} color={colors.text} />
+                  <Ionicons name="arrow-back" size={22} color="#ffffff" />
                 </View>
               ) : (
-                <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-                  <Ionicons name="arrow-back" size={22} color={colors.text} />
+                <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
+                  <Ionicons name="arrow-back" size={22} color="#ffffff" />
                 </BlurView>
               )}
             </Pressable>
@@ -611,11 +611,11 @@ export default function MovieDetailScreen() {
             >
               {Platform.OS === 'android' ? (
                 <View style={dynamicStyles.playButtonBlur}>
-                  <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
+                  <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
                 </View>
               ) : (
-                <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
-                  <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
+                <BlurView intensity={20} tint="dark" style={dynamicStyles.playButtonBlur}>
+                  <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
                 </BlurView>
               )}
             </Pressable>
@@ -1026,9 +1026,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: BorderRadius.full,
-    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.55)' } : {}),
+    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.60)' } : {}),
   },
   backIcon: {
     fontSize: 24,
@@ -1054,9 +1054,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: BorderRadius.full,
-    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.55)' } : {}),
+    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.60)' } : {}),
   },
   playIcon: {
     fontSize: 32,
