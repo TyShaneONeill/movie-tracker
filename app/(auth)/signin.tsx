@@ -240,6 +240,22 @@ export default function SignInScreen() {
               </Pressable>
             )}
 
+            <Pressable
+              onPress={() => handleOAuthSignIn('meta')}
+              style={({ pressed }) => [
+                styles.socialButton,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+              ]}
+              disabled={isSubmitting}
+            >
+              <View style={styles.socialButtonContent}>
+                <Ionicons name="logo-facebook" size={20} color="#1877F2" />
+                <ThemedText style={[styles.socialButtonText, { color: colors.text }]}>
+                  Facebook
+                </ThemedText>
+              </View>
+            </Pressable>
+
           </View>
 
           {/* Footer Links */}
