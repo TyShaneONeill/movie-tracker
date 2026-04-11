@@ -39,6 +39,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -665,7 +666,7 @@ export default function TvShowDetailScreen() {
         <View style={dynamicStyles.loadingBackButton}>
           <Pressable onPress={handleGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={dynamicStyles.iconButton}>
             <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-              <Text style={dynamicStyles.backIcon}>{'\u2190'}</Text>
+              <Ionicons name="arrow-back" size={22} color={colors.text} />
             </BlurView>
           </Pressable>
         </View>
@@ -735,7 +736,7 @@ export default function TvShowDetailScreen() {
           <View style={[dynamicStyles.topButtons, { paddingTop: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
             <Pressable onPress={handleGoBack} accessibilityRole="button" accessibilityLabel="Go back" style={dynamicStyles.iconButton}>
               <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-                <Text style={dynamicStyles.backIcon}>{'\u2190'}</Text>
+                <Ionicons name="arrow-back" size={22} color={colors.text} />
               </BlurView>
             </Pressable>
             {/* More options button hidden - Coming Soon */}
@@ -753,7 +754,7 @@ export default function TvShowDetailScreen() {
               ]}
             >
               <BlurView intensity={10} tint={effectiveTheme} style={dynamicStyles.playButtonBlur}>
-                <Text style={dynamicStyles.playIcon}>{'\u25B6'}</Text>
+                <Ionicons name="play" size={28} color={colors.text} style={{ marginLeft: 4 }} />
               </BlurView>
             </Pressable>
           )}

@@ -156,7 +156,7 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/movies')}
           >
-            <Text style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>
+            <Text adjustsFontSizeToFit numberOfLines={1} minimumFontScale={0.5} style={[Typography.display.h3, { color: colors.tint, marginBottom: Spacing.xs }]}>
               {stats.summary.totalWatched}
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Movies</Text>
@@ -169,7 +169,7 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/tv-shows')}
           >
-            <Text style={[Typography.display.h3, { color: colors.accentSecondary, marginBottom: Spacing.xs }]}>
+            <Text adjustsFontSizeToFit numberOfLines={1} minimumFontScale={0.5} style={[Typography.display.h3, { color: colors.accentSecondary, marginBottom: Spacing.xs }]}>
               {stats.summary.totalTvWatched}
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>TV Shows</Text>
@@ -182,7 +182,7 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/episodes')}
           >
-            <Text style={[Typography.display.h3, { color: '#8b5cf6', marginBottom: Spacing.xs }]}>
+            <Text adjustsFontSizeToFit numberOfLines={1} minimumFontScale={0.5} style={[Typography.display.h3, { color: '#8b5cf6', marginBottom: Spacing.xs }]}>
               {stats.summary.totalEpisodesWatched}
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Episodes</Text>
@@ -198,7 +198,7 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/tv-watch-time')}
           >
-            <Text style={[Typography.display.h3, { color: '#3b82f6', marginBottom: Spacing.xs }]}>
+            <Text adjustsFontSizeToFit numberOfLines={1} minimumFontScale={0.5} style={[Typography.display.h3, { color: '#3b82f6', marginBottom: Spacing.xs }]}>
               {stats.summary.totalWatchTimeMinutes > 0
                 ? `${Math.floor(stats.summary.totalWatchTimeMinutes / 60)}h ${stats.summary.totalWatchTimeMinutes % 60}m`
                 : '--'}
@@ -213,7 +213,7 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/first-takes')}
           >
-            <Text style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
+            <Text adjustsFontSizeToFit numberOfLines={1} minimumFontScale={0.5} style={[Typography.display.h3, { color: colors.gold, marginBottom: Spacing.xs }]}>
               {stats.summary.totalFirstTakes}
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>First Takes</Text>
@@ -226,7 +226,7 @@ export default function AnalyticsScreen() {
             ]}
             onPress={() => router.push('/analytics/ratings')}
           >
-            <Text style={[Typography.display.h3, { color: '#14b8a6', marginBottom: Spacing.xs }]}>
+            <Text adjustsFontSizeToFit numberOfLines={1} minimumFontScale={0.5} style={[Typography.display.h3, { color: '#14b8a6', marginBottom: Spacing.xs }]}>
               {stats.summary.averageRating != null ? stats.summary.averageRating.toFixed(1) : '--'}
             </Text>
             <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}>Avg Rating</Text>
