@@ -589,7 +589,10 @@ export default function JourneyCarouselScreen() {
 
   // Calculate dimensions
   const pageWidth = screenWidth;
-  const nativeTicketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
+  const nativeTicketHeight = Math.min(
+    screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2),
+    screenHeight * 0.80,
+  );
   // On web: use measured FlatList height minus card marginTop; fallback to native calc
   const ticketHeight = Platform.OS === 'web' && carouselAreaHeight > 0
     ? carouselAreaHeight - Spacing.md
@@ -804,7 +807,7 @@ export default function JourneyCarouselScreen() {
     <View style={styles.container}>
       {/* Solid background — no ambient blur so ticket punch-hole divots match cleanly */}
 
-      <ContentContainer style={{ flex: 1 }}>
+      <ContentContainer>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleGoBack} style={styles.iconButton}>
@@ -846,7 +849,9 @@ export default function JourneyCarouselScreen() {
         )}
       </View>
 
-      {/* Journey Carousel */}
+      </ContentContainer>
+
+      {/* Journey Carousel — sized to screenWidth (not ContentContainer) so next card never peeks */}
       <FlatList
         ref={carouselRef}
         data={carouselData}
@@ -861,12 +866,13 @@ export default function JourneyCarouselScreen() {
         viewabilityConfig={viewabilityConfig}
         getItemLayout={getItemLayout}
         bounces={false}
-        style={{ flex: 1 }}
+        style={{ flex: 1, width: screenWidth, alignSelf: 'center' }}
         onLayout={handleCarouselLayout}
         initialNumToRender={totalPages}
       />
 
       {/* Dot Indicators for Journey Carousel */}
+      <ContentContainer>
       <View style={styles.carouselDotsContainer}>
         {Array.from({ length: totalPages }).map((_, index) => (
           <View
