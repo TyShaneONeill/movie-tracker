@@ -374,6 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: { redirectTo: window.location.origin },
       });
       if (error) throw error;
+      analytics.track('auth:sign_in', { method: 'facebook' });
       return;
     }
 
@@ -398,6 +399,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) throw exchangeError;
+        analytics.track('auth:sign_in', { method: 'facebook' });
       }
     } else if (result.type === 'cancel' || result.type === 'dismiss') {
       throw new Error('Facebook Sign-In was cancelled');
