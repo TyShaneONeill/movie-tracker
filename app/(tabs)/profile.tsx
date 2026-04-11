@@ -972,6 +972,7 @@ export default function ProfileScreen() {
 
             {/* Native collection tab uses FlatList for virtualized 3-column grid */}
             {!isWeb && activeTab === 'collection' && !showingTv && (
+                <ContentContainer style={{ flex: 1 }}>
                 <Animated.FlatList
                     ref={flatListRef}
                     data={isLoading || isError ? [] : groupedMovies}
@@ -998,10 +999,12 @@ export default function ProfileScreen() {
                     }
                     showsVerticalScrollIndicator={false}
                 />
+                </ContentContainer>
             )}
 
             {/* Native collection tab - TV shows grid */}
             {!isWeb && activeTab === 'collection' && showingTv && (
+                <ContentContainer style={{ flex: 1 }}>
                 <Animated.FlatList
                     data={tvShowsLoading ? [] : watchedTvShows}
                     renderItem={renderTvCollectionItem}
@@ -1027,6 +1030,7 @@ export default function ProfileScreen() {
                     }
                     showsVerticalScrollIndicator={false}
                 />
+                </ContentContainer>
             )}
 
             {/* Web uses ScrollView for ALL tabs (CSS position:sticky works in ScrollView

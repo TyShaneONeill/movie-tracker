@@ -28,18 +28,20 @@ import { BlurView } from 'expo-blur';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { ContentContainer } from '@/components/content-container';
+import { MAX_CONTENT_WIDTH } from '@/hooks/use-wide-layout';
 import { useUserMovies } from '@/hooks/use-user-movies';
 import { useListDetail } from '@/hooks/use-list-mutations';
 import { useProfile } from '@/hooks/use-profile';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { MovieStatus, UserMovie, ListMovie } from '@/lib/database.types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const EFFECTIVE_WIDTH = Math.min(Dimensions.get('window').width, MAX_CONTENT_WIDTH);
 const HERO_HEIGHT = 320;
 const GRID_PADDING = 16;
 const GRID_GAP = 12;
 const NUM_COLUMNS = 3;
-const ITEM_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+const ITEM_WIDTH = (EFFECTIVE_WIDTH - GRID_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 // List metadata
 const LIST_META: Record<string, { title: string; description: string }> = {
@@ -289,6 +291,7 @@ export default function ListDetailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={dynamicStyles.container}>
+        <ContentContainer style={{ flex: 1 }}>
         <FlatList
           data={movies}
           keyExtractor={(item) => item.id}
@@ -303,6 +306,7 @@ export default function ListDetailScreen() {
           maxToRenderPerBatch={10}
           windowSize={5}
         />
+        </ContentContainer>
       </View>
     </>
   );

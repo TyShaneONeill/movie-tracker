@@ -738,20 +738,22 @@ export default function UserProfileScreen() {
           {renderListHeader()}
         </ScrollView>
       ) : activeTab === 'collection' ? (
-        <FlatList
-          data={groupedMovies}
-          renderItem={renderCollectionItem}
-          keyExtractor={collectionKeyExtractor}
-          numColumns={COLUMN_COUNT}
-          ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={renderCollectionEmpty}
-          contentContainerStyle={styles.scrollContent}
-          columnWrapperStyle={styles.columnWrapper}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={12}
-          maxToRenderPerBatch={15}
-          windowSize={5}
-        />
+        <ContentContainer style={{ flex: 1 }}>
+          <FlatList
+            data={groupedMovies}
+            renderItem={renderCollectionItem}
+            keyExtractor={collectionKeyExtractor}
+            numColumns={COLUMN_COUNT}
+            ListHeaderComponent={renderListHeader}
+            ListEmptyComponent={renderCollectionEmpty}
+            contentContainerStyle={styles.scrollContent}
+            columnWrapperStyle={styles.columnWrapper}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={12}
+            maxToRenderPerBatch={15}
+            windowSize={5}
+          />
+        </ContentContainer>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
