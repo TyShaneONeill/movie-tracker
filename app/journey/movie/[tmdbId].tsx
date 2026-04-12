@@ -589,9 +589,10 @@ export default function JourneyCarouselScreen() {
 
   // Calculate dimensions
   const pageWidth = screenWidth;
+  const isLandscape = windowWidth > screenHeight;
   const nativeTicketHeight = Math.min(
     screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2),
-    screenHeight * 0.80,
+    screenHeight * (isLandscape ? 0.88 : 0.80),
   );
   // On web: use measured FlatList height minus card marginTop; fallback to native calc
   const ticketHeight = Platform.OS === 'web' && carouselAreaHeight > 0
@@ -873,7 +874,7 @@ export default function JourneyCarouselScreen() {
 
       {/* Dot Indicators for Journey Carousel */}
       <ContentContainer>
-      <View style={styles.carouselDotsContainer}>
+      <View style={[styles.carouselDotsContainer, { paddingBottom: insets.bottom + Spacing.md }]}>
         {Array.from({ length: totalPages }).map((_, index) => (
           <View
             key={index}
