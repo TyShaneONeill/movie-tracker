@@ -1,15 +1,14 @@
 import React, { useEffect } from 'react';
 import {
   Modal,
-  Platform,
   StyleSheet,
   View,
   Text,
   Pressable,
   useWindowDimensions,
-  useColorScheme,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { useTheme } from '@/lib/theme-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -36,8 +35,8 @@ export function PosterInspectionModal({
   onClose,
 }: PosterInspectionModalProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { effectiveTheme } = useTheme();
+  const isDark = effectiveTheme === 'dark';
 
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
