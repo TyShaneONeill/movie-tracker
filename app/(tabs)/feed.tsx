@@ -15,6 +15,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
+import { ContentContainer } from '@/components/content-container';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -290,6 +291,7 @@ function AuthenticatedFeed() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
+      <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Feed</Text>
@@ -388,6 +390,7 @@ function AuthenticatedFeed() {
           ) : undefined
         }
       />
+      </ContentContainer>
     </SafeAreaView>
   );
 }

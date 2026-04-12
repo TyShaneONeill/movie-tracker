@@ -1,15 +1,14 @@
 import React, { useEffect } from 'react';
 import {
   Modal,
-  Platform,
   StyleSheet,
   View,
   Text,
   Pressable,
   useWindowDimensions,
-  useColorScheme,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { useTheme } from '@/lib/theme-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -35,16 +34,16 @@ export function PosterInspectionModal({
   movieTitle,
   onClose,
 }: PosterInspectionModalProps) {
-  const { width: screenWidth } = useWindowDimensions();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { effectiveTheme } = useTheme();
+  const isDark = effectiveTheme === 'dark';
 
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
 
-  const baseWidth = Platform.OS === 'web' ? Math.min(screenWidth, 480) : screenWidth;
+  const baseWidth = Math.min(screenWidth, 480);
   const cardWidth = baseWidth * 0.85;
-  const cardHeight = cardWidth * 1.5; // 2:3 aspect ratio
+  const cardHeight = Math.min(cardWidth * 1.5, screenHeight * 0.80); // cap for landscape tablet
 
   // Use AI image if available, otherwise fall back to regular image
   const displayImageUrl = aiImageUrl || imageUrl;

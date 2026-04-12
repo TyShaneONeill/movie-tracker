@@ -21,6 +21,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
+import { ContentContainer } from '@/components/content-container';
+import { MAX_CONTENT_WIDTH } from '@/hooks/use-wide-layout';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -106,7 +108,8 @@ export default function UserProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabType>((tab as TabType) ?? 'collection');
 
   const cardWidth = useMemo(() => {
-    const availableWidth = screenWidth - Spacing.lg * 2;
+    const effectiveWidth = Math.min(screenWidth, MAX_CONTENT_WIDTH);
+    const availableWidth = effectiveWidth - Spacing.lg * 2;
     return (availableWidth - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
   }, [screenWidth]);
 
@@ -541,7 +544,7 @@ export default function UserProfileScreen() {
   const renderListHeader = () => {
     if (!profile) return null;
     return (
-    <>
+    <ContentContainer>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         {/* Avatar */}
@@ -633,7 +636,7 @@ export default function UserProfileScreen() {
       ) : (
         renderTabBar()
       )}
-    </>
+    </ContentContainer>
   );
   };
 
@@ -735,27 +738,31 @@ export default function UserProfileScreen() {
           {renderListHeader()}
         </ScrollView>
       ) : activeTab === 'collection' ? (
-        <FlatList
-          data={groupedMovies}
-          renderItem={renderCollectionItem}
-          keyExtractor={collectionKeyExtractor}
-          numColumns={COLUMN_COUNT}
-          ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={renderCollectionEmpty}
-          contentContainerStyle={styles.scrollContent}
-          columnWrapperStyle={styles.columnWrapper}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={12}
-          maxToRenderPerBatch={15}
-          windowSize={5}
-        />
+        <ContentContainer style={{ flex: 1 }}>
+          <FlatList
+            data={groupedMovies}
+            renderItem={renderCollectionItem}
+            keyExtractor={collectionKeyExtractor}
+            numColumns={COLUMN_COUNT}
+            ListHeaderComponent={renderListHeader}
+            ListEmptyComponent={renderCollectionEmpty}
+            contentContainerStyle={styles.scrollContent}
+            columnWrapperStyle={styles.columnWrapper}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={12}
+            maxToRenderPerBatch={15}
+            windowSize={5}
+          />
+        </ContentContainer>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
           {renderListHeader()}
-          <View style={styles.content}>{renderScrollTabContent()}</View>
+          <ContentContainer>
+            <View style={styles.content}>{renderScrollTabContent()}</View>
+          </ContentContainer>
         </ScrollView>
       )}
     </SafeAreaView>

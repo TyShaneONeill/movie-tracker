@@ -15,6 +15,7 @@ import { formatRelativeTime } from '@/lib/utils';
 import type { FirstTake } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
+import { ContentContainer } from '@/components/content-container';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -181,6 +182,7 @@ export default function FirstTakeDetailScreen() {
             showsVerticalScrollIndicator={false}
             automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
+            <ContentContainer>
             {/* Movie Info */}
             <View style={styles.movieInfoRow}>
               {posterUri ? (
@@ -262,6 +264,7 @@ export default function FirstTakeDetailScreen() {
 
             {/* Comments */}
             <CommentThread targetType="first_take" targetId={firstTake.id} />
+            </ContentContainer>
           </ScrollView>
         </View>
       </SafeAreaView>

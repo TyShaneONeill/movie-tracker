@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
 
+import { ContentContainer } from '@/components/content-container';
 import { SectionHeader } from '@/components/ui/section-header';
 import { TrendingCard } from '@/components/cards/trending-card';
 import IconButton from '@/components/ui/icon-button';
@@ -150,6 +151,7 @@ export default function HomeScreen() {
           ) : undefined
         }
       >
+        <ContentContainer>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -385,6 +387,7 @@ export default function HomeScreen() {
 
         {/* Ad Banner */}
         <BannerAdComponent placement="home" />
+        </ContentContainer>
 
       </ScrollView>
     </SafeAreaView>

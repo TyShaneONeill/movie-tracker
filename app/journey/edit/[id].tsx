@@ -42,6 +42,7 @@ import { buildAvatarUrl } from '@/lib/avatar-service';
 import { FriendPickerModal } from '@/components/social/friend-picker-modal';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
+import { ContentContainer } from '@/components/content-container';
 import { pickImage } from '@/lib/image-utils';
 import { usePremium } from '@/lib/premium-context';
 import { captureException } from '@/lib/sentry';
@@ -427,6 +428,7 @@ export default function EditJourneyScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
+          <ContentContainer>
           {/* MEMORIES Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>MEMORIES</Text>
@@ -815,6 +817,7 @@ export default function EditJourneyScreen() {
 
           {/* Bottom spacing */}
           <View style={styles.bottomSpacer} />
+          </ContentContainer>
         </ScrollView>
 
         {/* Friend Picker Modal */}

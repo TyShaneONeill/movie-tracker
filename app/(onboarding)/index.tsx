@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
+import { ContentContainer } from '@/components/content-container';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -167,50 +168,52 @@ export default function OnboardingScreen() {
         bounces={false}
       />
 
-      {/* Pagination dots */}
-      <View style={styles.pagination}>
-        {SLIDES.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              {
-                backgroundColor: index === currentIndex
-                  ? colors.tint
-                  : colors.border,
-                width: index === currentIndex ? 24 : 8,
-              },
-            ]}
-          />
-        ))}
-      </View>
+      <ContentContainer>
+        {/* Pagination dots */}
+        <View style={styles.pagination}>
+          {SLIDES.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: index === currentIndex
+                    ? colors.tint
+                    : colors.border,
+                  width: index === currentIndex ? 24 : 8,
+                },
+              ]}
+            />
+          ))}
+        </View>
 
-      {/* Navigation buttons */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        {isLastSlide ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
-            ]}
-            onPress={handleGetStarted}
-          >
-            <ThemedText style={styles.primaryButtonText}>Get Started</ThemedText>
-            <Ionicons name="arrow-forward" size={20} color="#fff" />
-          </Pressable>
-        ) : (
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
-            ]}
-            onPress={handleNext}
-          >
-            <ThemedText style={styles.primaryButtonText}>Next</ThemedText>
-            <Ionicons name="arrow-forward" size={20} color="#fff" />
-          </Pressable>
-        )}
-      </View>
+        {/* Navigation buttons */}
+        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          {isLastSlide ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.primaryButton,
+                { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+              ]}
+              onPress={handleGetStarted}
+            >
+              <ThemedText style={styles.primaryButtonText}>Get Started</ThemedText>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </Pressable>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [
+                styles.primaryButton,
+                { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+              ]}
+              onPress={handleNext}
+            >
+              <ThemedText style={styles.primaryButtonText}>Next</ThemedText>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </Pressable>
+          )}
+        </View>
+      </ContentContainer>
     </ThemedView>
   );
 }

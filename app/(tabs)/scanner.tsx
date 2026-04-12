@@ -22,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import Svg, { Path, Defs, LinearGradient, Stop, Line, Circle } from 'react-native-svg';
 
+import { ContentContainer } from '@/components/content-container';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -501,6 +502,7 @@ export default function ScannerScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <ContentContainer style={{ flex: 1 }}>
         {/* Hero Section */}
         <View style={styles.heroContainer}>
           {/* Animated Ticket Illustration */}
@@ -602,6 +604,7 @@ export default function ScannerScreen() {
             </Text>
           </View>
         </View>
+        </ContentContainer>
       </ScrollView>
     </View>
   );

@@ -31,6 +31,7 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { ContentContainer } from '@/components/content-container';
 
 type FilmographyItem =
   | { type: 'movie-header'; count: number }
@@ -400,18 +401,20 @@ export default function PersonDetailScreen() {
         </Pressable>
       </View>
 
-      <FlatList<FilmographyItem>
-        data={filmographyData}
-        keyExtractor={getItemKey}
-        renderItem={renderFilmographyItem}
-        ListHeaderComponent={listHeader}
-        ListFooterComponent={<View style={{ height: 90 }} />}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={dynamicStyles.scrollContent}
-        initialNumToRender={15}
-        maxToRenderPerBatch={20}
-        windowSize={5}
-      />
+      <ContentContainer style={{ flex: 1 }}>
+        <FlatList<FilmographyItem>
+          data={filmographyData}
+          keyExtractor={getItemKey}
+          renderItem={renderFilmographyItem}
+          ListHeaderComponent={listHeader}
+          ListFooterComponent={<View style={{ height: 90 }} />}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={dynamicStyles.scrollContent}
+          initialNumToRender={15}
+          maxToRenderPerBatch={20}
+          windowSize={5}
+        />
+      </ContentContainer>
     </View>
   );
 }

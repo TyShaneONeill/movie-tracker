@@ -15,6 +15,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
+import { ContentContainer } from '@/components/content-container';
 import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
@@ -303,6 +304,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView testID="settings" style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ContentContainer>
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
@@ -746,6 +748,7 @@ export default function SettingsScreen() {
         <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.lg }]}>
           Version {Constants.expoConfig?.version ?? '1.0.0'}
         </Text>
+        </ContentContainer>
       </ScrollView>
     </SafeAreaView>
   );

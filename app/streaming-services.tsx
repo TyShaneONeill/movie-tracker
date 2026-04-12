@@ -28,6 +28,7 @@ import type { StreamingProvider } from '@/lib/streaming-service';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { ContentContainer } from '@/components/content-container';
 
 const NUM_COLUMNS = 3;
 const LOGO_SIZE = 48;
@@ -116,6 +117,7 @@ export default function StreamingServicesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <ContentContainer style={styles.contentContainer}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable
@@ -157,12 +159,16 @@ export default function StreamingServicesScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+      </ContentContainer>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentContainer: {
     flex: 1,
   },
 
@@ -209,7 +215,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
   gridRow: {
-    justifyContent: 'flex-start',
+    justifyContent: 'space-evenly',
     gap: Spacing.sm,
     marginTop: Spacing.sm,
   },

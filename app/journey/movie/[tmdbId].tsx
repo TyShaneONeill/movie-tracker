@@ -49,6 +49,7 @@ import { PosterInspectionModal } from '@/components/poster-inspection';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
+import { ContentContainer } from '@/components/content-container';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -523,7 +524,7 @@ export default function JourneyCarouselScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { height: screenHeight, width: windowWidth } = useWindowDimensions();
-  const screenWidth = Platform.OS === 'web' ? Math.min(windowWidth, MAX_JOURNEY_WIDTH) : windowWidth;
+  const screenWidth = Math.min(windowWidth, MAX_JOURNEY_WIDTH);
   const insets = useSafeAreaInsets();
 
   // Auth gating hook
@@ -588,7 +589,11 @@ export default function JourneyCarouselScreen() {
 
   // Calculate dimensions
   const pageWidth = screenWidth;
-  const nativeTicketHeight = screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2);
+  const isLandscape = windowWidth > screenHeight;
+  const nativeTicketHeight = Math.min(
+    screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - (Spacing.md * 2),
+    screenHeight * (isLandscape ? 0.88 : 0.80),
+  );
   // On web: use measured FlatList height minus card marginTop; fallback to native calc
   const ticketHeight = Platform.OS === 'web' && carouselAreaHeight > 0
     ? carouselAreaHeight - Spacing.md
@@ -803,6 +808,7 @@ export default function JourneyCarouselScreen() {
     <View style={styles.container}>
       {/* Solid background — no ambient blur so ticket punch-hole divots match cleanly */}
 
+      <ContentContainer>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleGoBack} style={styles.iconButton}>
@@ -844,7 +850,9 @@ export default function JourneyCarouselScreen() {
         )}
       </View>
 
-      {/* Journey Carousel */}
+      </ContentContainer>
+
+      {/* Journey Carousel — sized to screenWidth (not ContentContainer) so next card never peeks */}
       <FlatList
         ref={carouselRef}
         data={carouselData}
@@ -859,13 +867,14 @@ export default function JourneyCarouselScreen() {
         viewabilityConfig={viewabilityConfig}
         getItemLayout={getItemLayout}
         bounces={false}
-        style={{ flex: 1 }}
+        style={{ flex: 1, width: screenWidth, alignSelf: 'center' }}
         onLayout={handleCarouselLayout}
         initialNumToRender={totalPages}
       />
 
       {/* Dot Indicators for Journey Carousel */}
-      <View style={styles.carouselDotsContainer}>
+      <ContentContainer>
+      <View style={[styles.carouselDotsContainer, { paddingBottom: insets.bottom + Spacing.md }]}>
         {Array.from({ length: totalPages }).map((_, index) => (
           <View
             key={index}
@@ -877,6 +886,7 @@ export default function JourneyCarouselScreen() {
           />
         ))}
       </View>
+      </ContentContainer>
 
       {/* Poster Inspection Modal */}
       <PosterInspectionModal

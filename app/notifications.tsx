@@ -36,6 +36,7 @@ import { useFollowRequests } from '@/hooks/use-follow-requests';
 import { NotificationItem } from '@/components/social/NotificationItem';
 import { supabase } from '@/lib/supabase';
 import type { Notification, Profile } from '@/lib/database.types';
+import { ContentContainer } from '@/components/content-container';
 
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
   <Svg
@@ -332,6 +333,7 @@ export default function NotificationsScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
+        <ContentContainer style={{ flex: 1 }}>
         <View style={styles.header}>
           <Pressable
             onPress={handleBack}
@@ -350,6 +352,7 @@ export default function NotificationsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.tint} />
         </View>
+        </ContentContainer>
       </SafeAreaView>
     );
   }
@@ -360,6 +363,7 @@ export default function NotificationsScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
+        <ContentContainer style={{ flex: 1 }}>
         <View style={styles.header}>
           <Pressable
             onPress={handleBack}
@@ -388,6 +392,7 @@ export default function NotificationsScreen() {
             Please try again later
           </Text>
         </View>
+        </ContentContainer>
       </SafeAreaView>
     );
   }
@@ -396,6 +401,7 @@ export default function NotificationsScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable
@@ -457,6 +463,7 @@ export default function NotificationsScreen() {
         maxToRenderPerBatch={10}
         windowSize={5}
       />
+      </ContentContainer>
     </SafeAreaView>
   );
 }

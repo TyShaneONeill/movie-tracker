@@ -11,6 +11,7 @@ import { useUserStats, type GenreStats } from '@/hooks/use-user-stats';
 import { useAuth } from '@/hooks/use-auth';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
+import { ContentContainer } from '@/components/content-container';
 
 // Genre color palette for the donut chart
 const GENRE_COLORS = [
@@ -93,22 +94,24 @@ export default function AnalyticsScreen() {
             ) : undefined
           }
         >
-          <View style={styles.header}>
-            <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
-          </View>
-          <View style={styles.emptyContainer}>
-            <Svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={1.5}>
-              <Path d="M3 3v18h18" />
-              <Path d="m19 9-5 5-4-4-3 3" />
-            </Svg>
-            <Text style={[Typography.body.lg, { color: colors.text, marginTop: Spacing.md }]}>
-              No stats yet
-            </Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: Spacing.sm, textAlign: 'center' }]}>
-              Start watching movies and TV shows to see your viewing statistics here
-            </Text>
-          </View>
-          <BannerAdComponent placement="stats" />
+          <ContentContainer>
+            <View style={styles.header}>
+              <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
+            </View>
+            <View style={styles.emptyContainer}>
+              <Svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={1.5}>
+                <Path d="M3 3v18h18" />
+                <Path d="m19 9-5 5-4-4-3 3" />
+              </Svg>
+              <Text style={[Typography.body.lg, { color: colors.text, marginTop: Spacing.md }]}>
+                No stats yet
+              </Text>
+              <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: Spacing.sm, textAlign: 'center' }]}>
+                Start watching movies and TV shows to see your viewing statistics here
+              </Text>
+            </View>
+            <BannerAdComponent placement="stats" />
+          </ContentContainer>
         </ScrollView>
       </SafeAreaView>
     );
@@ -142,6 +145,7 @@ export default function AnalyticsScreen() {
           ) : undefined
         }
       >
+        <ContentContainer>
         {/* Header with Title */}
         <View style={styles.header}>
           <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
@@ -314,6 +318,7 @@ export default function AnalyticsScreen() {
 
         {/* Ad Banner */}
         <BannerAdComponent placement="stats" />
+        </ContentContainer>
 
       </ScrollView>
     </SafeAreaView>

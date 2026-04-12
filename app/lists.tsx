@@ -25,6 +25,7 @@ import { useUserLists } from '@/hooks/use-user-lists';
 import { useListMutations } from '@/hooks/use-list-mutations';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import Svg, { Path, Line } from 'react-native-svg';
+import { ContentContainer } from '@/components/content-container';
 
 // Chevron Left Icon
 function ChevronLeftIcon({ color }: { color: string }) {
@@ -77,6 +78,7 @@ export default function ListsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <ContentContainer>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -148,6 +150,7 @@ export default function ListsScreen() {
             ))
           ) : null}
         </View>
+        </ContentContainer>
       </ScrollView>
       <CreateListModal
         visible={showCreateModal}

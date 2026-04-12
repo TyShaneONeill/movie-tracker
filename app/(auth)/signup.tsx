@@ -21,6 +21,7 @@ import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { Typography } from '@/constants/typography';
+import { ContentContainer } from '@/components/content-container';
 
 export default function SignUpScreen() {
   const { effectiveTheme } = useTheme();
@@ -148,7 +149,7 @@ export default function SignUpScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -156,6 +157,7 @@ export default function SignUpScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+          <ContentContainer>
           <View style={styles.header}>
             <Image
               source={effectiveTheme === 'dark'
@@ -322,6 +324,7 @@ export default function SignUpScreen() {
               </Link>
             </View>
           </View>
+          </ContentContainer>
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
