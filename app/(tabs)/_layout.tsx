@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 
 import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
@@ -78,6 +78,11 @@ export default function TabLayout() {
                 <Line x1={6} y1={20} x2={6} y2={14} />
               </Svg>
             );
+          } else if (route.name === 'popcorn') {
+            // Popcorn icon
+            icon = (_color: string) => (
+              <Text style={{ fontSize: 20, lineHeight: 24 }}>🍿</Text>
+            );
           } else {
             // Profile icon
             icon = (color: string) => (
@@ -131,6 +136,12 @@ export default function TabLayout() {
         name="analytics"
         options={{
           title: 'Stats',
+        }}
+      />
+      <Tabs.Screen
+        name="popcorn"
+        options={{
+          title: 'Popcorn',
         }}
       />
       <Tabs.Screen

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { toggleLike, fetchLikeStatus, type LikeStatusResponse } from '@/lib/like-service';
 import { analytics } from '@/lib/analytics';
+import { usePopcornEarn } from './use-popcorn-earn';
 
 interface UseReviewLikeParams {
   targetType: 'review' | 'first_take';
@@ -20,6 +21,7 @@ export function useReviewLike({
 }: UseReviewLikeParams) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { earn } = usePopcornEarn();
 
   const queryKey = ['reviewLike', targetType, targetId];
 
@@ -62,6 +64,7 @@ export function useReviewLike({
     onSuccess: (serverData) => {
       if (serverData.liked) {
         analytics.track('social:like', { target_type: targetType, target_id: targetId });
+        earn('like', targetId);
       }
       // Set the actual server data
       queryClient.setQueryData(queryKey, serverData);
