@@ -14,6 +14,10 @@ jest.mock('@/lib/achievement-context', () => ({
   useAchievementCheck: () => ({ triggerAchievementCheck: jest.fn() }),
 }));
 
+jest.mock('@/hooks/use-popcorn-earn', () => ({
+  usePopcornEarn: () => ({ earn: jest.fn() }),
+}));
+
 jest.mock('@/lib/movie-service', () => ({
   getMovieByTmdbId: jest.fn(),
   addMovieToLibrary: jest.fn(),
