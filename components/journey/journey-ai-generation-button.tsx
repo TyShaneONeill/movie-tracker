@@ -34,7 +34,7 @@ export function JourneyAIGenerationButton({
   const colors = Colors[effectiveTheme];
 
   const { tier } = usePremium();
-  const { generateArt, isGenerating, hasUsedFreeTrial } = useGenerateArt();
+  const { generateArt, isGenerating, hasUsedFreeTrial, adCredits } = useGenerateArt();
   const { loaded: adLoaded, showAd, reloadAd } = useRewardedAd('ai');
   const { grantCredit, isGranting } = useGrantAdReward();
 
@@ -82,7 +82,7 @@ export function JourneyAIGenerationButton({
 
   return (
     <View style={styles.posterOptionsSection}>
-      {tier === 'free' && hasUsedFreeTrial ? (
+      {tier === 'free' && hasUsedFreeTrial && adCredits <= 0 ? (
         <>
           <Pressable
             style={[styles.generateArtButton, !adLoaded && styles.generateArtButtonDisabled]}
