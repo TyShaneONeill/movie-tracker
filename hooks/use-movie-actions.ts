@@ -208,7 +208,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
       if (newStatus === 'watched') {
         triggerAchievementCheck();
-        earn('mark_watched', String(tmdbId));
+        earn('mark_watched', `movie:${tmdbId}`);
       }
     },
   });

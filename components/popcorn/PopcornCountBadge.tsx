@@ -11,13 +11,12 @@ export function PopcornCountBadge({ count }: { count: number }) {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
     backgroundColor: 'rgba(0,0,0,0.45)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
+    marginRight: 16,
+    alignSelf: 'center',
   },
   text: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

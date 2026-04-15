@@ -47,3 +47,23 @@ export function kernelSize(seed: number): number {
   const rng = makeLCG(seed ^ 0xDEADBEEF);
   return 28 + Math.floor(rng() * 15);
 }
+
+// How much butter on this kernel: 0.1–0.65 (seeded)
+export function kernelButterOpacity(seed: number): number {
+  const rng = makeLCG(seed ^ 0xBEEF1234);
+  return 0.1 + rng() * 0.55;
+}
+
+// Butter hex string with alpha baked in (Paint fill needs string colors in Skia v2.2.12)
+export function kernelButterHex(seed: number): string {
+  const rng = makeLCG(seed ^ 0xBEEF1234);
+  const opacity = 0.1 + rng() * 0.55;
+  const alpha = Math.round(opacity * 255);
+  return `#F5C842${alpha.toString(16).padStart(2, '0')}`;
+}
+
+// Subtle base opacity variation: 0.88–1.0 (seeded)
+export function kernelBaseOpacity(seed: number): number {
+  const rng = makeLCG(seed ^ 0xCAFE5678);
+  return 0.88 + rng() * 0.12;
+}

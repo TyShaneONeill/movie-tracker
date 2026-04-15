@@ -7,6 +7,16 @@ const ALLOWED_TYPES = new Set([
   'follow', 'like', 'add_title', 'first_take', 'comment', 'mark_watched',
 ]);
 
+const EARN_THRESHOLDS: Record<string, number> = {
+  follow: 1,
+  like: 50,
+  add_title: 1,
+  first_take: 10,
+  comment: 10,
+  mark_watched: 1,
+  milestone: 1,
+};
+
 // Simple deterministic hash (FNV-1a variant) — produces a positive 32-bit int
 function hashString(str: string): number {
   let h = 2166136261;
@@ -15,6 +25,53 @@ function hashString(str: string): number {
     h = (h * 16777619) >>> 0;
   }
   return h;
+}
+
+// Helper: count actual source actions for this user
+async function getSourceCount(
+  adminClient: any,
+  userId: string,
+  actionType: string
+): Promise<number> {
+  switch (actionType) {
+    case 'first_take': {
+      const { count } = await adminClient
+        .from('first_takes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      return count ?? 0;
+    }
+    case 'comment': {
+      const { count } = await adminClient
+        .from('review_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      return count ?? 0;
+    }
+    case 'like': {
+      const { count } = await adminClient
+        .from('review_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      return count ?? 0;
+    }
+    default:
+      return 1; // threshold=1 types don't need source count check
+  }
+}
+
+// Helper: count kernels already earned of this type
+async function getEarnedCount(
+  adminClient: any,
+  userId: string,
+  actionType: string
+): Promise<number> {
+  const { count } = await adminClient
+    .from('user_popcorn')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('action_type', actionType);
+  return count ?? 0;
 }
 
 Deno.serve(async (req: Request) => {
@@ -68,8 +125,28 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const corsHeaders = { ...getCorsHeaders(req), 'Content-Type': 'application/json' };
+    const threshold = EARN_THRESHOLDS[action_type] ?? 1;
+
+    if (threshold > 1) {
+      const [sourceCount, earnedCount] = await Promise.all([
+        getSourceCount(adminClient, user.id, action_type),
+        getEarnedCount(adminClient, user.id, action_type),
+      ]);
+
+      const owed = Math.floor(sourceCount / threshold) - earnedCount;
+
+      if (owed <= 0) {
+        return new Response(
+          JSON.stringify({ earned: false, kernel: null }),
+          { status: 200, headers: corsHeaders }
+        );
+      }
+    }
+
     const kernelId = crypto.randomUUID();
     const seed = hashString(kernelId);
+    const referenceIdToStore = threshold === 1 ? (reference_id ?? null) : null;
 
     const { data, error: insertError } = await adminClient
       .from('user_popcorn')
@@ -77,7 +154,7 @@ Deno.serve(async (req: Request) => {
         id: kernelId,
         user_id: user.id,
         action_type,
-        reference_id: reference_id ?? null,
+        reference_id: referenceIdToStore,
         seed,
         is_milestone: false,
       })
@@ -88,14 +165,14 @@ Deno.serve(async (req: Request) => {
     if (insertError?.code === '23505') {
       return new Response(
         JSON.stringify({ earned: false, kernel: null }),
-        { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        { status: 200, headers: corsHeaders }
       );
     }
     if (insertError) throw insertError;
 
     return new Response(
       JSON.stringify({ earned: true, kernel: data }),
-      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      { status: 200, headers: corsHeaders }
     );
   } catch (err) {
     console.error('[earn-popcorn] Error:', err);

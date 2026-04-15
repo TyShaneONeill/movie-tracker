@@ -36,7 +36,7 @@ export function usePopcorn() {
 
   useEffect(() => {
     if (!user) return;
-    const key = `popcorn_backfill_done_${user.id}`;
+    const key = `popcorn_backfill_done_v5_${user.id}`;
     AsyncStorage.getItem(key).then((done) => {
       if (!done) {
         runRetroactiveBackfill(user.id).then(() => {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { usePopcornEarn } from '@/hooks/use-popcorn-earn';
 import { analytics } from '@/lib/analytics';
 import {
   getTvShowByTmdbId,
@@ -40,6 +41,7 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
+  const { earn } = usePopcornEarn();
 
   // Query to check if show is in user's library
   const { data: userTvShow, isLoading: isLoadingLibrary } = useQuery({
@@ -115,6 +117,9 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
       }
     },
     onSuccess: (_data, variables) => {
+      if (variables.status === 'watched') {
+        earn('mark_watched', `tv:${variables.show.id}`);
+      }
       analytics.track('tv:status_change', {
         tmdb_id: variables.show.id,
         status: variables.status,
@@ -195,6 +200,9 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
       }
     },
     onSuccess: (_data, newStatus) => {
+      if (newStatus === 'watched') {
+        earn('mark_watched', `tv:${tmdbId}`);
+      }
       const currentShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbId]);
       analytics.track('tv:status_change', {
         tmdb_id: tmdbId,
