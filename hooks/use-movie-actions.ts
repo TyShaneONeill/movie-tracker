@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { analytics } from '@/lib/analytics';
+import { usePopcornEarn } from './use-popcorn-earn';
 import {
   getMovieByTmdbId,
   addMovieToLibrary,
@@ -42,6 +43,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
+  const { earn } = usePopcornEarn();
 
   // Query to check if movie is in user's watchlist
   const { data: userMovie, isLoading: isLoadingWatchlist } = useQuery({
@@ -127,6 +129,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
       if (variables?.status === 'watched') {
         triggerAchievementCheck();
       }
+      earn('add_title', String(tmdbId));
     },
     onSuccess: (_data, variables) => {
       analytics.track('movie:watchlist_add', { tmdb_id: variables.movie.id });
@@ -205,6 +208,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
       if (newStatus === 'watched') {
         triggerAchievementCheck();
+        earn('mark_watched', `movie:${tmdbId}`);
       }
     },
   });

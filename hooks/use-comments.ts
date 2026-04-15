@@ -10,6 +10,7 @@ import {
   type CommentLikeResponse,
 } from '@/lib/comment-service';
 import { analytics } from '@/lib/analytics';
+import { usePopcornEarn } from './use-popcorn-earn';
 
 interface UseCommentsParams {
   targetType: 'review' | 'first_take';
@@ -24,6 +25,7 @@ export function useComments({
 }: UseCommentsParams) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { earn } = usePopcornEarn();
 
   const queryKey = ['comments', targetType, targetId];
 
@@ -50,11 +52,12 @@ export function useComments({
       isSpoiler?: boolean;
       parentCommentId?: string;
     }) => addComment(targetType, targetId, body, isSpoiler, parentCommentId),
-    onSuccess: (_data, variables) => {
+    onSuccess: (newComment, variables) => {
       analytics.track('social:comment', {
         review_id: targetId,
         is_reply: !!variables.parentCommentId,
       });
+      earn('comment', newComment.id);
       queryClient.invalidateQueries({ queryKey });
       // Invalidate review queries to update comment counts
       queryClient.invalidateQueries({ queryKey: ['review', targetId] });

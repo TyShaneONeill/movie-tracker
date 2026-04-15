@@ -12,6 +12,7 @@ import {
   type FollowRequestStatus,
 } from '@/lib/follow-request-service';
 import { analytics } from '@/lib/analytics';
+import { usePopcornEarn } from './use-popcorn-earn';
 
 export type { FollowRequestStatus };
 
@@ -35,6 +36,7 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
   const { username } = options ?? {};
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { earn } = usePopcornEarn();
 
   // Query to check if current user is following the target user
   const {
@@ -166,6 +168,7 @@ export function useFollow(targetUserId: string, options?: UseFollowOptions): Use
           text1: `Following ${displayName}`,
           visibilityTime: 2000,
         });
+        earn('follow', targetUserId);
       } else if (result.type === 'requested') {
         // Correct optimistic update — it was a follow request, not a direct follow
         queryClient.setQueryData(

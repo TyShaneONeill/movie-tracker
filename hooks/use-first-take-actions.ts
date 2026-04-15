@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { analytics } from '@/lib/analytics';
+import { usePopcornEarn } from './use-popcorn-earn';
 import {
   createFirstTake,
   getFirstTakeByTmdbId,
@@ -32,6 +33,7 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
+  const { earn } = usePopcornEarn();
 
   // Query to check if a First Take exists for this movie
   const { data: existingTake, isLoading: isLoadingTake } = useQuery({
@@ -46,7 +48,7 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
       if (!user) throw new Error('Not authenticated');
       return createFirstTake(user.id, data);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (newFirstTake, variables) => {
       analytics.track('first_take:create', {
         tmdb_id: variables.tmdbId,
         has_rating: variables.rating != null,
@@ -63,6 +65,7 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
       // Check for newly earned achievements
       triggerAchievementCheck();
+      earn('first_take', newFirstTake.id);
     },
   });
 

@@ -3,6 +3,16 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { enforceRateLimit } from '../_shared/rate-limit.ts';
 
+// Simple deterministic hash (FNV-1a variant) — produces a positive 32-bit int
+function hashString(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h;
+}
+
 interface Achievement {
   id: string;
   name: string;
@@ -226,6 +236,18 @@ Deno.serve(async (req: Request) => {
           });
 
         if (!insertError) {
+          // Insert a Milestone Kernel into user_popcorn (fire-and-forget)
+          const milestoneKernelId = crypto.randomUUID();
+          supabaseAdmin.from('user_popcorn').insert({
+            id: milestoneKernelId,
+            user_id: userId,
+            action_type: 'milestone',
+            reference_id: lvl.id,
+            seed: hashString(milestoneKernelId),
+            is_milestone: true,
+            achievement_id: achievement.id,
+          }).then(() => {}).catch((e: Error) => console.error('[check-achievements] milestone kernel insert failed:', e));
+
           const unlockedAt = new Date().toISOString();
           newlyAwarded.push({
             achievement,
