@@ -100,6 +100,22 @@ export function useGenerateArt() {
 
   const hasUsedFreeTrial = trialData?.used ?? false;
 
+  // Check available ad credits so UI can show "Generate" instead of "Watch Ad"
+  const { data: adCreditsData } = useQuery({
+    queryKey: ['ad-credits', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('rewarded_ad_credits')
+        .eq('id', user!.id)
+        .single();
+      return data?.rewarded_ad_credits ?? 0;
+    },
+    enabled: !!user,
+  });
+
+  const adCredits = adCreditsData ?? 0;
+
   const mutation = useMutation({
     mutationKey: [MUTATION_KEYS.GENERATE_ART],
     mutationFn: async (request: GenerateArtRequest) => {
@@ -128,6 +144,7 @@ export function useGenerateArt() {
       queryClient.invalidateQueries({ queryKey: ['journeysByMovie'] });
       queryClient.invalidateQueries({ queryKey: ['userMovies'] });
       queryClient.invalidateQueries({ queryKey: ['ai-trial-used'] });
+      queryClient.invalidateQueries({ queryKey: ['ad-credits'] });
     },
     onError: (error: Error, variables) => {
       analytics.track('generate:art:fail', { journey_id: variables.journeyId, error: error.message });
@@ -154,5 +171,6 @@ export function useGenerateArt() {
     error: mutation.error,
     reset: mutation.reset,
     hasUsedFreeTrial,
+    adCredits,
   };
 }

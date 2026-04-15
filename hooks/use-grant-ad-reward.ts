@@ -37,8 +37,8 @@ export function useGrantAdReward() {
         return false;
       }
 
-      // Invalidate so hasUsedFreeTrial re-checks on next generate attempt
       queryClient.invalidateQueries({ queryKey: ['ai-trial-used', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['ad-credits', user?.id] });
 
       return true;
     } catch (err) {
