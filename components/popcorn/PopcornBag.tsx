@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { Canvas } from '@shopify/react-native-skia';
 import { usePopcornPhysics } from '@/hooks/use-popcorn-physics';
 import { PopcornKernel } from './PopcornKernel';
@@ -18,6 +19,8 @@ export function PopcornBag({ kernels, width, height, config = DEFAULT_PHYSICS_CO
   const bounds = { w: width, h: height };
   const { particles } = usePopcornPhysics(kernels, bounds, config);
 
+  // Skia Canvas requires native CanvasKit (WASM) — not available in web builds
+  if (Platform.OS === 'web') return null;
   if (width === 0 || height === 0) return null;
 
   return (
