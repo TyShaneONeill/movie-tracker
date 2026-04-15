@@ -8,9 +8,7 @@ export default {
     updates: {
       url: "https://u.expo.dev/d71c1a95-3697-4a03-b485-813c803573f9",
     },
-    runtimeVersion: {
-      policy: "appVersion",
-    },
+    runtimeVersion: "1.2.0",
     icon: "./assets/images/icon.png",
     scheme: "pocketstubs",
     userInterfaceStyle: "automatic",
