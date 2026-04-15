@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View, Text, StyleSheet } from 'react-native';
 import { Canvas } from '@shopify/react-native-skia';
 import { usePopcornPhysics } from '@/hooks/use-popcorn-physics';
 import { PopcornKernel } from './PopcornKernel';
@@ -19,8 +19,16 @@ export function PopcornBag({ kernels, width, height, config = DEFAULT_PHYSICS_CO
   const bounds = { w: width, h: height };
   const { particles } = usePopcornPhysics(kernels, bounds, config);
 
-  // Skia Canvas requires native CanvasKit (WASM) — not available in web builds
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === 'web') {
+    return (
+      <View style={webStyles.container}>
+        <Text style={webStyles.emoji}>🍿</Text>
+        <Text style={webStyles.text}>Your popcorn bag lives on the app.</Text>
+        <Text style={webStyles.sub}>Download PocketStubs on iOS or Android to watch your kernels fall.</Text>
+      </View>
+    );
+  }
+
   if (width === 0 || height === 0) return null;
 
   return (
@@ -35,3 +43,16 @@ export function PopcornBag({ kernels, width, height, config = DEFAULT_PHYSICS_CO
     </Canvas>
   );
 }
+
+const webStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 40,
+  },
+  emoji: { fontSize: 64 },
+  text: { fontSize: 20, fontWeight: '600', color: '#F5D76E', textAlign: 'center' },
+  sub: { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 20 },
+});

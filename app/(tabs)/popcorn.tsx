@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Pressable, Text, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, Text, useWindowDimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { PopcornBag } from '@/components/popcorn/PopcornBag';
@@ -36,29 +36,31 @@ export default function PopcornScreen() {
         <PopcornCountBadge count={totalCount} />
       </SafeAreaView>
 
-      {activeTab === 'milestones' && (
+      {activeTab === 'milestones' && Platform.OS !== 'web' && (
         <SafeAreaView style={styles.milestonesContainer} edges={['bottom']}>
           <MilestonesGrid progress={progress} onPressMilestone={() => {}} />
         </SafeAreaView>
       )}
 
-      {/* Bottom tab toggle */}
-      <SafeAreaView style={styles.tabBar} edges={['bottom']}>
-        <View style={styles.tabBarInner}>
-          <Pressable
-            style={[styles.tab, activeTab === 'bag' && styles.tabActive]}
-            onPress={() => setActiveTab('bag')}
-          >
-            <Text style={[styles.tabText, activeTab === 'bag' && styles.tabTextActive]}>Bag</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, activeTab === 'milestones' && styles.tabActive]}
-            onPress={() => setActiveTab('milestones')}
-          >
-            <Text style={[styles.tabText, activeTab === 'milestones' && styles.tabTextActive]}>Milestones</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      {/* Bottom tab toggle — mobile only (overlaps main nav on web) */}
+      {Platform.OS !== 'web' && (
+        <SafeAreaView style={styles.tabBar} edges={['bottom']}>
+          <View style={styles.tabBarInner}>
+            <Pressable
+              style={[styles.tab, activeTab === 'bag' && styles.tabActive]}
+              onPress={() => setActiveTab('bag')}
+            >
+              <Text style={[styles.tabText, activeTab === 'bag' && styles.tabTextActive]}>Bag</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, activeTab === 'milestones' && styles.tabActive]}
+              onPress={() => setActiveTab('milestones')}
+            >
+              <Text style={[styles.tabText, activeTab === 'milestones' && styles.tabTextActive]}>Milestones</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      )}
     </View>
   );
 }
