@@ -29,24 +29,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
-import Toast from 'react-native-toast-message';
-import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
+import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useJourney } from '@/hooks/use-journey';
-import { useGenerateArt } from '@/hooks/use-generate-art';
-import { useGrantAdReward } from '@/hooks/use-grant-ad-reward';
-import { useRewardedAd } from '@/hooks/use-rewarded-ad';
+import { JourneyAIGenerationButton } from '@/components/journey/journey-ai-generation-button';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
-import { getGenreNamesByIds } from '@/lib/genre-service';
 import { useAuth } from '@/lib/auth-context';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { PosterInspectionModal } from '@/components/poster-inspection';
-import { usePremium } from '@/hooks/use-premium';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import { analytics } from '@/lib/analytics';
 import { ContentContainer } from '@/components/content-container';
@@ -118,12 +113,6 @@ export default function JourneyCardScreen() {
     }
   }, [journey]);
 
-  // AI art generation
-  const { tier } = usePremium();
-  const { generateArt, isGenerating, hasUsedFreeTrial } = useGenerateArt();
-  const { loaded: adLoaded, showAd, reloadAd } = useRewardedAd('ai');
-  const { grantCredit, isGranting } = useGrantAdReward();
-
   // Calculate info carousel page width (screen width - horizontal paddings)
   // Info page width = container width (screen - scroll padding - container margins)
   const infoPageWidth = screenWidth - (Spacing.md * 4);
@@ -147,49 +136,6 @@ export default function JourneyCardScreen() {
       router.replace('/');
     }
   };
-
-  // Handle watch ad to earn a generation credit
-  const handleWatchAd = useCallback(async () => {
-    hapticImpact();
-    const earned = await showAd();
-    if (earned) {
-      const granted = await grantCredit();
-      if (granted) {
-        Toast.show({
-          type: 'success',
-          text1: 'Credit earned!',
-          text2: 'Tap Generate AI Art to use it.',
-        });
-      }
-      reloadAd();
-    } else {
-      Toast.show({
-        type: 'info',
-        text1: 'Watch the full ad to earn a credit',
-      });
-    }
-  }, [showAd, grantCredit, reloadAd]);
-
-  // Handle generate AI art
-  const handleGenerateArt = useCallback(async () => {
-    if (!journey) return;
-    hapticImpact();
-    try {
-      const genreNames = journey.genre_ids
-        ? getGenreNamesByIds(journey.genre_ids)
-        : [];
-      const posterUrl = getTMDBImageUrl(journey.poster_path ?? null, 'w780') || '';
-      await generateArt({
-        journeyId: journey.id,
-        movieTitle: journey.title,
-        genres: genreNames,
-        posterUrl,
-      });
-      hapticNotification(NotificationFeedbackType.Success);
-    } catch (error) {
-      console.error('Failed to generate art:', error);
-    }
-  }, [journey, generateArt]);
 
   // Determine poster state
   const hasAiPoster = !!journey?.ai_poster_url;
@@ -465,66 +411,14 @@ export default function JourneyCardScreen() {
           />
 
           {/* Generate AI Art Button - below flip card */}
-          {!hasAiPoster && (
-            <View style={styles.posterOptionsSection}>
-              {tier === 'free' && hasUsedFreeTrial ? (
-                <>
-                  {/* Primary: Watch ad to earn a generation credit */}
-                  <Pressable
-                    style={[styles.generateArtButton, !adLoaded && styles.generateArtButtonDisabled]}
-                    onPress={handleWatchAd}
-                    disabled={!adLoaded || isGranting}
-                  >
-                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                      <Path d="M15 10l4.553-2.277A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
-                    </Svg>
-                    <Text style={styles.generateArtButtonText}>
-                      {!adLoaded ? 'Loading ad...' : 'Watch Ad for 1 Generation'}
-                    </Text>
-                  </Pressable>
-
-                  {/* Secondary: Upgrade nudge */}
-                  <Pressable
-                    style={styles.upgradeNudge}
-                    onPress={() => setUpgradeSheetVisible(true)}
-                  >
-                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.tint} strokeWidth={2}>
-                      <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                    </Svg>
-                    <View style={styles.upgradeNudgeText}>
-                      <Text style={styles.upgradeNudgeTitle}>Free AI poster used</Text>
-                      <Text style={styles.upgradeNudgeSubtitle}>Upgrade to PocketStubs+ for unlimited AI art</Text>
-                    </View>
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2}>
-                      <Path d="M9 18l6-6-6-6" />
-                    </Svg>
-                  </Pressable>
-                </>
-              ) : (
-                <Pressable
-                  style={styles.generateArtButton}
-                  onPress={handleGenerateArt}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <ActivityIndicator size="small" color={colors.text} />
-                      <Text style={styles.generateArtButtonText}>Generating...</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                        <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                      </Svg>
-                      <Text style={styles.generateArtButtonText}>
-                        {tier === 'free' ? 'Generate AI Art (1 free trial)' : 'Generate AI Art'}
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
-              )}
-            </View>
-          )}
+          <JourneyAIGenerationButton
+            journeyId={journey.id}
+            movieTitle={journey.title}
+            genreIds={journey.genre_ids}
+            posterPath={journey.poster_path}
+            hasAiPoster={hasAiPoster}
+            onUpgradePress={() => setUpgradeSheetVisible(true)}
+          />
           </View>
         </View>
 
@@ -684,54 +578,6 @@ const createStyles = (colors: ThemeColors, topInset: number, isDark: boolean) =>
     color: '#ffffff',
     letterSpacing: 1,
     fontWeight: '700',
-  },
-
-  // Poster Options Section
-  posterOptionsSection: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  generateArtButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: colors.tint,
-    borderRadius: BorderRadius.md,
-  },
-  generateArtButtonText: {
-    ...Typography.button.primary,
-    color: colors.text,
-  },
-  generateArtButtonDisabled: {
-    opacity: 0.5,
-  },
-  upgradeNudge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  upgradeNudgeText: {
-    flex: 1,
-  },
-  upgradeNudgeTitle: {
-    ...Typography.body.smMedium,
-    color: colors.text,
-  },
-  upgradeNudgeSubtitle: {
-    ...Typography.caption.default,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
 
   // Loading state styles
