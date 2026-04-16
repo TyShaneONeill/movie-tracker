@@ -46,12 +46,14 @@ export function JourneyAIGenerationButton({
     if (earned) {
       const granted = await grantCredit();
       if (granted) {
+        hapticNotification(NotificationFeedbackType.Success);
         Toast.show({
           type: 'success',
           text1: 'Credit earned!',
           text2: 'Tap Generate AI Art to use it.',
         });
       } else {
+        hapticNotification(NotificationFeedbackType.Error);
         Toast.show({
           type: 'error',
           text1: 'Could not grant credit',
@@ -60,6 +62,7 @@ export function JourneyAIGenerationButton({
       }
       reloadAd();
     } else {
+      hapticNotification(NotificationFeedbackType.Warning);
       Toast.show({
         type: 'info',
         text1: 'Watch the full ad to earn a credit',
