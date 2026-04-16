@@ -19,6 +19,7 @@ export default {
         dark: "./assets/images/icon-dark.png",
         tinted: "./assets/images/icon-dark.png",
       },
+      buildNumber: "26",
       supportsTablet: false,
       bundleIdentifier: "com.pocketstubs.app",
       usesAppleSignIn: true,
