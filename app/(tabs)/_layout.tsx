@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 
 import { BottomNavBar } from '@/components/ui/bottom-nav-bar';
@@ -22,9 +22,12 @@ export default function TabLayout() {
       tabBar={(props) => {
         const { state, descriptors, navigation } = props;
         const routes = state.routes;
-        const activeIndex = state.index;
+        const activeRoute = routes[state.index];
 
-        const navItems = routes.map((route, index) => {
+        const visibleRoutes = routes.filter(r => r.name !== 'popcorn');
+        const activeIndex = visibleRoutes.findIndex(r => r.key === activeRoute?.key);
+
+        const navItems = visibleRoutes.map((route, index) => {
           const { options } = descriptors[route.key];
           const label = options.title ?? route.name;
 
@@ -77,11 +80,6 @@ export default function TabLayout() {
                 <Line x1={12} y1={20} x2={12} y2={4} />
                 <Line x1={6} y1={20} x2={6} y2={14} />
               </Svg>
-            );
-          } else if (route.name === 'popcorn') {
-            // Popcorn icon
-            icon = (_color: string) => (
-              <Text style={{ fontSize: 20, lineHeight: 24 }}>🍿</Text>
             );
           } else {
             // Profile icon
@@ -141,6 +139,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="popcorn"
         options={{
+          href: null,
           title: 'Popcorn',
         }}
       />
