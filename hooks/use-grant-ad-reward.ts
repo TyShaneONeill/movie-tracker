@@ -37,8 +37,10 @@ export function useGrantAdReward() {
         return false;
       }
 
-      queryClient.invalidateQueries({ queryKey: ['ai-trial-used', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['ad-credits', user?.id] });
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['ai-trial-used', user?.id] }),
+        queryClient.refetchQueries({ queryKey: ['ad-credits', user?.id] }),
+      ]);
 
       return true;
     } catch (err) {
