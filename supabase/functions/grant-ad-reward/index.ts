@@ -2,7 +2,6 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { enforceRateLimit } from '../_shared/rate-limit.ts';
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
@@ -49,9 +48,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Rate limit: max 3 ad reward grants per day
-    const rateLimited = await enforceRateLimit(user.id, 'grant_ad_reward', 3, 86400, req);
-    if (rateLimited) return rateLimited;
+    // No rate limit here — ad watch time is a natural limiter, and
+    // generate-journey-art has its own 10/day cap that gates actual usage.
 
     // Increment rewarded_ad_credits for the user
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
