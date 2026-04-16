@@ -39,6 +39,33 @@ import { supabase } from '@/lib/supabase';
 
 const mockFrom = supabase.from as jest.Mock;
 
+function mockTrialAndCredits(trialCount: number, adCredits = 0) {
+  mockFrom.mockImplementation((table: string) => {
+    if (table === 'ai_usage_costs') {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ count: trialCount, error: null }),
+          }),
+        }),
+      };
+    }
+    if (table === 'profiles') {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: { rewarded_ad_credits: adCredits },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    }
+    return { select: jest.fn() };
+  });
+}
+
 function createTestHarness() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -65,14 +92,8 @@ describe('useGenerateArt', () => {
   // ==========================================================================
 
   describe('hasUsedFreeTrial', () => {
-    it('returns false when user has no AI posters', async () => {
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            not: jest.fn().mockResolvedValue({ count: 0, error: null }),
-          }),
-        }),
-      });
+    it('returns false when user has no AI generations', async () => {
+      mockTrialAndCredits(0);
 
       const { wrapper } = createTestHarness();
       const { result } = renderHook(() => useGenerateArt(), { wrapper });
@@ -82,14 +103,8 @@ describe('useGenerateArt', () => {
       });
     });
 
-    it('returns true when user has an AI poster', async () => {
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            not: jest.fn().mockResolvedValue({ count: 1, error: null }),
-          }),
-        }),
-      });
+    it('returns true when user has a previous AI generation', async () => {
+      mockTrialAndCredits(1);
 
       const { wrapper } = createTestHarness();
       const { result } = renderHook(() => useGenerateArt(), { wrapper });
@@ -106,14 +121,7 @@ describe('useGenerateArt', () => {
 
   describe('ai_generation_limit error', () => {
     it('throws ai_generation_limit when edge function returns 403', async () => {
-      // Mock the trial query
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            not: jest.fn().mockResolvedValue({ count: 0, error: null }),
-          }),
-        }),
-      });
+      mockTrialAndCredits(0);
 
       // Mock the edge function to return 403 with FunctionsHttpError shape
       // The actual SDK wraps the response in error.context (a Response-like object)
@@ -159,14 +167,7 @@ describe('useGenerateArt', () => {
     it('shows upgrade toast for ai_generation_limit error', async () => {
       const Toast = require('react-native-toast-message').default;
 
-      // Mock the trial query
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            not: jest.fn().mockResolvedValue({ count: 0, error: null }),
-          }),
-        }),
-      });
+      mockTrialAndCredits(0);
 
       // Mock the edge function to return 403
       (supabase.functions.invoke as jest.Mock).mockResolvedValue({
@@ -212,14 +213,7 @@ describe('useGenerateArt', () => {
     it('shows generic error toast for non-limit errors', async () => {
       const Toast = require('react-native-toast-message').default;
 
-      // Mock the trial query
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            not: jest.fn().mockResolvedValue({ count: 0, error: null }),
-          }),
-        }),
-      });
+      mockTrialAndCredits(0);
 
       // Mock a generic edge function error
       (supabase.functions.invoke as jest.Mock).mockResolvedValue({

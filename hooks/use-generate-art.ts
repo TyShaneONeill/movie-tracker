@@ -84,15 +84,16 @@ export function useGenerateArt() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Check if free trial has been used (client-side proxy via user_movies)
+  // Check if free trial has been used — matches the server's check in
+  // generate-journey-art (ai_usage_costs, not user_movies.ai_poster_url)
   const { data: trialData } = useQuery({
     queryKey: ['ai-trial-used', user?.id],
     queryFn: async () => {
       const { count } = await supabase
-        .from('user_movies')
+        .from('ai_usage_costs')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user!.id)
-        .not('ai_poster_url', 'is', null);
+        .eq('function_name', 'generate_journey_art');
       return { used: (count ?? 0) > 0 };
     },
     enabled: !!user,
@@ -149,6 +150,8 @@ export function useGenerateArt() {
     onError: (error: Error, variables) => {
       analytics.track('generate:art:fail', { journey_id: variables.journeyId, error: error.message });
       if (error.message === 'ai_generation_limit') {
+        queryClient.setQueryData(['ai-trial-used', user?.id], { used: true });
+        queryClient.setQueryData(['ad-credits', user?.id], 0);
         Toast.show({
           type: 'info',
           text1: 'Free trial used',
