@@ -51,6 +51,12 @@ export function JourneyAIGenerationButton({
           text1: 'Credit earned!',
           text2: 'Tap Generate AI Art to use it.',
         });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Could not grant credit',
+          text2: 'Something went wrong. Please try again.',
+        });
       }
       reloadAd();
     } else {
