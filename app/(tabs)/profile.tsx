@@ -39,6 +39,7 @@ import { useListMutations } from '@/hooks/use-list-mutations';
 import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useUserReviews, type ReviewSortOption, type ReviewMediaFilter } from '@/hooks/use-user-reviews';
 import { useProfile } from '@/hooks/use-profile';
+import { usePopcorn } from '@/hooks/use-popcorn';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserTvShows } from '@/hooks/use-user-tv-shows';
@@ -84,6 +85,7 @@ export default function ProfileScreen() {
 
     // Fetch user profile and stats
     const { profile, stats, refetch: refetchProfile, refetchStats } = useProfile();
+    const { totalCount: popcornCount } = usePopcorn();
 
     // Fetch notification unread count
     const { unreadCount } = useNotifications();
@@ -668,6 +670,23 @@ export default function ProfileScreen() {
                             Following
                         </ThemedText>
                     </Pressable>
+                    <View style={[styles.followStatDivider, { backgroundColor: colors.border }]} />
+                    <Pressable
+                        onPress={() => router.push('/(tabs)/popcorn')}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${popcornCount} Popcorn kernels`}
+                        style={({ pressed }) => [
+                            styles.followStatItem,
+                            { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                    >
+                        <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
+                            🍿 {popcornCount}
+                        </ThemedText>
+                        <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+                            Bag
+                        </ThemedText>
+                    </Pressable>
                 </View>
                 {/* Achievements Row */}
                 {renderAchievementsRow()}
@@ -1097,6 +1116,23 @@ export default function ProfileScreen() {
                                 </ThemedText>
                                 <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
                                     Following
+                                </ThemedText>
+                            </Pressable>
+                            <View style={[styles.followStatDivider, { backgroundColor: colors.border }]} />
+                            <Pressable
+                                onPress={() => router.push('/(tabs)/popcorn')}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${popcornCount} Popcorn kernels`}
+                                style={({ pressed }) => [
+                                    styles.followStatItem,
+                                    { opacity: pressed ? 0.7 : 1 },
+                                ]}
+                            >
+                                <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
+                                    🍿 {popcornCount}
+                                </ThemedText>
+                                <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
+                                    Bag
                                 </ThemedText>
                             </Pressable>
                         </View>
