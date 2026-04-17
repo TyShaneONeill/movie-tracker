@@ -33,7 +33,12 @@ export default {
             CFBundleURLSchemes: ["pocketstubs"]
           }
         ]
-      }
+      },
+      entitlements: {
+        "com.apple.security.application-groups": ["group.com.pocketstubs.app"],
+        "keychain-access-groups": ["$(AppIdentifierPrefix)com.pocketstubs.app"]
+      },
+      deploymentTarget: "16.0",
     },
     android: {
       package: "com.pocketstubs.app",
@@ -51,6 +56,12 @@ export default {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
+      ["expo-build-properties", { "ios": { "deploymentTarget": "16.0" } }],
+      // Widget extension — injects the PocketStubsWidget Apple target on every
+      // `expo prebuild`. Source-of-truth lives in expo-plugins/widget-extension/src/.
+      // Runs after expo-build-properties so the iOS deployment target is already
+      // applied when the plugin synthesizes the widget target.
+      ["@bacons/apple-targets", { root: "./expo-plugins/widget-extension/src" }],
       ["@sentry/react-native/expo", { organization: "pocketstubs-5w", project: "react-native-pocketstubs" }],
       "expo-router",
       "expo-apple-authentication",
