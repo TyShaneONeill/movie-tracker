@@ -10,13 +10,17 @@ struct WidgetView: View {
             HStack(spacing: 8) {
                 ForEach(0..<3, id: \.self) { idx in
                     if idx < entry.data.shows.count {
-                        ShowCard(show: entry.data.shows[idx])
+                        let show = entry.data.shows[idx]
+                        Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
+                            ShowCard(show: show)
+                        }
                     } else {
                         EmptySlot()
                     }
                 }
             }
         }
+        .widgetURL(URL(string: "pocketstubs://"))
     }
 }
 
