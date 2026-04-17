@@ -88,6 +88,7 @@
     "react-native-youtube-iframe": "^2.4.1"
   },
   "devDependencies": {
+    "@bacons/apple-targets": "^4.0.6",
     "@playwright/test": "^1.50.0",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.3",
