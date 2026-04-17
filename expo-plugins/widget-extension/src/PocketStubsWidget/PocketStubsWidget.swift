@@ -1,44 +1,35 @@
-//
-//  PocketStubsWidget.swift
-//  PocketStubsWidget
-//
-//  Phase 1, Task 2 — skeleton widget. Displays the literal text
-//  "PocketStubs Widget" in the medium family with no data reads.
-//  Task 3 will replace this with the real stats-bar + posters layout.
-//
-
 import WidgetKit
 import SwiftUI
 
-struct PocketStubsEntry: TimelineEntry {
+struct WidgetEntry: TimelineEntry {
     let date: Date
+    let data: WidgetData
+
+    static let placeholderData = WidgetData(
+        version: 1,
+        cachedAt: 0,
+        stats: Stats(filmsWatched: 0, showsWatched: 0),
+        shows: []
+    )
 }
 
-struct PocketStubsProvider: TimelineProvider {
-    func placeholder(in context: Context) -> PocketStubsEntry {
-        PocketStubsEntry(date: Date())
+struct Provider: TimelineProvider {
+    func placeholder(in context: Context) -> WidgetEntry {
+        WidgetEntry(date: Date(), data: WidgetEntry.placeholderData)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (PocketStubsEntry) -> Void) {
-        completion(PocketStubsEntry(date: Date()))
+    func getSnapshot(in context: Context, completion: @escaping (WidgetEntry) -> Void) {
+        let data = WidgetDataReader.read() ?? WidgetEntry.placeholderData
+        completion(WidgetEntry(date: Date(), data: data))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<PocketStubsEntry>) -> Void) {
-        // Static timeline — a single entry that never changes. Task 5 will
-        // wire in the real cache-backed refresh schedule.
-        let timeline = Timeline(entries: [PocketStubsEntry(date: Date())], policy: .never)
-        completion(timeline)
-    }
-}
-
-struct PocketStubsWidgetEntryView: View {
-    var entry: PocketStubsProvider.Entry
-
-    var body: some View {
-        Text("PocketStubs Widget")
-            .font(.headline)
-            .multilineTextAlignment(.center)
-            .padding()
+    func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetEntry>) -> Void) {
+        let data = WidgetDataReader.read() ?? WidgetEntry.placeholderData
+        let entry = WidgetEntry(date: Date(), data: data)
+        // Refresh every 30 minutes. App foreground and mark-watched also
+        // trigger reloads via WidgetCenter (Task 5/6 wire that up).
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: Date())!
+        completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
     }
 }
 
@@ -47,18 +38,18 @@ struct PocketStubsWidget: Widget {
     let kind: String = "PocketStubsWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: PocketStubsProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: Provider()) { entry in
             if #available(iOS 17.0, *) {
-                PocketStubsWidgetEntryView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
+                WidgetView(entry: entry)
+                    .containerBackground(Color(.systemBackground), for: .widget)
             } else {
-                PocketStubsWidgetEntryView(entry: entry)
-                    .padding()
-                    .background()
+                WidgetView(entry: entry)
+                    .padding(12)
+                    .background(Color(.systemBackground))
             }
         }
-        .configurationDisplayName("PocketStubs")
-        .description("Your recently watched movies at a glance.")
+        .configurationDisplayName("Continue Watching")
+        .description("Your current shows, one tap away.")
         .supportedFamilies([.systemMedium])
     }
 }
