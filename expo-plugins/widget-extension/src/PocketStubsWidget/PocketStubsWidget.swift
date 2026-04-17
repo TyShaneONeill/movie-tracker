@@ -42,6 +42,7 @@ struct PocketStubsWidgetEntryView: View {
     }
 }
 
+@main
 struct PocketStubsWidget: Widget {
     let kind: String = "PocketStubsWidget"
 
@@ -60,10 +61,4 @@ struct PocketStubsWidget: Widget {
         .description("Your recently watched movies at a glance.")
         .supportedFamilies([.systemMedium])
     }
-}
-
-#Preview(as: .systemMedium) {
-    PocketStubsWidget()
-} timeline: {
-    PocketStubsEntry(date: Date())
 }
