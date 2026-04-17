@@ -44,6 +44,7 @@ import { AchievementProvider } from '@/lib/achievement-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { useWidgetSync } from '@/hooks/use-widget-sync';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -185,6 +186,7 @@ function RootLayoutNav() {
   useProtectedRoute();
   useAnalyticsIdentity();
   usePushNotifications();
+  useWidgetSync();
 
   useEffect(() => {
     setBg(Colors[effectiveTheme].background);

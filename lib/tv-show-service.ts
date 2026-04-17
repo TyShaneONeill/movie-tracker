@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { syncWidgetCache } from './widget-cache';
 import type {
   SearchTvShowsResponse,
   TMDBTvShow,
@@ -351,6 +352,8 @@ export async function markEpisodeWatched(
   // Sync TV show progress
   await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
 
+  void syncWidgetCache();
+
   return data;
 }
 
@@ -375,6 +378,8 @@ export async function unmarkEpisodeWatched(
 
   // Sync TV show progress
   await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+
+  void syncWidgetCache();
 }
 
 // Mark an entire season as watched
@@ -404,6 +409,7 @@ export async function markSeasonWatched(
 
   if (toInsert.length === 0) {
     await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    void syncWidgetCache();
     return;
   }
 
@@ -428,6 +434,8 @@ export async function markSeasonWatched(
   }
 
   await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+
+  void syncWidgetCache();
 }
 
 // Unmark an entire season as watched
@@ -449,6 +457,8 @@ export async function unmarkSeasonWatched(
 
   // Sync TV show progress
   await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+
+  void syncWidgetCache();
 }
 
 // Batch mark multiple episodes (across seasons) as watched in a single insert.
@@ -481,6 +491,7 @@ export async function batchMarkEpisodesWatched(
 
   if (toInsert.length === 0) {
     await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    void syncWidgetCache();
     return;
   }
 
@@ -506,6 +517,8 @@ export async function batchMarkEpisodesWatched(
   }
 
   await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+
+  void syncWidgetCache();
 }
 
 // Get watched episodes for a specific season

@@ -16,6 +16,10 @@ jest.mock('@/lib/tv-show-cache-service', () => ({
   getTvShowDetailsWithCache: jest.fn(),
 }));
 
+jest.mock('@/lib/widget-cache', () => ({
+  syncWidgetCache: jest.fn().mockResolvedValue(undefined),
+}));
+
 import {
   searchTvShows,
   discoverTvShowsByGenre,
