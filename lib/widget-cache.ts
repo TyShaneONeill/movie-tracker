@@ -52,11 +52,33 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason }: BuildInput
   };
 }
 
+const MAX_POSTER_BYTES = 500_000; // TMDB w342 posters are ~30KB; cap at 500KB to prevent memory spikes from a compromised mirror
+const TMDB_POSTER_PATH_PATTERN = /^\/[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)$/i;
+
+/**
+ * Writes an empty payload to the App Groups cache and reloads widget timelines.
+ * Call on sign-out to prevent the widget from showing a previous user's shows.
+ */
+export async function clearWidgetCache(): Promise<void> {
+  const emptyPayload: WidgetPayload = {
+    version: 1,
+    cached_at: Date.now(),
+    stats: { films_watched: 0, shows_watched: 0 },
+    shows: [],
+  };
+  await writeWidgetData(emptyPayload);
+  await reloadWidgetTimelines();
+}
+
 export async function syncWidgetCache(): Promise<void> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return; // not authed → nothing to cache
+  if (!user) {
+    // No authed user - clear any cached data from a previous session
+    await clearWidgetCache();
+    return;
+  }
 
   // Query top shows the user is currently watching (oversample in case some get filtered later)
   const { data: tvRows, error: tvErr } = await supabase
@@ -113,11 +135,17 @@ export async function syncWidgetCache(): Promise<void> {
     const show = payload.shows[i];
     const row = rows.find((r) => r.user_tv_show_id === show.user_tv_show_id);
     if (!row?.poster_path) continue;
+    // Sanitize poster_path - TMDB paths are a leading slash + safe filename. Rejects anything that could
+    // alter the URL (path traversal, embedded schemes, whitespace, etc).
+    if (!TMDB_POSTER_PATH_PATTERN.test(row.poster_path)) continue;
     const url = `https://image.tmdb.org/t/p/w342${row.poster_path}`;
     try {
       const res = await fetch(url);
       if (!res.ok) continue;
+      const contentLength = Number(res.headers.get('content-length') ?? 0);
+      if (contentLength > MAX_POSTER_BYTES) continue;
       const buf = await res.arrayBuffer();
+      if (buf.byteLength > MAX_POSTER_BYTES) continue;
       const base64 = arrayBufferToBase64(buf);
       await writePosterFile(`poster_${i}.jpg`, base64);
     } catch (err) {
