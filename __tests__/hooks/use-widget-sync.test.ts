@@ -28,7 +28,8 @@ describe('useWidgetSync', () => {
     expect(mockSync).toHaveBeenCalledTimes(1);
   });
 
-  it('runs sync when AppState changes to active', async () => {
+  it('runs sync when AppState changes to active (after debounce)', async () => {
+    jest.useFakeTimers();
     const listeners: Array<(state: string) => void> = [];
     jest.spyOn(AppState, 'addEventListener').mockImplementation(((
       _event: string,
@@ -43,8 +44,15 @@ describe('useWidgetSync', () => {
     await act(async () => {});
     mockSync.mockClear();
 
+    // Trigger active event then advance past the 3s debounce window
     await act(async () => {
       listeners.forEach((cb) => cb('active'));
+      jest.advanceTimersByTime(3000);
+    });
+
+    jest.useRealTimers();
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(mockSync).toHaveBeenCalledTimes(1);
@@ -93,5 +101,42 @@ describe('useWidgetSync', () => {
     unmount();
 
     expect(removeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('debounces rapid AppState active triggers into a single delayed sync', async () => {
+    jest.useFakeTimers();
+    const listeners: Array<(state: string) => void> = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation(((_event: string, cb: (s: string) => void) => {
+      listeners.push(cb);
+      return { remove: jest.fn() };
+    }) as never);
+
+    renderHook(() => useWidgetSync());
+    await act(async () => {});
+    mockSync.mockClear();
+
+    // Rapid-fire 5 active events within 100ms
+    await act(async () => {
+      for (let i = 0; i < 5; i++) {
+        listeners.forEach((cb) => cb('active'));
+        jest.advanceTimersByTime(20);
+      }
+    });
+
+    // None should have fired yet - still within the 3s debounce window
+    expect(mockSync).not.toHaveBeenCalled();
+
+    // Advance past the debounce window
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    jest.useRealTimers();
+    // Let the pending runSync promise resolve
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockSync).toHaveBeenCalledTimes(1);
   });
 });

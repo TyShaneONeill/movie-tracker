@@ -20,11 +20,18 @@ module.exports = (config) => ({
   bundleIdentifier: ".PocketStubsWidget",
   deploymentTarget: "16.0",
   frameworks: ["WidgetKit", "SwiftUI"],
-  // Mirror the main app's App Group so the widget can read shared data later.
+  // Inject Supabase config so Swift code can read via Bundle.main.object(forInfoDictionaryKey:)
+  infoPlist: {
+    SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  },
+  // Mirror the main app's App Group so the widget can read shared data.
+  // keychain-access-groups allows reading the Supabase JWT written by the main app.
   entitlements: {
     "com.apple.security.application-groups":
       config?.ios?.entitlements?.["com.apple.security.application-groups"] ?? [
         "group.com.pocketstubs.app",
       ],
+    "keychain-access-groups": ["$(AppIdentifierPrefix)com.pocketstubs.app"],
   },
 });

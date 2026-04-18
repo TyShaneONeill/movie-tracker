@@ -1,16 +1,19 @@
 import ExpoModulesCore
 import WidgetKit
 
-public class WidgetBridgeModule: Module {
+// AppGroup identifier MUST match widget extension's Constants/AppGroup.swift (source of truth)
+private enum Shared {
     static let appGroup = "group.com.pocketstubs.app"
     static let widgetKind = "PocketStubsWidget"
+}
 
+public class WidgetBridgeModule: Module {
     public func definition() -> ModuleDefinition {
         Name("WidgetBridgeModule")
 
         AsyncFunction("writeWidgetData") { (json: String) in
             guard let container = FileManager.default.containerURL(
-                forSecurityApplicationGroupIdentifier: Self.appGroup
+                forSecurityApplicationGroupIdentifier: Shared.appGroup
             ) else {
                 throw Exception(name: "E_NO_CONTAINER", description: "App Groups container unavailable")
             }
@@ -22,7 +25,7 @@ public class WidgetBridgeModule: Module {
 
         AsyncFunction("writePosterFile") { (filename: String, base64: String) in
             guard let container = FileManager.default.containerURL(
-                forSecurityApplicationGroupIdentifier: Self.appGroup
+                forSecurityApplicationGroupIdentifier: Shared.appGroup
             ), let data = Data(base64Encoded: base64) else {
                 throw Exception(name: "E_WRITE", description: "Invalid input")
             }
@@ -36,7 +39,7 @@ public class WidgetBridgeModule: Module {
 
         AsyncFunction("reloadWidgetTimelines") {
             if #available(iOS 14.0, *) {
-                WidgetCenter.shared.reloadTimelines(ofKind: Self.widgetKind)
+                WidgetCenter.shared.reloadTimelines(ofKind: Shared.widgetKind)
             }
         }
     }

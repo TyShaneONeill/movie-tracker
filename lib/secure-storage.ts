@@ -9,6 +9,18 @@ const CHUNK_SIZE = 2000;
 /** Suffix used for the key that stores the chunk count */
 const CHUNK_COUNT_SUFFIX = '__chunk_count';
 
+/**
+ * Keychain options applied to every SecureStore call.
+ *
+ * keychainAccessGroup allows the PocketStubsWidget extension to read the
+ * Supabase JWT that the main app writes. This is a one-time breaking migration:
+ * existing users will be signed out on their first update and must re-authenticate
+ * (Option A — accepted trade-off, no dual-path needed).
+ */
+const KEYCHAIN_OPTIONS: SecureStore.SecureStoreOptions = {
+  accessGroup: 'com.pocketstubs.app',
+};
+
 /** Build the key for a specific chunk index */
 function chunkKey(base: string, index: number): string {
   return `${base}__chunk_${index}`;
@@ -25,18 +37,18 @@ function chunkKey(base: string, index: number): string {
 export const SecureStorageAdapter = {
   async getItem(key: string): Promise<string | null> {
     // Check if this value was chunked
-    const countStr = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`);
+    const countStr = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`, KEYCHAIN_OPTIONS);
 
     if (countStr === null) {
       // Not chunked — try single key
-      return SecureStore.getItemAsync(key);
+      return SecureStore.getItemAsync(key, KEYCHAIN_OPTIONS);
     }
 
     // Reassemble chunks
     const count = parseInt(countStr, 10);
     const chunks: string[] = [];
     for (let i = 0; i < count; i++) {
-      const chunk = await SecureStore.getItemAsync(chunkKey(key, i));
+      const chunk = await SecureStore.getItemAsync(chunkKey(key, i), KEYCHAIN_OPTIONS);
       if (chunk === null) {
         // Corrupted — a chunk is missing. Clear everything and return null.
         await SecureStorageAdapter.removeItem(key);
@@ -53,7 +65,7 @@ export const SecureStorageAdapter = {
 
     if (value.length <= CHUNK_SIZE) {
       // Fits in a single key — no chunking needed
-      await SecureStore.setItemAsync(key, value);
+      await SecureStore.setItemAsync(key, value, KEYCHAIN_OPTIONS);
       return;
     }
 
@@ -65,28 +77,29 @@ export const SecureStorageAdapter = {
 
     // Write all chunks + count
     await Promise.all(
-      chunks.map((chunk, i) => SecureStore.setItemAsync(chunkKey(key, i), chunk))
+      chunks.map((chunk, i) => SecureStore.setItemAsync(chunkKey(key, i), chunk, KEYCHAIN_OPTIONS))
     );
     await SecureStore.setItemAsync(
       `${key}${CHUNK_COUNT_SUFFIX}`,
-      String(chunks.length)
+      String(chunks.length),
+      KEYCHAIN_OPTIONS
     );
   },
 
   async removeItem(key: string): Promise<void> {
     // Remove the single-key value (may or may not exist)
-    await SecureStore.deleteItemAsync(key);
+    await SecureStore.deleteItemAsync(key, KEYCHAIN_OPTIONS);
 
     // Check for and remove any chunks
-    const countStr = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`);
+    const countStr = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`, KEYCHAIN_OPTIONS);
     if (countStr !== null) {
       const count = parseInt(countStr, 10);
       await Promise.all(
         Array.from({ length: count }, (_, i) =>
-          SecureStore.deleteItemAsync(chunkKey(key, i))
+          SecureStore.deleteItemAsync(chunkKey(key, i), KEYCHAIN_OPTIONS)
         )
       );
-      await SecureStore.deleteItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`);
+      await SecureStore.deleteItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`, KEYCHAIN_OPTIONS);
     }
   },
 };

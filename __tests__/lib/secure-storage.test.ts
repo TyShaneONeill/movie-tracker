@@ -14,6 +14,9 @@ const mockDelete = SecureStore.deleteItemAsync as jest.Mock;
 const CHUNK_SIZE = 2000;
 const makeString = (len: number) => 'x'.repeat(len);
 
+/** Must match KEYCHAIN_OPTIONS in lib/secure-storage.ts */
+const KCO = { accessGroup: 'com.pocketstubs.app' };
+
 /**
  * Wire up mocks to an in-memory Map so setItem/getItem/removeItem
  * behave like a real key-value store across multiple calls.
@@ -21,10 +24,10 @@ const makeString = (len: number) => 'x'.repeat(len);
 function useInMemoryStore() {
   const store = new Map<string, string>();
   mockGet.mockImplementation(async (key: string) => store.get(key) ?? null);
-  mockSet.mockImplementation(async (key: string, value: string) => {
+  mockSet.mockImplementation(async (key: string, value: string, _opts?: unknown) => {
     store.set(key, value);
   });
-  mockDelete.mockImplementation(async (key: string) => {
+  mockDelete.mockImplementation(async (key: string, _opts?: unknown) => {
     store.delete(key);
   });
   return store;
@@ -46,10 +49,11 @@ describe('SecureStorageAdapter.setItem', () => {
     await SecureStorageAdapter.setItem('token', value);
 
     // Should write exactly one key with the value
-    expect(mockSet).toHaveBeenCalledWith('token', value);
+    expect(mockSet).toHaveBeenCalledWith('token', value, KCO);
     // Should NOT write any chunk-count key
     expect(mockSet).not.toHaveBeenCalledWith(
       'token__chunk_count',
+      expect.anything(),
       expect.anything()
     );
   });
@@ -72,7 +76,8 @@ describe('SecureStorageAdapter.setItem', () => {
       // Verify chunk count stored
       expect(mockSet).toHaveBeenCalledWith(
         'tok__chunk_count',
-        String(expectedChunks)
+        String(expectedChunks),
+        KCO
       );
 
       // Verify each chunk key was written
@@ -81,7 +86,7 @@ describe('SecureStorageAdapter.setItem', () => {
           i * CHUNK_SIZE,
           (i + 1) * CHUNK_SIZE
         );
-        expect(mockSet).toHaveBeenCalledWith(`tok__chunk_${i}`, expectedChunk);
+        expect(mockSet).toHaveBeenCalledWith(`tok__chunk_${i}`, expectedChunk, KCO);
       }
     }
   );
@@ -96,11 +101,11 @@ describe('SecureStorageAdapter.setItem', () => {
     await SecureStorageAdapter.setItem('tok', 'small');
 
     // removeItem should have deleted old chunks and the count key
-    expect(mockDelete).toHaveBeenCalledWith('tok'); // single key cleanup
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_0');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_1');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_2');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_count');
+    expect(mockDelete).toHaveBeenCalledWith('tok', KCO); // single key cleanup
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_0', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_1', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_2', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_count', KCO);
   });
 });
 
@@ -152,8 +157,8 @@ describe('SecureStorageAdapter.getItem', () => {
 
     expect(result).toBeNull();
     // removeItem should have been triggered for cleanup
-    expect(mockDelete).toHaveBeenCalledWith('tok');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_count');
+    expect(mockDelete).toHaveBeenCalledWith('tok', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_count', KCO);
   });
 });
 
@@ -166,7 +171,7 @@ describe('SecureStorageAdapter.removeItem', () => {
 
     await SecureStorageAdapter.removeItem('tok');
 
-    expect(mockDelete).toHaveBeenCalledWith('tok');
+    expect(mockDelete).toHaveBeenCalledWith('tok', KCO);
     // No chunk keys should be deleted
     expect(mockDelete).toHaveBeenCalledTimes(1);
   });
@@ -179,11 +184,11 @@ describe('SecureStorageAdapter.removeItem', () => {
 
     await SecureStorageAdapter.removeItem('tok');
 
-    expect(mockDelete).toHaveBeenCalledWith('tok');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_0');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_1');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_2');
-    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_count');
+    expect(mockDelete).toHaveBeenCalledWith('tok', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_0', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_1', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_2', KCO);
+    expect(mockDelete).toHaveBeenCalledWith('tok__chunk_count', KCO);
     expect(mockDelete).toHaveBeenCalledTimes(5);
   });
 
