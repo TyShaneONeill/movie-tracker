@@ -22,6 +22,11 @@ export type WidgetPayload = {
   }>;
 };
 
+export type AuthTokenPayload = {
+  access_token: string | null;
+  user_id: string | null;
+};
+
 export async function writeWidgetData(payload: WidgetPayload): Promise<void> {
   if (Platform.OS !== 'ios') return;
   try {
@@ -37,6 +42,15 @@ export async function writePosterFile(filename: string, base64: string): Promise
     await WidgetBridge.writePosterFile(filename, base64);
   } catch (err) {
     if (__DEV__) console.warn('[widget-bridge] writePosterFile failed', err);
+  }
+}
+
+export async function writeAuthToken(payload: AuthTokenPayload): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await WidgetBridge.writeAuthToken(JSON.stringify(payload));
+  } catch (err) {
+    if (__DEV__) console.warn('[widget-bridge] writeAuthToken failed', err);
   }
 }
 

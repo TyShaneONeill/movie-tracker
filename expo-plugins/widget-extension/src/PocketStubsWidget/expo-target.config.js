@@ -29,12 +29,13 @@ module.exports = (config) => ({
     SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   },
   // Mirror the main app's App Group so the widget can read shared data.
-  // keychain-access-groups allows reading the Supabase JWT written by the main app.
+  // Phase 2 uses App Groups (not Keychain Sharing) for auth token exchange,
+  // so keychain-access-groups is intentionally absent here - App Groups alone
+  // covers both widget data AND auth token.
   entitlements: {
     "com.apple.security.application-groups":
       config?.ios?.entitlements?.["com.apple.security.application-groups"] ?? [
         "group.com.pocketstubs.app",
       ],
-    "keychain-access-groups": ["$(AppIdentifierPrefix)com.pocketstubs.app"],
   },
 });

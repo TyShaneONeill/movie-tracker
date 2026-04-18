@@ -1,7 +1,8 @@
 import Foundation
 
 /// Widget-side Supabase REST client. Minimal URLSession wrapper.
-/// Auth via shared Keychain; no supabase-swift SDK dependency.
+/// Auth via App Groups file written by the main app's useAuthTokenSync hook;
+/// no supabase-swift SDK dependency.
 ///
 /// Both user actions (mark episode watched, advance season) are implemented
 /// as the same two-call pattern that the main app's tv-show-service uses:
@@ -46,7 +47,7 @@ struct SupabaseWidgetClient {
         guard let (baseUrl, anonKey, token) = try? resolveConfig() else {
             throw ClientError.missingConfig
         }
-        guard let userId = KeychainTokenReader.readUserId() else {
+        guard let userId = AuthTokenReader.readUserId() else {
             throw ClientError.missingUserId
         }
         guard let endpoint = URL(string: "\(baseUrl)/rest/v1/user_episode_watches") else {
@@ -104,7 +105,7 @@ struct SupabaseWidgetClient {
         try validate(response: response, data: data)
     }
 
-    /// Resolves (Supabase URL, anon key, JWT) from Info.plist + Keychain.
+    /// Resolves (Supabase URL, anon key, JWT) from Info.plist + App Groups auth file.
     /// Throws `.missingConfig` if any piece is absent.
     private static func resolveConfig() throws -> (String, String, String) {
         guard let url = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
@@ -115,7 +116,7 @@ struct SupabaseWidgetClient {
               !anonKey.isEmpty else {
             throw ClientError.missingConfig
         }
-        guard let token = KeychainTokenReader.read() else {
+        guard let token = AuthTokenReader.read() else {
             throw ClientError.missingToken
         }
         return (url, anonKey, token)
