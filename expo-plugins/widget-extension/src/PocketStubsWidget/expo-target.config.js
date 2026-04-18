@@ -18,7 +18,10 @@ module.exports = (config) => ({
   // Prefix with dot so the plugin appends to the root bundle id:
   //   com.pocketstubs.app + .PocketStubsWidget => com.pocketstubs.app.PocketStubsWidget
   bundleIdentifier: ".PocketStubsWidget",
-  deploymentTarget: "16.0",
+  // iOS 17.0 required for Button(intent:) inside a widget (interactive widgets).
+  // Main app stays on iOS 16.0; users on iOS 16 install the app but simply
+  // don't see the widget in their gallery.
+  deploymentTarget: "17.0",
   frameworks: ["WidgetKit", "SwiftUI"],
   // Inject Supabase config so Swift code can read via Bundle.main.object(forInfoDictionaryKey:)
   infoPlist: {
