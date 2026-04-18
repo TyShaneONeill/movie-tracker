@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { writeWidgetData, writePosterFile, reloadWidgetTimelines, WidgetPayload } from '@/lib/widget-bridge';
+import type { SeasonDetailResponse } from '@/lib/tmdb.types';
 
 type WatchingRow = {
   user_tv_show_id: string;
@@ -30,6 +31,40 @@ function extractEpisodesBySeasonForShow(
     }
   }
   return out;
+}
+
+async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<string, number>> {
+  const map: Record<string, number> = {};
+  const top3 = rows.slice(0, 3);
+
+  // Build list of (row, seasonNumber) pairs to fetch, then fetch in parallel.
+  // Calls the same Supabase edge function that getSeasonEpisodes in tv-show-service uses,
+  // but inlined here to avoid a circular import (tv-show-service imports widget-cache).
+  const fetches: Array<Promise<void>> = [];
+  for (const row of top3) {
+    for (let seasonNum = 1; seasonNum <= row.number_of_seasons; seasonNum++) {
+      fetches.push(
+        supabase.functions
+          .invoke<SeasonDetailResponse>('get-season-episodes', {
+            body: { showId: row.tmdb_id, seasonNumber: seasonNum },
+          })
+          .then(({ data, error }) => {
+            if (error || !data) throw error ?? new Error('No data');
+            map[`${row.user_tv_show_id}-${seasonNum}`] = data.episodes?.length ?? 0;
+          })
+          .catch((err) => {
+            if (__DEV__) console.warn('[widget-cache] TMDB season fetch failed', {
+              tmdb_id: row.tmdb_id,
+              seasonNum,
+              err,
+            });
+            // Leave unset; is_season_complete defaults to false and widget renders correctly
+          })
+      );
+    }
+  }
+  await Promise.all(fetches);
+  return map;
 }
 
 export function buildWidgetPayload({ rows, stats, episodesBySeason }: BuildInput): WidgetPayload {
@@ -117,11 +152,15 @@ export async function syncWidgetCache(): Promise<void> {
     updated_at: r.updated_at ?? new Date(0).toISOString(),
   }));
 
-  // Phase 1: season-level episode counts unavailable in DB (would need TMDB fetch).
-  // Phase 2 will populate this map when the interactive "Completed! / Start S{N+1}" UI needs it.
-  // With an empty map, is_season_complete/is_show_complete stay false (non-interactive widget doesn't render them).
-  // has_next_season + next_season_number still compute correctly from user_tv_shows.number_of_seasons.
-  const episodesBySeason: Record<string, number> = {};
+  // Phase 2: fetch per-season episode counts via the TMDB edge function for
+  // the top 3 watching shows. All seasons are fetched so the widget can
+  // handle season-advance (StartNextSeasonIntent) locally.
+  // Failures are non-fatal — affected flags default to false, widget still renders.
+  const top3ForFetch = rows
+    .slice()
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+    .slice(0, 3);
+  const episodesBySeason = await fetchSeasonEpisodeCounts(top3ForFetch);
 
   // Stats counts
   const [filmsRes, showsRes] = await Promise.all([
