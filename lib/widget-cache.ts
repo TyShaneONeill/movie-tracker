@@ -23,9 +23,11 @@ function extractEpisodesBySeasonForShow(
   episodesBySeason: Record<string, number>
 ): Record<string, number> {
   const out: Record<string, number> = {};
+  const prefix = `${userTvShowId}-`;
   for (const [key, value] of Object.entries(episodesBySeason)) {
-    const [id, season] = key.split('-');
-    if (id === userTvShowId) out[season] = value;
+    if (key.startsWith(prefix)) {
+      out[key.substring(prefix.length)] = value;
+    }
   }
   return out;
 }
