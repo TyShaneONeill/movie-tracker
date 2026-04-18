@@ -90,4 +90,66 @@ describe('buildWidgetPayload', () => {
     const payload = buildWidgetPayload({ rows: [], stats: { films_watched: 68, shows_watched: 12 }, episodesBySeason: {} });
     expect(payload.stats).toEqual({ films_watched: 68, shows_watched: 12 });
   });
+
+  it('populates total_episodes_in_current_season from episodesBySeason when available', () => {
+    const rows = [{
+      user_tv_show_id: 'a',
+      tmdb_id: 1,
+      name: 'A',
+      poster_path: '/a.jpg',
+      current_season: 2,
+      current_episode: 5,
+      number_of_seasons: 3,
+      updated_at: '2026-04-15',
+    }];
+    const payload = buildWidgetPayload({
+      rows,
+      stats: { films_watched: 0, shows_watched: 0 },
+      episodesBySeason: { 'a-1': 9, 'a-2': 10, 'a-3': 10 },
+    });
+    expect(payload.shows[0].total_episodes_in_current_season).toBe(10);
+    expect(payload.shows[0].episodes_by_season).toEqual({ '1': 9, '2': 10, '3': 10 });
+  });
+
+  it('defaults total_episodes_in_current_season to null and episodes_by_season to empty when episodesBySeason is empty', () => {
+    const rows = [{
+      user_tv_show_id: 'a',
+      tmdb_id: 1,
+      name: 'A',
+      poster_path: null,
+      current_season: 1,
+      current_episode: 1,
+      number_of_seasons: 1,
+      updated_at: '2026-04-15',
+    }];
+    const payload = buildWidgetPayload({
+      rows,
+      stats: { films_watched: 0, shows_watched: 0 },
+      episodesBySeason: {},
+    });
+    expect(payload.shows[0].total_episodes_in_current_season).toBeNull();
+    expect(payload.shows[0].episodes_by_season).toEqual({});
+  });
+
+  it('only includes episodes_by_season entries for the matching show', () => {
+    const rows = [
+      {
+        user_tv_show_id: 'a', tmdb_id: 1, name: 'A', poster_path: null,
+        current_season: 1, current_episode: 1, number_of_seasons: 2, updated_at: '2026-04-15',
+      },
+      {
+        user_tv_show_id: 'b', tmdb_id: 2, name: 'B', poster_path: null,
+        current_season: 1, current_episode: 1, number_of_seasons: 2, updated_at: '2026-04-14',
+      },
+    ];
+    const payload = buildWidgetPayload({
+      rows,
+      stats: { films_watched: 0, shows_watched: 0 },
+      episodesBySeason: { 'a-1': 10, 'a-2': 10, 'b-1': 8, 'b-2': 8 },
+    });
+    const showA = payload.shows.find((s) => s.user_tv_show_id === 'a')!;
+    const showB = payload.shows.find((s) => s.user_tv_show_id === 'b')!;
+    expect(showA.episodes_by_season).toEqual({ '1': 10, '2': 10 });
+    expect(showB.episodes_by_season).toEqual({ '1': 8, '2': 8 });
+  });
 });

@@ -13,6 +13,8 @@ export type WidgetPayload = {
     current_season: number;
     current_episode: number;
     total_seasons: number;
+    total_episodes_in_current_season: number | null;
+    episodes_by_season: Record<string, number>;
     is_season_complete: boolean;
     has_next_season: boolean;
     next_season_number: number | null;

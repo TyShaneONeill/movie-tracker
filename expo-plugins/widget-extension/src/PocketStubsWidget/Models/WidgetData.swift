@@ -32,6 +32,8 @@ struct Show: Codable {
     let currentSeason: Int
     let currentEpisode: Int
     let totalSeasons: Int
+    let totalEpisodesInCurrentSeason: Int?
+    let episodesBySeason: [String: Int]
     let isSeasonComplete: Bool
     let hasNextSeason: Bool
     let nextSeasonNumber: Int?
@@ -45,6 +47,8 @@ struct Show: Codable {
         case currentSeason = "current_season"
         case currentEpisode = "current_episode"
         case totalSeasons = "total_seasons"
+        case totalEpisodesInCurrentSeason = "total_episodes_in_current_season"
+        case episodesBySeason = "episodes_by_season"
         case isSeasonComplete = "is_season_complete"
         case hasNextSeason = "has_next_season"
         case nextSeasonNumber = "next_season_number"

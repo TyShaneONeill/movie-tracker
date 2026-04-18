@@ -18,6 +18,18 @@ type BuildInput = {
   episodesBySeason: Record<string, number>; // key format: `${userTvShowId}-${seasonNumber}`. In Phase 1 this is ALWAYS {}.
 };
 
+function extractEpisodesBySeasonForShow(
+  userTvShowId: string,
+  episodesBySeason: Record<string, number>
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(episodesBySeason)) {
+    const [id, season] = key.split('-');
+    if (id === userTvShowId) out[season] = value;
+  }
+  return out;
+}
+
 export function buildWidgetPayload({ rows, stats, episodesBySeason }: BuildInput): WidgetPayload {
   const top3 = rows
     .slice()
@@ -37,6 +49,8 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason }: BuildInput
       current_season: row.current_season,
       current_episode: row.current_episode,
       total_seasons: row.number_of_seasons,
+      total_episodes_in_current_season: episodesInSeason > 0 ? episodesInSeason : null,
+      episodes_by_season: extractEpisodesBySeasonForShow(row.user_tv_show_id, episodesBySeason),
       is_season_complete: isSeasonComplete,
       has_next_season: hasNextSeason,
       next_season_number: hasNextSeason ? row.current_season + 1 : null,
