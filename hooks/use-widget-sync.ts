@@ -2,13 +2,17 @@ import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { syncWidgetCache } from '@/lib/widget-cache';
 
+const DEBOUNCE_MS = 3000;
+
 /**
  * Mounts once at the app root. Keeps the iOS home-screen widget's App Groups
  * cache fresh by firing syncWidgetCache on mount and every foreground event.
- * Skips triggers while a sync is already in flight - no-op on other platforms.
+ * Foreground triggers are coalesced via a 3s trailing-edge debounce.
+ * Skips concurrent in-flight syncs. No-op on other platforms.
  */
 export function useWidgetSync(): void {
   const inFlight = useRef(false);
+  const trailingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const runSync = async () => {
@@ -21,12 +25,24 @@ export function useWidgetSync(): void {
       }
     };
 
+    const scheduleSync = () => {
+      if (trailingTimer.current) clearTimeout(trailingTimer.current);
+      trailingTimer.current = setTimeout(() => {
+        trailingTimer.current = null;
+        void runSync();
+      }, DEBOUNCE_MS);
+    };
+
+    // Mount fires immediately (cold start should be snappy — no debounce)
     void runSync();
 
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active') void runSync();
+      if (state === 'active') scheduleSync();
     });
 
-    return () => sub.remove();
+    return () => {
+      sub.remove();
+      if (trailingTimer.current) clearTimeout(trailingTimer.current);
+    };
   }, []);
 }

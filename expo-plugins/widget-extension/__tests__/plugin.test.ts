@@ -68,9 +68,9 @@ describe("PocketStubsWidget — expo-target.config.js", () => {
     expect(result.bundleIdentifier).toBe(".PocketStubsWidget");
   });
 
-  it("targets iOS 16.0 to match main app deployment target", () => {
+  it("targets iOS 17.0 for Button(intent:) support (main app stays on 16.0)", () => {
     const result = loadTargetConfig()(fakeExpoConfig);
-    expect(result.deploymentTarget).toBe("16.0");
+    expect(result.deploymentTarget).toBe("17.0");
   });
 
   it("links WidgetKit and SwiftUI", () => {

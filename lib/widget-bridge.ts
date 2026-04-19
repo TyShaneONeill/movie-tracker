@@ -13,11 +13,20 @@ export type WidgetPayload = {
     current_season: number;
     current_episode: number;
     total_seasons: number;
+    total_episodes_in_current_season: number | null;
+    episodes_by_season: Record<string, number>;
     is_season_complete: boolean;
     has_next_season: boolean;
     next_season_number: number | null;
     is_show_complete: boolean;
   }>;
+};
+
+export type AuthTokenPayload = {
+  access_token: string | null;
+  user_id: string | null;
+  supabase_url: string;
+  supabase_anon_key: string;
 };
 
 export async function writeWidgetData(payload: WidgetPayload): Promise<void> {
@@ -35,6 +44,15 @@ export async function writePosterFile(filename: string, base64: string): Promise
     await WidgetBridge.writePosterFile(filename, base64);
   } catch (err) {
     if (__DEV__) console.warn('[widget-bridge] writePosterFile failed', err);
+  }
+}
+
+export async function writeAuthToken(payload: AuthTokenPayload): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await WidgetBridge.writeAuthToken(JSON.stringify(payload));
+  } catch (err) {
+    if (__DEV__) console.warn('[widget-bridge] writeAuthToken failed', err);
   }
 }
 

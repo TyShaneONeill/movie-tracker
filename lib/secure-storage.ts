@@ -21,6 +21,10 @@ function chunkKey(base: string, index: number): string {
  * large values (e.g. JWTs with extensive claims) across multiple keys.
  *
  * Small values (≤ CHUNK_SIZE) are stored in a single key with no overhead.
+ *
+ * Note: the widget extension reads the auth token from an App Groups file
+ * (written by hooks/use-auth-token-sync.ts), NOT from this keychain. See
+ * the Widget Phase 2 design doc for rationale.
  */
 export const SecureStorageAdapter = {
   async getItem(key: string): Promise<string | null> {
@@ -67,10 +71,7 @@ export const SecureStorageAdapter = {
     await Promise.all(
       chunks.map((chunk, i) => SecureStore.setItemAsync(chunkKey(key, i), chunk))
     );
-    await SecureStore.setItemAsync(
-      `${key}${CHUNK_COUNT_SUFFIX}`,
-      String(chunks.length)
-    );
+    await SecureStore.setItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`, String(chunks.length));
   },
 
   async removeItem(key: string): Promise<void> {

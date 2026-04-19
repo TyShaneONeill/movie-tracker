@@ -45,6 +45,7 @@ import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useWidgetSync } from '@/hooks/use-widget-sync';
+import { useAuthTokenSync } from '@/hooks/use-auth-token-sync';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -187,6 +188,7 @@ function RootLayoutNav() {
   useAnalyticsIdentity();
   usePushNotifications();
   useWidgetSync();
+  useAuthTokenSync();
 
   useEffect(() => {
     setBg(Colors[effectiveTheme].background);

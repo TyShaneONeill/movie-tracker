@@ -1,0 +1,148 @@
+import Foundation
+
+/// Widget-side Supabase REST client. Minimal URLSession wrapper.
+/// Auth via App Groups file written by the main app's useAuthTokenSync hook;
+/// no supabase-swift SDK dependency.
+///
+/// Both user actions (mark episode watched, advance season) are implemented
+/// as the same two-call pattern that the main app's tv-show-service uses:
+/// 1. INSERT a row into user_episode_watches
+/// 2. RPC sync_tv_show_progress to recompute current_season / current_episode
+struct SupabaseWidgetClient {
+    enum ClientError: Error {
+        case missingConfig
+        case missingToken
+        case missingUserId
+        case httpError(Int, String?)
+        case invalidResponse
+    }
+
+    /// Marks the next episode as watched.
+    /// - Parameters:
+    ///   - userTvShowId: the user_tv_shows.id UUID
+    ///   - tmdbShowId: the TMDB show ID (for user_episode_watches.tmdb_show_id)
+    ///   - seasonNumber: the season containing the episode to mark
+    ///   - episodeNumber: the episode number to mark
+    static func markEpisodeWatched(
+        userTvShowId: String,
+        tmdbShowId: Int,
+        seasonNumber: Int,
+        episodeNumber: Int
+    ) async throws {
+        try await insertEpisodeWatch(
+            userTvShowId: userTvShowId,
+            tmdbShowId: tmdbShowId,
+            seasonNumber: seasonNumber,
+            episodeNumber: episodeNumber
+        )
+        try await syncProgress(userTvShowId: userTvShowId)
+    }
+
+    private static func insertEpisodeWatch(
+        userTvShowId: String,
+        tmdbShowId: Int,
+        seasonNumber: Int,
+        episodeNumber: Int
+    ) async throws {
+        guard let (baseUrl, anonKey, token) = try? resolveConfig() else {
+            throw ClientError.missingConfig
+        }
+        guard let userId = AuthTokenReader.readUserId() else {
+            throw ClientError.missingUserId
+        }
+        guard let endpoint = URL(string: "\(baseUrl)/rest/v1/user_episode_watches") else {
+            throw ClientError.missingConfig
+        }
+
+        // Column names MUST match the actual user_episode_watches schema.
+        // Mirror lib/tv-show-service.ts markEpisodeWatched INSERT body.
+        // Note: main app also sets episode_name, episode_runtime, still_path,
+        // and watched_at. The widget lacks episode metadata at tap time, so
+        // those columns are omitted - they're all nullable in the schema.
+        // watched_at defaults to now() via the column default (or remains null;
+        // the main app's syncWidgetCache reconciles on next foreground).
+        let body: [String: Any] = [
+            "user_id": userId,
+            "user_tv_show_id": userTvShowId,
+            "tmdb_show_id": tmdbShowId,
+            "season_number": seasonNumber,
+            "episode_number": episodeNumber,
+            "watched_at": ISO8601DateFormatter().string(from: Date()),
+        ]
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue(anonKey, forHTTPHeaderField: "apikey")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        // return=minimal - save bandwidth (don't return inserted row).
+        // resolution=ignore-duplicates - rapid widget taps or Shortcuts-driven
+        // double-fire post duplicate rows that the (user_tv_show_id, season,
+        // episode) unique index would otherwise 409 on; with this header
+        // PostgREST returns the existing row as if the insert succeeded.
+        request.addValue("return=minimal,resolution=ignore-duplicates", forHTTPHeaderField: "Prefer")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+    }
+
+    private static func syncProgress(userTvShowId: String) async throws {
+        guard let (baseUrl, anonKey, token) = try? resolveConfig() else {
+            throw ClientError.missingConfig
+        }
+        guard let endpoint = URL(string: "\(baseUrl)/rest/v1/rpc/sync_tv_show_progress") else {
+            throw ClientError.missingConfig
+        }
+
+        let body: [String: Any] = ["p_user_tv_show_id": userTvShowId]
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue(anonKey, forHTTPHeaderField: "apikey")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        // sync_tv_show_progress is idempotent (recomputes state from the
+        // user_episode_watches table). If the INSERT above succeeded but this
+        // RPC fails on a transient network drop or 5xx, user_episode_watches
+        // has a row but user_tv_shows.current_episode never bumps - until the
+        // next app-side sync, widget and app display inconsistent state. One
+        // retry after 500ms closes that window at negligible cost. 4xx errors
+        // (auth/validation) won't change on retry, so we bail immediately.
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            try validate(response: response, data: data)
+        } catch ClientError.httpError(let status, let body) where status < 500 {
+            throw ClientError.httpError(status, body)
+        } catch {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            try validate(response: response, data: data)
+        }
+    }
+
+    /// Resolves (Supabase URL, anon key, JWT) from the App Groups auth file.
+    /// Throws `.missingConfig` if URL/anon key are absent or `.missingToken`
+    /// if the user is signed out.
+    private static func resolveConfig() throws -> (String, String, String) {
+        guard let (url, anonKey) = AuthTokenReader.readSupabaseConfig() else {
+            throw ClientError.missingConfig
+        }
+        guard let token = AuthTokenReader.read() else {
+            throw ClientError.missingToken
+        }
+        return (url, anonKey, token)
+    }
+
+    private static func validate(response: URLResponse, data: Data) throws {
+        guard let http = response as? HTTPURLResponse else {
+            throw ClientError.invalidResponse
+        }
+        guard (200...299).contains(http.statusCode) else {
+            let body = String(data: data, encoding: .utf8)
+            throw ClientError.httpError(http.statusCode, body)
+        }
+    }
+}

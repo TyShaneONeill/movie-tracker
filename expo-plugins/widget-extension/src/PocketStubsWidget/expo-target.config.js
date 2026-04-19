@@ -18,9 +18,18 @@ module.exports = (config) => ({
   // Prefix with dot so the plugin appends to the root bundle id:
   //   com.pocketstubs.app + .PocketStubsWidget => com.pocketstubs.app.PocketStubsWidget
   bundleIdentifier: ".PocketStubsWidget",
-  deploymentTarget: "16.0",
+  // iOS 17.0 required for Button(intent:) inside a widget (interactive widgets).
+  // Main app stays on iOS 16.0; users on iOS 16 install the app but simply
+  // don't see the widget in their gallery.
+  deploymentTarget: "17.0",
   frameworks: ["WidgetKit", "SwiftUI"],
-  // Mirror the main app's App Group so the widget can read shared data later.
+  // Supabase config reaches the widget via App Groups (see AuthTokenReader.swift
+  // + hooks/use-auth-token-sync.ts), NOT via Info.plist — @bacons/apple-targets'
+  // infoPlist block doesn't reliably propagate env vars into the widget target.
+  // Mirror the main app's App Group so the widget can read shared data.
+  // Phase 2 uses App Groups (not Keychain Sharing) for auth token exchange,
+  // so keychain-access-groups is intentionally absent here - App Groups alone
+  // covers both widget data AND auth token.
   entitlements: {
     "com.apple.security.application-groups":
       config?.ios?.entitlements?.["com.apple.security.application-groups"] ?? [

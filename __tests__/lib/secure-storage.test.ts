@@ -50,6 +50,7 @@ describe('SecureStorageAdapter.setItem', () => {
     // Should NOT write any chunk-count key
     expect(mockSet).not.toHaveBeenCalledWith(
       'token__chunk_count',
+      expect.anything(),
       expect.anything()
     );
   });

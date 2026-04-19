@@ -10,10 +10,7 @@ struct WidgetView: View {
             HStack(spacing: 8) {
                 ForEach(0..<3, id: \.self) { idx in
                     if idx < entry.data.shows.count {
-                        let show = entry.data.shows[idx]
-                        Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
-                            ShowCard(show: show)
-                        }
+                        ShowCard(show: entry.data.shows[idx])
                     } else {
                         EmptySlot()
                     }
@@ -38,12 +35,26 @@ private struct ShowCard: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            PosterView(show: show)
-                .aspectRatio(2/3, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            Text(episodeLabel)
-                .font(.caption2)
-                .foregroundColor(.primary)
+            // Poster area - tappable, deep-links to show detail (Phase 1 behavior preserved)
+            Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
+                PosterView(show: show)
+                    .aspectRatio(2/3, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            // Bottom strip: either SeasonCompleteBadge (end-of-season state) or
+            // episode label stacked above EyeballButton (mid-season state).
+            // Link above and Button(intent:) here occupy separate tap regions.
+            if show.isSeasonComplete {
+                SeasonCompleteBadge(show: show)
+            } else {
+                VStack(spacing: 3) {
+                    Text(episodeLabel)
+                        .font(.caption2)
+                        .foregroundColor(.primary)
+                    EyeballButton(show: show)
+                }
+            }
         }
     }
 
