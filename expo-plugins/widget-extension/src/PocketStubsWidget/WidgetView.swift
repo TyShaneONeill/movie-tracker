@@ -55,32 +55,39 @@ private struct ShowCard: View {
     let show: Show
 
     var body: some View {
-        VStack(spacing: 4) {
-            Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
-                PosterView(show: show)
-                    .aspectRatio(2/3, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(
-                        show.isLastUpdated && !show.isTrophy
-                            ? RoundedRectangle(cornerRadius: 6)
-                                .strokeBorder(Color.orange.opacity(0.5), lineWidth: 1.5)
-                            : nil
-                    )
-                    .trophyOverlay(enabled: show.isTrophy)
-            }
-
-            if show.isTrophy {
-                // No action row — trophy poster stands alone
-                EmptyView()
-            } else if show.isSeasonComplete {
-                SeasonCompleteBadge(show: show)
-            } else {
-                VStack(spacing: 3) {
-                    Text(episodeLabel)
-                        .font(.caption2)
-                        .foregroundColor(.primary)
-                    EyeballButton(show: show)
+        GeometryReader { geo in
+            VStack(spacing: 4) {
+                // Poster area fills all remaining vertical space minus action strip
+                Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
+                    PosterView(show: show)
+                        .frame(width: geo.size.width, height: geo.size.height - 32) // 28pt action + 4pt spacing
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(
+                            show.isLastUpdated && !show.isTrophy
+                                ? RoundedRectangle(cornerRadius: 6)
+                                    .strokeBorder(Color.orange.opacity(0.7), lineWidth: 2)
+                                : nil
+                        )
+                        .trophyOverlay(enabled: show.isTrophy)
                 }
+
+                // Action strip — fixed 28pt
+                Group {
+                    if show.isTrophy {
+                        EmptyView()
+                    } else if show.isSeasonComplete {
+                        SeasonCompleteBadge(show: show)
+                    } else {
+                        VStack(spacing: 2) {
+                            Text(episodeLabel)
+                                .font(.caption2)
+                                .foregroundColor(.primary)
+                            EyeballButton(show: show)
+                        }
+                    }
+                }
+                .frame(height: 28)
+                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -116,6 +123,7 @@ private struct PosterView: View {
             Image(uiImage: image)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
+                .clipped()
         } else {
             TitleFallback(title: show.name)
         }
