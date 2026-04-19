@@ -24,5 +24,12 @@ struct EyeballButton: View {
                 .contentShape(Rectangle().inset(by: -10))
         }
         .buttonStyle(.plain)
+        // Phase 3: haptic fires when the widget re-renders after a successful
+        // mark-watched (current_episode changes). View-level .sensoryFeedback
+        // is the iOS 17+ widget-compatible pattern - more reliable than
+        // UIImpactFeedbackGenerator in AppIntent perform() because it doesn't
+        // depend on the extension process still being alive when the hardware
+        // fires.
+        .sensoryFeedback(.success, trigger: show.currentEpisode)
     }
 }

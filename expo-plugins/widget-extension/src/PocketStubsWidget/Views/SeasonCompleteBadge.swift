@@ -31,6 +31,9 @@ struct SeasonCompleteBadge: View {
                         .contentShape(Rectangle().inset(by: -8))
                 }
                 .buttonStyle(.plain)
+                // Phase 3: haptic fires when the widget re-renders with an
+                // advanced current_season. See EyeballButton for pattern rationale.
+                .sensoryFeedback(.success, trigger: show.currentSeason)
             }
         }
     }
