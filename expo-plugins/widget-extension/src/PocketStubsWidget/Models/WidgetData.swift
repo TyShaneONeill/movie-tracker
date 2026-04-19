@@ -64,6 +64,43 @@ struct Show: Codable {
     let isTrophy: Bool
     let isLastUpdated: Bool
 
+    // Explicit memberwise init — required because the custom init(from:) below
+    // suppresses Swift's synthesized memberwise initializer.
+    // isTrophy and isLastUpdated default to false so pre-Phase-4a callers compile.
+    init(
+        userTvShowId: String,
+        tmdbId: Int,
+        name: String,
+        posterFilename: String?,
+        currentSeason: Int,
+        currentEpisode: Int,
+        totalSeasons: Int,
+        totalEpisodesInCurrentSeason: Int?,
+        episodesBySeason: [String: Int],
+        isSeasonComplete: Bool,
+        hasNextSeason: Bool,
+        nextSeasonNumber: Int?,
+        isShowComplete: Bool,
+        isTrophy: Bool = false,
+        isLastUpdated: Bool = false
+    ) {
+        self.userTvShowId = userTvShowId
+        self.tmdbId = tmdbId
+        self.name = name
+        self.posterFilename = posterFilename
+        self.currentSeason = currentSeason
+        self.currentEpisode = currentEpisode
+        self.totalSeasons = totalSeasons
+        self.totalEpisodesInCurrentSeason = totalEpisodesInCurrentSeason
+        self.episodesBySeason = episodesBySeason
+        self.isSeasonComplete = isSeasonComplete
+        self.hasNextSeason = hasNextSeason
+        self.nextSeasonNumber = nextSeasonNumber
+        self.isShowComplete = isShowComplete
+        self.isTrophy = isTrophy
+        self.isLastUpdated = isLastUpdated
+    }
+
     enum CodingKeys: String, CodingKey {
         case userTvShowId = "user_tv_show_id"
         case tmdbId = "tmdb_id"
