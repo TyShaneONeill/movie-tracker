@@ -52,7 +52,7 @@ private struct ShowCard: View {
     let show: Show
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 8) {
             Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
                 PosterView(show: show)
                     .aspectRatio(2/3, contentMode: .fit)
