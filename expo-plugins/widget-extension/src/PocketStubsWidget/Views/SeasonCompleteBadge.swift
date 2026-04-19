@@ -33,6 +33,7 @@ struct SeasonCompleteBadge: View {
                 .buttonStyle(.plain)
                 // Phase 3: haptic fires when the widget re-renders with an
                 // advanced current_season. See EyeballButton for pattern rationale.
+                // Verified non-firing on iOS 26.5 device 2026-04-18; kept for forward compat.
                 .sensoryFeedback(.success, trigger: show.currentSeason)
             }
         }

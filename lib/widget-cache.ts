@@ -55,9 +55,14 @@ async function fetchShowDetails(rows: WatchingRow[]): Promise<Record<string, num
       try {
         const { data, error } = await supabase.functions.invoke<{ number_of_seasons?: number }>(
           'get-tv-show-details',
-          { body: { showId: row.tmdb_id } }
+          // Number() cast defends against future callers passing stringified IDs;
+          // current row.tmdb_id is typed as number but edge function strictly checks typeof.
+          { body: { showId: Number(row.tmdb_id) } }
         );
         if (error || !data) return;
+        // `> 0` intentionally drops 0/negative values: TMDB returns 0 for unaired
+        // pilots, where falling back to the DB's value is safer than claiming
+        // a 0-season show. Unlikely for shows in `status='watching'` but cheap guard.
         if (typeof data.number_of_seasons === 'number' && data.number_of_seasons > 0) {
           map[row.user_tv_show_id] = data.number_of_seasons;
         }
