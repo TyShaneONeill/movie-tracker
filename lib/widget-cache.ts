@@ -140,7 +140,7 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
     .slice(0, 3);
 
-  const shows = top3.map((row, idx) => {
+  const shows = top3.map((row) => {
     const episodesInSeason = episodesBySeason[`${row.user_tv_show_id}-${row.current_season}`] ?? 0;
     const isSeasonComplete = episodesInSeason > 0 && row.current_episode >= episodesInSeason;
     // Prefer live TMDB number_of_seasons; fall back to DB row if missing
@@ -152,7 +152,10 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
       user_tv_show_id: row.user_tv_show_id,
       tmdb_id: row.tmdb_id,
       name: row.name,
-      poster_filename: row.poster_path ? `poster_${idx}.jpg` : null,
+      // poster_filename is intentionally omitted here — assigned AFTER the reorder
+      // step so the index in the filename matches the final position in payload.shows,
+      // which is the same index the syncWidgetCache poster-write loop uses.
+      poster_filename: null as string | null,
       current_season: row.current_season,
       current_episode: row.current_episode,
       total_seasons: effectiveTotalSeasons,
@@ -192,20 +195,39 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
       const [featured] = flaggedShows.splice(lastIdx, 1);
       flaggedShows.splice(1, 0, featured);
     }
+
+    // Assign poster_filename AFTER reorder so the index in the filename matches
+    // the final position in payload.shows — the same index the poster-write loop uses.
+    const finalShows = flaggedShows.map((s, finalIdx) => {
+      const rowMatch = rows.find((r) => r.user_tv_show_id === s.user_tv_show_id);
+      return {
+        ...s,
+        poster_filename: rowMatch?.poster_path ? `poster_${finalIdx}.jpg` : null,
+      };
+    });
+
     return {
       version: 2,
       cached_at: Date.now(),
       stats,
-      shows: flaggedShows,
+      shows: finalShows,
       movies,
     };
   }
 
+  // Fallback: all shows are trophies — no reorder needed, assign poster_filename by current index
   return {
     version: 2,
     cached_at: Date.now(),
     stats,
-    shows: shows.map((s) => ({ ...s, is_last_updated: false })),
+    shows: shows.map((s, finalIdx) => {
+      const rowMatch = rows.find((r) => r.user_tv_show_id === s.user_tv_show_id);
+      return {
+        ...s,
+        is_last_updated: false,
+        poster_filename: rowMatch?.poster_path ? `poster_${finalIdx}.jpg` : null,
+      };
+    }),
     movies,
   };
 }

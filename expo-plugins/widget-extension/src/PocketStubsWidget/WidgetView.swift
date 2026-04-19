@@ -9,7 +9,7 @@ struct WidgetView: View {
             StatsBar(stats: entry.data.stats)
             GeometryReader { geo in
                 let hasMovies = !(entry.data.movies?.isEmpty ?? true)
-                let spacing: CGFloat = 6
+                let spacing: CGFloat = 4
                 let slotCount: CGFloat = hasMovies ? 4 : 3
                 let totalGaps = spacing * (slotCount - 1)
                 let movieColWidth: CGFloat = hasMovies ? 44 : 0
