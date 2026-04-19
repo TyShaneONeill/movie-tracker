@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { writeWidgetData, writePosterFile, reloadWidgetTimelines, WidgetPayload } from '@/lib/widget-bridge';
+import { MOVIE_POSTER_PREFIX } from '@/lib/widget-constants';
 import type { SeasonDetailResponse } from '@/lib/tmdb.types';
 
 type WatchingRow = {
@@ -20,6 +21,7 @@ type BuildInput = {
   stats: { films_watched: number; shows_watched: number };
   episodesBySeason: Record<string, number>; // key format: `${userTvShowId}-${seasonNumber}`. In Phase 1 this is ALWAYS {}.
   liveNumberOfSeasons: Record<string, number>; // NEW (Phase 3): userTvShowId → live N from TMDB
+  movieRows: Array<{ tmdb_id: number; title: string; poster_path: string | null }>;
 };
 
 function extractEpisodesBySeasonForShow(
@@ -132,7 +134,7 @@ async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<str
   return map;
 }
 
-export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons }: BuildInput): WidgetPayload {
+export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons, movieRows }: BuildInput): WidgetPayload {
   const top3 = rows
     .slice()
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
@@ -165,11 +167,18 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
     };
   });
 
+  const movies = movieRows.slice(0, 2).map((m, idx) => ({
+    tmdb_id: m.tmdb_id,
+    name: m.title,
+    poster_filename: m.poster_path ? `${MOVIE_POSTER_PREFIX}${idx}.jpg` : null,
+  }));
+
   return {
     version: 1,
     cached_at: Date.now(),
     stats,
     shows,
+    movies,
   };
 }
 
@@ -186,6 +195,7 @@ export async function clearWidgetCache(): Promise<void> {
     cached_at: Date.now(),
     stats: { films_watched: 0, shows_watched: 0 },
     shows: [],
+    movies: [],
   };
   await writeWidgetData(emptyPayload);
   await reloadWidgetTimelines();
@@ -265,6 +275,15 @@ export async function syncWidgetCache(): Promise<void> {
     fetchShowDetails(top3ForFetch),
   ]);
 
+  // Movies — top 2 recently-watched (Phase 4a)
+  const { data: movieRows } = await supabase
+    .from('user_movies')
+    .select('tmdb_id, title, poster_path, updated_at')
+    .eq('user_id', user.id)
+    .eq('status', 'watched')
+    .order('updated_at', { ascending: false })
+    .limit(2);
+
   // Stats counts
   const [filmsRes, showsRes] = await Promise.all([
     supabase
@@ -287,6 +306,7 @@ export async function syncWidgetCache(): Promise<void> {
     },
     episodesBySeason,
     liveNumberOfSeasons,
+    movieRows: movieRows ?? [],
   });
 
   // Download and write posters for the top 3 shows that actually make the cut
@@ -319,6 +339,32 @@ export async function syncWidgetCache(): Promise<void> {
       });
       if (__DEV__) console.warn('[widget-cache] poster download failed', err);
       // Cache JSON will still reference `poster_${i}.jpg` — widget will show fallback when file is missing
+    }
+  }
+
+  // Movie posters — top 2 recently-watched (Phase 4a)
+  for (let i = 0; i < payload.movies.length; i++) {
+    const movie = payload.movies[i];
+    const row = movieRows?.find((r) => r.tmdb_id === movie.tmdb_id);
+    if (!row?.poster_path) continue;
+    if (!TMDB_POSTER_PATH_PATTERN.test(row.poster_path)) continue;
+    const url = `https://image.tmdb.org/t/p/w342${row.poster_path}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const contentLength = Number(res.headers.get('content-length') ?? 0);
+      if (contentLength > MAX_POSTER_BYTES) continue;
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength > MAX_POSTER_BYTES) continue;
+      const base64 = arrayBufferToBase64(buf);
+      await writePosterFile(`${MOVIE_POSTER_PREFIX}${i}.jpg`, base64);
+    } catch (err) {
+      Sentry.addBreadcrumb({
+        category: 'widget-cache',
+        level: 'warning',
+        message: 'movie poster write failed',
+        data: { tmdb_id: movie.tmdb_id, error: err instanceof Error ? err.message : String(err) },
+      });
     }
   }
 

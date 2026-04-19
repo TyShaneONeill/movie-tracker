@@ -15,6 +15,7 @@ const samplePayload: WidgetPayload = {
   cached_at: 123,
   stats: { films_watched: 68, shows_watched: 12 },
   shows: [],
+  movies: [],
 };
 
 describe('widget-bridge', () => {

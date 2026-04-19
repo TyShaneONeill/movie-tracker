@@ -72,6 +72,12 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
+    const moviesListChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
     const showsCountChain = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -82,6 +88,7 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       fromCallIdx++;
       if (table === 'user_tv_shows' && fromCallIdx === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCallIdx === 2) return backfillChain;
+      if (table === 'user_movies' && fromCallIdx === 3) return moviesListChain;
       if (table === 'user_movies') return filmsCountChain;
       if (table === 'user_tv_shows') return showsCountChain;
       return { select: jest.fn().mockResolvedValue({ data: [], error: null }) };
@@ -150,6 +157,12 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
+    const moviesListChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
     const showsChain = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -160,6 +173,7 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       fromCall++;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
+      if (table === 'user_movies' && fromCall === 3) return moviesListChain;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -217,6 +231,12 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
+    const moviesListChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
     const showsChain = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -227,6 +247,7 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       fromCall++;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
+      if (table === 'user_movies' && fromCall === 3) return moviesListChain;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -291,6 +312,12 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
+    const moviesListChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
     const showsChain = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -301,6 +328,7 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       fromCall++;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
+      if (table === 'user_movies' && fromCall === 3) return moviesListChain;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -360,6 +388,12 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
+    const moviesListChain2 = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
     const showsChain = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -370,6 +404,7 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       fromCall++;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
+      if (table === 'user_movies' && fromCall === 3) return moviesListChain2;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -522,5 +557,83 @@ describe('syncWidgetCache orchestrator (integration)', () => {
     expect(payload.shows).toHaveLength(3);
     expect(payload.shows.every((s: any) => s.is_trophy === false)).toBe(true);
     expect(called.watched).toBe(1); // only the count query, no backfill select
+  });
+
+  it('populates top-2 recently-watched movies in payload', async () => {
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+    });
+
+    // Empty shows — not the focus of this test
+    const emptyChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+
+    const moviesChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({
+        data: [
+          { tmdb_id: 601, title: 'Dune', poster_path: '/dune.jpg', updated_at: '2026-04-17' },
+          { tmdb_id: 602, title: 'Oppenheimer', poster_path: null, updated_at: '2026-04-16' },
+        ],
+        error: null,
+      }),
+    };
+
+    const filmsCountChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+    filmsCountChain.eq.mockReturnValueOnce(filmsCountChain).mockResolvedValueOnce({ count: 2, error: null });
+    const showsCountChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), in: jest.fn().mockResolvedValue({ count: 0, error: null }) };
+
+    let fromCallIdx = 0;
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      fromCallIdx++;
+      if (table === 'user_tv_shows' && fromCallIdx <= 2) return emptyChain; // watching + watched both empty
+      if (table === 'user_movies' && fromCallIdx === 3) return moviesChain;
+      if (table === 'user_movies') return filmsCountChain;
+      if (table === 'user_tv_shows') return showsCountChain;
+      return emptyChain;
+    });
+    (supabase.functions.invoke as jest.Mock).mockResolvedValue({ data: null, error: null });
+
+    await syncWidgetCache();
+
+    const payload = (writeWidgetData as jest.Mock).mock.calls[0][0];
+    expect(payload.movies).toHaveLength(2);
+    expect(payload.movies[0]).toEqual({ tmdb_id: 601, name: 'Dune', poster_filename: 'movie_poster_0.jpg' });
+    expect(payload.movies[1]).toEqual({ tmdb_id: 602, name: 'Oppenheimer', poster_filename: null });
+  });
+
+  it('emits empty movies array when user has no watched movies', async () => {
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
+
+    const emptyChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const filmsCountChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+    filmsCountChain.eq.mockReturnValueOnce(filmsCountChain).mockResolvedValueOnce({ count: 0, error: null });
+    const showsCountChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), in: jest.fn().mockResolvedValue({ count: 0, error: null }) };
+
+    let fromCallIdx = 0;
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      fromCallIdx++;
+      if (table === 'user_tv_shows' && fromCallIdx <= 2) return emptyChain;
+      if (table === 'user_movies' && fromCallIdx === 3) return emptyChain;
+      if (table === 'user_movies') return filmsCountChain;
+      return showsCountChain;
+    });
+    (supabase.functions.invoke as jest.Mock).mockResolvedValue({ data: null, error: null });
+
+    await syncWidgetCache();
+
+    const payload = (writeWidgetData as jest.Mock).mock.calls[0][0];
+    expect(payload.movies).toEqual([]);
   });
 });
