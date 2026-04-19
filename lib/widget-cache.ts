@@ -17,6 +17,7 @@ type BuildInput = {
   rows: WatchingRow[];
   stats: { films_watched: number; shows_watched: number };
   episodesBySeason: Record<string, number>; // key format: `${userTvShowId}-${seasonNumber}`. In Phase 1 this is ALWAYS {}.
+  liveNumberOfSeasons: Record<string, number>; // NEW (Phase 3): userTvShowId → live N from TMDB
 };
 
 function extractEpisodesBySeasonForShow(
@@ -31,6 +32,44 @@ function extractEpisodesBySeasonForShow(
     }
   }
   return out;
+}
+
+/**
+ * Phase 3: fetch live TMDB number_of_seasons for each top-3 show.
+ * Overrides the DB's user_tv_shows.number_of_seasons value which may be
+ * stale (set at show-add time, not refreshed when TMDB adds new seasons).
+ *
+ * Inlined supabase.functions.invoke call rather than importing from
+ * tv-show-service.ts to avoid a circular dependency (tv-show-service
+ * already imports from this file).
+ *
+ * Per-show failure is silent — caller falls back to row.number_of_seasons.
+ */
+async function fetchShowDetails(rows: WatchingRow[]): Promise<Record<string, number>> {
+  const map: Record<string, number> = {};
+  const top3 = rows.slice(0, 3);
+
+  await Promise.all(
+    top3.map(async (row) => {
+      try {
+        const { data, error } = await supabase.functions.invoke<{ number_of_seasons?: number }>(
+          'get-tv-show-details',
+          { body: { showId: row.tmdb_id } }
+        );
+        if (error || !data) return;
+        if (typeof data.number_of_seasons === 'number' && data.number_of_seasons > 0) {
+          map[row.user_tv_show_id] = data.number_of_seasons;
+        }
+      } catch (err) {
+        if (__DEV__) console.warn('[widget-cache] TMDB show-details fetch failed', {
+          tmdb_id: row.tmdb_id,
+          err,
+        });
+      }
+    })
+  );
+
+  return map;
 }
 
 async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<string, number>> {
@@ -67,7 +106,7 @@ async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<str
   return map;
 }
 
-export function buildWidgetPayload({ rows, stats, episodesBySeason }: BuildInput): WidgetPayload {
+export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons }: BuildInput): WidgetPayload {
   const top3 = rows
     .slice()
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
@@ -76,7 +115,10 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason }: BuildInput
   const shows = top3.map((row, idx) => {
     const episodesInSeason = episodesBySeason[`${row.user_tv_show_id}-${row.current_season}`] ?? 0;
     const isSeasonComplete = episodesInSeason > 0 && row.current_episode >= episodesInSeason;
-    const hasNextSeason = row.current_season < row.number_of_seasons;
+    // Prefer live TMDB number_of_seasons; fall back to DB row if missing
+    const effectiveTotalSeasons =
+      liveNumberOfSeasons[row.user_tv_show_id] ?? row.number_of_seasons;
+    const hasNextSeason = row.current_season < effectiveTotalSeasons;
     const isShowComplete = isSeasonComplete && !hasNextSeason;
     return {
       user_tv_show_id: row.user_tv_show_id,
@@ -85,7 +127,7 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason }: BuildInput
       poster_filename: row.poster_path ? `poster_${idx}.jpg` : null,
       current_season: row.current_season,
       current_episode: row.current_episode,
-      total_seasons: row.number_of_seasons,
+      total_seasons: effectiveTotalSeasons,
       total_episodes_in_current_season: episodesInSeason > 0 ? episodesInSeason : null,
       episodes_by_season: extractEpisodesBySeasonForShow(row.user_tv_show_id, episodesBySeason),
       is_season_complete: isSeasonComplete,
@@ -160,7 +202,12 @@ export async function syncWidgetCache(): Promise<void> {
     .slice()
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
     .slice(0, 3);
-  const episodesBySeason = await fetchSeasonEpisodeCounts(top3ForFetch);
+  // Phase 3: also fetch show-level details for live number_of_seasons
+  // (fixes Start S{N+1} on airing shows where DB is stale)
+  const [episodesBySeason, liveNumberOfSeasons] = await Promise.all([
+    fetchSeasonEpisodeCounts(top3ForFetch),
+    fetchShowDetails(top3ForFetch),
+  ]);
 
   // Stats counts
   const [filmsRes, showsRes] = await Promise.all([
@@ -183,6 +230,7 @@ export async function syncWidgetCache(): Promise<void> {
       shows_watched: showsRes.count ?? 0,
     },
     episodesBySeason,
+    liveNumberOfSeasons,
   });
 
   // Download and write posters for the top 3 shows that actually make the cut
