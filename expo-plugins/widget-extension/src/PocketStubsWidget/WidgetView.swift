@@ -10,10 +10,16 @@ struct WidgetView: View {
             HStack(spacing: 8) {
                 ForEach(0..<3, id: \.self) { idx in
                     if idx < entry.data.shows.count {
-                        ShowCard(show: entry.data.shows[idx])
+                        let show = entry.data.shows[idx]
+                        ShowCard(show: show)
+                            .layoutPriority(show.isLastUpdated ? 1.4 : 1)
                     } else {
                         EmptySlot()
+                            .layoutPriority(1)
                     }
+                }
+                if let movies = entry.data.movies, !movies.isEmpty {
+                    MovieColumn(movies: movies)
                 }
             }
         }
@@ -24,9 +30,10 @@ struct WidgetView: View {
 private struct StatsBar: View {
     let stats: Stats
     var body: some View {
-        Text("\(stats.filmsWatched) films · \(stats.showsWatched) shows watched")
+        Text("Watched: \(stats.filmsWatched) Movies · \(stats.showsWatched) TV Shows")
             .font(.caption)
             .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
@@ -35,17 +42,23 @@ private struct ShowCard: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            // Poster area - tappable, deep-links to show detail (Phase 1 behavior preserved)
             Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
                 PosterView(show: show)
                     .aspectRatio(2/3, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        show.isLastUpdated && !show.isTrophy
+                            ? RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(Color.orange.opacity(0.5), lineWidth: 1.5)
+                            : nil
+                    )
+                    .trophyOverlay(enabled: show.isTrophy)
             }
 
-            // Bottom strip: either SeasonCompleteBadge (end-of-season state) or
-            // episode label stacked above EyeballButton (mid-season state).
-            // Link above and Button(intent:) here occupy separate tap regions.
-            if show.isSeasonComplete {
+            if show.isTrophy {
+                // No action row — trophy poster stands alone
+                EmptyView()
+            } else if show.isSeasonComplete {
                 SeasonCompleteBadge(show: show)
             } else {
                 VStack(spacing: 3) {
@@ -60,6 +73,24 @@ private struct ShowCard: View {
 
     private var episodeLabel: String {
         String(format: "S%02d · E%02d", show.currentSeason, show.currentEpisode)
+    }
+}
+
+private struct MovieColumn: View {
+    let movies: [Movie]
+
+    var body: some View {
+        VStack(spacing: 4) {
+            if movies.count >= 1 {
+                MovieThumb(movie: movies[0])
+            }
+            if movies.count >= 2 {
+                MovieThumb(movie: movies[1])
+            } else if movies.count == 1 {
+                Spacer().frame(width: 32)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
