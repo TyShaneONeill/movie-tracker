@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { writeAuthToken } from '@/lib/widget-bridge';
@@ -45,7 +46,16 @@ export function useAuthTokenSync(): void {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      write(session?.access_token ?? null, session?.user?.id ?? null);
+      try {
+        write(session?.access_token ?? null, session?.user?.id ?? null);
+      } catch (err) {
+        Sentry.addBreadcrumb({
+          category: 'auth-token-sync',
+          level: 'warning',
+          message: 'onAuthStateChange handler failed',
+          data: { error: err instanceof Error ? err.message : String(err) },
+        });
+      }
     });
 
     return () => subscription.unsubscribe();

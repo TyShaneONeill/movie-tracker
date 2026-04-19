@@ -34,6 +34,14 @@ jest.mock('@/lib/sentry', () => ({
   captureException: jest.fn(),
 }));
 
+// Mock @sentry/react-native (native module — not available in test environment)
+jest.mock('@sentry/react-native', () => ({
+  addBreadcrumb: jest.fn(),
+  captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  init: jest.fn(),
+}));
+
 // Mock expo-router (native module — not available in test environment)
 jest.mock('expo-router', () => ({
   router: {

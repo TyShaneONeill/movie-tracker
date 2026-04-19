@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { writeWidgetData, writePosterFile, reloadWidgetTimelines, WidgetPayload } from '@/lib/widget-bridge';
 import type { SeasonDetailResponse } from '@/lib/tmdb.types';
@@ -61,6 +62,15 @@ async function fetchShowDetails(rows: WatchingRow[]): Promise<Record<string, num
           map[row.user_tv_show_id] = data.number_of_seasons;
         }
       } catch (err) {
+        Sentry.addBreadcrumb({
+          category: 'widget-cache',
+          level: 'warning',
+          message: 'TMDB show-details fetch failed',
+          data: {
+            tmdb_id: row.tmdb_id,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        });
         if (__DEV__) console.warn('[widget-cache] TMDB show-details fetch failed', {
           tmdb_id: row.tmdb_id,
           err,
@@ -92,6 +102,16 @@ async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<str
             map[`${row.user_tv_show_id}-${seasonNum}`] = data.episodes?.length ?? 0;
           })
           .catch((err) => {
+            Sentry.addBreadcrumb({
+              category: 'widget-cache',
+              level: 'warning',
+              message: 'TMDB season fetch failed',
+              data: {
+                tmdb_id: row.tmdb_id,
+                seasonNum,
+                error: err instanceof Error ? err.message : String(err),
+              },
+            });
             if (__DEV__) console.warn('[widget-cache] TMDB season fetch failed', {
               tmdb_id: row.tmdb_id,
               seasonNum,
@@ -252,6 +272,15 @@ export async function syncWidgetCache(): Promise<void> {
       const base64 = arrayBufferToBase64(buf);
       await writePosterFile(`poster_${i}.jpg`, base64);
     } catch (err) {
+      Sentry.addBreadcrumb({
+        category: 'widget-cache',
+        level: 'warning',
+        message: 'poster download failed',
+        data: {
+          show_id: show.user_tv_show_id,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
       if (__DEV__) console.warn('[widget-cache] poster download failed', err);
       // Cache JSON will still reference `poster_${i}.jpg` — widget will show fallback when file is missing
     }
