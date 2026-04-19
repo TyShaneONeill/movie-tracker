@@ -21,7 +21,7 @@ export type WidgetPayload = {
     next_season_number: number | null;
     is_show_complete: boolean;
     is_trophy: boolean;
-    last_updated: boolean;
+    is_last_updated: boolean;
   }>;
   movies: Array<{
     tmdb_id: number;
