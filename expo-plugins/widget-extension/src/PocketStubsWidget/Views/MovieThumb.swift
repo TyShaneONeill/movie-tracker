@@ -8,9 +8,9 @@ struct MovieThumb: View {
         Link(destination: URL(string: "pocketstubs://movie/\(movie.tmdbId)")!) {
             PosterContent(movie: movie)
                 .aspectRatio(2/3, contentMode: .fit)
-                .frame(width: 32)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-                .contentShape(RoundedRectangle(cornerRadius: 5).inset(by: -6))
+                .frame(width: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .contentShape(RoundedRectangle(cornerRadius: 6))
         }
     }
 }
@@ -32,7 +32,7 @@ private struct PosterContent: View {
                     endPoint: .bottomTrailing
                 )
                 Text(movie.name)
-                    .font(.system(size: 6, weight: .semibold))
+                    .font(.system(size: 8, weight: .semibold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .padding(2)

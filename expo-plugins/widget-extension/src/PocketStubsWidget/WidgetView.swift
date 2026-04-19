@@ -7,19 +7,33 @@ struct WidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             StatsBar(stats: entry.data.stats)
-            HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { idx in
-                    if idx < entry.data.shows.count {
-                        let show = entry.data.shows[idx]
-                        ShowCard(show: show)
-                            .layoutPriority(show.isLastUpdated ? 1.4 : 1)
-                    } else {
-                        EmptySlot()
-                            .layoutPriority(1)
+            GeometryReader { geo in
+                let hasMovies = !(entry.data.movies?.isEmpty ?? true)
+                let spacing: CGFloat = 6
+                let slotCount: CGFloat = hasMovies ? 4 : 3
+                let totalGaps = spacing * (slotCount - 1)
+                let movieColWidth: CGFloat = hasMovies ? 44 : 0
+                let availableForShows = geo.size.width - totalGaps - movieColWidth
+                // 3 shows total weight = 1 + 1.4 + 1 = 3.4
+                let sideWidth = availableForShows / 3.4
+                let centerWidth = sideWidth * 1.4
+
+                HStack(spacing: spacing) {
+                    ForEach(0..<3, id: \.self) { idx in
+                        if idx < entry.data.shows.count {
+                            let show = entry.data.shows[idx]
+                            let w = show.isLastUpdated ? centerWidth : sideWidth
+                            ShowCard(show: show)
+                                .frame(width: w, height: geo.size.height)
+                        } else {
+                            EmptySlot()
+                                .frame(width: sideWidth, height: geo.size.height)
+                        }
                     }
-                }
-                if let movies = entry.data.movies, !movies.isEmpty {
-                    MovieColumn(movies: movies)
+                    if hasMovies, let movies = entry.data.movies {
+                        MovieColumn(movies: movies)
+                            .frame(width: movieColWidth, height: geo.size.height)
+                    }
                 }
             }
         }
@@ -87,10 +101,9 @@ private struct MovieColumn: View {
             if movies.count >= 2 {
                 MovieThumb(movie: movies[1])
             } else if movies.count == 1 {
-                Spacer().frame(width: 32)
+                Spacer().frame(width: 44)
             }
         }
-        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
