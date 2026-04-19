@@ -36,10 +36,12 @@ enum WidgetDataWriter {
                 isSeasonComplete: isSeasonComplete,
                 hasNextSeason: old.hasNextSeason,
                 nextSeasonNumber: old.nextSeasonNumber,
-                isShowComplete: isSeasonComplete && !old.hasNextSeason
+                isShowComplete: isSeasonComplete && !old.hasNextSeason,
+                isTrophy: old.isTrophy,
+                isLastUpdated: old.isLastUpdated
             )
 
-            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows)
+            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows, movies: data.movies)
         }
     }
 
@@ -71,10 +73,12 @@ enum WidgetDataWriter {
                 isSeasonComplete: isSeasonComplete,
                 hasNextSeason: hasNext,
                 nextSeasonNumber: hasNext ? newSeason + 1 : nil,
-                isShowComplete: isSeasonComplete && !hasNext
+                isShowComplete: isSeasonComplete && !hasNext,
+                isTrophy: old.isTrophy,
+                isLastUpdated: old.isLastUpdated
             )
 
-            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows)
+            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows, movies: data.movies)
         }
     }
 

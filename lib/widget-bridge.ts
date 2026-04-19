@@ -20,6 +20,13 @@ export type WidgetPayload = {
     has_next_season: boolean;
     next_season_number: number | null;
     is_show_complete: boolean;
+    is_trophy: boolean;
+    is_last_updated: boolean;
+  }>;
+  movies: Array<{
+    tmdb_id: number;
+    name: string;
+    poster_filename: string | null;
   }>;
 };
 

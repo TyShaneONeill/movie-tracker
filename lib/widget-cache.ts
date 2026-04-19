@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { writeWidgetData, writePosterFile, reloadWidgetTimelines, WidgetPayload } from '@/lib/widget-bridge';
+import { MOVIE_POSTER_PREFIX } from '@/lib/widget-constants';
 import type { SeasonDetailResponse } from '@/lib/tmdb.types';
 
 type WatchingRow = {
@@ -12,6 +13,7 @@ type WatchingRow = {
   current_episode: number;
   number_of_seasons: number;
   updated_at: string;
+  is_trophy: boolean;
 };
 
 type BuildInput = {
@@ -19,6 +21,7 @@ type BuildInput = {
   stats: { films_watched: number; shows_watched: number };
   episodesBySeason: Record<string, number>; // key format: `${userTvShowId}-${seasonNumber}`. In Phase 1 this is ALWAYS {}.
   liveNumberOfSeasons: Record<string, number>; // NEW (Phase 3): userTvShowId → live N from TMDB
+  movieRows: Array<{ tmdb_id: number; title: string; poster_path: string | null }>;
 };
 
 function extractEpisodesBySeasonForShow(
@@ -131,13 +134,13 @@ async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<str
   return map;
 }
 
-export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons }: BuildInput): WidgetPayload {
+export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons, movieRows }: BuildInput): WidgetPayload {
   const top3 = rows
     .slice()
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
     .slice(0, 3);
 
-  const shows = top3.map((row, idx) => {
+  const shows = top3.map((row) => {
     const episodesInSeason = episodesBySeason[`${row.user_tv_show_id}-${row.current_season}`] ?? 0;
     const isSeasonComplete = episodesInSeason > 0 && row.current_episode >= episodesInSeason;
     // Prefer live TMDB number_of_seasons; fall back to DB row if missing
@@ -149,7 +152,10 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
       user_tv_show_id: row.user_tv_show_id,
       tmdb_id: row.tmdb_id,
       name: row.name,
-      poster_filename: row.poster_path ? `poster_${idx}.jpg` : null,
+      // poster_filename is intentionally omitted here — assigned AFTER the reorder
+      // step so the index in the filename matches the final position in payload.shows,
+      // which is the same index the syncWidgetCache poster-write loop uses.
+      poster_filename: null as string | null,
       current_season: row.current_season,
       current_episode: row.current_episode,
       total_seasons: effectiveTotalSeasons,
@@ -159,14 +165,70 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
       has_next_season: hasNextSeason,
       next_season_number: hasNextSeason ? row.current_season + 1 : null,
       is_show_complete: isShowComplete,
+      is_trophy: row.is_trophy,
     };
   });
 
+  const movies = movieRows.slice(0, 2).map((m, idx) => ({
+    tmdb_id: m.tmdb_id,
+    name: m.title,
+    poster_filename: m.poster_path ? `${MOVIE_POSTER_PREFIX}${idx}.jpg` : null,
+  }));
+
+  // Compute is_last_updated flag + reorder so center (index 1) is the last-updated non-trophy
+  const nonTrophyShows = shows.filter((s) => !s.is_trophy);
+  if (nonTrophyShows.length > 0) {
+    const latestUpdatedAt = nonTrophyShows.reduce((max, s) => {
+      const rowMatch = rows.find((r) => r.user_tv_show_id === s.user_tv_show_id);
+      const ts = rowMatch ? Date.parse(rowMatch.updated_at) : 0;
+      return ts > max.ts ? { id: s.user_tv_show_id, ts } : max;
+    }, { id: '', ts: -Infinity });
+
+    const flaggedShows = shows.map((s) => ({
+      ...s,
+      is_last_updated: s.user_tv_show_id === latestUpdatedAt.id,
+    }));
+
+    // Reorder: put is_last_updated at index 1 (center), others around it
+    const lastIdx = flaggedShows.findIndex((s) => s.is_last_updated);
+    if (lastIdx !== 1 && lastIdx !== -1) {
+      const [featured] = flaggedShows.splice(lastIdx, 1);
+      flaggedShows.splice(1, 0, featured);
+    }
+
+    // Assign poster_filename AFTER reorder so the index in the filename matches
+    // the final position in payload.shows — the same index the poster-write loop uses.
+    const finalShows = flaggedShows.map((s, finalIdx) => {
+      const rowMatch = rows.find((r) => r.user_tv_show_id === s.user_tv_show_id);
+      return {
+        ...s,
+        poster_filename: rowMatch?.poster_path ? `poster_${finalIdx}.jpg` : null,
+      };
+    });
+
+    return {
+      version: 2,
+      cached_at: Date.now(),
+      stats,
+      shows: finalShows,
+      movies,
+    };
+  }
+
+  // Fallback: all shows are trophies — no reorder needed, assign poster_filename by current index
   return {
-    version: 1,
+    version: 2,
     cached_at: Date.now(),
     stats,
-    shows,
+    shows: shows.map((s, finalIdx) => {
+      const rowMatch = rows.find((r) => r.user_tv_show_id === s.user_tv_show_id);
+      return {
+        ...s,
+        is_last_updated: false,
+        poster_filename: rowMatch?.poster_path ? `poster_${finalIdx}.jpg` : null,
+      };
+    }),
+    movies,
   };
 }
 
@@ -179,10 +241,11 @@ const TMDB_POSTER_PATH_PATTERN = /^\/[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)$/i;
  */
 export async function clearWidgetCache(): Promise<void> {
   const emptyPayload: WidgetPayload = {
-    version: 1,
+    version: 2,
     cached_at: Date.now(),
     stats: { films_watched: 0, shows_watched: 0 },
     shows: [],
+    movies: [],
   };
   await writeWidgetData(emptyPayload);
   await reloadWidgetTimelines();
@@ -208,7 +271,7 @@ export async function syncWidgetCache(): Promise<void> {
     .limit(20);
   if (tvErr || !tvRows) return;
 
-  const rows: WatchingRow[] = tvRows.map((r) => ({
+  let rows: WatchingRow[] = tvRows.map((r) => ({
     user_tv_show_id: r.id,
     tmdb_id: r.tmdb_id,
     name: r.name,
@@ -217,14 +280,42 @@ export async function syncWidgetCache(): Promise<void> {
     current_episode: r.current_episode ?? 1,
     number_of_seasons: r.number_of_seasons ?? 1,
     updated_at: r.updated_at ?? new Date(0).toISOString(),
+    is_trophy: false,
   }));
+
+  // Q5 hybrid: if fewer than 3 active shows, backfill with recently-watched (trophies)
+  if (rows.length < 3) {
+    const needed = 3 - rows.length;
+    const { data: trophyRows } = await supabase
+      .from('user_tv_shows')
+      .select('id, tmdb_id, name, poster_path, current_season, current_episode, number_of_seasons, updated_at')
+      .eq('user_id', user.id)
+      .eq('status', 'watched')
+      .order('updated_at', { ascending: false })
+      .limit(needed);
+    if (trophyRows) {
+      rows = rows.concat(
+        trophyRows.map((r) => ({
+          user_tv_show_id: r.id,
+          tmdb_id: r.tmdb_id,
+          name: r.name,
+          poster_path: r.poster_path,
+          current_season: r.current_season ?? 1,
+          current_episode: r.current_episode ?? 1,
+          number_of_seasons: r.number_of_seasons ?? 1,
+          updated_at: r.updated_at ?? new Date(0).toISOString(),
+          is_trophy: true,
+        }))
+      );
+    }
+  }
 
   // Phase 2: fetch per-season episode counts via the TMDB edge function for
   // the top 3 watching shows. All seasons are fetched so the widget can
   // handle season-advance (StartNextSeasonIntent) locally.
   // Failures are non-fatal — affected flags default to false, widget still renders.
   const top3ForFetch = rows
-    .slice()
+    .filter((r) => !r.is_trophy)
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
     .slice(0, 3);
   // Phase 3: also fetch show-level details for live number_of_seasons
@@ -233,6 +324,15 @@ export async function syncWidgetCache(): Promise<void> {
     fetchSeasonEpisodeCounts(top3ForFetch),
     fetchShowDetails(top3ForFetch),
   ]);
+
+  // Movies — top 2 recently-watched (Phase 4a)
+  const { data: movieRows } = await supabase
+    .from('user_movies')
+    .select('tmdb_id, title, poster_path, updated_at')
+    .eq('user_id', user.id)
+    .eq('status', 'watched')
+    .order('updated_at', { ascending: false })
+    .limit(2);
 
   // Stats counts
   const [filmsRes, showsRes] = await Promise.all([
@@ -256,6 +356,7 @@ export async function syncWidgetCache(): Promise<void> {
     },
     episodesBySeason,
     liveNumberOfSeasons,
+    movieRows: movieRows ?? [],
   });
 
   // Download and write posters for the top 3 shows that actually make the cut
@@ -288,6 +389,33 @@ export async function syncWidgetCache(): Promise<void> {
       });
       if (__DEV__) console.warn('[widget-cache] poster download failed', err);
       // Cache JSON will still reference `poster_${i}.jpg` — widget will show fallback when file is missing
+    }
+  }
+
+  // Movie posters — top 2 recently-watched (Phase 4a)
+  for (let i = 0; i < payload.movies.length; i++) {
+    const movie = payload.movies[i];
+    const row = movieRows?.find((r) => r.tmdb_id === movie.tmdb_id);
+    if (!row?.poster_path) continue;
+    if (!TMDB_POSTER_PATH_PATTERN.test(row.poster_path)) continue;
+    const url = `https://image.tmdb.org/t/p/w342${row.poster_path}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const contentLength = Number(res.headers.get('content-length') ?? 0);
+      if (contentLength > MAX_POSTER_BYTES) continue;
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength > MAX_POSTER_BYTES) continue;
+      const base64 = arrayBufferToBase64(buf);
+      await writePosterFile(`${MOVIE_POSTER_PREFIX}${i}.jpg`, base64);
+    } catch (err) {
+      if (__DEV__) console.warn('[widget-cache] movie poster write failed', err);
+      Sentry.addBreadcrumb({
+        category: 'widget-cache',
+        level: 'warning',
+        message: 'movie poster write failed',
+        data: { tmdb_id: movie.tmdb_id, error: err instanceof Error ? err.message : String(err) },
+      });
     }
   }
 
