@@ -75,9 +75,12 @@ struct SupabaseWidgetClient {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue(anonKey, forHTTPHeaderField: "apikey")
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        // PostgREST returns the inserted row when Prefer: return=representation,
-        // but we don't need it - save bandwidth.
-        request.addValue("return=minimal", forHTTPHeaderField: "Prefer")
+        // return=minimal - save bandwidth (don't return inserted row).
+        // resolution=ignore-duplicates - rapid widget taps or Shortcuts-driven
+        // double-fire post duplicate rows that the (user_tv_show_id, season,
+        // episode) unique index would otherwise 409 on; with this header
+        // PostgREST returns the existing row as if the insert succeeded.
+        request.addValue("return=minimal,resolution=ignore-duplicates", forHTTPHeaderField: "Prefer")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -101,8 +104,23 @@ struct SupabaseWidgetClient {
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try validate(response: response, data: data)
+        // sync_tv_show_progress is idempotent (recomputes state from the
+        // user_episode_watches table). If the INSERT above succeeded but this
+        // RPC fails on a transient network drop or 5xx, user_episode_watches
+        // has a row but user_tv_shows.current_episode never bumps - until the
+        // next app-side sync, widget and app display inconsistent state. One
+        // retry after 500ms closes that window at negligible cost. 4xx errors
+        // (auth/validation) won't change on retry, so we bail immediately.
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            try validate(response: response, data: data)
+        } catch ClientError.httpError(let status, let body) where status < 500 {
+            throw ClientError.httpError(status, body)
+        } catch {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            try validate(response: response, data: data)
+        }
     }
 
     /// Resolves (Supabase URL, anon key, JWT) from the App Groups auth file.
