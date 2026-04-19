@@ -4,7 +4,7 @@
 
 **Goal:** Ship the Phase 4a layout PR — stats header redesign, movie thumbnail column, featured center poster, Q5 hybrid trophy-backfill. Widget payload schema bumps v1 → v2.
 
-**Architecture:** RN side extends `syncWidgetCache()` with a backfill query (fires when &lt;3 active shows), a movies query (top 2 watched), and computes `last_updated` + index-1 reorder in `buildWidgetPayload()`. Swift side adds 2 new view files (`MovieThumb`, `TrophyOverlay`), extends `WidgetData.swift` structs with new fields + movies array, and restructures `WidgetView.swift` to apply flex ratios + the movie column.
+**Architecture:** RN side extends `syncWidgetCache()` with a backfill query (fires when &lt;3 active shows), a movies query (top 2 watched), and computes `is_last_updated` + index-1 reorder in `buildWidgetPayload()`. Swift side adds 2 new view files (`MovieThumb`, `TrophyOverlay`), extends `WidgetData.swift` structs with new fields + movies array, and restructures `WidgetView.swift` to apply flex ratios + the movie column.
 
 **Tech Stack:** React Native (Expo managed workflow), Swift / SwiftUI widget extension via `@bacons/apple-targets`, Supabase Postgres, Jest, TypeScript strict.
 
@@ -17,7 +17,7 @@
 ## File inventory
 
 **RN modify:**
-- `lib/widget-bridge.ts` — extend `WidgetPayload` type (add `is_trophy`, `last_updated`, `movies`)
+- `lib/widget-bridge.ts` — extend `WidgetPayload` type (add `is_trophy`, `is_last_updated`, `movies`)
 - `lib/widget-cache.ts` — add backfill, movies query, reorder, version bump
 - `lib/widget-constants.ts` — add `MOVIE_POSTER_PREFIX`
 
@@ -77,7 +77,7 @@ export type WidgetPayload = {
     next_season_number: number | null;
     is_show_complete: boolean;
     is_trophy: boolean;
-    last_updated: boolean;
+    is_last_updated: boolean;
   }>;
   movies: Array<{
     tmdb_id: number;
@@ -91,14 +91,14 @@ export type WidgetPayload = {
 
 Run: `cd /Users/tyshaneoneill/Documents/movie-tracker-app/cinetrak-widget-phase-4a && npx tsc --noEmit`
 
-Expected: errors in `lib/widget-cache.ts` at `buildWidgetPayload` since the returned payload is missing `is_trophy`, `last_updated`, `movies`. These will be fixed by Tasks 2–5.
+Expected: errors in `lib/widget-cache.ts` at `buildWidgetPayload` since the returned payload is missing `is_trophy`, `is_last_updated`, `movies`. These will be fixed by Tasks 2–5.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add lib/widget-bridge.ts lib/widget-constants.ts
 git commit -m "$(cat <<'EOF'
-feat(widget): extend payload type to v2 (is_trophy, last_updated, movies)
+feat(widget): extend payload type to v2 (is_trophy, is_last_updated, movies)
 
 Adds the new fields on WidgetPayload required for Phase 4a layout.
 Introduces MOVIE_POSTER_PREFIX constant for the movie thumb column's
@@ -328,7 +328,7 @@ In `lib/widget-cache.ts` inside `buildWidgetPayload` (line ~134), inside the `to
 
 ```ts
       is_trophy: row.is_trophy,
-      last_updated: false,   // Task 4 computes this correctly
+      is_last_updated: false,   // Task 4 computes this correctly
 ```
 
 Also update `BuildInput['rows']` type annotation if it references `WatchingRow` — it should now carry `is_trophy`.
@@ -562,20 +562,20 @@ EOF
 
 ---
 
-### Task 4: `last_updated` flag + index-1 reorder (TDD)
+### Task 4: `is_last_updated` flag + index-1 reorder (TDD)
 
 **Files:**
 - Modify: `lib/widget-cache.ts` — `buildWidgetPayload`
 - Test: `__tests__/lib/widget-cache.integration.test.ts`
 
-Spec: among shows with `is_trophy=false`, mark the one with highest `updated_at` as `last_updated=true`, then reorder the 3-show array so that entry sits at index 1 (center slot). If all 3 are trophies, skip — natural order, no flag.
+Spec: among shows with `is_trophy=false`, mark the one with highest `updated_at` as `is_last_updated=true`, then reorder the 3-show array so that entry sits at index 1 (center slot). If all 3 are trophies, skip — natural order, no flag.
 
 - [ ] **Step 1: Write the failing tests**
 
 Append to `__tests__/lib/widget-cache.integration.test.ts`:
 
 ```ts
-  it('sets last_updated on the most-recent non-trophy show and places it at index 1', async () => {
+  it('sets is_last_updated on the most-recent non-trophy show and places it at index 1', async () => {
     (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
 
     const watchingChain = {
@@ -611,12 +611,12 @@ Append to `__tests__/lib/widget-cache.integration.test.ts`:
 
     const payload = (writeWidgetData as jest.Mock).mock.calls[0][0];
     expect(payload.shows[1].tmdb_id).toBe(1); // 'Newest' moved to center
-    expect(payload.shows[1].last_updated).toBe(true);
-    expect(payload.shows[0].last_updated).toBe(false);
-    expect(payload.shows[2].last_updated).toBe(false);
+    expect(payload.shows[1].is_last_updated).toBe(true);
+    expect(payload.shows[0].is_last_updated).toBe(false);
+    expect(payload.shows[2].is_last_updated).toBe(false);
   });
 
-  it('does not set last_updated when all 3 shows are trophies', async () => {
+  it('does not set is_last_updated when all 3 shows are trophies', async () => {
     (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
 
     const emptyChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), order: jest.fn().mockReturnThis(), limit: jest.fn().mockResolvedValue({ data: [], error: null }) };
@@ -651,22 +651,22 @@ Append to `__tests__/lib/widget-cache.integration.test.ts`:
     await syncWidgetCache();
 
     const payload = (writeWidgetData as jest.Mock).mock.calls[0][0];
-    expect(payload.shows.every((s: any) => s.last_updated === false)).toBe(true);
+    expect(payload.shows.every((s: any) => s.is_last_updated === false)).toBe(true);
   });
 ```
 
 - [ ] **Step 2: Run tests — expect FAIL**
 
-Run: `npx jest __tests__/lib/widget-cache.integration.test.ts -t "last_updated" --no-coverage`
+Run: `npx jest __tests__/lib/widget-cache.integration.test.ts -t "is_last_updated" --no-coverage`
 
-Expected: both fail. First fails because center slot is currently 'Middle' not 'Newest' (no reorder logic). Second may pass accidentally because current code doesn't set `last_updated=true` anywhere — keep it green as a regression guard.
+Expected: both fail. First fails because center slot is currently 'Middle' not 'Newest' (no reorder logic). Second may pass accidentally because current code doesn't set `is_last_updated=true` anywhere — keep it green as a regression guard.
 
 - [ ] **Step 3: Implement in `buildWidgetPayload`**
 
 In `lib/widget-cache.ts`, inside `buildWidgetPayload`, after the existing `top3.map((row, idx) => ({ ... }))` produces the `shows` array, add:
 
 ```ts
-  // Compute last_updated flag + reorder so center (index 1) is the last-updated non-trophy
+  // Compute is_last_updated flag + reorder so center (index 1) is the last-updated non-trophy
   const nonTrophyShows = shows.filter((s) => !s.is_trophy);
   if (nonTrophyShows.length > 0) {
     const latestUpdatedAt = nonTrophyShows.reduce((max, s) => {
@@ -677,11 +677,11 @@ In `lib/widget-cache.ts`, inside `buildWidgetPayload`, after the existing `top3.
 
     const flaggedShows = shows.map((s) => ({
       ...s,
-      last_updated: s.user_tv_show_id === latestUpdatedAt.id,
+      is_last_updated: s.user_tv_show_id === latestUpdatedAt.id,
     }));
 
-    // Reorder: put last_updated at index 1 (center), others around it
-    const lastIdx = flaggedShows.findIndex((s) => s.last_updated);
+    // Reorder: put is_last_updated at index 1 (center), others around it
+    const lastIdx = flaggedShows.findIndex((s) => s.is_last_updated);
     if (lastIdx !== 1 && lastIdx !== -1) {
       const [featured] = flaggedShows.splice(lastIdx, 1);
       flaggedShows.splice(1, 0, featured);
@@ -704,7 +704,7 @@ In `lib/widget-cache.ts`, inside `buildWidgetPayload`, after the existing `top3.
   };
 ```
 
-Remove the earlier placeholder `last_updated: false` in the initial shows.map — it's now set via the flaggedShows step. Also remove any prior duplicate `return { version: 1, ... }` block.
+Remove the earlier placeholder `is_last_updated: false` in the initial shows.map — it's now set via the flaggedShows step. Also remove any prior duplicate `return { version: 1, ... }` block.
 
 - [ ] **Step 4: Run tests — expect PASS**
 
@@ -717,10 +717,10 @@ Expected: all tests pass.
 ```bash
 git add lib/widget-cache.ts __tests__/lib/widget-cache.integration.test.ts
 git commit -m "$(cat <<'EOF'
-feat(widget): compute last_updated flag + reorder center poster
+feat(widget): compute is_last_updated flag + reorder center poster
 
 buildWidgetPayload now flags the most-recently-updated non-trophy
-show as last_updated=true and reorders the shows array so it sits at
+show as is_last_updated=true and reorders the shows array so it sits at
 index 1 (center slot). If all 3 are trophies, no flag is set and
 natural order is preserved.
 
@@ -786,7 +786,7 @@ struct Show: Codable {
     let nextSeasonNumber: Int?
     let isShowComplete: Bool
     let isTrophy: Bool
-    let lastUpdated: Bool
+    let isLastUpdated: Bool
 
     enum CodingKeys: String, CodingKey {
         case userTvShowId = "user_tv_show_id"
@@ -803,7 +803,7 @@ struct Show: Codable {
         case nextSeasonNumber = "next_season_number"
         case isShowComplete = "is_show_complete"
         case isTrophy = "is_trophy"
-        case lastUpdated = "last_updated"
+        case isLastUpdated = "is_last_updated"
     }
 
     init(from decoder: Decoder) throws {
@@ -823,7 +823,7 @@ struct Show: Codable {
         isShowComplete = try c.decode(Bool.self, forKey: .isShowComplete)
         // v2 fields default to false when decoding v1 cache
         isTrophy = try c.decodeIfPresent(Bool.self, forKey: .isTrophy) ?? false
-        lastUpdated = try c.decodeIfPresent(Bool.self, forKey: .lastUpdated) ?? false
+        isLastUpdated = try c.decodeIfPresent(Bool.self, forKey: .isLastUpdated) ?? false
     }
 }
 
@@ -840,7 +840,7 @@ struct Movie: Codable {
 }
 ```
 
-Note the custom `init(from:)` on `Show` — required so that a v1 cache (no `is_trophy` / `last_updated` keys) decodes gracefully with defaulted `false`. The `Movie` struct and root `movies: [Movie]?` field use optional decoding via `decodeIfPresent` (automatic for Optional properties).
+Note the custom `init(from:)` on `Show` — required so that a v1 cache (no `is_trophy` / `is_last_updated` keys) decodes gracefully with defaulted `false`. The `Movie` struct and root `movies: [Movie]?` field use optional decoding via `decodeIfPresent` (automatic for Optional properties).
 
 - [ ] **Step 2: Trigger a prebuild to verify Swift compiles**
 
@@ -856,7 +856,7 @@ git commit -m "$(cat <<'EOF'
 feat(widget): extend Swift WidgetData for v2 payload
 
 Adds Movie struct + optional root movies array, and is_trophy +
-last_updated fields on Show. Custom Show decoder defaults the new
+is_last_updated fields on Show. Custom Show decoder defaults the new
 Bool fields to false so pre-v2 caches decode cleanly during rollout
 (no explicit migration).
 
@@ -1099,7 +1099,7 @@ struct WidgetView: View {
                     if idx < entry.data.shows.count {
                         let show = entry.data.shows[idx]
                         ShowCard(show: show)
-                            .layoutPriority(show.lastUpdated ? 1.4 : 1)
+                            .layoutPriority(show.isLastUpdated ? 1.4 : 1)
                     } else {
                         EmptySlot()
                             .layoutPriority(1)
@@ -1134,7 +1134,7 @@ private struct ShowCard: View {
                     .aspectRatio(2/3, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(
-                        show.lastUpdated && !show.isTrophy
+                        show.isLastUpdated && !show.isTrophy
                             ? RoundedRectangle(cornerRadius: 6)
                                 .strokeBorder(Color.orange.opacity(0.5), lineWidth: 1.5)
                             : nil
@@ -1247,7 +1247,7 @@ git commit -m "$(cat <<'EOF'
 feat(widget): restructure layout — stats, flex ratios, movie column
 
 - StatsBar: "Watched: X Movies · X TV Shows" centered, HIG middle dot
-- ShowCard: layoutPriority(1.4) when lastUpdated, 1 otherwise
+- ShowCard: layoutPriority(1.4) when isLastUpdated, 1 otherwise
 - Amber ring overlay on last-updated non-trophy posters
 - Trophy overlay via .trophyOverlay(enabled:) modifier
 - Trophy branch hides both the episode label and eyeball button
@@ -1412,7 +1412,7 @@ Phase 4a layout work. Widget medium now renders:
 - 2 recently-watched movie thumbnails in a new right column
 - Trophy state (dimmed + checkmark) for completed shows when user has &lt;3 active (Q5 hybrid)
 
-Payload bumped to v2 with backward-compatible Swift decoding — pre-v2 caches decode with defaulted `is_trophy` / `last_updated` / empty `movies`.
+Payload bumped to v2 with backward-compatible Swift decoding — pre-v2 caches decode with defaulted `is_trophy` / `is_last_updated` / empty `movies`.
 
 Design spec: `docs/superpowers/specs/2026-04-19-widget-phase-4a-design.md`
 Plan: `docs/superpowers/plans/2026-04-19-widget-phase-4a-layout.md`
@@ -1420,7 +1420,7 @@ Plan: `docs/superpowers/plans/2026-04-19-widget-phase-4a-layout.md`
 Phase 4a PR #2 (haptics spike) follows separately after this merges.
 
 ## Test plan
-- [x] 721+ tests pass (baseline + 4 new integration tests for backfill, movies, last_updated + reorder)
+- [x] 721+ tests pass (baseline + 4 new integration tests for backfill, movies, is_last_updated + reorder)
 - [x] `npm run lint && npx tsc --noEmit && npm test` clean
 - [x] Device-tested happy path, side-completed, trophy, light-user fallback (see plan Task 11)
 - [x] Amber ring visible in light and dark mode
