@@ -39,7 +39,7 @@ enum WidgetDataWriter {
                 isShowComplete: isSeasonComplete && !old.hasNextSeason
             )
 
-            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows)
+            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows, movies: data.movies)
         }
     }
 
@@ -74,7 +74,7 @@ enum WidgetDataWriter {
                 isShowComplete: isSeasonComplete && !hasNext
             )
 
-            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows)
+            return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows, movies: data.movies)
         }
     }
 

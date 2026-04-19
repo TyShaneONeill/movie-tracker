@@ -5,7 +5,7 @@ struct WidgetData: Codable {
     let cachedAt: TimeInterval
     let stats: Stats
     let shows: [Show]
-    let movies: [Movie]?   // Optional for v1 → v2 compat
+    let movies: [Movie]? // Optional for v1 → v2 compat; default nil so old callers compile
 
     enum CodingKeys: String, CodingKey {
         case version
@@ -13,6 +13,27 @@ struct WidgetData: Codable {
         case stats
         case shows
         case movies
+    }
+
+    // Custom init(from:) required because `movies` has no stored default value
+    // (Swift only synthesises memberwise defaults for `var`, not `let`).
+    // decodeIfPresent keeps v1 cache files (no "movies" key) working.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        cachedAt = try c.decode(TimeInterval.self, forKey: .cachedAt)
+        stats = try c.decode(Stats.self, forKey: .stats)
+        shows = try c.decode([Show].self, forKey: .shows)
+        movies = try c.decodeIfPresent([Movie].self, forKey: .movies)
+    }
+
+    // Explicit memberwise init so callers can omit movies (defaults to nil).
+    init(version: Int, cachedAt: TimeInterval, stats: Stats, shows: [Show], movies: [Movie]? = nil) {
+        self.version = version
+        self.cachedAt = cachedAt
+        self.stats = stats
+        self.shows = shows
+        self.movies = movies
     }
 }
 
