@@ -1,11 +1,13 @@
 import ExpoModulesCore
 import WidgetKit
 
-// AppGroup identifier MUST match widget extension's Constants/AppGroup.swift (source of truth)
+// AppGroup identifier MUST match widget extension's Constants/AppGroup.swift
+// AND lib/widget-constants.ts (source of truth for TS side)
 private enum Shared {
     static let appGroup = "group.com.pocketstubs.app"
     static let widgetKind = "PocketStubsWidget"
     static let widgetSubdir = "widget"
+    static let widgetDataFilename = "widget_data.json"
     static let authSubdir = "auth"
     static let authTokenFilename = "token.json"
 }
@@ -22,7 +24,7 @@ public class WidgetBridgeModule: Module {
             }
             let dir = container.appendingPathComponent(Shared.widgetSubdir, isDirectory: true)
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let url = dir.appendingPathComponent("widget_data.json")
+            let url = dir.appendingPathComponent(Shared.widgetDataFilename)
             try json.write(to: url, atomically: true, encoding: .utf8)
         }
 

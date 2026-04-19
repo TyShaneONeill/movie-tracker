@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import WidgetBridge from '../modules/widget-bridge';
 
 export type WidgetPayload = {
@@ -29,11 +30,21 @@ export type AuthTokenPayload = {
   supabase_anon_key: string;
 };
 
+function breadcrumb(op: string, err: unknown): void {
+  Sentry.addBreadcrumb({
+    category: 'widget-bridge',
+    level: 'warning',
+    message: `${op} failed`,
+    data: { error: err instanceof Error ? err.message : String(err) },
+  });
+}
+
 export async function writeWidgetData(payload: WidgetPayload): Promise<void> {
   if (Platform.OS !== 'ios') return;
   try {
     await WidgetBridge.writeWidgetData(JSON.stringify(payload));
   } catch (err) {
+    breadcrumb('writeWidgetData', err);
     if (__DEV__) console.warn('[widget-bridge] writeWidgetData failed', err);
   }
 }
@@ -43,6 +54,7 @@ export async function writePosterFile(filename: string, base64: string): Promise
   try {
     await WidgetBridge.writePosterFile(filename, base64);
   } catch (err) {
+    breadcrumb('writePosterFile', err);
     if (__DEV__) console.warn('[widget-bridge] writePosterFile failed', err);
   }
 }
@@ -52,6 +64,7 @@ export async function writeAuthToken(payload: AuthTokenPayload): Promise<void> {
   try {
     await WidgetBridge.writeAuthToken(JSON.stringify(payload));
   } catch (err) {
+    breadcrumb('writeAuthToken', err);
     if (__DEV__) console.warn('[widget-bridge] writeAuthToken failed', err);
   }
 }
@@ -61,6 +74,7 @@ export async function reloadWidgetTimelines(): Promise<void> {
   try {
     await WidgetBridge.reloadWidgetTimelines();
   } catch (err) {
+    breadcrumb('reloadWidgetTimelines', err);
     if (__DEV__) console.warn('[widget-bridge] reloadWidgetTimelines failed', err);
   }
 }
