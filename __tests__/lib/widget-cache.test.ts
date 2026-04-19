@@ -27,7 +27,7 @@ const baseRow = {
 };
 
 describe('buildWidgetPayload', () => {
-  it('sorts by updated_at desc and limits to 3', () => {
+  it('sorts by updated_at desc, limits to 3, and centers the most-recently-updated (Task 4 reorder)', () => {
     const rows = [
       { ...baseRow, user_tv_show_id: 'a', updated_at: '2026-04-10' },
       { ...baseRow, user_tv_show_id: 'b', updated_at: '2026-04-15' },
@@ -36,17 +36,26 @@ describe('buildWidgetPayload', () => {
     ];
     const payload = buildWidgetPayload({ rows, stats: { films_watched: 10, shows_watched: 5 }, episodesBySeason: {}, liveNumberOfSeasons: {}, movieRows: [] });
     expect(payload.shows).toHaveLength(3);
-    expect(payload.shows.map((s) => s.user_tv_show_id)).toEqual(['b', 'c', 'a']);
+    // top3 after sort: ['b'@Apr15, 'c'@Apr12, 'a'@Apr10]
+    // 'b' is most-recently-updated (is_last_updated) → reordered to center (index 1)
+    // Result: ['c', 'b', 'a']
+    expect(payload.shows.map((s) => s.user_tv_show_id)).toEqual(['c', 'b', 'a']);
+    expect(payload.shows[1].is_last_updated).toBe(true);
   });
 
-  it('assigns poster_filename by position when poster_path is set', () => {
+  it('assigns poster_filename by pre-reorder position when poster_path is set', () => {
     const rows = [
       { ...baseRow, user_tv_show_id: 'a', poster_path: '/a.jpg', updated_at: '2026-04-15' },
       { ...baseRow, user_tv_show_id: 'b', poster_path: null, updated_at: '2026-04-14' },
     ];
     const payload = buildWidgetPayload({ rows, stats: { films_watched: 0, shows_watched: 0 }, episodesBySeason: {}, liveNumberOfSeasons: {}, movieRows: [] });
-    expect(payload.shows[0].poster_filename).toBe('poster_0.jpg');
-    expect(payload.shows[1].poster_filename).toBeNull();
+    // top3 sort: ['a'@Apr15, 'b'@Apr14]. poster_filename stamped before reorder:
+    //   'a' → poster_0.jpg, 'b' → null
+    // 'a' is most-recently-updated → reordered to index 1 (center)
+    // Final order: [b, a] → shows[0]=b(null), shows[1]=a(poster_0.jpg)
+    expect(payload.shows[0].poster_filename).toBeNull();
+    expect(payload.shows[1].poster_filename).toBe('poster_0.jpg');
+    expect(payload.shows[1].is_last_updated).toBe(true);
   });
 
   it('computes has_next_season and next_season_number from number_of_seasons', () => {
