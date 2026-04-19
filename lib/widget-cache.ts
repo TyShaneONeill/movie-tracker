@@ -163,7 +163,6 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
       next_season_number: hasNextSeason ? row.current_season + 1 : null,
       is_show_complete: isShowComplete,
       is_trophy: row.is_trophy,
-      is_last_updated: false,   // Task 4 computes this correctly
     };
   });
 
@@ -173,11 +172,40 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
     poster_filename: m.poster_path ? `${MOVIE_POSTER_PREFIX}${idx}.jpg` : null,
   }));
 
+  // Compute is_last_updated flag + reorder so center (index 1) is the last-updated non-trophy
+  const nonTrophyShows = shows.filter((s) => !s.is_trophy);
+  if (nonTrophyShows.length > 0) {
+    const latestUpdatedAt = nonTrophyShows.reduce((max, s) => {
+      const rowMatch = rows.find((r) => r.user_tv_show_id === s.user_tv_show_id);
+      const ts = rowMatch ? Date.parse(rowMatch.updated_at) : 0;
+      return ts > max.ts ? { id: s.user_tv_show_id, ts } : max;
+    }, { id: '', ts: -Infinity });
+
+    const flaggedShows = shows.map((s) => ({
+      ...s,
+      is_last_updated: s.user_tv_show_id === latestUpdatedAt.id,
+    }));
+
+    // Reorder: put is_last_updated at index 1 (center), others around it
+    const lastIdx = flaggedShows.findIndex((s) => s.is_last_updated);
+    if (lastIdx !== 1 && lastIdx !== -1) {
+      const [featured] = flaggedShows.splice(lastIdx, 1);
+      flaggedShows.splice(1, 0, featured);
+    }
+    return {
+      version: 2,
+      cached_at: Date.now(),
+      stats,
+      shows: flaggedShows,
+      movies,
+    };
+  }
+
   return {
-    version: 1,
+    version: 2,
     cached_at: Date.now(),
     stats,
-    shows,
+    shows: shows.map((s) => ({ ...s, is_last_updated: false })),
     movies,
   };
 }
@@ -191,7 +219,7 @@ const TMDB_POSTER_PATH_PATTERN = /^\/[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)$/i;
  */
 export async function clearWidgetCache(): Promise<void> {
   const emptyPayload: WidgetPayload = {
-    version: 1,
+    version: 2,
     cached_at: Date.now(),
     stats: { films_watched: 0, shows_watched: 0 },
     shows: [],
