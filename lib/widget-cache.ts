@@ -255,7 +255,7 @@ export async function syncWidgetCache(): Promise<void> {
   // handle season-advance (StartNextSeasonIntent) locally.
   // Failures are non-fatal — affected flags default to false, widget still renders.
   const top3ForFetch = rows
-    .slice()
+    .filter((r) => !r.is_trophy)
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
     .slice(0, 3);
   // Phase 3: also fetch show-level details for live number_of_seasons
