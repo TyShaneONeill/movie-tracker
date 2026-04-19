@@ -14,20 +14,17 @@ struct WidgetView: View {
                 let totalGaps = spacing * (slotCount - 1)
                 let movieColWidth: CGFloat = hasMovies ? 44 : 0
                 let availableForShows = geo.size.width - totalGaps - movieColWidth
-                // 3 shows total weight = 1 + 1.4 + 1 = 3.4
-                let sideWidth = availableForShows / 3.4
-                let centerWidth = sideWidth * 1.4
+                let showWidth = availableForShows / 3   // equal for all 3 slots
 
                 HStack(spacing: spacing) {
                     ForEach(0..<3, id: \.self) { idx in
                         if idx < entry.data.shows.count {
                             let show = entry.data.shows[idx]
-                            let w = show.isLastUpdated ? centerWidth : sideWidth
                             ShowCard(show: show)
-                                .frame(width: w, height: geo.size.height)
+                                .frame(width: showWidth, height: geo.size.height)
                         } else {
                             EmptySlot()
-                                .frame(width: sideWidth, height: geo.size.height)
+                                .frame(width: showWidth, height: geo.size.height)
                         }
                     }
                     if hasMovies, let movies = entry.data.movies {
@@ -55,40 +52,43 @@ private struct ShowCard: View {
     let show: Show
 
     var body: some View {
-        GeometryReader { geo in
-            VStack(spacing: 4) {
-                // Poster area fills all remaining vertical space minus action strip
-                Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
-                    PosterView(show: show)
-                        .frame(width: geo.size.width, height: geo.size.height - 32) // 28pt action + 4pt spacing
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .overlay(
-                            show.isLastUpdated && !show.isTrophy
-                                ? RoundedRectangle(cornerRadius: 6)
-                                    .strokeBorder(Color.orange.opacity(0.7), lineWidth: 2)
-                                : nil
-                        )
-                        .trophyOverlay(enabled: show.isTrophy)
-                }
+        VStack(spacing: 4) {
+            Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
+                PosterView(show: show)
+                    .aspectRatio(2/3, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        show.isLastUpdated && !show.isTrophy
+                            ? RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(Color.orange.opacity(0.85), lineWidth: 2)
+                            : nil
+                    )
+                    .shadow(
+                        color: show.isLastUpdated && !show.isTrophy
+                            ? Color.orange.opacity(0.4)
+                            : Color.clear,
+                        radius: 4
+                    )
+                    .scaleEffect(show.isLastUpdated && !show.isTrophy ? 1.04 : 1.0)
+                    .trophyOverlay(enabled: show.isTrophy)
+            }
 
-                // Action strip — fixed 28pt
-                Group {
-                    if show.isTrophy {
-                        EmptyView()
-                    } else if show.isSeasonComplete {
-                        SeasonCompleteBadge(show: show)
-                    } else {
-                        VStack(spacing: 2) {
-                            Text(episodeLabel)
-                                .font(.caption2)
-                                .foregroundColor(.primary)
-                            EyeballButton(show: show)
-                        }
+            Group {
+                if show.isTrophy {
+                    EmptyView()
+                } else if show.isSeasonComplete {
+                    SeasonCompleteBadge(show: show)
+                } else {
+                    VStack(spacing: 2) {
+                        Text(episodeLabel)
+                            .font(.caption2)
+                            .foregroundColor(.primary)
+                        EyeballButton(show: show)
                     }
                 }
-                .frame(height: 28)
-                .frame(maxWidth: .infinity)
             }
+            .frame(height: 28)
+            .frame(maxWidth: .infinity)
         }
     }
 
