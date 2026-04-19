@@ -12,6 +12,7 @@ type WatchingRow = {
   current_episode: number;
   number_of_seasons: number;
   updated_at: string;
+  is_trophy: boolean;
 };
 
 type BuildInput = {
@@ -159,6 +160,8 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
       has_next_season: hasNextSeason,
       next_season_number: hasNextSeason ? row.current_season + 1 : null,
       is_show_complete: isShowComplete,
+      is_trophy: row.is_trophy,
+      is_last_updated: false,   // Task 4 computes this correctly
     };
   });
 
@@ -208,7 +211,7 @@ export async function syncWidgetCache(): Promise<void> {
     .limit(20);
   if (tvErr || !tvRows) return;
 
-  const rows: WatchingRow[] = tvRows.map((r) => ({
+  let rows: WatchingRow[] = tvRows.map((r) => ({
     user_tv_show_id: r.id,
     tmdb_id: r.tmdb_id,
     name: r.name,
@@ -217,7 +220,35 @@ export async function syncWidgetCache(): Promise<void> {
     current_episode: r.current_episode ?? 1,
     number_of_seasons: r.number_of_seasons ?? 1,
     updated_at: r.updated_at ?? new Date(0).toISOString(),
+    is_trophy: false,
   }));
+
+  // Q5 hybrid: if fewer than 3 active shows, backfill with recently-watched (trophies)
+  if (rows.length < 3) {
+    const needed = 3 - rows.length;
+    const { data: trophyRows } = await supabase
+      .from('user_tv_shows')
+      .select('id, tmdb_id, name, poster_path, current_season, current_episode, number_of_seasons, updated_at')
+      .eq('user_id', user.id)
+      .eq('status', 'watched')
+      .order('updated_at', { ascending: false })
+      .limit(needed);
+    if (trophyRows) {
+      rows = rows.concat(
+        trophyRows.map((r) => ({
+          user_tv_show_id: r.id,
+          tmdb_id: r.tmdb_id,
+          name: r.name,
+          poster_path: r.poster_path,
+          current_season: r.current_season ?? 1,
+          current_episode: r.current_episode ?? 1,
+          number_of_seasons: r.number_of_seasons ?? 1,
+          updated_at: r.updated_at ?? new Date(0).toISOString(),
+          is_trophy: true,
+        }))
+      );
+    }
+  }
 
   // Phase 2: fetch per-season episode counts via the TMDB edge function for
   // the top 3 watching shows. All seasons are fetched so the widget can
