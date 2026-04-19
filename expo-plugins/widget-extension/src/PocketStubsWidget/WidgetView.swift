@@ -43,12 +43,12 @@ private struct ShowCard: View {
             }
 
             // Bottom strip: either SeasonCompleteBadge (end-of-season state) or
-            // episode label + EyeballButton (mid-season state). Link above and
-            // Button(intent:) here occupy separate tap regions - no conflict.
+            // episode label stacked above EyeballButton (mid-season state).
+            // Link above and Button(intent:) here occupy separate tap regions.
             if show.isSeasonComplete {
                 SeasonCompleteBadge(show: show)
             } else {
-                HStack(spacing: 5) {
+                VStack(spacing: 3) {
                     Text(episodeLabel)
                         .font(.caption2)
                         .foregroundColor(.primary)
