@@ -359,6 +359,7 @@ export async function syncWidgetCache(): Promise<void> {
       const base64 = arrayBufferToBase64(buf);
       await writePosterFile(`${MOVIE_POSTER_PREFIX}${i}.jpg`, base64);
     } catch (err) {
+      if (__DEV__) console.warn('[widget-cache] movie poster write failed', err);
       Sentry.addBreadcrumb({
         category: 'widget-cache',
         level: 'warning',
