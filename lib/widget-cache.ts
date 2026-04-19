@@ -50,10 +50,6 @@ async function fetchShowDetails(rows: WatchingRow[]): Promise<Record<string, num
   const map: Record<string, number> = {};
   const top3 = rows.slice(0, 3);
 
-  if (__DEV__) console.log('[widget-cache] fetchShowDetails starting', {
-    top3: top3.map((r) => ({ user_tv_show_id: r.user_tv_show_id, tmdb_id: r.tmdb_id, name: r.name })),
-  });
-
   await Promise.all(
     top3.map(async (row) => {
       try {
@@ -61,13 +57,6 @@ async function fetchShowDetails(rows: WatchingRow[]): Promise<Record<string, num
           'get-tv-show-details',
           { body: { showId: row.tmdb_id } }
         );
-        if (__DEV__) console.log('[widget-cache] fetchShowDetails response', {
-          tmdb_id: row.tmdb_id,
-          name: row.name,
-          error: error ? (error as Error).message ?? String(error) : null,
-          data_number_of_seasons: data?.number_of_seasons ?? null,
-          data_keys: data ? Object.keys(data) : null,
-        });
         if (error || !data) return;
         if (typeof data.number_of_seasons === 'number' && data.number_of_seasons > 0) {
           map[row.user_tv_show_id] = data.number_of_seasons;
@@ -89,8 +78,6 @@ async function fetchShowDetails(rows: WatchingRow[]): Promise<Record<string, num
       }
     })
   );
-
-  if (__DEV__) console.log('[widget-cache] fetchShowDetails result map', { map });
 
   return map;
 }

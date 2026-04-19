@@ -1,3 +1,16 @@
+// DEPLOY NOTE:
+// This function MUST be deployed with --no-verify-jwt:
+//   supabase functions deploy get-tv-show-details --no-verify-jwt
+//
+// Without that flag, Supabase rejects invocations from the client SDK when the
+// user's session JWT doesn't pass the default verification layer, surfacing as
+// "Edge Function returned a non-2xx status code" on the client. The function
+// itself doesn't need JWT validation — it only hits TMDB using the service's
+// own TMDB_API_KEY. Matches the deploy convention used by get-season-episodes.
+//
+// Secret required on Supabase:
+//   supabase secrets set TMDB_API_KEY=<v3-api-key>
+
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getCorsHeaders } from '../_shared/cors.ts';
 
