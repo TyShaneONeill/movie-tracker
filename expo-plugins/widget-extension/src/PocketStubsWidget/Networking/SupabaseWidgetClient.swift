@@ -105,15 +105,11 @@ struct SupabaseWidgetClient {
         try validate(response: response, data: data)
     }
 
-    /// Resolves (Supabase URL, anon key, JWT) from Info.plist + App Groups auth file.
-    /// Throws `.missingConfig` if any piece is absent.
+    /// Resolves (Supabase URL, anon key, JWT) from the App Groups auth file.
+    /// Throws `.missingConfig` if URL/anon key are absent or `.missingToken`
+    /// if the user is signed out.
     private static func resolveConfig() throws -> (String, String, String) {
-        guard let url = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
-              !url.isEmpty else {
-            throw ClientError.missingConfig
-        }
-        guard let anonKey = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String,
-              !anonKey.isEmpty else {
+        guard let (url, anonKey) = AuthTokenReader.readSupabaseConfig() else {
             throw ClientError.missingConfig
         }
         guard let token = AuthTokenReader.read() else {

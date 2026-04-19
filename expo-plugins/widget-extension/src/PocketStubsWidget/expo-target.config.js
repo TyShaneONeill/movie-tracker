@@ -23,11 +23,9 @@ module.exports = (config) => ({
   // don't see the widget in their gallery.
   deploymentTarget: "17.0",
   frameworks: ["WidgetKit", "SwiftUI"],
-  // Inject Supabase config so Swift code can read via Bundle.main.object(forInfoDictionaryKey:)
-  infoPlist: {
-    SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-  },
+  // Supabase config reaches the widget via App Groups (see AuthTokenReader.swift
+  // + hooks/use-auth-token-sync.ts), NOT via Info.plist — @bacons/apple-targets'
+  // infoPlist block doesn't reliably propagate env vars into the widget target.
   // Mirror the main app's App Group so the widget can read shared data.
   // Phase 2 uses App Groups (not Keychain Sharing) for auth token exchange,
   // so keychain-access-groups is intentionally absent here - App Groups alone

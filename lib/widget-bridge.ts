@@ -25,6 +25,8 @@ export type WidgetPayload = {
 export type AuthTokenPayload = {
   access_token: string | null;
   user_id: string | null;
+  supabase_url: string;
+  supabase_anon_key: string;
 };
 
 export async function writeWidgetData(payload: WidgetPayload): Promise<void> {
