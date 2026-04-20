@@ -18,13 +18,17 @@ struct MarkEpisodeWatchedIntent: AppIntent {
     @Parameter(title: "Episode Number")
     var episodeNumber: Int
 
+    @Parameter(title: "Total Episodes in Season")
+    var totalEpisodesInSeason: Int
+
     init() {}
 
-    init(userTvShowId: String, tmdbShowId: Int, seasonNumber: Int, episodeNumber: Int) {
+    init(userTvShowId: String, tmdbShowId: Int, seasonNumber: Int, episodeNumber: Int, totalEpisodesInSeason: Int) {
         self.userTvShowId = userTvShowId
         self.tmdbShowId = tmdbShowId
         self.seasonNumber = seasonNumber
         self.episodeNumber = episodeNumber
+        self.totalEpisodesInSeason = totalEpisodesInSeason
     }
 
     func perform() async throws -> some IntentResult {
@@ -38,7 +42,8 @@ struct MarkEpisodeWatchedIntent: AppIntent {
                 userTvShowId: userTvShowId,
                 tmdbShowId: tmdbShowId,
                 seasonNumber: seasonNumber,
-                episodeNumber: episodeNumber
+                episodeNumber: episodeNumber,
+                totalEpisodesInSeason: totalEpisodesInSeason
             )
             try? WidgetDataWriter.markEpisodeWatched(userTvShowId: userTvShowId)
         } catch {

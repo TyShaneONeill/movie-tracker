@@ -34,7 +34,8 @@ struct StartNextSeasonIntent: AppIntent {
                 userTvShowId: userTvShowId,
                 tmdbShowId: tmdbShowId,
                 seasonNumber: newSeasonNumber,
-                episodeNumber: 1
+                episodeNumber: 1,
+                totalEpisodesInSeason: 0
             )
             try? WidgetDataWriter.advanceSeason(userTvShowId: userTvShowId)
         } catch {

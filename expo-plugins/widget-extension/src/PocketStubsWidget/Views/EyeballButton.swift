@@ -12,7 +12,8 @@ struct EyeballButton: View {
                     userTvShowId: show.userTvShowId,
                     tmdbShowId: show.tmdbId,
                     seasonNumber: show.currentSeason,
-                    episodeNumber: show.currentEpisode + 1
+                    episodeNumber: show.currentEpisode + 1,
+                    totalEpisodesInSeason: show.totalEpisodesInCurrentSeason ?? 0
                 )) {
                     Image(systemName: "eye")
                         .font(.system(size: 12, weight: .medium))
