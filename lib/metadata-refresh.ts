@@ -18,8 +18,9 @@ type StaleShowRow = {
 };
 
 /**
- * Refresh TMDB-derived metadata for all the user's `status='watching'` shows
- * whose `metadata_refreshed_at` is NULL or older than STALE_THRESHOLD_HOURS.
+ * Refresh TMDB-derived metadata for all of the user's `status='watching'` shows,
+ * plus `status='watched'` shows whose `tmdb_status='Returning Series'`, whose
+ * `metadata_refreshed_at` is NULL or older than STALE_THRESHOLD_HOURS.
  * Returns the number of shows for which a TMDB fetch actually fired.
  * No-op if no user is authed.
  */

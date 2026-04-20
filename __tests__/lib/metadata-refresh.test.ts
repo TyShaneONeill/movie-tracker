@@ -32,8 +32,9 @@ describe('metadata-refresh', () => {
       // status now encoded via .or() to include Returning Series watched rows
       const orArgs = selectChain.or.mock.calls.map((c: unknown[]) => c[0] as string);
       expect(orArgs.some((s) => s.includes('status.eq.watching'))).toBe(true);
-      // The .or() call contains the OR of NULL + stale (24h) — verify it was called
-      expect(selectChain.or).toHaveBeenCalled();
+      // staleness filter — verify the second .or() covers NULL + stale (24h)
+      expect(orArgs.some((s) => s.includes('metadata_refreshed_at.is.null'))).toBe(true);
+      expect(orArgs.some((s) => s.includes('metadata_refreshed_at.lt.'))).toBe(true);
       expect(selectChain.limit).toHaveBeenCalledWith(50);
     });
   });
