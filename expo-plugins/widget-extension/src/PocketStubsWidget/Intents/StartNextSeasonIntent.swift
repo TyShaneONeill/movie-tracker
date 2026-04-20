@@ -1,5 +1,4 @@
 import AppIntents
-import UIKit
 import WidgetKit
 
 struct StartNextSeasonIntent: AppIntent {
@@ -27,16 +26,9 @@ struct StartNextSeasonIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         let start = Date()
 
-        await MainActor.run {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.prepare()
-            generator.impactOccurred()
-        }
-
         // "Start S{N+1}" === "mark S{N+1} E01 watched" per design Q1.
         // sync_tv_show_progress RPC rolls current_season over on its own
         // when it sees a watched row in the new season.
-        var succeeded = false
         do {
             try await SupabaseWidgetClient.markEpisodeWatched(
                 userTvShowId: userTvShowId,
@@ -45,7 +37,6 @@ struct StartNextSeasonIntent: AppIntent {
                 episodeNumber: 1
             )
             try? WidgetDataWriter.advanceSeason(userTvShowId: userTvShowId)
-            succeeded = true
         } catch {
             // Silent per Q2
         }
@@ -53,14 +44,6 @@ struct StartNextSeasonIntent: AppIntent {
         let elapsed = Date().timeIntervalSince(start)
         if elapsed < 1.5 {
             try? await Task.sleep(nanoseconds: UInt64((1.5 - elapsed) * 1_000_000_000))
-        }
-
-        if succeeded {
-            await MainActor.run {
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.prepare()
-                generator.impactOccurred()
-            }
         }
 
         WidgetCenter.shared.reloadTimelines(ofKind: AppGroup.widgetKind)
