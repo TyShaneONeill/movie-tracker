@@ -140,7 +140,9 @@ function SeasonAccordionItem({
     if (isEpisodeWatched(episode.episode_number)) {
       await unmarkWatched(episode.episode_number);
     } else {
-      await markWatched(episode);
+      // episodes is loaded by useSeasonEpisodes earlier in this component;
+      // its length is the authoritative TMDB episode count for this season.
+      await markWatched(episode, episodes.length);
     }
   };
 
