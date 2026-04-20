@@ -2147,6 +2147,7 @@ export type Database = {
           p_episode_number: number
           p_season_number: number
           p_tmdb_show_id: number
+          p_total_episodes_in_season: number
           p_user_tv_show_id: string
         }
         Returns: undefined
