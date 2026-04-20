@@ -325,13 +325,15 @@ export async function markEpisodeWatched(
   userId: string,
   userTvShowId: string,
   tmdbShowId: number,
-  episode: TMDBEpisode
+  episode: TMDBEpisode,
+  totalEpisodesInSeason: number
 ): Promise<UserEpisodeWatch> {
   const { error } = await supabase.rpc('mark_episode_watched', {
     p_user_tv_show_id: userTvShowId,
     p_tmdb_show_id: tmdbShowId,
     p_season_number: episode.season_number,
     p_episode_number: episode.episode_number,
+    p_total_episodes_in_season: totalEpisodesInSeason,
   });
 
   if (error) {

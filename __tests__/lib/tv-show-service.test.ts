@@ -700,36 +700,46 @@ describe('unlikeTvShow', () => {
 
 describe('markEpisodeWatched', () => {
   const episode = makeTMDBEpisode();
+  const TOTAL_IN_SEASON = 10;
 
-  it('calls mark_episode_watched RPC with correct params', async () => {
+  it('calls mark_episode_watched RPC with correct params including p_total_episodes_in_season', async () => {
     mockRpc.mockResolvedValue({ data: null, error: null });
 
-    await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
+    await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
 
     expect(mockRpc).toHaveBeenCalledWith('mark_episode_watched', {
       p_user_tv_show_id: USER_TV_SHOW_ID,
       p_tmdb_show_id: TMDB_ID,
       p_season_number: episode.season_number,
       p_episode_number: episode.episode_number,
+      p_total_episodes_in_season: TOTAL_IN_SEASON,
     });
     expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes 0 for p_total_episodes_in_season when caller passes 0 (fallback)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, 0);
+
+    expect(mockRpc).toHaveBeenCalledWith('mark_episode_watched', expect.objectContaining({
+      p_total_episodes_in_season: 0,
+    }));
   });
 
   it('does NOT use the 2-call pattern (no INSERT + sync_tv_show_progress)', async () => {
     mockRpc.mockResolvedValue({ data: null, error: null });
 
-    await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
+    await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
 
-    // New pattern must not call .from('user_episode_watches').insert(...)
     expect(mockFrom).not.toHaveBeenCalledWith('user_episode_watches');
-    // Never call the deprecated sync RPC
     expect(mockRpc).not.toHaveBeenCalledWith('sync_tv_show_progress', expect.anything());
   });
 
   it('returns a UserEpisodeWatch-shaped object built from input params', async () => {
     mockRpc.mockResolvedValue({ data: null, error: null });
 
-    const result = await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
+    const result = await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
 
     expect(result).toMatchObject({
       user_id: USER_ID,
@@ -748,7 +758,7 @@ describe('markEpisodeWatched', () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'RPC failed' } });
 
     await expect(
-      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode)
+      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON)
     ).rejects.toThrow('RPC failed');
   });
 
@@ -756,7 +766,7 @@ describe('markEpisodeWatched', () => {
     mockRpc.mockResolvedValue({ data: null, error: {} });
 
     await expect(
-      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode)
+      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON)
     ).rejects.toThrow('Failed to mark episode as watched');
   });
 });
