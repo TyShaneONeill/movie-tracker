@@ -51,7 +51,7 @@ struct MarkEpisodeWatchedIntent: AppIntent {
                 try player.start(atTime: 0)
                 // Keep engine alive briefly so the event plays — already in async context
                 try await Task.sleep(nanoseconds: 200_000_000)
-                engine.stop()
+                try await engine.stop()
             } catch {
                 // Silent fail — widget design doesn't surface errors
             }
@@ -101,7 +101,7 @@ struct MarkEpisodeWatchedIntent: AppIntent {
                     try player.start(atTime: 0)
                     // Keep engine alive briefly so the event plays — already in async context
                     try await Task.sleep(nanoseconds: 200_000_000)
-                    engine.stop()
+                    try await engine.stop()
                 } catch {
                     // Silent fail — widget design doesn't surface errors
                 }
