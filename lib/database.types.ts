@@ -1778,6 +1778,7 @@ export type Database = {
           poster_path: string | null
           started_watching_at: string | null
           status: string
+          tmdb_status: string | null
           tmdb_id: number
           updated_at: string | null
           user_id: string
@@ -1803,6 +1804,7 @@ export type Database = {
           poster_path?: string | null
           started_watching_at?: string | null
           status?: string
+          tmdb_status?: string | null
           tmdb_id: number
           updated_at?: string | null
           user_id: string
@@ -1828,6 +1830,7 @@ export type Database = {
           poster_path?: string | null
           started_watching_at?: string | null
           status?: string
+          tmdb_status?: string | null
           tmdb_id?: number
           updated_at?: string | null
           user_id?: string

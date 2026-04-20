@@ -99,6 +99,7 @@ function makeUserTvShow(overrides: Partial<UserTvShow> = {}): UserTvShow {
     finished_at: null,
     user_rating: null,
     metadata_refreshed_at: null,
+    tmdb_status: null,
     ...overrides,
   };
 }
