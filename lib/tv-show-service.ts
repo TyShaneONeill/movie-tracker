@@ -327,7 +327,24 @@ export async function markEpisodeWatched(
   tmdbShowId: number,
   episode: TMDBEpisode
 ): Promise<UserEpisodeWatch> {
-  const insertData: UserEpisodeWatchInsert = {
+  const { error } = await supabase.rpc('mark_episode_watched', {
+    p_user_tv_show_id: userTvShowId,
+    p_tmdb_show_id: tmdbShowId,
+    p_season_number: episode.season_number,
+    p_episode_number: episode.episode_number,
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to mark episode as watched');
+  }
+
+  void syncWidgetCache();
+
+  // Construct the watch record from known params to preserve the return shape
+  // for callers. The atomic RPC handles the DB write; we don't need to re-fetch.
+  const now = new Date().toISOString();
+  return {
+    id: '',
     user_id: userId,
     user_tv_show_id: userTvShowId,
     tmdb_show_id: tmdbShowId,
@@ -336,25 +353,11 @@ export async function markEpisodeWatched(
     episode_name: episode.name,
     episode_runtime: episode.runtime,
     still_path: episode.still_path,
-    watched_at: new Date().toISOString(),
+    watched_at: now,
+    created_at: now,
+    notes: null,
+    watch_number: 1,
   };
-
-  const { data, error } = (await (supabase
-    .from('user_episode_watches') as any)
-    .insert(insertData)
-    .select()
-    .single()) as { data: UserEpisodeWatch; error: any };
-
-  if (error) {
-    throw new Error(error.message || 'Failed to mark episode as watched');
-  }
-
-  // Sync TV show progress
-  await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
-
-  void syncWidgetCache();
-
-  return data;
 }
 
 // Unmark an episode as watched

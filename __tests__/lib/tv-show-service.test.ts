@@ -699,51 +699,60 @@ describe('unlikeTvShow', () => {
 
 describe('markEpisodeWatched', () => {
   const episode = makeTMDBEpisode();
-  const watchRecord = makeUserEpisodeWatch();
 
-  it('inserts episode watch and syncs progress', async () => {
-    const chain = setupQueryChain({ data: watchRecord, error: null });
-
-    const result = await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
-
-    expect(mockFrom).toHaveBeenCalledWith('user_episode_watches');
-    expect(chain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: USER_ID,
-        user_tv_show_id: USER_TV_SHOW_ID,
-        tmdb_show_id: TMDB_ID,
-        season_number: episode.season_number,
-        episode_number: episode.episode_number,
-        episode_name: episode.name,
-        episode_runtime: episode.runtime,
-        still_path: episode.still_path,
-        watched_at: expect.any(String),
-      })
-    );
-    expect(chain.select).toHaveBeenCalled();
-    expect(result).toEqual(watchRecord);
-  });
-
-  it('calls sync_tv_show_progress RPC after insert', async () => {
-    setupQueryChain({ data: watchRecord, error: null });
+  it('calls mark_episode_watched RPC with correct params', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
     await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
 
-    expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', {
+    expect(mockRpc).toHaveBeenCalledWith('mark_episode_watched', {
       p_user_tv_show_id: USER_TV_SHOW_ID,
+      p_tmdb_show_id: TMDB_ID,
+      p_season_number: episode.season_number,
+      p_episode_number: episode.episode_number,
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT use the 2-call pattern (no INSERT + sync_tv_show_progress)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
+
+    // New pattern must not call .from('user_episode_watches').insert(...)
+    expect(mockFrom).not.toHaveBeenCalledWith('user_episode_watches');
+    // Never call the deprecated sync RPC
+    expect(mockRpc).not.toHaveBeenCalledWith('sync_tv_show_progress', expect.anything());
+  });
+
+  it('returns a UserEpisodeWatch-shaped object built from input params', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    const result = await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode);
+
+    expect(result).toMatchObject({
+      user_id: USER_ID,
+      user_tv_show_id: USER_TV_SHOW_ID,
+      tmdb_show_id: TMDB_ID,
+      season_number: episode.season_number,
+      episode_number: episode.episode_number,
+      episode_name: episode.name,
+      episode_runtime: episode.runtime,
+      still_path: episode.still_path,
+      watch_number: 1,
     });
   });
 
-  it('throws on insert error', async () => {
-    setupQueryChain({ data: null, error: { message: 'Insert failed' } });
+  it('throws on RPC error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'RPC failed' } });
 
     await expect(
       markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode)
-    ).rejects.toThrow('Insert failed');
+    ).rejects.toThrow('RPC failed');
   });
 
   it('throws fallback message when error has no message', async () => {
-    setupQueryChain({ data: null, error: {} });
+    mockRpc.mockResolvedValue({ data: null, error: {} });
 
     await expect(
       markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode)
