@@ -100,7 +100,13 @@ async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<str
   // but inlined here to avoid a circular import (tv-show-service imports widget-cache).
   const fetches: Array<Promise<void>> = [];
   for (const row of top3) {
-    for (let seasonNum = 1; seasonNum <= row.number_of_seasons; seasonNum++) {
+    // Always fetch through at least current_season even if stale DB number_of_seasons
+    // thinks fewer exist. This is the bug that caused Daredevil: Born Again S2 to
+    // never get an episode count — show was added when TMDB said 1 season, user
+    // clicked Start S2, but the fetch loop still only iterated up to 1. Phase 3's
+    // liveNumberOfSeasons fix addressed hasNextSeason but not this inner loop.
+    const maxSeasonToFetch = Math.max(row.current_season, row.number_of_seasons);
+    for (let seasonNum = 1; seasonNum <= maxSeasonToFetch; seasonNum++) {
       fetches.push(
         supabase.functions
           .invoke<SeasonDetailResponse>('get-season-episodes', {
