@@ -245,6 +245,7 @@ describe('metadata-refresh', () => {
 
       await refreshStaleWatchingShows();
 
+      expect(updateChain.update).toHaveBeenCalledTimes(1);
       const updateArgs = updateChain.update.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
       expect(updateArgs && 'tmdb_status' in updateArgs).toBe(false);
     });
