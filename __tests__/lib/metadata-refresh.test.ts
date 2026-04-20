@@ -341,5 +341,53 @@ describe('metadata-refresh', () => {
       const updateArgs = updateChain.update.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
       expect(updateArgs && 'status' in updateArgs).toBe(false);
     });
+
+    it('does NOT flip back when row.number_of_episodes is null (no baseline yet)', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
+
+      const row = {
+        id: 'utv-1',
+        tmdb_id: 101,
+        name: 'Severance',
+        poster_path: null,
+        number_of_seasons: 2,
+        number_of_episodes: null,
+        metadata_refreshed_at: null,
+        status: 'watched',
+        tmdb_status: 'Returning Series',
+      };
+
+      const selectChain = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        or: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue({ data: [row], error: null }),
+      };
+      const updateChain = {
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({ error: null }),
+      };
+      let fromCount = 0;
+      (supabase.from as jest.Mock).mockImplementation(() => {
+        fromCount++;
+        return fromCount === 1 ? selectChain : updateChain;
+      });
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { number_of_seasons: 2, number_of_episodes: 20, poster_path: null, status: 'Returning Series' },
+        error: null,
+      });
+
+      await refreshStaleWatchingShows();
+
+      // Without a baseline, we defer flip-back to a subsequent cycle.
+      // number_of_episodes gets populated on this refresh; flip-back can only
+      // fire on the NEXT refresh when a real growth delta is observable.
+      expect(updateChain.update).toHaveBeenCalledTimes(1);
+      const updateArgs = updateChain.update.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+      expect(updateArgs && 'status' in updateArgs).toBe(false);
+      // But number_of_episodes DOES get populated on this refresh (Task 4b.3 branch)
+      expect(updateArgs?.number_of_episodes).toBe(20);
+    });
   });
 });

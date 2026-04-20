@@ -115,7 +115,9 @@ async function refreshShowMetadata(row: StaleShowRow): Promise<boolean> {
       row.status === 'watched'
       && row.tmdb_status === 'Returning Series'
       && typeof tmdbData.number_of_episodes === 'number'
-      && tmdbData.number_of_episodes > (row.number_of_episodes ?? 0)
+      && tmdbData.number_of_episodes > 0
+      && row.number_of_episodes !== null
+      && tmdbData.number_of_episodes > row.number_of_episodes
     ) {
       updates.status = 'watching';
       // finished_at intentionally preserved for analytics
