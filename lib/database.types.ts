@@ -2139,6 +2139,15 @@ export type Database = {
         }[]
       }
       increment_bonus_scans: { Args: { p_user_id: string }; Returns: Json }
+      mark_episode_watched: {
+        Args: {
+          p_episode_number: number
+          p_season_number: number
+          p_tmdb_show_id: number
+          p_user_tv_show_id: string
+        }
+        Returns: undefined
+      }
       reorder_list_movies: {
         Args: { p_list_id: string; p_ordered_tmdb_ids: number[] }
         Returns: undefined
