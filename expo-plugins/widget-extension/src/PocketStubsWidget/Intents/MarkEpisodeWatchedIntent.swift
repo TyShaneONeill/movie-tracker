@@ -1,5 +1,5 @@
 import AppIntents
-import CoreHaptics
+@preconcurrency import CoreHaptics
 import WidgetKit
 
 struct MarkEpisodeWatchedIntent: AppIntent {
@@ -37,7 +37,7 @@ struct MarkEpisodeWatchedIntent: AppIntent {
         // which Apple confirmed is blocked in non-foreground-active processes.
         if let engine = try? CHHapticEngine() {
             do {
-                try engine.start()
+                try await engine.start()
                 let event = CHHapticEvent(
                     eventType: .hapticTransient,
                     parameters: [
@@ -49,10 +49,9 @@ struct MarkEpisodeWatchedIntent: AppIntent {
                 let pattern = try CHHapticPattern(events: [event], parameters: [])
                 let player = try engine.makePlayer(with: pattern)
                 try player.start(atTime: 0)
-                // Keep engine alive briefly so the event plays
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    engine.stop()
-                }
+                // Keep engine alive briefly so the event plays — already in async context
+                try await Task.sleep(nanoseconds: 200_000_000)
+                engine.stop()
             } catch {
                 // Silent fail — widget design doesn't surface errors
             }
@@ -88,7 +87,7 @@ struct MarkEpisodeWatchedIntent: AppIntent {
         if succeeded {
             if let engine = try? CHHapticEngine() {
                 do {
-                    try engine.start()
+                    try await engine.start()
                     let event = CHHapticEvent(
                         eventType: .hapticTransient,
                         parameters: [
@@ -100,10 +99,9 @@ struct MarkEpisodeWatchedIntent: AppIntent {
                     let pattern = try CHHapticPattern(events: [event], parameters: [])
                     let player = try engine.makePlayer(with: pattern)
                     try player.start(atTime: 0)
-                    // Keep engine alive briefly so the event plays
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        engine.stop()
-                    }
+                    // Keep engine alive briefly so the event plays — already in async context
+                    try await Task.sleep(nanoseconds: 200_000_000)
+                    engine.stop()
                 } catch {
                     // Silent fail — widget design doesn't surface errors
                 }
