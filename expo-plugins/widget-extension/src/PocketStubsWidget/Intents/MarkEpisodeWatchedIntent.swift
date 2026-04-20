@@ -1,5 +1,5 @@
 import AppIntents
-import UIKit
+import CoreHaptics
 import WidgetKit
 
 struct MarkEpisodeWatchedIntent: AppIntent {
@@ -32,12 +32,30 @@ struct MarkEpisodeWatchedIntent: AppIntent {
         let start = Date()
 
         // Tap-start haptic fires immediately — user feels confirmation
-        // even before the network round-trip completes. UIKit feedback
-        // generators require the main thread.
-        await MainActor.run {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.prepare()
-            generator.impactOccurred()
+        // even before the network round-trip completes. Testing CHHapticEngine
+        // (Core Haptics) as a lower-level alternative to UIImpactFeedbackGenerator,
+        // which Apple confirmed is blocked in non-foreground-active processes.
+        if let engine = try? CHHapticEngine() {
+            do {
+                try engine.start()
+                let event = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.5),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.3)
+                    ],
+                    relativeTime: 0
+                )
+                let pattern = try CHHapticPattern(events: [event], parameters: [])
+                let player = try engine.makePlayer(with: pattern)
+                try player.start(atTime: 0)
+                // Keep engine alive briefly so the event plays
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    engine.stop()
+                }
+            } catch {
+                // Silent fail — widget design doesn't surface errors
+            }
         }
 
         // Silent failure path per design Q2: any error leaves state unchanged
@@ -68,10 +86,27 @@ struct MarkEpisodeWatchedIntent: AppIntent {
         // Success haptic fires only on success - distinguishes "your tap
         // stuck" from "your tap tried" without a visual error affordance.
         if succeeded {
-            await MainActor.run {
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.prepare()
-                generator.impactOccurred()
+            if let engine = try? CHHapticEngine() {
+                do {
+                    try engine.start()
+                    let event = CHHapticEvent(
+                        eventType: .hapticTransient,
+                        parameters: [
+                            CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.8),
+                            CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.5)
+                        ],
+                        relativeTime: 0
+                    )
+                    let pattern = try CHHapticPattern(events: [event], parameters: [])
+                    let player = try engine.makePlayer(with: pattern)
+                    try player.start(atTime: 0)
+                    // Keep engine alive briefly so the event plays
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        engine.stop()
+                    }
+                } catch {
+                    // Silent fail — widget design doesn't surface errors
+                }
             }
         }
 
