@@ -63,6 +63,7 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
+import { refreshSingleShow } from '@/lib/metadata-refresh';
 import { addMovieToList, createList } from '@/lib/list-service';
 import { shareTitle } from '@/lib/share-service';
 import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
@@ -308,6 +309,18 @@ export default function TvShowDetailScreen() {
       analytics.track('tv:view', { tmdb_id: show.id, name: show.name });
     }
   }, [show]);
+
+  // Lazy single-show metadata refresh on navigation
+  useEffect(() => {
+    if (!userTvShow?.id) return;
+    refreshSingleShow(userTvShow.id).then((fired) => {
+      if (fired) {
+        queryClient.invalidateQueries({
+          queryKey: ['userTvShow', userTvShow.user_id, userTvShow.tmdb_id],
+        });
+      }
+    });
+  }, [userTvShow?.id]);
 
   // Determine user's country for watch providers
   const countryCode = Localization.getLocales()[0]?.regionCode || 'US';
