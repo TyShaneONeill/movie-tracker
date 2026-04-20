@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { writeWidgetData, writePosterFile, reloadWidgetTimelines, WidgetPayload } from '@/lib/widget-bridge';
 import { MOVIE_POSTER_PREFIX } from '@/lib/widget-constants';
@@ -99,7 +100,13 @@ async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<str
   // but inlined here to avoid a circular import (tv-show-service imports widget-cache).
   const fetches: Array<Promise<void>> = [];
   for (const row of top3) {
-    for (let seasonNum = 1; seasonNum <= row.number_of_seasons; seasonNum++) {
+    // Always fetch through at least current_season even if stale DB number_of_seasons
+    // thinks fewer exist. This is the bug that caused Daredevil: Born Again S2 to
+    // never get an episode count — show was added when TMDB said 1 season, user
+    // clicked Start S2, but the fetch loop still only iterated up to 1. Phase 3's
+    // liveNumberOfSeasons fix addressed hasNextSeason but not this inner loop.
+    const maxSeasonToFetch = Math.max(row.current_season, row.number_of_seasons);
+    for (let seasonNum = 1; seasonNum <= maxSeasonToFetch; seasonNum++) {
       fetches.push(
         supabase.functions
           .invoke<SeasonDetailResponse>('get-season-episodes', {
@@ -134,6 +141,32 @@ async function fetchSeasonEpisodeCounts(rows: WatchingRow[]): Promise<Record<str
   return map;
 }
 
+async function readEpisodeCountCache(): Promise<Record<string, number>> {
+  try {
+    const raw = await AsyncStorage.getItem(EPISODE_COUNT_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const result: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof k === 'string' && typeof v === 'number' && v > 0) {
+        result[k] = v;
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+async function writeEpisodeCountCache(counts: Record<string, number>): Promise<void> {
+  try {
+    await AsyncStorage.setItem(EPISODE_COUNT_CACHE_KEY, JSON.stringify(counts));
+  } catch {
+    // Silent — cache write failure is non-fatal, worst case we refetch next sync
+  }
+}
+
 export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons, movieRows }: BuildInput): WidgetPayload {
   const top3 = rows
     .slice()
@@ -142,6 +175,19 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
 
   const shows = top3.map((row) => {
     const episodesInSeason = episodesBySeason[`${row.user_tv_show_id}-${row.current_season}`] ?? 0;
+    if (episodesInSeason === 0) {
+      Sentry.addBreadcrumb({
+        category: 'widget-cache',
+        level: 'warning',
+        message: 'episode count unknown for current season',
+        data: {
+          user_tv_show_id: row.user_tv_show_id,
+          tmdb_id: row.tmdb_id,
+          current_season: row.current_season,
+          current_episode: row.current_episode,
+        },
+      });
+    }
     const isSeasonComplete = episodesInSeason > 0 && row.current_episode >= episodesInSeason;
     // Prefer live TMDB number_of_seasons; fall back to DB row if missing
     const effectiveTotalSeasons =
@@ -233,6 +279,8 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
 }
 
 const MAX_POSTER_BYTES = 500_000; // TMDB w342 posters are ~30KB; cap at 500KB to prevent memory spikes from a compromised mirror
+const EPISODE_COUNT_CACHE_KEY = 'widget:episodeCounts';
+// Shape: Record<`${userTvShowId}-${seasonNumber}`, number>
 const TMDB_POSTER_PATH_PATTERN = /^\/[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)$/i;
 
 /**
@@ -318,12 +366,25 @@ export async function syncWidgetCache(): Promise<void> {
     .filter((r) => !r.is_trophy)
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
     .slice(0, 3);
+
+  // Phase 4b.2: read episode count cache before TMDB fetches so failed fetches
+  // can fall back to previously-successful values rather than leaving counts unknown.
+  const cachedCounts = await readEpisodeCountCache();
+
   // Phase 3: also fetch show-level details for live number_of_seasons
   // (fixes Start S{N+1} on airing shows where DB is stale)
   const [episodesBySeason, liveNumberOfSeasons] = await Promise.all([
     fetchSeasonEpisodeCounts(top3ForFetch),
     fetchShowDetails(top3ForFetch),
   ]);
+
+  // Phase 4b.2: merge fresh fetch results over cache. Fresh always wins.
+  // Entries only in cache survive (fallback for this sync's failed fetches).
+  // Entries only fresh get added (new seasons not previously cached).
+  const mergedCounts: Record<string, number> = { ...cachedCounts, ...episodesBySeason };
+
+  // Write merged back so next sync inherits all previously-successful fetches.
+  await writeEpisodeCountCache(mergedCounts);
 
   // Movies — top 2 recently-watched (Phase 4a)
   const { data: movieRows } = await supabase
@@ -354,7 +415,7 @@ export async function syncWidgetCache(): Promise<void> {
       films_watched: filmsRes.count ?? 0,
       shows_watched: showsRes.count ?? 0,
     },
-    episodesBySeason,
+    episodesBySeason: mergedCounts,   // Phase 4b.2: merged (cache + fresh) so failed fetches fall back to cached values
     liveNumberOfSeasons,
     movieRows: movieRows ?? [],
   });

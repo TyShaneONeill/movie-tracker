@@ -1,6 +1,11 @@
 // Integration test for syncWidgetCache orchestrator.
 // Task 3 fills in TMDB-fetch assertions; this scaffold wires mocks + covers signout.
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: { getUser: jest.fn() },
@@ -19,6 +24,7 @@ jest.mock('@/lib/widget-bridge', () => ({
 import { syncWidgetCache } from '@/lib/widget-cache';
 import { supabase } from '@/lib/supabase';
 import { writeWidgetData, writePosterFile } from '@/lib/widget-bridge';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 describe('syncWidgetCache orchestrator (integration)', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -677,6 +683,156 @@ describe('syncWidgetCache orchestrator (integration)', () => {
     expect(payload.shows[0].is_last_updated).toBe(false);
     expect(payload.shows[2].is_last_updated).toBe(false);
   });
+
+  // ── Phase 4b.2: AsyncStorage episode count cache ────────────────────────────
+
+  /** Shared supabase mock wiring for a single show with the given id + seasons. */
+  function wireSupabaseSingleShow(opts: {
+    showId: string;
+    tmdbId: number;
+    name: string;
+    currentSeason: number;
+    currentEpisode: number;
+    numberOfSeasons: number;
+  }) {
+    const tvRowsChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({
+        data: [{
+          id: opts.showId,
+          tmdb_id: opts.tmdbId,
+          name: opts.name,
+          poster_path: null,
+          current_season: opts.currentSeason,
+          current_episode: opts.currentEpisode,
+          number_of_seasons: opts.numberOfSeasons,
+          updated_at: '2026-04-18',
+        }],
+        error: null,
+      }),
+    };
+    const backfillChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const moviesChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const filmsCountChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+    filmsCountChain.eq
+      .mockReturnValueOnce(filmsCountChain)
+      .mockResolvedValueOnce({ count: 0, error: null });
+    const showsCountChain = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      in: jest.fn().mockResolvedValue({ count: 1, error: null }),
+    };
+    let fromCallIdx = 0;
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      fromCallIdx++;
+      if (table === 'user_tv_shows' && fromCallIdx === 1) return tvRowsChain;
+      if (table === 'user_tv_shows' && fromCallIdx === 2) return backfillChain;
+      if (table === 'user_movies' && fromCallIdx === 3) return moviesChain;
+      if (table === 'user_movies') return filmsCountChain;
+      return showsCountChain;
+    });
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+    });
+  }
+
+  it('writes successful fetches to AsyncStorage cache', async () => {
+    wireSupabaseSingleShow({ showId: 'utv-1', tmdbId: 95396, name: 'Severance', currentSeason: 2, currentEpisode: 5, numberOfSeasons: 2 });
+
+    // Empty cache — first sync
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+    // Both seasons succeed
+    (supabase.functions.invoke as jest.Mock).mockImplementation((fn: string, opts: any) => {
+      if (fn === 'get-tv-show-details') return Promise.resolve({ data: { number_of_seasons: 2 }, error: null });
+      if (fn === 'get-season-episodes') {
+        const counts: Record<number, number> = { 1: 9, 2: 10 };
+        return Promise.resolve({ data: { episodes: Array(counts[opts.body.seasonNumber] ?? 0).fill({}) }, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    await syncWidgetCache();
+
+    // setItem should have been called with the fetched counts merged
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'widget:episodeCounts',
+      expect.stringContaining('"utv-1-1"')
+    );
+    const setItemArg = JSON.parse((AsyncStorage.setItem as jest.Mock).mock.calls[0][1] as string);
+    expect(setItemArg['utv-1-1']).toBe(9);
+    expect(setItemArg['utv-1-2']).toBe(10);
+  });
+
+  it('falls back to cached counts when fresh fetch fails', async () => {
+    wireSupabaseSingleShow({ showId: 'utv-1', tmdbId: 95396, name: 'Severance', currentSeason: 2, currentEpisode: 5, numberOfSeasons: 2 });
+
+    // Cache has a previous successful fetch for season 2
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'utv-1-2': 10 }));
+
+    // Fresh fetch fails for all seasons (network down)
+    (supabase.functions.invoke as jest.Mock).mockImplementation((fn: string) => {
+      if (fn === 'get-tv-show-details') return Promise.resolve({ data: { number_of_seasons: 2 }, error: null });
+      // get-season-episodes rejects — simulates transient network failure
+      return Promise.reject(new Error('network timeout'));
+    });
+
+    await syncWidgetCache();
+
+    // Payload should use the cached count for season 2
+    const payload = (writeWidgetData as jest.Mock).mock.calls[0][0];
+    expect(payload.shows[0].total_episodes_in_current_season).toBe(10);
+    // setItem should still be called — writes back at-least-the-cached state
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'widget:episodeCounts',
+      expect.any(String)
+    );
+    const written = JSON.parse((AsyncStorage.setItem as jest.Mock).mock.calls[0][1] as string);
+    expect(written['utv-1-2']).toBe(10);
+  });
+
+  it('fresh fetch values override cached values', async () => {
+    wireSupabaseSingleShow({ showId: 'utv-1', tmdbId: 95396, name: 'Severance', currentSeason: 2, currentEpisode: 5, numberOfSeasons: 2 });
+
+    // Cache has a stale count of 5 for season 2
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'utv-1-2': 5 }));
+
+    // Fresh fetch returns updated count of 10 for season 2
+    (supabase.functions.invoke as jest.Mock).mockImplementation((fn: string, opts: any) => {
+      if (fn === 'get-tv-show-details') return Promise.resolve({ data: { number_of_seasons: 2 }, error: null });
+      if (fn === 'get-season-episodes') {
+        const counts: Record<number, number> = { 1: 9, 2: 10 };
+        return Promise.resolve({ data: { episodes: Array(counts[opts.body.seasonNumber] ?? 0).fill({}) }, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    await syncWidgetCache();
+
+    // Payload should use the fresh (overriding) count
+    const payload = (writeWidgetData as jest.Mock).mock.calls[0][0];
+    expect(payload.shows[0].total_episodes_in_current_season).toBe(10);
+
+    // setItem should be called with merged state showing fresh value wins
+    expect(AsyncStorage.setItem).toHaveBeenCalled();
+    const written = JSON.parse((AsyncStorage.setItem as jest.Mock).mock.calls[0][1] as string);
+    expect(written['utv-1-2']).toBe(10); // fresh 10 overrides cached 5
+    expect(written['utv-1-1']).toBe(9);  // new season also persisted
+  });
+
+  // ── End Phase 4b.2 tests ──────────────────────────────────────────────────
 
   it('does not set is_last_updated when all 3 shows are trophies', async () => {
     (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
