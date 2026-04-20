@@ -250,7 +250,7 @@ export default function FirstTakeDetailScreen() {
               <LikeButton
                 targetType="first_take"
                 targetId={firstTake.id}
-                initialLikeCount={firstTake.like_count}
+                initialLikeCount={firstTake.like_count ?? undefined}
                 size="md"
               />
               <View style={styles.engagementDivider} />

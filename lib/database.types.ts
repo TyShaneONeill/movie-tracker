@@ -60,6 +60,7 @@ export type Database = {
           description: string
           icon: string
           id: string
+          is_revocable: boolean
           name: string
           sort_order: number
         }
@@ -70,6 +71,7 @@ export type Database = {
           description: string
           icon?: string
           id?: string
+          is_revocable?: boolean
           name: string
           sort_order?: number
         }
@@ -80,6 +82,7 @@ export type Database = {
           description?: string
           icon?: string
           id?: string
+          is_revocable?: boolean
           name?: string
           sort_order?: number
         }
@@ -112,20 +115,102 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_users: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      comment_likes: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "review_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_reports: {
+        Row: {
+          comment_id: string
+          created_at: string | null
+          id: string
+          reason: string | null
+          reporter_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          reporter_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          reporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_reports_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "review_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       first_takes: {
         Row: {
-          comment_count: number
+          comment_count: number | null
           created_at: string | null
           episode_number: number | null
           id: string
           is_rewatch: boolean | null
           is_spoiler: boolean | null
+          like_count: number | null
           media_type: string
           movie_title: string
           poster_path: string | null
           quote_text: string
           rating: number | null
-          like_count: number
           reaction_emoji: string
           season_number: number | null
           show_name: string | null
@@ -136,13 +221,13 @@ export type Database = {
           visibility: string
         }
         Insert: {
-          comment_count?: number
+          comment_count?: number | null
           created_at?: string | null
           episode_number?: number | null
           id?: string
           is_rewatch?: boolean | null
           is_spoiler?: boolean | null
-          like_count?: number
+          like_count?: number | null
           media_type?: string
           movie_title: string
           poster_path?: string | null
@@ -158,13 +243,13 @@ export type Database = {
           visibility?: string
         }
         Update: {
-          comment_count?: number
+          comment_count?: number | null
           created_at?: string | null
           episode_number?: number | null
           id?: string
           is_rewatch?: boolean | null
           is_spoiler?: boolean | null
-          like_count?: number
+          like_count?: number | null
           media_type?: string
           movie_title?: string
           poster_path?: string | null
@@ -452,6 +537,33 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           actor_id: string | null
@@ -516,8 +628,8 @@ export type Database = {
           is_private: boolean
           onboarding_completed: boolean | null
           pending_followers_count: number
-          rewarded_ad_credits: number
           review_visibility: string
+          rewarded_ad_credits: number
           show_continue_watching: boolean
           theme_preference: string | null
           tier_expires_at: string | null
@@ -542,8 +654,8 @@ export type Database = {
           is_private?: boolean
           onboarding_completed?: boolean | null
           pending_followers_count?: number
-          rewarded_ad_credits?: number
           review_visibility?: string
+          rewarded_ad_credits?: number
           show_continue_watching?: boolean
           theme_preference?: string | null
           tier_expires_at?: string | null
@@ -568,13 +680,91 @@ export type Database = {
           is_private?: boolean
           onboarding_completed?: boolean | null
           pending_followers_count?: number
-          rewarded_ad_credits?: number
           review_visibility?: string
+          rewarded_ad_credits?: number
           show_continue_watching?: boolean
           theme_preference?: string | null
           tier_expires_at?: string | null
           updated_at?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      push_notification_log: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json | null
+          error_message: string | null
+          feature: string
+          id: string
+          receipt_checked_at: string | null
+          sent_at: string | null
+          status: string
+          ticket_id: string | null
+          title: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          data?: Json | null
+          error_message?: string | null
+          feature: string
+          id?: string
+          receipt_checked_at?: string | null
+          sent_at?: string | null
+          status?: string
+          ticket_id?: string | null
+          title: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json | null
+          error_message?: string | null
+          feature?: string
+          id?: string
+          receipt_checked_at?: string | null
+          sent_at?: string | null
+          status?: string
+          ticket_id?: string | null
+          title?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          created_at: string
+          device_name: string | null
+          id: string
+          last_used_at: string
+          platform: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string
+          platform: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string
+          platform?: string
+          token?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -632,57 +822,83 @@ export type Database = {
         }
         Relationships: []
       }
-      review_comments: {
+      reports: {
         Row: {
-          id: string
-          review_id: string | null
-          first_take_id: string | null
-          user_id: string
-          parent_comment_id: string | null
-          body: string
-          is_spoiler: boolean
-          report_count: number
-          is_hidden: boolean
-          like_count: number
-          liked_by_author: boolean
           created_at: string
+          description: string | null
+          id: string
+          reason: string
+          reporter_id: string
+          status: string | null
+          target_id: string
+          target_type: string
         }
         Insert: {
-          id?: string
-          review_id?: string | null
-          first_take_id?: string | null
-          user_id: string
-          parent_comment_id?: string | null
-          body: string
-          is_spoiler?: boolean
-          report_count?: number
-          is_hidden?: boolean
-          like_count?: number
-          liked_by_author?: boolean
           created_at?: string
+          description?: string | null
+          id?: string
+          reason: string
+          reporter_id: string
+          status?: string | null
+          target_id: string
+          target_type: string
         }
         Update: {
+          created_at?: string
+          description?: string | null
           id?: string
-          review_id?: string | null
+          reason?: string
+          reporter_id?: string
+          status?: string | null
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
+      review_comments: {
+        Row: {
+          body: string
+          created_at: string | null
+          first_take_id: string | null
+          id: string
+          is_hidden: boolean | null
+          is_spoiler: boolean | null
+          like_count: number
+          liked_by_author: boolean
+          parent_comment_id: string | null
+          report_count: number | null
+          review_id: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
           first_take_id?: string | null
-          user_id?: string
-          parent_comment_id?: string | null
-          body?: string
-          is_spoiler?: boolean
-          report_count?: number
-          is_hidden?: boolean
+          id?: string
+          is_hidden?: boolean | null
+          is_spoiler?: boolean | null
           like_count?: number
           liked_by_author?: boolean
-          created_at?: string
+          parent_comment_id?: string | null
+          report_count?: number | null
+          review_id?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          first_take_id?: string | null
+          id?: string
+          is_hidden?: boolean | null
+          is_spoiler?: boolean | null
+          like_count?: number
+          liked_by_author?: boolean
+          parent_comment_id?: string | null
+          report_count?: number | null
+          review_id?: string | null
+          user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "review_comments_review_id_fkey"
-            columns: ["review_id"]
-            isOneToOne: false
-            referencedRelation: "reviews"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "review_comments_first_take_id_fkey"
             columns: ["first_take_id"]
@@ -697,99 +913,38 @@ export type Database = {
             referencedRelation: "review_comments"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      comment_likes: {
-        Row: {
-          id: string
-          user_id: string
-          comment_id: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          comment_id: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          comment_id?: string
-          created_at?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "comment_likes_comment_id_fkey"
-            columns: ["comment_id"]
+            foreignKeyName: "review_comments_review_id_fkey"
+            columns: ["review_id"]
             isOneToOne: false
-            referencedRelation: "review_comments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      comment_reports: {
-        Row: {
-          id: string
-          comment_id: string
-          reporter_id: string
-          reason: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          comment_id: string
-          reporter_id: string
-          reason?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          comment_id?: string
-          reporter_id?: string
-          reason?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "comment_reports_comment_id_fkey"
-            columns: ["comment_id"]
-            isOneToOne: false
-            referencedRelation: "review_comments"
+            referencedRelation: "reviews"
             referencedColumns: ["id"]
           },
         ]
       }
       review_likes: {
         Row: {
-          id: string
-          user_id: string
-          review_id: string | null
+          created_at: string | null
           first_take_id: string | null
-          created_at: string
+          id: string
+          review_id: string | null
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          review_id?: string | null
+          created_at?: string | null
           first_take_id?: string | null
-          created_at?: string
+          id?: string
+          review_id?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          review_id?: string | null
+          created_at?: string | null
           first_take_id?: string | null
-          created_at?: string
+          id?: string
+          review_id?: string | null
+          user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "review_likes_review_id_fkey"
-            columns: ["review_id"]
-            isOneToOne: false
-            referencedRelation: "reviews"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "review_likes_first_take_id_fkey"
             columns: ["first_take_id"]
@@ -797,16 +952,23 @@ export type Database = {
             referencedRelation: "first_takes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "review_likes_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "reviews"
+            referencedColumns: ["id"]
+          },
         ]
       }
       reviews: {
         Row: {
-          comment_count: number
+          comment_count: number | null
           created_at: string
           id: string
           is_rewatch: boolean
           is_spoiler: boolean
-          like_count: number
+          like_count: number | null
           media_type: string
           movie_title: string
           poster_path: string | null
@@ -819,12 +981,12 @@ export type Database = {
           visibility: string
         }
         Insert: {
-          comment_count?: number
+          comment_count?: number | null
           created_at?: string
           id?: string
           is_rewatch?: boolean
           is_spoiler?: boolean
-          like_count?: number
+          like_count?: number | null
           media_type?: string
           movie_title: string
           poster_path?: string | null
@@ -837,12 +999,12 @@ export type Database = {
           visibility?: string
         }
         Update: {
-          comment_count?: number
+          comment_count?: number | null
           created_at?: string
           id?: string
           is_rewatch?: boolean
           is_spoiler?: boolean
-          like_count?: number
+          like_count?: number | null
           media_type?: string
           movie_title?: string
           poster_path?: string | null
@@ -894,6 +1056,72 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          canceled_at: string | null
+          created_at: string | null
+          entitlement_id: string
+          environment: string | null
+          expires_at: string | null
+          grace_period_expires_at: string | null
+          id: string
+          is_trial: boolean | null
+          product_id: string
+          raw_event: Json | null
+          revenuecat_customer_id: string
+          started_at: string
+          status: string
+          store: string
+          store_transaction_id: string | null
+          trial_end_at: string | null
+          trial_start_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          created_at?: string | null
+          entitlement_id?: string
+          environment?: string | null
+          expires_at?: string | null
+          grace_period_expires_at?: string | null
+          id?: string
+          is_trial?: boolean | null
+          product_id: string
+          raw_event?: Json | null
+          revenuecat_customer_id: string
+          started_at?: string
+          status?: string
+          store: string
+          store_transaction_id?: string | null
+          trial_end_at?: string | null
+          trial_start_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          canceled_at?: string | null
+          created_at?: string | null
+          entitlement_id?: string
+          environment?: string | null
+          expires_at?: string | null
+          grace_period_expires_at?: string | null
+          id?: string
+          is_trial?: boolean | null
+          product_id?: string
+          raw_event?: Json | null
+          revenuecat_customer_id?: string
+          started_at?: string
+          status?: string
+          store?: string
+          store_transaction_id?: string | null
+          trial_end_at?: string | null
+          trial_start_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       theater_visits: {
         Row: {
           auditorium: string | null
@@ -913,6 +1141,7 @@ export type Database = {
           show_time: string | null
           theater_chain: string | null
           theater_name: string | null
+          ticket_image_url: string | null
           ticket_type: string | null
           tmdb_id: number
           updated_at: string | null
@@ -936,6 +1165,7 @@ export type Database = {
           show_time?: string | null
           theater_chain?: string | null
           theater_name?: string | null
+          ticket_image_url?: string | null
           ticket_type?: string | null
           tmdb_id: number
           updated_at?: string | null
@@ -959,12 +1189,45 @@ export type Database = {
           show_time?: string | null
           theater_chain?: string | null
           theater_name?: string | null
+          ticket_image_url?: string | null
           ticket_type?: string | null
           tmdb_id?: number
           updated_at?: string | null
           user_id?: string
         }
         Relationships: []
+      }
+      ticket_scans: {
+        Row: {
+          barcode_data: string | null
+          created_at: string
+          id: string
+          journey_id: string | null
+          user_id: string
+        }
+        Insert: {
+          barcode_data?: string | null
+          created_at?: string
+          id?: string
+          journey_id?: string | null
+          user_id: string
+        }
+        Update: {
+          barcode_data?: string | null
+          created_at?: string
+          id?: string
+          journey_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_scans_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "user_movies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tv_episodes_cache: {
         Row: {
@@ -1297,13 +1560,16 @@ export type Database = {
           journey_updated_at: string | null
           location_name: string | null
           location_type: string | null
+          mpaa_rating: string | null
           overview: string | null
           poster_path: string | null
           release_date: string | null
           seat_location: string | null
           status: string
+          theater_chain: string | null
           ticket_id: string | null
           ticket_price: number | null
+          ticket_type: string | null
           title: string
           tmdb_id: number
           updated_at: string
@@ -1313,9 +1579,6 @@ export type Database = {
           watch_time: string | null
           watched_at: string | null
           watched_with: string[] | null
-          theater_chain: string | null
-          ticket_type: string | null
-          mpaa_rating: string | null
         }
         Insert: {
           added_at?: string
@@ -1336,13 +1599,16 @@ export type Database = {
           journey_updated_at?: string | null
           location_name?: string | null
           location_type?: string | null
+          mpaa_rating?: string | null
           overview?: string | null
           poster_path?: string | null
           release_date?: string | null
           seat_location?: string | null
           status?: string
+          theater_chain?: string | null
           ticket_id?: string | null
           ticket_price?: number | null
+          ticket_type?: string | null
           title: string
           tmdb_id: number
           updated_at?: string
@@ -1352,9 +1618,6 @@ export type Database = {
           watch_time?: string | null
           watched_at?: string | null
           watched_with?: string[] | null
-          theater_chain?: string | null
-          ticket_type?: string | null
-          mpaa_rating?: string | null
         }
         Update: {
           added_at?: string
@@ -1375,13 +1638,16 @@ export type Database = {
           journey_updated_at?: string | null
           location_name?: string | null
           location_type?: string | null
+          mpaa_rating?: string | null
           overview?: string | null
           poster_path?: string | null
           release_date?: string | null
           seat_location?: string | null
           status?: string
+          theater_chain?: string | null
           ticket_id?: string | null
           ticket_price?: number | null
+          ticket_type?: string | null
           title?: string
           tmdb_id?: number
           updated_at?: string
@@ -1391,11 +1657,52 @@ export type Database = {
           watch_time?: string | null
           watched_at?: string | null
           watched_with?: string[] | null
-          theater_chain?: string | null
-          ticket_type?: string | null
-          mpaa_rating?: string | null
         }
         Relationships: []
+      }
+      user_popcorn: {
+        Row: {
+          achievement_id: string | null
+          action_type: string
+          earned_at: string
+          id: string
+          is_milestone: boolean
+          is_retroactive: boolean
+          reference_id: string | null
+          seed: number
+          user_id: string
+        }
+        Insert: {
+          achievement_id?: string | null
+          action_type: string
+          earned_at?: string
+          id?: string
+          is_milestone?: boolean
+          is_retroactive?: boolean
+          reference_id?: string | null
+          seed: number
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string | null
+          action_type?: string
+          earned_at?: string
+          id?: string
+          is_milestone?: boolean
+          is_retroactive?: boolean
+          reference_id?: string | null
+          seed?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_popcorn_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_streaming_services: {
         Row: {
@@ -1463,6 +1770,7 @@ export type Database = {
           genre_ids: number[] | null
           id: string
           is_liked: boolean | null
+          metadata_refreshed_at: string | null
           name: string
           number_of_episodes: number | null
           number_of_seasons: number | null
@@ -1487,6 +1795,7 @@ export type Database = {
           genre_ids?: number[] | null
           id?: string
           is_liked?: boolean | null
+          metadata_refreshed_at?: string | null
           name: string
           number_of_episodes?: number | null
           number_of_seasons?: number | null
@@ -1511,6 +1820,7 @@ export type Database = {
           genre_ids?: number[] | null
           id?: string
           is_liked?: boolean | null
+          metadata_refreshed_at?: string | null
           name?: string
           number_of_episodes?: number | null
           number_of_seasons?: number | null
@@ -1598,191 +1908,19 @@ export type Database = {
           },
         ]
       }
-      push_tokens: {
-        Row: {
-          id: string
-          user_id: string
-          token: string
-          platform: 'ios' | 'android'
-          device_name: string | null
-          created_at: string
-          last_used_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          token: string
-          platform: 'ios' | 'android'
-          device_name?: string | null
-          created_at?: string
-          last_used_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          token?: string
-          platform?: 'ios' | 'android'
-          device_name?: string | null
-          created_at?: string
-          last_used_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "push_tokens_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notification_preferences: {
-        Row: {
-          id: string
-          user_id: string
-          feature: string
-          enabled: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          feature: string
-          enabled?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          feature?: string
-          enabled?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      push_notification_log: {
-        Row: {
-          id: string
-          user_id: string
-          token: string
-          ticket_id: string | null
-          feature: string
-          title: string
-          body: string
-          data: Json | null
-          status: 'pending' | 'sent' | 'delivered' | 'failed' | 'invalid_token'
-          error_message: string | null
-          sent_at: string | null
-          receipt_checked_at: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          token: string
-          ticket_id?: string | null
-          feature: string
-          title: string
-          body: string
-          data?: Json | null
-          status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'invalid_token'
-          error_message?: string | null
-          sent_at?: string | null
-          receipt_checked_at?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          token?: string
-          ticket_id?: string | null
-          feature?: string
-          title?: string
-          body?: string
-          data?: Json | null
-          status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'invalid_token'
-          error_message?: string | null
-          sent_at?: string | null
-          receipt_checked_at?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "push_notification_log_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_popcorn: {
-        Row: {
-          id: string
-          user_id: string
-          action_type: string
-          reference_id: string | null
-          seed: number
-          is_milestone: boolean
-          achievement_id: string | null
-          is_retroactive: boolean
-          earned_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          action_type: string
-          reference_id?: string | null
-          seed: number
-          is_milestone?: boolean
-          achievement_id?: string | null
-          is_retroactive?: boolean
-          earned_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          action_type?: string
-          reference_id?: string | null
-          seed?: number
-          is_milestone?: boolean
-          achievement_id?: string | null
-          is_retroactive?: boolean
-          earned_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_popcorn_achievement_id_fkey"
-            columns: ["achievement_id"]
-            isOneToOne: false
-            referencedRelation: "achievements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_popcorn_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      award_popcorn_retroactive: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
+      can_view_user_content: {
+        Args: { content_user_id: string; content_visibility?: string }
+        Returns: boolean
+      }
       check_and_increment_scan: {
         Args: { p_daily_limit?: number; p_user_id: string }
         Returns: Json
@@ -1842,13 +1980,16 @@ export type Database = {
           journey_updated_at: string | null
           location_name: string | null
           location_type: string | null
+          mpaa_rating: string | null
           overview: string | null
           poster_path: string | null
           release_date: string | null
           seat_location: string | null
           status: string
+          theater_chain: string | null
           ticket_id: string | null
           ticket_price: number | null
+          ticket_type: string | null
           title: string
           tmdb_id: number
           updated_at: string
@@ -1998,17 +2139,23 @@ export type Database = {
         }[]
       }
       increment_bonus_scans: { Args: { p_user_id: string }; Returns: Json }
+      mark_episode_watched: {
+        Args: {
+          p_episode_number: number
+          p_season_number: number
+          p_tmdb_show_id: number
+          p_user_tv_show_id: string
+        }
+        Returns: undefined
+      }
       reorder_list_movies: {
         Args: { p_list_id: string; p_ordered_tmdb_ids: number[] }
         Returns: undefined
       }
+      sync_profile_tier: { Args: { p_user_id: string }; Returns: undefined }
       sync_tv_show_progress: {
         Args: { p_user_tv_show_id: string }
         Returns: undefined
-      }
-      award_popcorn_retroactive: {
-        Args: { p_user_id: string }
-        Returns: number
       }
     }
     Enums: {
@@ -2142,7 +2289,6 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
 
 export type MovieStatus = 'watchlist' | 'watching' | 'watched';
 export type TvShowStatus = 'watchlist' | 'watching' | 'watched' | 'dropped' | 'on_hold';

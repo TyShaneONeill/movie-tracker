@@ -14,6 +14,12 @@ jest.mock('@/lib/widget-cache', () => ({
 
 import { useWidgetSync } from '@/hooks/use-widget-sync';
 
+jest.mock('@/lib/metadata-refresh', () => ({
+  refreshStaleWatchingShows: jest.fn().mockResolvedValue(0),
+}));
+
+import { refreshStaleWatchingShows } from '@/lib/metadata-refresh';
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -214,5 +220,69 @@ describe('useWidgetSync cache invalidation', () => {
 
     expect(mockSync).toHaveBeenCalled();
     expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
+// Metadata refresh integration tests (Phase 4b.3)
+// ============================================================================
+
+describe('useWidgetSync metadata refresh integration', () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    queryClient = new QueryClient();
+    // mockSync is the underlying jest.fn() that syncWidgetCache delegates to
+    mockSync.mockResolvedValue(undefined);
+    (refreshStaleWatchingShows as jest.Mock).mockResolvedValue(0);
+  });
+
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    React.createElement(QueryClientProvider, { client: queryClient }, children)
+  );
+
+  it('fires refreshStaleWatchingShows after syncWidgetCache resolves', async () => {
+    renderHook(() => useWidgetSync(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockSync).toHaveBeenCalled();
+    expect(refreshStaleWatchingShows).toHaveBeenCalled();
+  });
+
+  it('does NOT fire refreshStaleWatchingShows when syncWidgetCache rejects', async () => {
+    mockSync.mockRejectedValue(new Error('boom'));
+
+    renderHook(() => useWidgetSync(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockSync).toHaveBeenCalled();
+    expect(refreshStaleWatchingShows).not.toHaveBeenCalled();
+  });
+
+  it('invalidates userTvShow keys when refresh returns count > 0', async () => {
+    (refreshStaleWatchingShows as jest.Mock).mockResolvedValue(3);
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+    renderHook(() => useWidgetSync(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // First invalidate call is from Phase 4b.1 (after syncWidgetCache).
+    // Second invalidate call is from Phase 4b.3 (after refresh).
+    expect(invalidateSpy).toHaveBeenCalledTimes(2);
   });
 });
