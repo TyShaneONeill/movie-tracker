@@ -1,5 +1,7 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { AppState } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 
 // ============================================================================
 // Mocks - must come before the import of the hook under test
@@ -16,6 +18,18 @@ import { useWidgetSync } from '@/hooks/use-widget-sync';
 // Tests
 // ============================================================================
 
+// Helper: create a fresh QueryClient + wrapper for each test.
+// useWidgetSync now calls useQueryClient(), so all renderHook calls need a
+// QueryClientProvider in scope — even tests that don't assert on invalidation.
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children);
+  return { queryClient, wrapper };
+}
+
 describe('useWidgetSync', () => {
   beforeEach(() => {
     mockSync.mockReset();
@@ -23,7 +37,8 @@ describe('useWidgetSync', () => {
   });
 
   it('runs sync on mount', async () => {
-    renderHook(() => useWidgetSync());
+    const { wrapper } = createWrapper();
+    renderHook(() => useWidgetSync(), { wrapper });
     await act(async () => {});
     expect(mockSync).toHaveBeenCalledTimes(1);
   });
@@ -39,7 +54,8 @@ describe('useWidgetSync', () => {
       return { remove: jest.fn() };
     }) as never);
 
-    renderHook(() => useWidgetSync());
+    const { wrapper } = createWrapper();
+    renderHook(() => useWidgetSync(), { wrapper });
     // Drain the mount sync
     await act(async () => {});
     mockSync.mockClear();
@@ -74,7 +90,8 @@ describe('useWidgetSync', () => {
       return { remove: jest.fn() };
     }) as never);
 
-    renderHook(() => useWidgetSync());
+    const { wrapper } = createWrapper();
+    renderHook(() => useWidgetSync(), { wrapper });
     // Mount call is in flight - trigger two more AppState events
     await act(async () => {
       listeners.forEach((cb) => cb('active'));
@@ -96,7 +113,8 @@ describe('useWidgetSync', () => {
       remove: removeMock,
     } as never);
 
-    const { unmount } = renderHook(() => useWidgetSync());
+    const { wrapper } = createWrapper();
+    const { unmount } = renderHook(() => useWidgetSync(), { wrapper });
     await act(async () => {});
     unmount();
 
@@ -111,7 +129,8 @@ describe('useWidgetSync', () => {
       return { remove: jest.fn() };
     }) as never);
 
-    renderHook(() => useWidgetSync());
+    const { wrapper } = createWrapper();
+    renderHook(() => useWidgetSync(), { wrapper });
     await act(async () => {});
     mockSync.mockClear();
 
@@ -138,5 +157,62 @@ describe('useWidgetSync', () => {
     });
 
     expect(mockSync).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ============================================================================
+// Cache invalidation tests (require QueryClient wrapper)
+// ============================================================================
+
+describe('useWidgetSync cache invalidation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSync.mockResolvedValue(undefined);
+  });
+
+  it('invalidates userTvShow/userTvShows/episodeWatches queries after sync', async () => {
+    const { queryClient, wrapper } = createWrapper();
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+    renderHook(() => useWidgetSync(), { wrapper });
+
+    // Allow the async sync + invalidation to complete
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockSync).toHaveBeenCalled();
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      predicate: expect.any(Function),
+    });
+
+    // Verify predicate logic covers the right key families
+    const predicateCall = invalidateSpy.mock.calls[0][0] as unknown as { predicate: (q: { queryKey: unknown[] }) => boolean };
+    const predicate = predicateCall.predicate;
+
+    expect(predicate({ queryKey: ['userTvShow', 'uid', 123] })).toBe(true);
+    expect(predicate({ queryKey: ['userTvShows', 'uid', 'watching'] })).toBe(true);
+    expect(predicate({ queryKey: ['episodeWatches', 'uid', 'utv', 2] })).toBe(true);
+    // Must NOT invalidate TMDB metadata or unrelated key families
+    expect(predicate({ queryKey: ['tvShow', 123] })).toBe(false);
+    expect(predicate({ queryKey: ['userTvShowLike', 'uid', 123] })).toBe(false);
+    expect(predicate({ queryKey: ['movie', 456] })).toBe(false);
+  });
+
+  it('does NOT invalidate when syncWidgetCache rejects', async () => {
+    mockSync.mockRejectedValue(new Error('boom'));
+    const { queryClient, wrapper } = createWrapper();
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+    renderHook(() => useWidgetSync(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockSync).toHaveBeenCalled();
+    expect(invalidateSpy).not.toHaveBeenCalled();
   });
 });

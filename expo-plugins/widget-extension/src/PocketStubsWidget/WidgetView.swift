@@ -93,7 +93,10 @@ private struct ShowCard: View {
     }
 
     private var episodeLabel: String {
-        String(format: "S%02d · E%02d", show.currentSeason, show.currentEpisode)
+        // Display the NEXT episode to watch (what the eyeball tap will mark),
+        // not the last-watched one. current_episode is "last watched"; +1 is
+        // what MarkEpisodeWatchedIntent actually submits when tapped.
+        String(format: "S%02d · E%02d", show.currentSeason, show.currentEpisode + 1)
     }
 }
 
