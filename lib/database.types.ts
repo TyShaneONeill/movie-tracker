@@ -2289,3 +2289,224 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+export type MovieStatus = 'watchlist' | 'watching' | 'watched';
+export type TvShowStatus = 'watchlist' | 'watching' | 'watched' | 'dropped' | 'on_hold';
+export type ContentMode = 'movies' | 'tv_shows' | 'both';
+export type MediaType = 'movie' | 'tv_show';
+export type FirstTakeMediaType = 'movie' | 'tv_show' | 'tv_season' | 'tv_episode';
+export type ThemePreference = 'light' | 'dark' | 'system';
+export type ReviewVisibility = 'public' | 'followers_only' | 'private';
+
+// Helper types for user movies
+export type UserMovie = Database['public']['Tables']['user_movies']['Row'];
+export type UserMovieInsert = Database['public']['Tables']['user_movies']['Insert'];
+export type UserMovieUpdate = Database['public']['Tables']['user_movies']['Update'];
+
+// Helper types for user movie likes
+export type UserMovieLike = Database['public']['Tables']['user_movie_likes']['Row'];
+export type UserMovieLikeInsert = Database['public']['Tables']['user_movie_likes']['Insert'];
+
+// Helper types for user lists
+export type UserList = Database['public']['Tables']['user_lists']['Row'];
+export type UserListInsert = Database['public']['Tables']['user_lists']['Insert'];
+export type UserListUpdate = Database['public']['Tables']['user_lists']['Update'];
+
+// Helper types for list movies
+export type ListMovie = Database['public']['Tables']['list_movies']['Row'];
+export type ListMovieInsert = Database['public']['Tables']['list_movies']['Insert'];
+export type ListMovieUpdate = Database['public']['Tables']['list_movies']['Update'];
+
+// Composite type for list with movies
+export interface UserListWithMovies extends UserList {
+  movies: ListMovie[];
+  movie_count: number;
+}
+
+// Helper types for first takes
+export type FirstTake = Database['public']['Tables']['first_takes']['Row'];
+export type FirstTakeInsert = Database['public']['Tables']['first_takes']['Insert'];
+export type FirstTakeUpdate = Database['public']['Tables']['first_takes']['Update'];
+
+// Helper types for profiles
+export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+// Helper types for follow requests
+export type FollowRequest = Database['public']['Tables']['follow_requests']['Row'];
+export type FollowRequestInsert = Database['public']['Tables']['follow_requests']['Insert'];
+export type FollowRequestUpdate = Database['public']['Tables']['follow_requests']['Update'];
+
+// Helper types for follows
+export type Follow = Database['public']['Tables']['follows']['Row'];
+export type FollowInsert = Database['public']['Tables']['follows']['Insert'];
+export type FollowUpdate = Database['public']['Tables']['follows']['Update'];
+
+// Helper types for notifications
+export type Notification = Database['public']['Tables']['notifications']['Row'];
+export type NotificationInsert = Database['public']['Tables']['notifications']['Insert'];
+export type NotificationUpdate = Database['public']['Tables']['notifications']['Update'];
+
+// Helper types for achievements
+export type Achievement = Database['public']['Tables']['achievements']['Row'];
+export type AchievementLevel = Database['public']['Tables']['achievement_levels']['Row'];
+export type UserAchievement = Database['public']['Tables']['user_achievements']['Row'];
+
+// Helper types for genres
+export type Genre = Database['public']['Tables']['genres']['Row'];
+
+// Helper types for movies cache
+export type CachedMovie = Database['public']['Tables']['movies']['Row'];
+export type CachedMovieInsert = Database['public']['Tables']['movies']['Insert'];
+export type CachedMovieUpdate = Database['public']['Tables']['movies']['Update'];
+
+// Helper types for TV shows cache
+export type CachedTvShow = Database['public']['Tables']['tv_shows']['Row'];
+export type CachedTvShowInsert = Database['public']['Tables']['tv_shows']['Insert'];
+export type CachedTvShowUpdate = Database['public']['Tables']['tv_shows']['Update'];
+
+// Helper types for TV episodes cache
+export type CachedTvEpisode = Database['public']['Tables']['tv_episodes_cache']['Row'];
+export type CachedTvEpisodeInsert = Database['public']['Tables']['tv_episodes_cache']['Insert'];
+export type CachedTvEpisodeUpdate = Database['public']['Tables']['tv_episodes_cache']['Update'];
+
+// Helper types for user TV shows
+export type UserTvShow = Database['public']['Tables']['user_tv_shows']['Row'];
+export type UserTvShowInsert = Database['public']['Tables']['user_tv_shows']['Insert'];
+export type UserTvShowUpdate = Database['public']['Tables']['user_tv_shows']['Update'];
+
+// Helper types for user episode watches
+export type UserEpisodeWatch = Database['public']['Tables']['user_episode_watches']['Row'];
+export type UserEpisodeWatchInsert = Database['public']['Tables']['user_episode_watches']['Insert'];
+export type UserEpisodeWatchUpdate = Database['public']['Tables']['user_episode_watches']['Update'];
+
+// Helper types for user TV show likes
+export type UserTvShowLike = Database['public']['Tables']['user_tv_show_likes']['Row'];
+export type UserTvShowLikeInsert = Database['public']['Tables']['user_tv_show_likes']['Insert'];
+
+// User stats types (from get-user-stats Edge Function)
+export interface UserStatsResponse {
+  summary: {
+    totalWatched: number;
+    totalTvWatched: number;
+    totalFirstTakes: number;
+    averageRating: number | null;
+  };
+  genres: Array<{
+    genreId: number;
+    genreName: string;
+    count: number;
+    percentage: number;
+  }>;
+  monthlyActivity: Array<{
+    month: string;
+    monthLabel: string;
+    count: number;
+  }>;
+}
+
+// Location type enum for journey cards
+export type LocationType = 'theater' | 'home' | 'airplane' | 'outdoor' | 'other';
+
+// Watch format enum for journey cards
+export type WatchFormat = 'standard' | 'imax' | 'dolby' | '3d' | '4k' | 'screenx' | '4dx';
+
+// Helper type for journey updates
+export interface JourneyUpdate {
+  watched_at?: string | null;
+  watch_time?: string | null;
+  location_type?: LocationType | null;
+  location_name?: string | null;
+  auditorium?: string | null;
+  seat_location?: string | null;
+  ticket_price?: number | null;
+  ticket_id?: string | null;
+  watch_format?: WatchFormat | null;
+  watched_with?: string[] | null;
+  journey_notes?: string | null;
+  journey_tagline?: string | null;
+  journey_photos?: string[] | null;
+  ai_poster_url?: string | null;
+  ai_poster_rarity?: string | null;
+  display_poster?: 'original' | 'ai_generated';
+  theater_chain?: string | null;
+  ticket_type?: string | null;
+  mpaa_rating?: string | null;
+}
+
+// Helper types for ticket scans (private — barcode data, own-user-only)
+export interface TicketScan {
+  id: string;
+  user_id: string;
+  journey_id: string | null;
+  barcode_data: string | null;
+  created_at: string;
+}
+export interface TicketScanInsert {
+  id?: string;
+  user_id: string;
+  journey_id?: string | null;
+  barcode_data?: string | null;
+  created_at?: string;
+}
+
+// AI poster rarity type
+export type AiPosterRarity = 'common' | 'holographic';
+
+// Display poster type
+export type DisplayPoster = 'original' | 'ai_generated';
+
+// Grouped user movie for collection grid (deduped by tmdb_id)
+export interface GroupedUserMovie extends UserMovie {
+  journeyCount: number;
+}
+
+// Helper types for watchlist social features
+export type WatchlistLike = Database['public']['Tables']['watchlist_likes']['Row'];
+export type WatchlistLikeInsert = Database['public']['Tables']['watchlist_likes']['Insert'];
+export type WatchlistComment = Database['public']['Tables']['watchlist_comments']['Row'];
+export type WatchlistCommentInsert = Database['public']['Tables']['watchlist_comments']['Insert'];
+
+/** Watchlist comment joined with the commenter's profile */
+export interface WatchlistCommentWithProfile extends WatchlistComment {
+  profiles: {
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
+// Helper types for user streaming services
+export type UserStreamingService = Database['public']['Tables']['user_streaming_services']['Row'];
+export type UserStreamingServiceInsert = Database['public']['Tables']['user_streaming_services']['Insert'];
+
+// Helper types for reviews
+export type Review = Database['public']['Tables']['reviews']['Row'];
+export type ReviewInsert = Database['public']['Tables']['reviews']['Insert'];
+export type ReviewUpdate = Database['public']['Tables']['reviews']['Update'];
+
+// Helper types for review likes
+export type ReviewLike = Database['public']['Tables']['review_likes']['Row'];
+export type ReviewLikeInsert = Database['public']['Tables']['review_likes']['Insert'];
+
+// Helper types for review comments
+export type ReviewComment = Database['public']['Tables']['review_comments']['Row'];
+export type ReviewCommentInsert = Database['public']['Tables']['review_comments']['Insert'];
+
+// Helper types for comment likes
+export type CommentLike = Database['public']['Tables']['comment_likes']['Row'];
+export type CommentLikeInsert = Database['public']['Tables']['comment_likes']['Insert'];
+
+// Helper types for comment reports
+export type CommentReport = Database['public']['Tables']['comment_reports']['Row'];
+
+// Helper types for push tokens
+export type PushToken = Database['public']['Tables']['push_tokens']['Row'];
+export type PushTokenInsert = Database['public']['Tables']['push_tokens']['Insert'];
+
+// Helper types for push notification log
+export type PushNotificationLog = Database['public']['Tables']['push_notification_log']['Row'];
+
+// Helper types for notification preferences
+export type NotificationPreference = Database['public']['Tables']['notification_preferences']['Row'];

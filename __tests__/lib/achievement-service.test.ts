@@ -42,6 +42,7 @@ const makeAchievement = (overrides?: Partial<Achievement>): Achievement => ({
   criteria_value: 1,
   sort_order: 1,
   created_at: '2024-01-01T00:00:00Z',
+  is_revocable: false,
   ...overrides,
 });
 

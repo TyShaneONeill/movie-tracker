@@ -98,6 +98,7 @@ function makeUserTvShow(overrides: Partial<UserTvShow> = {}): UserTvShow {
     started_watching_at: null,
     finished_at: null,
     user_rating: null,
+    metadata_refreshed_at: null,
     ...overrides,
   };
 }
