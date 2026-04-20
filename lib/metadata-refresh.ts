@@ -83,6 +83,7 @@ async function refreshShowMetadata(row: StaleShowRow): Promise<boolean> {
       number_of_seasons?: number;
       number_of_episodes?: number;
       poster_path?: string | null;
+      status?: string;
     }>('get-tv-show-details', { body: { showId: row.tmdb_id } });
 
     if (tmdbError || !tmdbData) {
@@ -106,6 +107,9 @@ async function refreshShowMetadata(row: StaleShowRow): Promise<boolean> {
     }
     if (tmdbData.poster_path !== undefined && tmdbData.poster_path !== row.poster_path) {
       updates.poster_path = tmdbData.poster_path;
+    }
+    if (typeof tmdbData.status === 'string' && tmdbData.status !== row.tmdb_status) {
+      updates.tmdb_status = tmdbData.status;
     }
 
     await supabase
