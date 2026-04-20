@@ -29,7 +29,9 @@ describe('metadata-refresh', () => {
 
       expect(supabase.from).toHaveBeenCalledWith('user_tv_shows');
       expect(selectChain.eq).toHaveBeenCalledWith('user_id', 'user-1');
-      expect(selectChain.eq).toHaveBeenCalledWith('status', 'watching');
+      // status now encoded via .or() to include Returning Series watched rows
+      const orArgs = selectChain.or.mock.calls.map((c: unknown[]) => c[0] as string);
+      expect(orArgs.some((s) => s.includes('status.eq.watching'))).toBe(true);
       // The .or() call contains the OR of NULL + stale (24h) — verify it was called
       expect(selectChain.or).toHaveBeenCalled();
       expect(selectChain.limit).toHaveBeenCalledWith(50);
@@ -131,6 +133,32 @@ describe('metadata-refresh', () => {
 
       expect(result).toBe(false);
       expect(supabase.functions.invoke).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('refreshStaleWatchingShows query scope', () => {
+    it('includes watched+Returning Series rows via .or() expression', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
+
+      const selectChain = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        or: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+      };
+      (supabase.from as jest.Mock).mockReturnValue(selectChain);
+
+      await refreshStaleWatchingShows();
+
+      // First .or() should encode the status scope: watching OR (watched AND Returning Series)
+      const orCalls = selectChain.or.mock.calls.map((c: unknown[]) => c[0] as string);
+      const statusOr = orCalls.find((s) => s.includes('status.eq.watching'));
+      expect(statusOr).toBeDefined();
+      expect(statusOr).toContain('status.eq.watched');
+      expect(statusOr).toContain('tmdb_status.eq.Returning Series');
+      // status='watching' should NOT be an .eq() filter anymore (moved into .or())
+      expect(selectChain.eq).not.toHaveBeenCalledWith('status', 'watching');
     });
   });
 });

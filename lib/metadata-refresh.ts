@@ -13,6 +13,8 @@ type StaleShowRow = {
   number_of_seasons: number | null;
   number_of_episodes: number | null;
   metadata_refreshed_at: string | null;
+  status: string;
+  tmdb_status: string | null;
 };
 
 /**
@@ -29,9 +31,9 @@ export async function refreshStaleWatchingShows(): Promise<number> {
 
   const { data: rows, error } = await supabase
     .from('user_tv_shows')
-    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at')
+    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at, status, tmdb_status')
     .eq('user_id', user.id)
-    .eq('status', 'watching')
+    .or(`status.eq.watching,and(status.eq.watched,tmdb_status.eq.Returning Series)`)
     .or(`metadata_refreshed_at.is.null,metadata_refreshed_at.lt.${cutoffIso}`)
     .order('updated_at', { ascending: false })
     .limit(MAX_SHOWS_PER_BATCH);
@@ -56,7 +58,7 @@ export async function refreshSingleShow(userTvShowId: string): Promise<boolean> 
 
   const { data: row, error } = await supabase
     .from('user_tv_shows')
-    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at')
+    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at, status, tmdb_status')
     .eq('user_id', user.id)
     .eq('id', userTvShowId)
     .maybeSingle();
