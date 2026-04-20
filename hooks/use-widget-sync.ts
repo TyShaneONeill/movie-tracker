@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { syncWidgetCache } from '@/lib/widget-cache';
+import { refreshStaleWatchingShows } from '@/lib/metadata-refresh';
 
 const DEBOUNCE_MS = 3000;
 
@@ -39,6 +40,16 @@ export function useWidgetSync(): void {
           return k === 'userTvShow' || k === 'userTvShows' || k === 'episodeWatches';
         },
       });
+      // Phase 4b.3: refresh stale TMDB metadata for watching shows
+      const refreshedCount = await refreshStaleWatchingShows();
+      if (refreshedCount > 0) {
+        queryClient.invalidateQueries({
+          predicate: (q) => {
+            const k = q.queryKey[0];
+            return k === 'userTvShow' || k === 'userTvShows' || k === 'episodeWatches';
+          },
+        });
+      }
     } catch {
       // swallow — syncWidgetCache already has Sentry breadcrumbs for its
       // own failures; invalidation should not run on failed sync
