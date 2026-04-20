@@ -300,7 +300,7 @@ export default function ReviewDetailScreen() {
               <LikeButton
                 targetType="review"
                 targetId={review.id}
-                initialLikeCount={review.like_count}
+                initialLikeCount={review.like_count ?? undefined}
                 size="md"
               />
               <View style={styles.engagementDivider} />

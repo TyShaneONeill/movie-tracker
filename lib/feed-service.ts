@@ -180,10 +180,10 @@ export async function fetchFollowingComments(
         id: c.id,
         user_id: c.user_id,
         body: c.body,
-        created_at: c.created_at,
+        created_at: c.created_at ?? new Date().toISOString(),
         target_type: 'review',
         target_id: c.review_id!,
-        is_spoiler: c.is_spoiler,
+        is_spoiler: c.is_spoiler ?? false,
         profiles: commenterProfile
           ? {
               full_name: commenterProfile.full_name,
