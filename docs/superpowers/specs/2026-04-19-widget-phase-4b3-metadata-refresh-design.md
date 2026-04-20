@@ -22,7 +22,7 @@ Phase 4b.3 addresses both gaps in a single coherent PR.
 ## Scope
 
 ### Part A — App-wide TMDB metadata refresh
-Keep `user_tv_shows` TMDB-derived fields current via trigger-based refresh patterns. Fields refreshed: `number_of_seasons`, `number_of_episodes`, TMDB show `status`, `poster_path`.
+Keep `user_tv_shows` TMDB-derived fields current via trigger-based refresh patterns. Fields refreshed: `number_of_seasons`, `number_of_episodes`, `poster_path`.
 
 ### Part C — Atomic `mark_episode_watched` RPC
 Replace the client-side two-call pattern with a single Postgres stored procedure that INSERTs into `user_episode_watches` and updates `user_tv_shows.current_season/current_episode` in the same transaction.
@@ -66,17 +66,11 @@ CREATE INDEX idx_user_tv_shows_metadata_refresh
 
 Default `NULL` for all existing rows = "will refresh on next opportunity." At current scale the thundering-herd refresh on deploy day is acceptable. At 10k+ users we'd prepopulate `NOW()` during migration.
 
-### Migration — unique constraint on user_episode_watches (if not already present)
+### Idempotency without unique constraint
 
-Pre-deploy check: if `(user_id, user_tv_show_id, season_number, episode_number)` is not already a unique constraint or unique index on `user_episode_watches`, add one in the same migration. The new RPC's `ON CONFLICT DO NOTHING` depends on it.
+`user_episode_watches` has a `watch_number` column intended to track rewatches (same episode watched multiple times). Adding a unique constraint on `(user_id, user_tv_show_id, season_number, episode_number)` would prevent legitimate rewatch records. Instead, the RPC uses an explicit `IF NOT EXISTS` guard to check for an existing first-watch row before inserting.
 
-```sql
--- Only needed if the constraint doesn't already exist. Verify with:
--- SELECT conname FROM pg_constraint WHERE conrelid = 'public.user_episode_watches'::regclass;
-ALTER TABLE public.user_episode_watches
-  ADD CONSTRAINT user_episode_watches_unique_user_show_season_episode
-  UNIQUE (user_id, user_tv_show_id, season_number, episode_number);
-```
+Race-condition note: between the SELECT and INSERT, a concurrent call could squeeze in and create a duplicate. Acceptable because (a) the widget's mark-button has a 1.5s debounce, (b) per-user concurrency is low, and (c) even a duplicate row doesn't corrupt `user_tv_shows.current_episode` — the subsequent aggregate correctly computes max regardless. Durable rewatch support (incrementing `watch_number` on re-marks) is deferred to a follow-up.
 
 ### New RPC — `mark_episode_watched`
 
@@ -99,14 +93,28 @@ BEGIN
     RAISE EXCEPTION 'Unauthenticated' USING ERRCODE = '42501';
   END IF;
 
-  -- Idempotent insert; safe to retry
-  INSERT INTO public.user_episode_watches (
-    user_id, user_tv_show_id, tmdb_show_id, season_number, episode_number, watched_at
-  )
-  VALUES (
-    v_user_id, p_user_tv_show_id, p_tmdb_show_id, p_season_number, p_episode_number, NOW()
-  )
-  ON CONFLICT (user_id, user_tv_show_id, season_number, episode_number) DO NOTHING;
+  -- Idempotent insert via explicit existence check; no unique constraint
+  -- needed because user_episode_watches.watch_number supports deliberate
+  -- rewatches (separate rows). This RPC only writes the first-watch row
+  -- (watch_number = 1) and skips if it's already there.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_episode_watches
+    WHERE user_id = v_user_id
+      AND user_tv_show_id = p_user_tv_show_id
+      AND season_number = p_season_number
+      AND episode_number = p_episode_number
+  ) THEN
+    INSERT INTO public.user_episode_watches (
+      user_id, user_tv_show_id, tmdb_show_id,
+      season_number, episode_number, watch_number,
+      watched_at, created_at
+    )
+    VALUES (
+      v_user_id, p_user_tv_show_id, p_tmdb_show_id,
+      p_season_number, p_episode_number, 1,
+      NOW(), NOW()
+    );
+  END IF;
 
   -- Compute user_tv_shows.current_season/current_episode from the full ledger.
   -- "Latest" = the row with the highest (season_number, episode_number) tuple.
@@ -242,8 +250,9 @@ Limit 50 as a safety cap against a user with thousands of in-progress shows. At 
 |--|--|
 | `number_of_seasons` | Drives widget's `has_next_season` and the season-fetch loop's upper bound |
 | `number_of_episodes` | Used by progress UI and achievement triggers |
-| `status` (TMDB show status) | "Ended" vs "Returning Series" distinguishes "truly done" from "waiting on next season" |
 | `poster_path` | TMDB occasionally updates posters; stale path causes broken image links |
+
+TMDB's own show `status` field ("Ended" / "Returning Series" / etc) is NOT stored on `user_tv_shows` today (the existing `status` column is the USER's status: watching/watched/etc). Adding a new `tmdb_status` column is scope creep for this PR; deferred to a follow-up when there's a concrete consumer (e.g., the widget's "caught up, waiting on next season" trophy-state variant considered during Phase 4a Q5).
 
 The `get-tv-show-details` edge function already returns all of these (Phase 3 scope). No edge function changes needed.
 
