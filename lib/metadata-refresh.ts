@@ -111,6 +111,15 @@ async function refreshShowMetadata(row: StaleShowRow): Promise<boolean> {
     if (typeof tmdbData.status === 'string' && tmdbData.status !== row.tmdb_status) {
       updates.tmdb_status = tmdbData.status;
     }
+    if (
+      row.status === 'watched'
+      && row.tmdb_status === 'Returning Series'
+      && typeof tmdbData.number_of_episodes === 'number'
+      && tmdbData.number_of_episodes > (row.number_of_episodes ?? 0)
+    ) {
+      updates.status = 'watching';
+      // finished_at intentionally preserved for analytics
+    }
 
     await supabase
       .from('user_tv_shows')

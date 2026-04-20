@@ -250,4 +250,96 @@ describe('metadata-refresh', () => {
       expect(updateArgs && 'tmdb_status' in updateArgs).toBe(false);
     });
   });
+
+  describe('refreshShowMetadata flip-back (watched Returning Series → watching)', () => {
+    it('flips status=watching when a watched+Returning Series show gains new episodes', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
+
+      const row = {
+        id: 'utv-1',
+        tmdb_id: 101,
+        name: 'Severance',
+        poster_path: null,
+        number_of_seasons: 2,
+        number_of_episodes: 19,
+        metadata_refreshed_at: null,
+        status: 'watched',
+        tmdb_status: 'Returning Series',
+      };
+
+      const selectChain = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        or: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue({ data: [row], error: null }),
+      };
+      const updateChain = {
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({ error: null }),
+      };
+      let fromCount = 0;
+      (supabase.from as jest.Mock).mockImplementation(() => {
+        fromCount++;
+        return fromCount === 1 ? selectChain : updateChain;
+      });
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { number_of_seasons: 3, number_of_episodes: 20, poster_path: null, status: 'Returning Series' },
+        error: null,
+      });
+
+      await refreshStaleWatchingShows();
+
+      expect(updateChain.update).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'watching' })
+      );
+      // finished_at is intentionally NOT touched — preserved for analytics
+      expect(updateChain.update).toHaveBeenCalledTimes(1);
+      const updateArgs = updateChain.update.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+      expect(updateArgs && 'finished_at' in updateArgs).toBe(false);
+    });
+
+    it('does NOT flip back when number_of_episodes is unchanged', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'user-1' } } });
+
+      const row = {
+        id: 'utv-1',
+        tmdb_id: 101,
+        name: 'Severance',
+        poster_path: null,
+        number_of_seasons: 2,
+        number_of_episodes: 19,
+        metadata_refreshed_at: null,
+        status: 'watched',
+        tmdb_status: 'Returning Series',
+      };
+
+      const selectChain = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        or: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue({ data: [row], error: null }),
+      };
+      const updateChain = {
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({ error: null }),
+      };
+      let fromCount = 0;
+      (supabase.from as jest.Mock).mockImplementation(() => {
+        fromCount++;
+        return fromCount === 1 ? selectChain : updateChain;
+      });
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { number_of_seasons: 2, number_of_episodes: 19, poster_path: null, status: 'Returning Series' },
+        error: null,
+      });
+
+      await refreshStaleWatchingShows();
+
+      expect(updateChain.update).toHaveBeenCalledTimes(1);
+      const updateArgs = updateChain.update.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+      expect(updateArgs && 'status' in updateArgs).toBe(false);
+    });
+  });
 });
