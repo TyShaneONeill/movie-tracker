@@ -7,16 +7,6 @@ struct EyeballButton: View {
         Group {
             if show.isTrophy {
                 EmptyView()
-            } else if show.totalEpisodesInCurrentSeason == nil {
-                // Episode count unknown (fresh fetch failed + no cached value).
-                // Render a disabled indicator so user doesn't tap blindly past
-                // the real episode count. State clears on next successful sync.
-                Image(systemName: "eye.slash")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background(Color(.tertiarySystemFill).opacity(0.5))
-                    .clipShape(Circle())
             } else {
                 Button(intent: MarkEpisodeWatchedIntent(
                     userTvShowId: show.userTvShowId,

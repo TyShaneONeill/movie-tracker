@@ -169,6 +169,19 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
 
   const shows = top3.map((row) => {
     const episodesInSeason = episodesBySeason[`${row.user_tv_show_id}-${row.current_season}`] ?? 0;
+    if (episodesInSeason === 0) {
+      Sentry.addBreadcrumb({
+        category: 'widget-cache',
+        level: 'warning',
+        message: 'episode count unknown for current season',
+        data: {
+          user_tv_show_id: row.user_tv_show_id,
+          tmdb_id: row.tmdb_id,
+          current_season: row.current_season,
+          current_episode: row.current_episode,
+        },
+      });
+    }
     const isSeasonComplete = episodesInSeason > 0 && row.current_episode >= episodesInSeason;
     // Prefer live TMDB number_of_seasons; fall back to DB row if missing
     const effectiveTotalSeasons =
