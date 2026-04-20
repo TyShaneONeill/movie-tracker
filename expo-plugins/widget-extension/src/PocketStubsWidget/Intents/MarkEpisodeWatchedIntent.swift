@@ -18,8 +18,10 @@ struct MarkEpisodeWatchedIntent: AppIntent {
     @Parameter(title: "Episode Number")
     var episodeNumber: Int
 
-    @Parameter(title: "Total Episodes in Season")
-    var totalEpisodesInSeason: Int
+    // Plain stored property (not @Parameter) — internal wiring value,
+    // never prompted for in Shortcuts app. 0 means "unknown", which
+    // safely signals the RPC to skip the auto-flip branch.
+    var totalEpisodesInSeason: Int = 0
 
     init() {}
 
