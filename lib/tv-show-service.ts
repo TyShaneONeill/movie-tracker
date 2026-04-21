@@ -485,6 +485,12 @@ export async function batchMarkEpisodesWatched(
 ): Promise<void> {
   if (episodes.length === 0) return;
 
+  // Filter unaired episodes (see markSeasonWatched for rationale).
+  const today = new Date().toISOString().slice(0, 10);
+  const airedEpisodes = episodes.filter(
+    (ep) => ep.air_date != null && ep.air_date <= today
+  );
+
   // Fetch existing first-watch records to exclude already-watched episodes
   const { data: existing } = await supabase
     .from('user_episode_watches')
@@ -497,7 +503,7 @@ export async function batchMarkEpisodesWatched(
     (existing ?? []).map((w) => `${w.season_number}:${w.episode_number}`)
   );
 
-  const toInsert = episodes.filter(
+  const toInsert = airedEpisodes.filter(
     (ep) => !watchedKeys.has(`${ep.season_number}:${ep.episode_number}`)
   );
 
