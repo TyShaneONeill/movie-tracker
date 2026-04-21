@@ -401,6 +401,14 @@ export async function markSeasonWatched(
     (ep) => ep.air_date != null && ep.air_date <= today
   );
 
+  // Short-circuit when no episodes are aired — avoids an unnecessary SELECT
+  // round-trip. Still fires sync + widget refresh so downstream state is current.
+  if (airedEpisodes.length === 0) {
+    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    void syncWidgetCache();
+    return;
+  }
+
   // Pre-filter: skip episodes already recorded as watch_number=1 to avoid
   // conflict errors with the partial unique index (PostgREST cannot express
   // ON CONFLICT ... WHERE watch_number=1 through the upsert API).
@@ -490,6 +498,13 @@ export async function batchMarkEpisodesWatched(
   const airedEpisodes = episodes.filter(
     (ep) => ep.air_date != null && ep.air_date <= today
   );
+
+  // Short-circuit when no episodes are aired (see markSeasonWatched).
+  if (airedEpisodes.length === 0) {
+    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    void syncWidgetCache();
+    return;
+  }
 
   // Fetch existing first-watch records to exclude already-watched episodes
   const { data: existing } = await supabase

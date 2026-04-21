@@ -939,14 +939,12 @@ describe('markSeasonWatched', () => {
       makeTMDBEpisode({ episode_number: 2, air_date: tomorrow }),
     ];
 
-    const selectChain = setupQueryChain({ data: [], error: null });
-    const insertChain = { insert: jest.fn().mockResolvedValue({ error: null }) };
-    mockFrom.mockReturnValueOnce(selectChain).mockReturnValue(insertChain);
     mockRpc.mockResolvedValue({ data: null, error: null });
 
     await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
 
-    expect(insertChain.insert).not.toHaveBeenCalled();
+    // Short-circuit: no SELECT round-trip when all episodes are filtered as unaired
+    expect(mockFrom).not.toHaveBeenCalled();
     // sync_tv_show_progress should still fire so any downstream state recalculates
     expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', { p_user_tv_show_id: USER_TV_SHOW_ID });
   });
@@ -979,14 +977,12 @@ describe('batchMarkEpisodesWatched', () => {
       makeTMDBEpisode({ season_number: 2, episode_number: 2, air_date: tomorrow }),
     ];
 
-    const selectChain = setupQueryChain({ data: [], error: null });
-    const insertChain = { insert: jest.fn().mockResolvedValue({ error: null }) };
-    mockFrom.mockReturnValueOnce(selectChain).mockReturnValue(insertChain);
     mockRpc.mockResolvedValue({ data: null, error: null });
 
     await batchMarkEpisodesWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
 
-    expect(insertChain.insert).not.toHaveBeenCalled();
+    // Short-circuit: no SELECT round-trip when all episodes are filtered as unaired
+    expect(mockFrom).not.toHaveBeenCalled();
     expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', { p_user_tv_show_id: USER_TV_SHOW_ID });
   });
 });
