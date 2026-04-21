@@ -394,6 +394,13 @@ export async function markSeasonWatched(
   tmdbShowId: number,
   episodes: TMDBEpisode[]
 ): Promise<void> {
+  // Filter unaired episodes: TMDB `air_date` is YYYY-MM-DD. Null air_date means
+  // TBA — also filtered out. String comparison works because the format is sortable.
+  const today = new Date().toISOString().slice(0, 10);
+  const airedEpisodes = episodes.filter(
+    (ep) => ep.air_date != null && ep.air_date <= today
+  );
+
   // Pre-filter: skip episodes already recorded as watch_number=1 to avoid
   // conflict errors with the partial unique index (PostgREST cannot express
   // ON CONFLICT ... WHERE watch_number=1 through the upsert API).
@@ -408,7 +415,7 @@ export async function markSeasonWatched(
     (existing ?? []).map((w) => `${w.season_number}:${w.episode_number}`)
   );
 
-  const toInsert = episodes.filter(
+  const toInsert = airedEpisodes.filter(
     (ep) => !watchedKeys.has(`${ep.season_number}:${ep.episode_number}`)
   );
 
