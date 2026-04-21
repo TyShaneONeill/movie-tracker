@@ -328,6 +328,14 @@ export async function markEpisodeWatched(
   episode: TMDBEpisode,
   totalEpisodesInSeason: number
 ): Promise<UserEpisodeWatch> {
+  // Guard: reject unaired episodes (null air_date treated as unaired).
+  // Defence-in-depth — the show-detail UI disables unaired rows so this
+  // path is only hit by programmatic callers (widget, future Shortcuts).
+  const today = new Date().toISOString().slice(0, 10);
+  if (episode.air_date == null || episode.air_date > today) {
+    throw new Error('Episode has not aired yet');
+  }
+
   const { error } = await supabase.rpc('mark_episode_watched', {
     p_user_tv_show_id: userTvShowId,
     p_tmdb_show_id: tmdbShowId,
@@ -394,6 +402,21 @@ export async function markSeasonWatched(
   tmdbShowId: number,
   episodes: TMDBEpisode[]
 ): Promise<void> {
+  // Filter unaired episodes: TMDB `air_date` is YYYY-MM-DD. Null air_date means
+  // TBA — also filtered out. String comparison works because the format is sortable.
+  const today = new Date().toISOString().slice(0, 10);
+  const airedEpisodes = episodes.filter(
+    (ep) => ep.air_date != null && ep.air_date <= today
+  );
+
+  // Short-circuit when no episodes are aired — avoids an unnecessary SELECT
+  // round-trip. Still fires sync + widget refresh so downstream state is current.
+  if (airedEpisodes.length === 0) {
+    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    void syncWidgetCache();
+    return;
+  }
+
   // Pre-filter: skip episodes already recorded as watch_number=1 to avoid
   // conflict errors with the partial unique index (PostgREST cannot express
   // ON CONFLICT ... WHERE watch_number=1 through the upsert API).
@@ -408,7 +431,7 @@ export async function markSeasonWatched(
     (existing ?? []).map((w) => `${w.season_number}:${w.episode_number}`)
   );
 
-  const toInsert = episodes.filter(
+  const toInsert = airedEpisodes.filter(
     (ep) => !watchedKeys.has(`${ep.season_number}:${ep.episode_number}`)
   );
 
@@ -478,6 +501,19 @@ export async function batchMarkEpisodesWatched(
 ): Promise<void> {
   if (episodes.length === 0) return;
 
+  // Filter unaired episodes (see markSeasonWatched for rationale).
+  const today = new Date().toISOString().slice(0, 10);
+  const airedEpisodes = episodes.filter(
+    (ep) => ep.air_date != null && ep.air_date <= today
+  );
+
+  // Short-circuit when no episodes are aired (see markSeasonWatched).
+  if (airedEpisodes.length === 0) {
+    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    void syncWidgetCache();
+    return;
+  }
+
   // Fetch existing first-watch records to exclude already-watched episodes
   const { data: existing } = await supabase
     .from('user_episode_watches')
@@ -490,7 +526,7 @@ export async function batchMarkEpisodesWatched(
     (existing ?? []).map((w) => `${w.season_number}:${w.episode_number}`)
   );
 
-  const toInsert = episodes.filter(
+  const toInsert = airedEpisodes.filter(
     (ep) => !watchedKeys.has(`${ep.season_number}:${ep.episode_number}`)
   );
 

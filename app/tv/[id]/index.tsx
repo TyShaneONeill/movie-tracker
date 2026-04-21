@@ -130,19 +130,30 @@ function SeasonAccordionItem({
     allWatched,
   } = useEpisodeActions(userTvShowId, showId, season.season_number, { onAllWatched, onAllUnwatched });
 
-  const isAllWatched = allWatched(episodes.length);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const isEpisodeAired = (episode: TMDBEpisode) =>
+    episode.air_date != null && episode.air_date <= today;
+  const airedEpisodes = useMemo(
+    () => episodes.filter(isEpisodeAired),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [episodes, today]
+  );
+  const hasUnaired = airedEpisodes.length < episodes.length;
+
+  const isAllWatched = allWatched(airedEpisodes.length);
 
   const seasonYear = season.air_date?.split('-')[0] ?? '';
   const posterUrl = getTMDBImageUrl(season.poster_path, 'w185');
 
   const handleToggleEpisode = async (episode: TMDBEpisode) => {
     if (!isSaved || !userTvShowId) return;
+    if (!isEpisodeAired(episode)) return;  // Belt-and-suspenders — disabled row should never reach here
     if (isEpisodeWatched(episode.episode_number)) {
       await unmarkWatched(episode.episode_number);
     } else {
-      // episodes is loaded by useSeasonEpisodes earlier in this component;
-      // its length is the authoritative TMDB episode count for this season.
-      await markWatched(episode, episodes.length);
+      // airedEpisodes.length is the authoritative aired count for this season —
+      // matches what the RPC would evaluate for auto-flip purposes.
+      await markWatched(episode, airedEpisodes.length);
     }
   };
 
@@ -174,8 +185,8 @@ function SeasonAccordionItem({
               {/* Mark All Watched button - only if show is in library */}
               {isSaved && userTvShowId && episodes.length > 0 && (
                 <Pressable
-                  onPress={() => isAllWatched ? unmarkAllWatched() : markAllWatched(episodes)}
-                  disabled={isMarkingAllWatched || isUnmarkingAllWatched}
+                  onPress={() => isAllWatched ? unmarkAllWatched() : markAllWatched(airedEpisodes)}
+                  disabled={isMarkingAllWatched || isUnmarkingAllWatched || airedEpisodes.length === 0}
                   style={({ pressed }) => [
                     dynamicStyles.markAllButton,
                     pressed && { opacity: 0.7 },
@@ -185,19 +196,28 @@ function SeasonAccordionItem({
                     <ActivityIndicator size="small" color={colors.tint} />
                   ) : (
                     <Text style={dynamicStyles.markAllText}>
-                      {isAllWatched ? 'Unmark All Watched' : 'Mark All Watched'}
+                      {isAllWatched
+                        ? 'Unmark All Watched'
+                        : hasUnaired
+                          ? 'Mark All Aired Watched'
+                          : 'Mark All Watched'}
                     </Text>
                   )}
                 </Pressable>
               )}
               {episodes.map((episode) => {
                 const watched = isSaved && userTvShowId ? isEpisodeWatched(episode.episode_number) : false;
+                const aired = isEpisodeAired(episode);
+                const rowDisabled = !isSaved || !userTvShowId || !aired;
                 return (
                   <Pressable
                     key={episode.id}
                     onPress={() => handleToggleEpisode(episode)}
-                    disabled={!isSaved || !userTvShowId}
-                    style={dynamicStyles.episodeRow}
+                    disabled={rowDisabled}
+                    style={[
+                      dynamicStyles.episodeRow,
+                      !aired && { opacity: 0.4 },
+                    ]}
                   >
                     <View style={[
                       dynamicStyles.episodeCheckbox,
@@ -207,8 +227,15 @@ function SeasonAccordionItem({
                       {watched && <Text style={dynamicStyles.checkmark}>{'\u2713'}</Text>}
                     </View>
                     <Text style={dynamicStyles.episodeNumber}>E{episode.episode_number}</Text>
-                    <Text style={dynamicStyles.episodeName} numberOfLines={1}>{episode.name}</Text>
-                    {episode.runtime && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={dynamicStyles.episodeName} numberOfLines={1}>{episode.name}</Text>
+                      {!aired && episode.air_date && (
+                        <Text style={[dynamicStyles.episodeRuntime, { fontSize: 11 }]}>
+                          Airs {episode.air_date}
+                        </Text>
+                      )}
+                    </View>
+                    {aired && episode.runtime && (
                       <Text style={dynamicStyles.episodeRuntime}>{episode.runtime}m</Text>
                     )}
                   </Pressable>
@@ -1710,7 +1737,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   episodeName: {
     ...Typography.body.sm,
     color: colors.text,
-    flex: 1,
   },
   episodeRuntime: {
     ...Typography.caption.default,

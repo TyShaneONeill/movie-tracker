@@ -37,6 +37,7 @@ import {
   markEpisodeWatched,
   unmarkEpisodeWatched,
   markSeasonWatched,
+  batchMarkEpisodesWatched,
   getWatchedEpisodes,
 } from '@/lib/tv-show-service';
 import { supabase } from '@/lib/supabase';
@@ -769,6 +770,28 @@ describe('markEpisodeWatched', () => {
       markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON)
     ).rejects.toThrow('Failed to mark episode as watched');
   });
+
+  it('throws "Episode has not aired yet" when episode.air_date is in the future', async () => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const unairedEpisode = makeTMDBEpisode({ air_date: tomorrow });
+
+    await expect(
+      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, unairedEpisode, TOTAL_IN_SEASON)
+    ).rejects.toThrow('Episode has not aired yet');
+
+    // The RPC must NOT be called for unaired episodes
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('throws "Episode has not aired yet" when episode.air_date is null (TBA episode)', async () => {
+    const unairedEpisode = makeTMDBEpisode({ air_date: null });
+
+    await expect(
+      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, unairedEpisode, TOTAL_IN_SEASON)
+    ).rejects.toThrow('Episode has not aired yet');
+
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
 });
 
 describe('unmarkEpisodeWatched', () => {
@@ -900,6 +923,89 @@ describe('markSeasonWatched', () => {
     await expect(
       markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes)
     ).rejects.toThrow('Failed to mark season as watched');
+  });
+
+  it('filters out episodes with future air_date before inserting', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+    const airedEp = makeTMDBEpisode({ episode_number: 1, air_date: yesterday });
+    const todayEp = makeTMDBEpisode({ episode_number: 2, air_date: today });
+    const unairedEp = makeTMDBEpisode({ episode_number: 3, air_date: tomorrow });
+
+    // existing-watches query returns empty
+    const selectChain = setupQueryChain({ data: [], error: null });
+    const insertChain = { insert: jest.fn().mockResolvedValue({ error: null }) };
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValue(insertChain);
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, [airedEp, todayEp, unairedEp]);
+
+    // Only 2 aired episodes should be inserted (the future one is filtered)
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ episode_number: 1 }),
+        expect.objectContaining({ episode_number: 2 }),
+      ])
+    );
+    const inserted = insertChain.insert.mock.calls[0]?.[0] as Array<{ episode_number: number }>;
+    expect(inserted).toHaveLength(2);
+    expect(inserted.some((e) => e.episode_number === 3)).toBe(false);
+  });
+
+  it('skips insert entirely and calls sync when ALL episodes are unaired', async () => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const episodes = [
+      makeTMDBEpisode({ episode_number: 1, air_date: tomorrow }),
+      makeTMDBEpisode({ episode_number: 2, air_date: tomorrow }),
+    ];
+
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    // Short-circuit: no SELECT round-trip when all episodes are filtered as unaired
+    expect(mockFrom).not.toHaveBeenCalled();
+    // sync_tv_show_progress should still fire so any downstream state recalculates
+    expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', { p_user_tv_show_id: USER_TV_SHOW_ID });
+  });
+});
+
+describe('batchMarkEpisodesWatched', () => {
+  it('filters out episodes with future air_date before inserting', async () => {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+    const aired = makeTMDBEpisode({ season_number: 1, episode_number: 1, air_date: yesterday });
+    const unaired = makeTMDBEpisode({ season_number: 2, episode_number: 1, air_date: tomorrow });
+
+    const selectChain = setupQueryChain({ data: [], error: null });
+    const insertChain = { insert: jest.fn().mockResolvedValue({ error: null }) };
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValue(insertChain);
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await batchMarkEpisodesWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, [aired, unaired]);
+
+    const inserted = insertChain.insert.mock.calls[0]?.[0] as Array<{ season_number: number; episode_number: number }>;
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0]).toMatchObject({ season_number: 1, episode_number: 1 });
+  });
+
+  it('skips insert entirely and calls sync when ALL episodes are unaired', async () => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const episodes = [
+      makeTMDBEpisode({ season_number: 2, episode_number: 1, air_date: tomorrow }),
+      makeTMDBEpisode({ season_number: 2, episode_number: 2, air_date: tomorrow }),
+    ];
+
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await batchMarkEpisodesWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    // Short-circuit: no SELECT round-trip when all episodes are filtered as unaired
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith('sync_tv_show_progress', { p_user_tv_show_id: USER_TV_SHOW_ID });
   });
 });
 

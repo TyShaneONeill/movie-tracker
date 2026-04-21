@@ -65,7 +65,7 @@ export function useEpisodeActions(
       invalidateRelated();
       if (options?.onAllWatched) {
         const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
-        if (cachedShow && cachedShow.status !== 'watched') {
+        if (cachedShow && cachedShow.status !== 'watched' && cachedShow.tmdb_status !== 'Returning Series') {
           const total = cachedShow.number_of_episodes ?? 0;
           const watched = cachedShow.episodes_watched ?? 0;
           if (total > 0 && watched + 1 >= total) {
@@ -108,7 +108,7 @@ export function useEpisodeActions(
       invalidateRelated();
       if (options?.onAllWatched) {
         const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
-        if (cachedShow && cachedShow.status !== 'watched') {
+        if (cachedShow && cachedShow.status !== 'watched' && cachedShow.tmdb_status !== 'Returning Series') {
           const total = cachedShow.number_of_episodes ?? 0;
           const watched = cachedShow.episodes_watched ?? 0;
           const alreadyInSeason = watchedEpisodes.filter(w =>
