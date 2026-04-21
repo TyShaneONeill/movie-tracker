@@ -770,6 +770,18 @@ describe('markEpisodeWatched', () => {
       markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON)
     ).rejects.toThrow('Failed to mark episode as watched');
   });
+
+  it('throws "Episode has not aired yet" when episode.air_date is in the future', async () => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const unairedEpisode = makeTMDBEpisode({ air_date: tomorrow });
+
+    await expect(
+      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, unairedEpisode, TOTAL_IN_SEASON)
+    ).rejects.toThrow('Episode has not aired yet');
+
+    // The RPC must NOT be called for unaired episodes
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
 });
 
 describe('unmarkEpisodeWatched', () => {

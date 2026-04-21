@@ -328,6 +328,14 @@ export async function markEpisodeWatched(
   episode: TMDBEpisode,
   totalEpisodesInSeason: number
 ): Promise<UserEpisodeWatch> {
+  // Guard: reject unaired episodes (null air_date treated as unaired).
+  // Defence-in-depth — the show-detail UI disables unaired rows so this
+  // path is only hit by programmatic callers (widget, future Shortcuts).
+  const today = new Date().toISOString().slice(0, 10);
+  if (episode.air_date == null || episode.air_date > today) {
+    throw new Error('Episode has not aired yet');
+  }
+
   const { error } = await supabase.rpc('mark_episode_watched', {
     p_user_tv_show_id: userTvShowId,
     p_tmdb_show_id: tmdbShowId,
