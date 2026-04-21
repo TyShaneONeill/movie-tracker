@@ -1737,7 +1737,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   episodeName: {
     ...Typography.body.sm,
     color: colors.text,
-    flex: 1,
   },
   episodeRuntime: {
     ...Typography.caption.default,
