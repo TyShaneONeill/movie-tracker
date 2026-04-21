@@ -16,7 +16,7 @@ interface UseEpisodeActionsResult {
   watchedEpisodes: UserEpisodeWatch[];
   isLoading: boolean;
 
-  markWatched: (episode: TMDBEpisode) => Promise<void>;
+  markWatched: (episode: TMDBEpisode, totalEpisodesInSeason: number) => Promise<void>;
   isMarkingWatched: boolean;
 
   unmarkWatched: (episodeNumber: number) => Promise<void>;
@@ -57,9 +57,9 @@ export function useEpisodeActions(
   };
 
   const markWatchedMutation = useMutation({
-    mutationFn: async (episode: TMDBEpisode) => {
+    mutationFn: async ({ episode, totalEpisodesInSeason }: { episode: TMDBEpisode; totalEpisodesInSeason: number }) => {
       if (!user) throw new Error('Not authenticated');
-      return markEpisodeWatched(user.id, userTvShowId, tmdbShowId, episode);
+      return markEpisodeWatched(user.id, userTvShowId, tmdbShowId, episode, totalEpisodesInSeason);
     },
     onSuccess: () => {
       invalidateRelated();
@@ -158,8 +158,8 @@ export function useEpisodeActions(
     watchedEpisodes,
     isLoading,
 
-    markWatched: async (episode: TMDBEpisode) => {
-      await markWatchedMutation.mutateAsync(episode);
+    markWatched: async (episode: TMDBEpisode, totalEpisodesInSeason: number) => {
+      await markWatchedMutation.mutateAsync({ episode, totalEpisodesInSeason });
     },
     isMarkingWatched: markWatchedMutation.isPending,
 

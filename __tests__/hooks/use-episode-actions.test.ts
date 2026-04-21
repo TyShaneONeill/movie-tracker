@@ -223,14 +223,15 @@ describe('useEpisodeActions', () => {
       });
 
       await act(async () => {
-        await result.current.markWatched(episode);
+        await result.current.markWatched(episode, 10);
       });
 
       expect(mockMarkEpisodeWatched).toHaveBeenCalledWith(
         USER_ID,
         USER_TV_SHOW_ID,
         TMDB_SHOW_ID,
-        episode
+        episode,
+        10
       );
     });
 
@@ -251,7 +252,7 @@ describe('useEpisodeActions', () => {
       });
 
       await act(async () => {
-        await result.current.markWatched(episode);
+        await result.current.markWatched(episode, 10);
       });
 
       expect(invalidateSpy).toHaveBeenCalledWith(
@@ -277,7 +278,7 @@ describe('useEpisodeActions', () => {
 
       await expect(
         act(async () => {
-          await result.current.markWatched(episode);
+          await result.current.markWatched(episode, 10);
         })
       ).rejects.toThrow('Network error');
     });
@@ -465,7 +466,7 @@ describe('useEpisodeActions', () => {
       });
 
       await act(async () => {
-        await result.current.markWatched(makeEpisode());
+        await result.current.markWatched(makeEpisode(), 10);
       });
 
       expect(invalidateSpy).toHaveBeenCalledWith(

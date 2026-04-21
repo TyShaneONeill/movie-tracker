@@ -19,16 +19,23 @@ struct SupabaseWidgetClient {
     /// Marks the next episode as watched via the mark_episode_watched RPC.
     /// The RPC atomically inserts the watch record and recomputes
     /// current_season / current_episode in a single round-trip.
+    /// When totalEpisodesInSeason > 0 and the show is Ended/Canceled and
+    /// the user has reached the final episode of the final season, the
+    /// RPC also auto-flips status='watched' on user_tv_shows.
     /// - Parameters:
     ///   - userTvShowId: the user_tv_shows.id UUID
     ///   - tmdbShowId: the TMDB show ID
     ///   - seasonNumber: the season containing the episode to mark
     ///   - episodeNumber: the episode number to mark
+    ///   - totalEpisodesInSeason: total episodes in the current season
+    ///     from TMDB. Pass 0 when unknown — the RPC then skips the
+    ///     auto-flip branch and defers to a later call with a known value.
     static func markEpisodeWatched(
         userTvShowId: String,
         tmdbShowId: Int,
         seasonNumber: Int,
-        episodeNumber: Int
+        episodeNumber: Int,
+        totalEpisodesInSeason: Int
     ) async throws {
         let config = try resolveConfig()
         guard let endpoint = URL(string: "\(config.url)/rest/v1/rpc/mark_episode_watched") else {
@@ -40,6 +47,7 @@ struct SupabaseWidgetClient {
             "p_tmdb_show_id": tmdbShowId,
             "p_season_number": seasonNumber,
             "p_episode_number": episodeNumber,
+            "p_total_episodes_in_season": totalEpisodesInSeason,
         ]
 
         var request = URLRequest(url: endpoint)

@@ -18,13 +18,19 @@ struct MarkEpisodeWatchedIntent: AppIntent {
     @Parameter(title: "Episode Number")
     var episodeNumber: Int
 
+    // Plain stored property (not @Parameter) — internal wiring value,
+    // never prompted for in Shortcuts app. 0 means "unknown", which
+    // safely signals the RPC to skip the auto-flip branch.
+    var totalEpisodesInSeason: Int = 0
+
     init() {}
 
-    init(userTvShowId: String, tmdbShowId: Int, seasonNumber: Int, episodeNumber: Int) {
+    init(userTvShowId: String, tmdbShowId: Int, seasonNumber: Int, episodeNumber: Int, totalEpisodesInSeason: Int) {
         self.userTvShowId = userTvShowId
         self.tmdbShowId = tmdbShowId
         self.seasonNumber = seasonNumber
         self.episodeNumber = episodeNumber
+        self.totalEpisodesInSeason = totalEpisodesInSeason
     }
 
     func perform() async throws -> some IntentResult {
@@ -38,7 +44,8 @@ struct MarkEpisodeWatchedIntent: AppIntent {
                 userTvShowId: userTvShowId,
                 tmdbShowId: tmdbShowId,
                 seasonNumber: seasonNumber,
-                episodeNumber: episodeNumber
+                episodeNumber: episodeNumber,
+                totalEpisodesInSeason: totalEpisodesInSeason
             )
             try? WidgetDataWriter.markEpisodeWatched(userTvShowId: userTvShowId)
         } catch {

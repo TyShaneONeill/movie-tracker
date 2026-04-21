@@ -13,11 +13,14 @@ type StaleShowRow = {
   number_of_seasons: number | null;
   number_of_episodes: number | null;
   metadata_refreshed_at: string | null;
+  status: string;
+  tmdb_status: string | null;
 };
 
 /**
- * Refresh TMDB-derived metadata for all the user's `status='watching'` shows
- * whose `metadata_refreshed_at` is NULL or older than STALE_THRESHOLD_HOURS.
+ * Refresh TMDB-derived metadata for all of the user's `status='watching'` shows,
+ * plus `status='watched'` shows whose `tmdb_status='Returning Series'`, whose
+ * `metadata_refreshed_at` is NULL or older than STALE_THRESHOLD_HOURS.
  * Returns the number of shows for which a TMDB fetch actually fired.
  * No-op if no user is authed.
  */
@@ -29,9 +32,9 @@ export async function refreshStaleWatchingShows(): Promise<number> {
 
   const { data: rows, error } = await supabase
     .from('user_tv_shows')
-    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at')
+    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at, status, tmdb_status')
     .eq('user_id', user.id)
-    .eq('status', 'watching')
+    .or(`status.eq.watching,and(status.eq.watched,tmdb_status.eq.Returning Series)`)
     .or(`metadata_refreshed_at.is.null,metadata_refreshed_at.lt.${cutoffIso}`)
     .order('updated_at', { ascending: false })
     .limit(MAX_SHOWS_PER_BATCH);
@@ -56,7 +59,7 @@ export async function refreshSingleShow(userTvShowId: string): Promise<boolean> 
 
   const { data: row, error } = await supabase
     .from('user_tv_shows')
-    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at')
+    .select('id, tmdb_id, name, poster_path, number_of_seasons, number_of_episodes, metadata_refreshed_at, status, tmdb_status')
     .eq('user_id', user.id)
     .eq('id', userTvShowId)
     .maybeSingle();
@@ -80,6 +83,7 @@ async function refreshShowMetadata(row: StaleShowRow): Promise<boolean> {
       number_of_seasons?: number;
       number_of_episodes?: number;
       poster_path?: string | null;
+      status?: string;
     }>('get-tv-show-details', { body: { showId: row.tmdb_id } });
 
     if (tmdbError || !tmdbData) {
@@ -103,6 +107,20 @@ async function refreshShowMetadata(row: StaleShowRow): Promise<boolean> {
     }
     if (tmdbData.poster_path !== undefined && tmdbData.poster_path !== row.poster_path) {
       updates.poster_path = tmdbData.poster_path;
+    }
+    if (typeof tmdbData.status === 'string' && tmdbData.status !== row.tmdb_status) {
+      updates.tmdb_status = tmdbData.status;
+    }
+    if (
+      row.status === 'watched'
+      && row.tmdb_status === 'Returning Series'
+      && typeof tmdbData.number_of_episodes === 'number'
+      && tmdbData.number_of_episodes > 0
+      && row.number_of_episodes !== null
+      && tmdbData.number_of_episodes > row.number_of_episodes
+    ) {
+      updates.status = 'watching';
+      // finished_at intentionally preserved for analytics
     }
 
     await supabase
