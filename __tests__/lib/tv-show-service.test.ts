@@ -782,6 +782,16 @@ describe('markEpisodeWatched', () => {
     // The RPC must NOT be called for unaired episodes
     expect(mockRpc).not.toHaveBeenCalled();
   });
+
+  it('throws "Episode has not aired yet" when episode.air_date is null (TBA episode)', async () => {
+    const unairedEpisode = makeTMDBEpisode({ air_date: null });
+
+    await expect(
+      markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, unairedEpisode, TOTAL_IN_SEASON)
+    ).rejects.toThrow('Episode has not aired yet');
+
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
 });
 
 describe('unmarkEpisodeWatched', () => {
