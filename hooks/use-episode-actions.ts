@@ -61,8 +61,27 @@ export function useEpisodeActions(
       if (!user) throw new Error('Not authenticated');
       return markEpisodeWatched(user.id, userTvShowId, tmdbShowId, episode, totalEpisodesInSeason);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidateRelated();
+
+      // Authoritative signal from the RPC: if the auto-flip branch fired,
+      // the DB has already been updated to status='watched'. Fire the toast
+      // and skip the client-side auto-promote.
+      if (data.flipped) {
+        const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
+        Toast.show({
+          type: 'success',
+          text1: '🎉 Series complete!',
+          text2: cachedShow ? `${cachedShow.name} has been marked as Watched.` : 'Show has been marked as Watched.',
+          visibilityTime: 4000,
+        });
+        return;
+      }
+
+      // Legacy path: RPC did not auto-flip (show has no tmdb_status, or
+      // is Returning Series, or count didn't hit threshold). Fall back to
+      // the client-side count heuristic, with the existing Returning Series
+      // guard from PR #390.
       if (options?.onAllWatched) {
         const cachedShow = queryClient.getQueryData<UserTvShow | null>(['userTvShow', user?.id, tmdbShowId]);
         if (cachedShow && cachedShow.status !== 'watched' && cachedShow.tmdb_status !== 'Returning Series') {
