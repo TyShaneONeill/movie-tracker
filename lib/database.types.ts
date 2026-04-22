@@ -1291,8 +1291,8 @@ export type Database = {
           season_number: number
           still_path: string | null
           tmdb_show_id: number
-          vote_average: number | null
-          vote_count: number | null
+          tmdb_vote_average: number | null
+          tmdb_vote_count: number | null
         }
         Insert: {
           air_date?: string | null
@@ -1304,8 +1304,8 @@ export type Database = {
           season_number: number
           still_path?: string | null
           tmdb_show_id: number
-          vote_average?: number | null
-          vote_count?: number | null
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
         }
         Update: {
           air_date?: string | null
@@ -1317,8 +1317,8 @@ export type Database = {
           season_number?: number
           still_path?: string | null
           tmdb_show_id?: number
-          vote_average?: number | null
-          vote_count?: number | null
+          tmdb_vote_average?: number | null
+          tmdb_vote_count?: number | null
         }
         Relationships: []
       }
