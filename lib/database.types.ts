@@ -1280,6 +1280,48 @@ export type Database = {
         }
         Relationships: []
       }
+      tv_show_episodes: {
+        Row: {
+          air_date: string | null
+          episode_number: number
+          name: string | null
+          overview: string | null
+          refreshed_at: string
+          runtime: number | null
+          season_number: number
+          still_path: string | null
+          tmdb_show_id: number
+          vote_average: number | null
+          vote_count: number | null
+        }
+        Insert: {
+          air_date?: string | null
+          episode_number: number
+          name?: string | null
+          overview?: string | null
+          refreshed_at?: string
+          runtime?: number | null
+          season_number: number
+          still_path?: string | null
+          tmdb_show_id: number
+          vote_average?: number | null
+          vote_count?: number | null
+        }
+        Update: {
+          air_date?: string | null
+          episode_number?: number
+          name?: string | null
+          overview?: string | null
+          refreshed_at?: string
+          runtime?: number | null
+          season_number?: number
+          still_path?: string | null
+          tmdb_show_id?: number
+          vote_average?: number | null
+          vote_count?: number | null
+        }
+        Relationships: []
+      }
       tv_shows: {
         Row: {
           adult: boolean | null
