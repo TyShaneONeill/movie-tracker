@@ -704,7 +704,7 @@ describe('markEpisodeWatched', () => {
   const TOTAL_IN_SEASON = 10;
 
   it('calls mark_episode_watched RPC with correct params including p_total_episodes_in_season', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockRpc.mockResolvedValue({ data: { flipped: false }, error: null });
 
     await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
 
@@ -719,7 +719,7 @@ describe('markEpisodeWatched', () => {
   });
 
   it('passes 0 for p_total_episodes_in_season when caller passes 0 (fallback)', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockRpc.mockResolvedValue({ data: { flipped: false }, error: null });
 
     await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, 0);
 
@@ -729,7 +729,7 @@ describe('markEpisodeWatched', () => {
   });
 
   it('does NOT use the 2-call pattern (no INSERT + sync_tv_show_progress)', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockRpc.mockResolvedValue({ data: { flipped: false }, error: null });
 
     await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
 
@@ -737,12 +737,13 @@ describe('markEpisodeWatched', () => {
     expect(mockRpc).not.toHaveBeenCalledWith('sync_tv_show_progress', expect.anything());
   });
 
-  it('returns a UserEpisodeWatch-shaped object built from input params', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: null });
+  it('returns { watch, flipped } — watch is a UserEpisodeWatch built from input params, flipped is false by default', async () => {
+    mockRpc.mockResolvedValue({ data: { flipped: false }, error: null });
 
     const result = await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
 
-    expect(result).toMatchObject({
+    expect(result.flipped).toBe(false);
+    expect(result.watch).toMatchObject({
       user_id: USER_ID,
       user_tv_show_id: USER_TV_SHOW_ID,
       tmdb_show_id: TMDB_ID,
@@ -753,6 +754,22 @@ describe('markEpisodeWatched', () => {
       still_path: episode.still_path,
       watch_number: 1,
     });
+  });
+
+  it('returns flipped: true when RPC response contains { flipped: true }', async () => {
+    mockRpc.mockResolvedValue({ data: { flipped: true }, error: null });
+
+    const result = await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
+
+    expect(result.flipped).toBe(true);
+  });
+
+  it('returns flipped: false when RPC response is null (defensive default)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    const result = await markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episode, TOTAL_IN_SEASON);
+
+    expect(result.flipped).toBe(false);
   });
 
   it('throws on RPC error', async () => {
@@ -779,7 +796,6 @@ describe('markEpisodeWatched', () => {
       markEpisodeWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, unairedEpisode, TOTAL_IN_SEASON)
     ).rejects.toThrow('Episode has not aired yet');
 
-    // The RPC must NOT be called for unaired episodes
     expect(mockRpc).not.toHaveBeenCalled();
   });
 

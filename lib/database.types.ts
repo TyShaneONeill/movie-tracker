@@ -2150,7 +2150,7 @@ export type Database = {
           p_total_episodes_in_season: number
           p_user_tv_show_id: string
         }
-        Returns: undefined
+        Returns: Json
       }
       reorder_list_movies: {
         Args: { p_list_id: string; p_ordered_tmdb_ids: number[] }

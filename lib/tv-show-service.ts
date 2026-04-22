@@ -327,7 +327,7 @@ export async function markEpisodeWatched(
   tmdbShowId: number,
   episode: TMDBEpisode,
   totalEpisodesInSeason: number
-): Promise<UserEpisodeWatch> {
+): Promise<{ watch: UserEpisodeWatch; flipped: boolean }> {
   // Guard: reject unaired episodes (null air_date treated as unaired).
   // Defence-in-depth — the show-detail UI disables unaired rows so this
   // path is only hit by programmatic callers (widget, future Shortcuts).
@@ -336,7 +336,7 @@ export async function markEpisodeWatched(
     throw new Error('Episode has not aired yet');
   }
 
-  const { error } = await supabase.rpc('mark_episode_watched', {
+  const { data, error } = await supabase.rpc('mark_episode_watched', {
     p_user_tv_show_id: userTvShowId,
     p_tmdb_show_id: tmdbShowId,
     p_season_number: episode.season_number,
@@ -350,10 +350,15 @@ export async function markEpisodeWatched(
 
   void syncWidgetCache();
 
+  // Extract flipped from the RPC jsonb return. Defensive fallback: null
+  // response (e.g., legacy void-returning migration not yet applied in
+  // some environment) → flipped: false.
+  const flipped = (data as { flipped?: boolean } | null)?.flipped === true;
+
   // Construct the watch record from known params to preserve the return shape
   // for callers. The atomic RPC handles the DB write; we don't need to re-fetch.
   const now = new Date().toISOString();
-  return {
+  const watch: UserEpisodeWatch = {
     id: '',
     user_id: userId,
     user_tv_show_id: userTvShowId,
@@ -368,6 +373,8 @@ export async function markEpisodeWatched(
     notes: null,
     watch_number: 1,
   };
+
+  return { watch, flipped };
 }
 
 // Unmark an episode as watched
