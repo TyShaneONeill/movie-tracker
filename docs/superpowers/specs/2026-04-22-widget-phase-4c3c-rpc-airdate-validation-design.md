@@ -157,8 +157,10 @@ $function$;
 
 Replace silent failure with a rejection-counter write to App Group UserDefaults, then trigger timeline reload.
 
+The existing catch block is silent. Replace the silent behavior with a per-show rejection-counter write. Keep the 1.5s minimum disabled-state delay and the existing `WidgetCenter.shared.reloadTimelines(ofKind: AppGroup.widgetKind)` call untouched — the reload call is what triggers the view body re-evaluation that makes the wiggle fire.
+
 ```swift
-// inside MarkEpisodeWatchedIntent.perform()
+// inside MarkEpisodeWatchedIntent.perform(), inside the existing do/catch:
 do {
   try await SupabaseWidgetClient.markEpisodeWatched(
     userTvShowId: userTvShowId,
@@ -167,38 +169,55 @@ do {
     episodeNumber: episodeNumber,
     totalEpisodesInSeason: totalEpisodesInSeason
   )
+  try? WidgetDataWriter.markEpisodeWatched(userTvShowId: userTvShowId)
 } catch {
-  // Phase 4c.3c: surface rejection to widget view via App Group state.
-  // Covers server-side air_date guard (22023) and any other error path.
-  if let defaults = UserDefaults(suiteName: "group.com.pocketstubs.shared") {
-    let current = defaults.integer(forKey: "widget.markRejectionCount")
-    defaults.set(current + 1, forKey: "widget.markRejectionCount")
+  // Phase 4c.3c: surface rejection to the widget view via a per-show
+  // counter. Covers the server-side air_date guard (22023) and any
+  // other error path (network, auth). Per-show key so a rejection on
+  // show X doesn't animate show Y's eyeball.
+  if let defaults = UserDefaults(suiteName: AppGroup.identifier) {
+    let key = "widget.markRejection.\(userTvShowId)"
+    defaults.set(defaults.integer(forKey: key) + 1, forKey: key)
   }
 }
-WidgetCenter.shared.reloadTimelines(ofKind: "PocketStubsWidget")
-return .result()
 ```
 
-**Exact App Group suite name and widget kind identifier** will be confirmed during implementation by reading the current `SupabaseWidgetClient.swift` and widget configuration — placeholders `group.com.pocketstubs.shared` and `PocketStubsWidget` are representative.
+**Confirmed identifiers** (from `expo-plugins/widget-extension/src/PocketStubsWidget/Constants/AppGroup.swift`):
+- App Group suite: `group.com.pocketstubs.app` (referenced as `AppGroup.identifier`)
+- Widget kind: `PocketStubsWidget` (referenced as `AppGroup.widgetKind`)
+
+**Storage choice — UserDefaults vs the existing `widget_data.json`:** the widget uses file-based JSON for content data (shows, stats, posters). The rejection counter is a control signal — different conceptual layer. UserDefaults on the shared suite is the idiomatic iOS pattern for small per-key control state and avoids polluting the content JSON's Codable surface. Both storage mechanisms cross the App Group boundary identically.
 
 **Why any error (not just 22023):** the wiggle signals "that didn't take effect." Network errors, auth failures, and `22023` all have the same user meaning — tap was rejected. Narrowing to `22023` only would leave the other failure modes silent and create the same complaint that prompted this work.
 
-### 3. Timeline entry + provider
+### 3. Eyeball button wiggle (`EyeballButton.swift`)
 
-The timeline entry struct gains a `markRejectionCount: Int` field. The timeline provider reads `defaults.integer(forKey: "widget.markRejectionCount")` when building each entry and sets it on the entry. No clear / reset logic — the counter monotonically increases; the view's symbol effect fires only when `value:` changes across entry boundaries.
-
-### 4. Eyeball button view
-
-In the widget view where the eyeball `Image(systemName:)` is rendered inside the `Button(intent:)`:
+The existing button already has `.symbolEffect(.bounce, value: show.currentEpisode)` to animate on successful episode advance. Chain a second symbol effect modifier keyed by a per-show rejection counter read from App Group UserDefaults:
 
 ```swift
-Image(systemName: "eye.fill")
-  .symbolEffect(.wiggle, value: entry.markRejectionCount)
+// Full modifier chain on the eyeball Image:
+Image(systemName: "eye")
+  .font(.system(size: 12, weight: .medium))
+  .foregroundColor(.primary)
+  // Existing (Phase 3): bounce on successful mark + reload
+  .symbolEffect(.bounce, value: show.currentEpisode)
+  // NEW (Phase 4c.3c): wiggle on rejection — per-show counter
+  .symbolEffect(.wiggle, value: rejectionCount(for: show.userTvShowId))
+  .frame(width: 24, height: 24)
+  // ... existing modifiers ...
+
+// Computed accessor, added as a private helper on EyeballButton:
+private func rejectionCount(for userTvShowId: String) -> Int {
+  UserDefaults(suiteName: AppGroup.identifier)?
+    .integer(forKey: "widget.markRejection.\(userTvShowId)") ?? 0
+}
 ```
 
-iOS 17+ native. Requires iOS 17 deployment target (already met — existing widget uses other iOS 17 APIs).
+**Why no timeline entry plumbing:** the counter lives in App Group storage, not in the widget's JSON content. Because `WidgetCenter.shared.reloadTimelines` runs after the intent, SwiftUI re-evaluates the view body, the computed `rejectionCount(for:)` re-reads UserDefaults, and the new value triggers `.symbolEffect(.wiggle)`. No new fields on `WidgetEntry` or `WidgetData`.
 
-**Why `.wiggle` specifically:** subtle side-to-side rotation, idiomatic iOS "try again" signal, non-destructive (doesn't suggest error severity the way `.bounce.down.byLayer` might).
+**Why `.wiggle` specifically:** subtle side-to-side rotation, idiomatic iOS 17+ "try again" signal, non-destructive. Does not suggest error severity. Chains cleanly with the existing `.bounce` — each effect observes its own `value:` independently.
+
+**iOS version:** iOS 17+ (already required by existing widget — see `PocketStubsWidget.swift` `#available(iOS 17.0, *)` guard).
 
 ## Testing
 
