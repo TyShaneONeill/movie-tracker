@@ -26,12 +26,15 @@ export async function getReleaseCalendar(
   region: string = 'US'
 ): Promise<ReleaseCalendarResponse> {
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  // JS Date quirk: month is 0-indexed and day=0 rolls back to previous
+  // month's last day. Passing the 1-indexed `month` yields the last day
+  // of the target month.
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
   const { data, error } = await supabase
     .from('release_calendar')
-    .select('tmdb_id, title, poster_path, backdrop_path, genre_ids, vote_average, release_type, release_date, certification')
+    .select('tmdb_id, title, poster_path, backdrop_path, genre_ids, vote_average, release_type, release_date')
     .eq('region', region)
     .gte('release_date', startDate)
     .lte('release_date', endDate)

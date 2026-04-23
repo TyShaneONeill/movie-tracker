@@ -91,4 +91,19 @@ describe('getReleaseCalendar', () => {
     expect(result.dates_with_releases).toEqual([]);
     expect(result.total_results).toBe(0);
   });
+
+  it('coalesces null vote_average and genre_ids to defaults', async () => {
+    // TMDB sometimes omits these fields; warming worker passes null through
+    // (schema is nullable). Client defaults to 0 and [] at render time.
+    chain.order.mockResolvedValueOnce({
+      data: [
+        { tmdb_id: 1, title: 'Unrated Movie', poster_path: null, backdrop_path: null, genre_ids: null, vote_average: null, release_type: 3, release_date: '2026-04-29' },
+      ],
+      error: null,
+    });
+
+    const result = await getReleaseCalendar(4, 2026);
+    expect(result.days[0].releases[0].genre_ids).toEqual([]);
+    expect(result.days[0].releases[0].vote_average).toBe(0);
+  });
 });
