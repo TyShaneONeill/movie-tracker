@@ -38,8 +38,8 @@ interface ReleaseCalendarRow {
   title: string;
   poster_path: string | null;
   backdrop_path: string | null;
-  genre_ids: number[];
-  vote_average: number;
+  genre_ids: number[] | null;
+  vote_average: number | null;
   fetched_at: string;
 }
 
@@ -131,8 +131,11 @@ Deno.serve(async (req: Request) => {
               title: result.movie.title,
               poster_path: result.movie.poster_path,
               backdrop_path: result.movie.backdrop_path,
-              genre_ids: result.movie.genre_ids ?? [],
-              vote_average: result.movie.vote_average ?? 0,
+              // Pass nulls through instead of coercing — schema is nullable
+              // and downstream consumers handle missing values at render time
+              // (null vs 0 distinguishes unrated films from 0-rated films).
+              genre_ids: result.movie.genre_ids ?? null,
+              vote_average: result.movie.vote_average ?? null,
               fetched_at: new Date().toISOString(),
             });
           }
@@ -144,11 +147,19 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Deduplicate by conflict key (tmdb_id, region, release_type) — last entry wins.
-    // TMDB occasionally returns duplicate release_type entries for the same title+region.
-    const deduped = [
-      ...new Map(allRows.map((r) => [`${r.tmdb_id}:${r.region}:${r.release_type}`, r])).values(),
-    ];
+    // Dedup on (tmdb_id, region, release_type) — TMDB sometimes returns
+    // multiple entries for the same composite key (one with certification,
+    // one without). Prefer the entry with a populated certification so
+    // we don't silently drop MPAA badges.
+    const byKey = new Map<string, ReleaseCalendarRow>();
+    for (const row of allRows) {
+      const key = `${row.tmdb_id}:${row.region}:${row.release_type}`;
+      const existing = byKey.get(key);
+      if (!existing || (!existing.certification && row.certification)) {
+        byKey.set(key, row);
+      }
+    }
+    const deduped = [...byKey.values()];
 
     if (deduped.length > 0) {
       const { error } = await supabase
