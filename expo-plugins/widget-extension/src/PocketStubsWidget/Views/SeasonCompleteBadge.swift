@@ -16,9 +16,14 @@ struct SeasonCompleteBadge: View {
                 // Phase 4c.3e: orange "S0N airs X" pill replaces the Start button
                 // when the next season's first episode is unaired. Nil / past air
                 // dates fall through to the existing tappable Start button.
+                // Badge is wrapped in a Link to the show detail page so a tap
+                // deep-links consistently with the poster tap rather than
+                // falling through to the widget root URL.
                 if isAirDateFuture(show.nextSeasonFirstAirDate),
                    let airDate = show.nextSeasonFirstAirDate {
-                    AirDateBadge(text: "S\(String(format: "%02d", next)) airs \(formatAirDate(airDate))")
+                    Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
+                        AirDateBadge(text: "S\(String(format: "%02d", next)) airs \(formatAirDate(airDate))")
+                    }
                 } else {
                     Button(intent: StartNextSeasonIntent(
                         userTvShowId: show.userTvShowId,
