@@ -789,36 +789,51 @@ export type Database = {
         }
         Relationships: []
       }
-      release_date_cache: {
+      release_calendar: {
         Row: {
+          backdrop_path: string | null
           certification: string | null
           fetched_at: string | null
+          genre_ids: number[] | null
           id: string
           note: string | null
+          poster_path: string | null
           region: string
           release_date: string
           release_type: number
+          title: string | null
           tmdb_id: number
+          vote_average: number | null
         }
         Insert: {
+          backdrop_path?: string | null
           certification?: string | null
           fetched_at?: string | null
+          genre_ids?: number[] | null
           id?: string
           note?: string | null
+          poster_path?: string | null
           region?: string
           release_date: string
           release_type: number
+          title?: string | null
           tmdb_id: number
+          vote_average?: number | null
         }
         Update: {
+          backdrop_path?: string | null
           certification?: string | null
           fetched_at?: string | null
+          genre_ids?: number[] | null
           id?: string
           note?: string | null
+          poster_path?: string | null
           region?: string
           release_date?: string
           release_type?: number
+          title?: string | null
           tmdb_id?: number
+          vote_average?: number | null
         }
         Relationships: []
       }
