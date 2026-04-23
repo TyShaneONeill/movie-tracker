@@ -171,6 +171,102 @@ async function writeEpisodeCountCache(counts: Record<string, number>): Promise<v
   }
 }
 
+/**
+ * Phase 4c.3e: fetch air_date for the "next episode in current season" and
+ * "first episode of next season" for each of the top 3 watching shows.
+ * Single batched PostgREST query via .or() with and(...) tuples — one
+ * round trip for up to 6 episodes.
+ *
+ * Fails open: any error returns an empty map. The widget then renders
+ * tappable eyeballs / Start buttons as if this phase didn't ship,
+ * matching pre-3e behavior.
+ */
+async function fetchEpisodeAirDates(
+  rows: WatchingRow[],
+  liveNumberOfSeasons: Record<string, number>
+): Promise<Record<string, { nextEpisode: string | null; nextSeasonFirst: string | null }>> {
+  const map: Record<string, { nextEpisode: string | null; nextSeasonFirst: string | null }> = {};
+  const top3 = rows.filter((r) => !r.is_trophy).slice(0, 3);
+  if (top3.length === 0) return map;
+
+  // Build the (show, season, episode) tuple list covering both queries per show.
+  const tuples: Array<{ userTvShowId: string; tmdbShowId: number; seasonNumber: number; episodeNumber: number; slot: 'nextEpisode' | 'nextSeasonFirst' }> = [];
+  for (const row of top3) {
+    // nextEpisode = (currentSeason, currentEpisode + 1)
+    tuples.push({
+      userTvShowId: row.user_tv_show_id,
+      tmdbShowId: row.tmdb_id,
+      seasonNumber: row.current_season,
+      episodeNumber: row.current_episode + 1,
+      slot: 'nextEpisode',
+    });
+    // nextSeasonFirst = (nextSeasonNumber, 1) when hasNextSeason. Uses
+    // liveNumberOfSeasons-preferred total as buildWidgetPayload does later,
+    // so the hasNextSeason check here matches payload rendering.
+    const effectiveTotal = liveNumberOfSeasons[row.user_tv_show_id] ?? row.number_of_seasons;
+    if (row.current_season < effectiveTotal) {
+      tuples.push({
+        userTvShowId: row.user_tv_show_id,
+        tmdbShowId: row.tmdb_id,
+        seasonNumber: row.current_season + 1,
+        episodeNumber: 1,
+        slot: 'nextSeasonFirst',
+      });
+    }
+  }
+
+  if (tuples.length === 0) return map;
+
+  // PostgREST .or() with and(...) = composite-key IN semantics.
+  // Example: .or('and(tmdb_show_id.eq.76479,season_number.eq.5,episode_number.eq.8),and(...)')
+  const orClause = tuples
+    .map((t) => `and(tmdb_show_id.eq.${t.tmdbShowId},season_number.eq.${t.seasonNumber},episode_number.eq.${t.episodeNumber})`)
+    .join(',');
+
+  try {
+    const { data, error } = await supabase
+      .from('tv_show_episodes')
+      .select('tmdb_show_id, season_number, episode_number, air_date')
+      .or(orClause);
+
+    if (error || !data) {
+      Sentry.addBreadcrumb({
+        category: 'widget-cache',
+        level: 'warning',
+        message: 'tv_show_episodes air_date fetch failed',
+        data: { error: error?.message ?? 'no data' },
+      });
+      return map;
+    }
+
+    // Build lookup: "${tmdb_show_id}:${season}:${episode}" → air_date
+    const rowByTuple = new Map<string, string | null>();
+    for (const r of data) {
+      rowByTuple.set(`${r.tmdb_show_id}:${r.season_number}:${r.episode_number}`, r.air_date ?? null);
+    }
+
+    // Populate the per-show map using our original tuple list to know which row belongs where
+    for (const t of tuples) {
+      const key = `${t.tmdbShowId}:${t.seasonNumber}:${t.episodeNumber}`;
+      const airDate = rowByTuple.get(key) ?? null;
+      if (!map[t.userTvShowId]) {
+        map[t.userTvShowId] = { nextEpisode: null, nextSeasonFirst: null };
+      }
+      map[t.userTvShowId][t.slot] = airDate;
+    }
+  } catch (err) {
+    Sentry.addBreadcrumb({
+      category: 'widget-cache',
+      level: 'warning',
+      message: 'tv_show_episodes air_date fetch threw',
+      data: { error: err instanceof Error ? err.message : String(err) },
+    });
+    if (__DEV__) console.warn('[widget-cache] tv_show_episodes air_date fetch threw', err);
+  }
+
+  return map;
+}
+
 export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons, airDatesByShow, movieRows }: BuildInput): WidgetPayload {
   const top3 = rows
     .slice()
@@ -385,6 +481,11 @@ export async function syncWidgetCache(): Promise<void> {
     fetchShowDetails(top3ForFetch),
   ]);
 
+  // Phase 4c.3e: fetch air_date for next episode + next-season first episode.
+  // Runs AFTER fetchShowDetails so the liveNumberOfSeasons override is
+  // available to determine hasNextSeason consistency with buildWidgetPayload.
+  const airDatesByShow = await fetchEpisodeAirDates(top3ForFetch, liveNumberOfSeasons);
+
   // Phase 4b.2: merge fresh fetch results over cache. Fresh always wins.
   // Entries only in cache survive (fallback for this sync's failed fetches).
   // Entries only fresh get added (new seasons not previously cached).
@@ -424,7 +525,7 @@ export async function syncWidgetCache(): Promise<void> {
     },
     episodesBySeason: mergedCounts,   // Phase 4b.2: merged (cache + fresh) so failed fetches fall back to cached values
     liveNumberOfSeasons,
-    airDatesByShow: {},               // Phase 4c.3e: Task 2 will populate this via fetchEpisodeAirDates
+    airDatesByShow,                   // Phase 4c.3e: air dates for unaired-episode and next-season badges
     movieRows: movieRows ?? [],
   });
 

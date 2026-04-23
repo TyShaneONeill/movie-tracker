@@ -89,12 +89,14 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       eq: jest.fn().mockReturnThis(),
       in: jest.fn().mockResolvedValue({ count: 3, error: null }),
     };
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCallIdx = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCallIdx++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCallIdx === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCallIdx === 2) return backfillChain;
-      if (table === 'user_movies' && fromCallIdx === 3) return moviesListChain;
+      if (table === 'user_movies' && fromCallIdx === 4) return moviesListChain;
       if (table === 'user_movies') return filmsCountChain;
       if (table === 'user_tv_shows') return showsCountChain;
       return { select: jest.fn().mockResolvedValue({ data: [], error: null }) };
@@ -174,12 +176,14 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       eq: jest.fn().mockReturnThis(),
       in: jest.fn().mockResolvedValue({ count: 1, error: null }),
     };
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCall = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCall++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
-      if (table === 'user_movies' && fromCall === 3) return moviesListChain;
+      if (table === 'user_movies' && fromCall === 4) return moviesListChain;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -248,12 +252,14 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       eq: jest.fn().mockReturnThis(),
       in: jest.fn().mockResolvedValue({ count: 1, error: null }),
     };
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCall = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCall++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
-      if (table === 'user_movies' && fromCall === 3) return moviesListChain;
+      if (table === 'user_movies' && fromCall === 4) return moviesListChain;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -329,12 +335,14 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       eq: jest.fn().mockReturnThis(),
       in: jest.fn().mockResolvedValue({ count: 0, error: null }),
     };
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCall = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCall++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
-      if (table === 'user_movies' && fromCall === 3) return moviesListChain;
+      if (table === 'user_movies' && fromCall === 4) return moviesListChain;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -405,12 +413,14 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       eq: jest.fn().mockReturnThis(),
       in: jest.fn().mockResolvedValue({ count: 0, error: null }),
     };
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCall = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCall++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCall === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCall === 2) return backfillChain;
-      if (table === 'user_movies' && fromCall === 3) return moviesListChain2;
+      if (table === 'user_movies' && fromCall === 4) return moviesListChain2;
       if (table === 'user_movies') return filmsChain;
       return showsChain;
     });
@@ -491,12 +501,14 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       in: jest.fn().mockResolvedValue({ count: 3, error: null }),
     };
 
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCallIdx = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCallIdx++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCallIdx === 1) return watchingChain;
       if (table === 'user_tv_shows' && fromCallIdx === 2) return watchedChain;
-      if (table === 'user_movies' && fromCallIdx === 3) return moviesChain;
+      if (table === 'user_movies' && fromCallIdx === 4) return moviesChain;
       if (table === 'user_movies') return filmsCountChain;
       if (table === 'user_tv_shows') return showsCountChain;
       return { select: jest.fn().mockResolvedValue({ data: [], error: null }) };
@@ -540,9 +552,11 @@ describe('syncWidgetCache orchestrator (integration)', () => {
     filmsCountChain.eq.mockReturnValueOnce(filmsCountChain).mockResolvedValueOnce({ count: 0, error: null });
     const showsCountChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), in: jest.fn().mockResolvedValue({ count: 3, error: null }) };
 
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     const fromMock = jest.fn();
     let called = { watching: 0, watched: 0, movies: 0 };
     fromMock.mockImplementation((table: string) => {
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows') {
         if (called.watching === 0) { called.watching++; return watchingChain; }
         called.watched++;
@@ -664,11 +678,13 @@ describe('syncWidgetCache orchestrator (integration)', () => {
     filmsCountChain.eq.mockReturnValueOnce(filmsCountChain).mockResolvedValueOnce({ count: 0, error: null });
     const showsCountChain = { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), in: jest.fn().mockResolvedValue({ count: 3, error: null }) };
 
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCallIdx = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCallIdx++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCallIdx === 1) return watchingChain;
-      if (table === 'user_movies' && fromCallIdx === 2) return emptyChain;
+      if (table === 'user_movies' && fromCallIdx === 3) return emptyChain;
       if (table === 'user_movies') return filmsCountChain;
       if (table === 'user_tv_shows') return showsCountChain;
       return emptyChain;
@@ -734,12 +750,14 @@ describe('syncWidgetCache orchestrator (integration)', () => {
       eq: jest.fn().mockReturnThis(),
       in: jest.fn().mockResolvedValue({ count: 1, error: null }),
     };
+    const airDatesChain = { select: jest.fn().mockReturnThis(), or: jest.fn().mockResolvedValue({ data: [], error: null }) };
     let fromCallIdx = 0;
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       fromCallIdx++;
+      if (table === 'tv_show_episodes') return airDatesChain;
       if (table === 'user_tv_shows' && fromCallIdx === 1) return tvRowsChain;
       if (table === 'user_tv_shows' && fromCallIdx === 2) return backfillChain;
-      if (table === 'user_movies' && fromCallIdx === 3) return moviesChain;
+      if (table === 'user_movies' && fromCallIdx === 4) return moviesChain;
       if (table === 'user_movies') return filmsCountChain;
       return showsCountChain;
     });
