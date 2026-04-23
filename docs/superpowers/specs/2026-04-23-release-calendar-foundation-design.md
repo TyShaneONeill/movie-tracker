@@ -72,13 +72,15 @@ ALTER INDEX public.idx_release_date_cache_date_region
 ALTER INDEX public.idx_release_date_cache_tmdb_fetched
   RENAME TO idx_release_calendar_tmdb_fetched;
 
--- Backfill denormalized columns from the existing movies table
+-- Backfill denormalized columns from the existing movies table.
+-- Note: movies table uses prefix `tmdb_vote_average` / `tmdb_vote_count`
+-- for TMDB-sourced numeric fields, so we map m.tmdb_vote_average → rc.vote_average.
 UPDATE public.release_calendar rc
 SET title = m.title,
     poster_path = m.poster_path,
     backdrop_path = m.backdrop_path,
     genre_ids = m.genre_ids,
-    vote_average = m.vote_average
+    vote_average = m.tmdb_vote_average
 FROM public.movies m
 WHERE rc.tmdb_id = m.tmdb_id
   AND rc.title IS NULL;
