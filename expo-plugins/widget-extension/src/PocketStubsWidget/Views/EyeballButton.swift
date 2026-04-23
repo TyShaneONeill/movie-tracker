@@ -3,6 +3,15 @@ import SwiftUI
 struct EyeballButton: View {
     let show: Show
 
+    // Phase 4c.3c: reads the per-show rejection counter written by
+    // MarkEpisodeWatchedIntent's catch block. Computed per body
+    // re-render; SwiftUI observes the changing value on the
+    // .symbolEffect(.wiggle) modifier above.
+    private func rejectionCount(for userTvShowId: String) -> Int {
+        UserDefaults(suiteName: AppGroup.identifier)?
+            .integer(forKey: "widget.markRejection.\(userTvShowId)") ?? 0
+    }
+
     var body: some View {
         Group {
             if show.isTrophy {
@@ -20,6 +29,12 @@ struct EyeballButton: View {
                         .foregroundColor(.primary)
                         // Phase 3: bounce when current_episode changes (post-success reload)
                         .symbolEffect(.bounce, value: show.currentEpisode)
+                        // Phase 4c.3c: wiggle on RPC rejection (unaired or
+                        // missing catalog row). Reads per-show counter from
+                        // App Group UserDefaults; timeline reload after the
+                        // intent triggers body re-eval which re-reads the
+                        // counter and drives this symbolEffect.
+                        .symbolEffect(.wiggle, value: rejectionCount(for: show.userTvShowId))
                         .frame(width: 24, height: 24)
                         .background(Color(.tertiarySystemFill))
                         .clipShape(Circle())

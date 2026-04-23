@@ -49,7 +49,15 @@ struct MarkEpisodeWatchedIntent: AppIntent {
             )
             try? WidgetDataWriter.markEpisodeWatched(userTvShowId: userTvShowId)
         } catch {
-            // Silent. Intentional.
+            // Phase 4c.3c: surface rejection to the widget view via a
+            // per-show counter. Covers the server-side air_date guard
+            // (ERRCODE 22023) and any other error path (network, auth).
+            // Per-show key so a rejection on show X doesn't animate
+            // show Y's eyeball.
+            if let defaults = UserDefaults(suiteName: AppGroup.identifier) {
+                let key = "widget.markRejection.\(userTvShowId)"
+                defaults.set(defaults.integer(forKey: key) + 1, forKey: key)
+            }
         }
 
         // Enforce 1.5s minimum so the button's disabled state is visibly
