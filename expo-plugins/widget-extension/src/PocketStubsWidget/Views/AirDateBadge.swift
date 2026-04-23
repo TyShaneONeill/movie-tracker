@@ -7,6 +7,11 @@ func isAirDateFuture(_ iso: String?, now: Date = Date(), calendar: Calendar = .c
     guard let iso = iso else { return false }
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd"
+    // en_US_POSIX forces stable Gregorian interpretation of yyyy-MM-dd
+    // regardless of the user's locale (otherwise ar_SA etc. can parse
+    // unexpectedly). Display formatters below stay unlocked so weekday
+    // and month names localize naturally.
+    formatter.locale = Locale(identifier: "en_US_POSIX")
     // Parse as local calendar date — TMDB air_date is a calendar day
     // (yyyy-MM-dd), not an instant. Using local tz means "Airs Thursday"
     // means "aim to watch on your Thursday."
@@ -25,6 +30,9 @@ func isAirDateFuture(_ iso: String?, now: Date = Date(), calendar: Calendar = .c
 func formatAirDate(_ iso: String, now: Date = Date(), calendar: Calendar = .current) -> String {
     let parser = DateFormatter()
     parser.dateFormat = "yyyy-MM-dd"
+    // en_US_POSIX — same rationale as isAirDateFuture above; pin only
+    // the parser so display formatters below still localize.
+    parser.locale = Locale(identifier: "en_US_POSIX")
     guard let airDate = parser.date(from: iso) else { return "soon" }
 
     let today = calendar.startOfDay(for: now)
