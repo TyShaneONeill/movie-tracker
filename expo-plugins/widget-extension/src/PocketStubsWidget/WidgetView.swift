@@ -83,7 +83,15 @@ private struct ShowCard: View {
                         Text(episodeLabel)
                             .font(.caption2)
                             .foregroundColor(.primary)
-                        EyeballButton(show: show)
+                        // Phase 4c.3e: orange "Airs X" pill replaces eyeball
+                        // when the next episode is unaired. Nil / past air
+                        // dates fall through to the tappable eyeball.
+                        if isAirDateFuture(show.nextEpisodeAirDate),
+                           let airDate = show.nextEpisodeAirDate {
+                            AirDateBadge(text: "Airs \(formatAirDate(airDate))")
+                        } else {
+                            EyeballButton(show: show)
+                        }
                     }
                 }
             }

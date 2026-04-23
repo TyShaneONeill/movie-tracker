@@ -38,7 +38,12 @@ enum WidgetDataWriter {
                 nextSeasonNumber: old.nextSeasonNumber,
                 isShowComplete: isSeasonComplete && !old.hasNextSeason,
                 isTrophy: old.isTrophy,
-                isLastUpdated: old.isLastUpdated
+                isLastUpdated: old.isLastUpdated,
+                // Phase 4c.3e: preserve air-date fields through the patch.
+                // They're read-through from the cached row — the next widget
+                // sync refreshes them based on the new currentEpisode.
+                nextEpisodeAirDate: old.nextEpisodeAirDate,
+                nextSeasonFirstAirDate: old.nextSeasonFirstAirDate
             )
 
             return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows, movies: data.movies)
@@ -75,7 +80,12 @@ enum WidgetDataWriter {
                 nextSeasonNumber: hasNext ? newSeason + 1 : nil,
                 isShowComplete: isSeasonComplete && !hasNext,
                 isTrophy: old.isTrophy,
-                isLastUpdated: old.isLastUpdated
+                isLastUpdated: old.isLastUpdated,
+                // Phase 4c.3e: stale dates after season advance — next sync
+                // refreshes them for the new season's (episode 1) lookup.
+                // Leaving them from the old value is fine for one timeline cycle.
+                nextEpisodeAirDate: old.nextEpisodeAirDate,
+                nextSeasonFirstAirDate: old.nextSeasonFirstAirDate
             )
 
             return WidgetData(version: data.version, cachedAt: data.cachedAt, stats: data.stats, shows: shows, movies: data.movies)
