@@ -22,6 +22,10 @@ type BuildInput = {
   stats: { films_watched: number; shows_watched: number };
   episodesBySeason: Record<string, number>; // key format: `${userTvShowId}-${seasonNumber}`. In Phase 1 this is ALWAYS {}.
   liveNumberOfSeasons: Record<string, number>; // NEW (Phase 3): userTvShowId → live N from TMDB
+  // Phase 4c.3e: keyed by user_tv_show_id. nextEpisode = air_date of
+  // (currentSeason, currentEpisode+1); nextSeasonFirst = air_date of
+  // (nextSeasonNumber, 1) when hasNextSeason. Each may be null independently.
+  airDatesByShow: Record<string, { nextEpisode: string | null; nextSeasonFirst: string | null }>;
   movieRows: Array<{ tmdb_id: number; title: string; poster_path: string | null }>;
 };
 
@@ -167,7 +171,7 @@ async function writeEpisodeCountCache(counts: Record<string, number>): Promise<v
   }
 }
 
-export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons, movieRows }: BuildInput): WidgetPayload {
+export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOfSeasons, airDatesByShow, movieRows }: BuildInput): WidgetPayload {
   const top3 = rows
     .slice()
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
@@ -212,6 +216,9 @@ export function buildWidgetPayload({ rows, stats, episodesBySeason, liveNumberOf
       next_season_number: hasNextSeason ? row.current_season + 1 : null,
       is_show_complete: isShowComplete,
       is_trophy: row.is_trophy,
+      // Phase 4c.3e: pulled from airDatesByShow map populated by fetchEpisodeAirDates
+      next_episode_air_date: airDatesByShow[row.user_tv_show_id]?.nextEpisode ?? null,
+      next_season_first_air_date: airDatesByShow[row.user_tv_show_id]?.nextSeasonFirst ?? null,
     };
   });
 
@@ -417,6 +424,7 @@ export async function syncWidgetCache(): Promise<void> {
     },
     episodesBySeason: mergedCounts,   // Phase 4b.2: merged (cache + fresh) so failed fetches fall back to cached values
     liveNumberOfSeasons,
+    airDatesByShow: {},               // Phase 4c.3e: Task 2 will populate this via fetchEpisodeAirDates
     movieRows: movieRows ?? [],
   });
 
