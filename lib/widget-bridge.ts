@@ -22,6 +22,12 @@ export type WidgetPayload = {
     is_show_complete: boolean;
     is_trophy: boolean;
     is_last_updated: boolean;
+    // Phase 4c.3e: air date (ISO yyyy-MM-dd) of the next episode in currentSeason
+    // (episode = currentEpisode+1). Null when catalog has no row or date is unknown.
+    next_episode_air_date: string | null;
+    // Phase 4c.3e: air date (ISO yyyy-MM-dd) of the first episode of nextSeasonNumber.
+    // Null when !hasNextSeason or catalog has no row.
+    next_season_first_air_date: string | null;
   }>;
   movies: Array<{
     tmdb_id: number;

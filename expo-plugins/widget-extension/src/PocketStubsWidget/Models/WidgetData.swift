@@ -63,10 +63,19 @@ struct Show: Codable {
     let isShowComplete: Bool
     let isTrophy: Bool
     let isLastUpdated: Bool
+    // Phase 4c.3e: ISO-8601 date (yyyy-MM-dd) for the next episode in
+    // currentSeason (episode = currentEpisode+1). Null when the catalog
+    // has no row or date is unknown.
+    let nextEpisodeAirDate: String?
+    // Phase 4c.3e: ISO-8601 date for the first episode of nextSeasonNumber.
+    // Null when !hasNextSeason or catalog has no row.
+    let nextSeasonFirstAirDate: String?
 
     // Explicit memberwise init — required because the custom init(from:) below
     // suppresses Swift's synthesized memberwise initializer.
     // isTrophy and isLastUpdated default to false so pre-Phase-4a callers compile.
+    // nextEpisodeAirDate / nextSeasonFirstAirDate default to nil so pre-Phase-4c.3e
+    // callers compile.
     init(
         userTvShowId: String,
         tmdbId: Int,
@@ -82,7 +91,9 @@ struct Show: Codable {
         nextSeasonNumber: Int?,
         isShowComplete: Bool,
         isTrophy: Bool = false,
-        isLastUpdated: Bool = false
+        isLastUpdated: Bool = false,
+        nextEpisodeAirDate: String? = nil,
+        nextSeasonFirstAirDate: String? = nil
     ) {
         self.userTvShowId = userTvShowId
         self.tmdbId = tmdbId
@@ -99,6 +110,8 @@ struct Show: Codable {
         self.isShowComplete = isShowComplete
         self.isTrophy = isTrophy
         self.isLastUpdated = isLastUpdated
+        self.nextEpisodeAirDate = nextEpisodeAirDate
+        self.nextSeasonFirstAirDate = nextSeasonFirstAirDate
     }
 
     enum CodingKeys: String, CodingKey {
@@ -117,6 +130,8 @@ struct Show: Codable {
         case isShowComplete = "is_show_complete"
         case isTrophy = "is_trophy"
         case isLastUpdated = "is_last_updated"
+        case nextEpisodeAirDate = "next_episode_air_date"
+        case nextSeasonFirstAirDate = "next_season_first_air_date"
     }
 
     init(from decoder: Decoder) throws {
@@ -137,6 +152,9 @@ struct Show: Codable {
         // v2 fields default to false when decoding v1 cache
         isTrophy = try c.decodeIfPresent(Bool.self, forKey: .isTrophy) ?? false
         isLastUpdated = try c.decodeIfPresent(Bool.self, forKey: .isLastUpdated) ?? false
+        // Phase 4c.3e: v3 air-date fields default to nil when decoding v2 cache
+        nextEpisodeAirDate = try c.decodeIfPresent(String.self, forKey: .nextEpisodeAirDate)
+        nextSeasonFirstAirDate = try c.decodeIfPresent(String.self, forKey: .nextSeasonFirstAirDate)
     }
 }
 

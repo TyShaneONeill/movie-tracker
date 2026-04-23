@@ -13,24 +13,37 @@ struct SeasonCompleteBadge: View {
                 .symbolEffect(.bounce, value: show.isSeasonComplete)
 
             if show.hasNextSeason, let next = show.nextSeasonNumber {
-                Button(intent: StartNextSeasonIntent(
-                    userTvShowId: show.userTvShowId,
-                    tmdbShowId: show.tmdbId,
-                    newSeasonNumber: next
-                )) {
-                    Text("Start S\(String(format: "%02d", next))")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color(.tertiarySystemFill))
-                        .clipShape(Capsule())
-                        // Phase 3: bounce when season advances (post-success reload)
-                        .symbolEffect(.bounce, value: show.currentSeason)
-                        // Phase 3: expand hit target ~8pt on each side toward 44pt HIG
-                        .contentShape(Rectangle().inset(by: -8))
+                // Phase 4c.3e: orange "S0N airs X" pill replaces the Start button
+                // when the next season's first episode is unaired. Nil / past air
+                // dates fall through to the existing tappable Start button.
+                // Badge is wrapped in a Link to the show detail page so a tap
+                // deep-links consistently with the poster tap rather than
+                // falling through to the widget root URL.
+                if isAirDateFuture(show.nextSeasonFirstAirDate),
+                   let airDate = show.nextSeasonFirstAirDate {
+                    Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
+                        AirDateBadge(text: "S\(String(format: "%02d", next)) airs \(formatAirDate(airDate))")
+                    }
+                } else {
+                    Button(intent: StartNextSeasonIntent(
+                        userTvShowId: show.userTvShowId,
+                        tmdbShowId: show.tmdbId,
+                        newSeasonNumber: next
+                    )) {
+                        Text("Start S\(String(format: "%02d", next))")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color(.tertiarySystemFill))
+                            .clipShape(Capsule())
+                            // Phase 3: bounce when season advances (post-success reload)
+                            .symbolEffect(.bounce, value: show.currentSeason)
+                            // Phase 3: expand hit target ~8pt on each side toward 44pt HIG
+                            .contentShape(Rectangle().inset(by: -8))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
     }

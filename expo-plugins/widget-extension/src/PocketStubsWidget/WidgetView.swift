@@ -83,7 +83,20 @@ private struct ShowCard: View {
                         Text(episodeLabel)
                             .font(.caption2)
                             .foregroundColor(.primary)
-                        EyeballButton(show: show)
+                        // Phase 4c.3e: orange "Airs X" pill replaces eyeball
+                        // when the next episode is unaired. Nil / past air
+                        // dates fall through to the tappable eyeball.
+                        // Badge is wrapped in a Link to the show detail page
+                        // so a tap deep-links consistently with the poster tap
+                        // rather than falling through to the widget root URL.
+                        if isAirDateFuture(show.nextEpisodeAirDate),
+                           let airDate = show.nextEpisodeAirDate {
+                            Link(destination: URL(string: "pocketstubs://tv/\(show.tmdbId)")!) {
+                                AirDateBadge(text: "Airs \(formatAirDate(airDate))")
+                            }
+                        } else {
+                            EyeballButton(show: show)
+                        }
                     }
                 }
             }
