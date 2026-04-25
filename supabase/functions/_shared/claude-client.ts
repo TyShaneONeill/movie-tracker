@@ -1,21 +1,13 @@
 // supabase/functions/_shared/claude-client.ts
 import Anthropic from 'npm:@anthropic-ai/sdk@0.30.0';
+import type { BugAnalysis } from './bug-analysis-types.ts';
+
+export type { BugAnalysis };
 
 const API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 if (!API_KEY) console.warn('[claude-client] ANTHROPIC_API_KEY not set');
 
 const client = new Anthropic({ apiKey: API_KEY });
-
-export interface BugAnalysis {
-  severity: 'P0' | 'P1' | 'P2' | 'P3';
-  category: 'crash' | 'ui' | 'data' | 'perf' | 'auth' | 'other';
-  area: string;
-  confidence: number;
-  root_cause_hypothesis: string;
-  suspected_files: string[];
-  reproduction_guess: string;
-  recommended_next_step: string;
-}
 
 const ANALYSIS_TOOL = {
   name: 'record_bug_analysis',

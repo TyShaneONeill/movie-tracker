@@ -1,5 +1,5 @@
 // supabase/functions/_shared/bug-report-format.ts
-import type { BugAnalysis } from './claude-client.ts';
+import type { BugAnalysis } from './bug-analysis-types.ts';
 
 export function formatSentryComment(a: BugAnalysis): string {
   const pct = Math.round(a.confidence * 100);
