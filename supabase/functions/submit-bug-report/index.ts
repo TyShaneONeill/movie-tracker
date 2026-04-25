@@ -8,15 +8,10 @@ import {
   sanitizeDescription,
   scrubPII,
 } from '../_shared/bug-report-sanitize.ts';
-import {
-  submitSentryFeedback,
-  attachFeedbackTags,
-  attachScreenshot,
-} from '../_shared/sentry-feedback.ts';
+import { submitSentryFeedback } from '../_shared/sentry-feedback.ts';
 import { postInitialBugReport } from '../_shared/discord-webhook.ts';
 
 const SENTRY_ORG = Deno.env.get('SENTRY_ORG') ?? '';
-const SENTRY_PROJECT = Deno.env.get('SENTRY_PROJECT') ?? '';
 
 function jsonResponse(req: Request, body: unknown, status: number, extraHeaders: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
@@ -27,11 +22,6 @@ function jsonResponse(req: Request, body: unknown, status: number, extraHeaders:
       ...extraHeaders,
     },
   });
-}
-
-function generateEventId(): string {
-  // Sentry expects 32-char hex event_id (no dashes). Use crypto.randomUUID and strip.
-  return crypto.randomUUID().replace(/-/g, '');
 }
 
 async function authenticate(req: Request): Promise<{ userId: string; email: string | null; tier: string } | null> {
@@ -102,16 +92,23 @@ Deno.serve(async (req) => {
   const cleanTitle = scrubPII(sanitizeTitle(payload.title));
   const cleanDescription = scrubPII(sanitizeDescription(payload.description));
 
-  // 5. Generate event_id and submit to Sentry
-  const event_id = generateEventId();
+  // 5. Submit to Sentry — SDK assigns event_id, screenshot rides along as
+  //    an attachment in the same envelope.
+  let event_id: string;
   try {
-    await submitSentryFeedback({
-      event_id,
+    event_id = await submitSentryFeedback({
       user_id: auth.userId,
       email: auth.email,
       name: auth.email ?? 'Anonymous',
-      comments: `${cleanTitle}\n\n${cleanDescription}`,
-      tags: {},
+      message: cleanDescription,
+      screenshotBase64: payload.screenshot_base64 ?? null,
+      tags: {
+        bug_title: cleanTitle,
+        platform: payload.platform,
+        app_version: payload.app_version,
+        route: payload.route,
+        account_tier: auth.tier,
+      },
     });
   } catch (err) {
     console.log(JSON.stringify({
@@ -123,21 +120,8 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: 'submission_failed' }, 500);
   }
 
-  // Best-effort tag attach (non-blocking on failure)
-  attachFeedbackTags(event_id, {
-    platform: payload.platform,
-    app_version: payload.app_version,
-    route: payload.route,
-    account_tier: auth.tier,
-  });
-
-  // 6. Best-effort screenshot attach
-  if (payload.screenshot_base64) {
-    attachScreenshot(event_id, payload.screenshot_base64);
-  }
-
-  // 7. Best-effort Discord ping
-  const sentryUrl = `https://sentry.io/organizations/${SENTRY_ORG}/issues/?query=event_id:${event_id}`;
+  // 6. Best-effort Discord ping
+  const sentryUrl = `https://${SENTRY_ORG}.sentry.io/issues/?query=event_id:${event_id}`;
   postInitialBugReport({
     eventId: event_id,
     title: cleanTitle,
@@ -149,7 +133,7 @@ Deno.serve(async (req) => {
     sentryUrl,
   });
 
-  // 8. Success
+  // 7. Success
   console.log(JSON.stringify({
     event: 'bug_report_completed',
     user_id: auth.userId,

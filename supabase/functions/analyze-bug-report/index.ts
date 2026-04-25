@@ -76,13 +76,15 @@ Deno.serve(async (req) => {
   const tagsArr: Array<{ key: string; value: string }> = feedback?.tags ?? [];
   const tagMap: Record<string, string> = Object.fromEntries(tagsArr.map(t => [t.key, t.value]));
 
-  // User's original comments field contains "title\n\ndescription" from submit
-  const comments: string = feedback?.user?.comments ?? feedback?.comments ?? '';
-  const [title, ...rest] = comments.split('\n\n');
-  const description = rest.join('\n\n') || '(no description)';
+  // Modern Sentry feedback events expose the user's message at
+  // contexts.feedback.message; the title rides along as a tag (bug_title)
+  // set at submit time.
+  const message: string = feedback?.contexts?.feedback?.message ?? feedback?.message ?? '';
+  const description = message || '(no description)';
+  const title = tagMap.bug_title ?? '(no title)';
 
   const context = buildAnalysisContext({
-    title: title || '(no title)',
+    title,
     description,
     platform: tagMap.platform ?? 'unknown',
     app_version: tagMap.app_version ?? 'unknown',
