@@ -6,11 +6,12 @@
  */
 
 import React, { useMemo, useCallback, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { CalendarGridSkeleton } from './calendar-skeleton';
 
 interface CalendarGridProps {
   year: number;
@@ -178,8 +179,17 @@ export default function CalendarGrid({
 
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
 
+  if (isLoading && datesWithReleases.length === 0) {
+    return (
+      <CalendarGridSkeleton
+        cardColor={colors.card}
+        shimmerColor={colors.backgroundSecondary}
+      />
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="calendar-grid">
       {/* Month selector header */}
       <View style={styles.monthHeader}>
         <Pressable
@@ -201,13 +211,6 @@ export default function CalendarGrid({
           <Text style={[Typography.display.h4, { color: colors.tint }]}>
             {monthLabel}
           </Text>
-          {isLoading && (
-            <ActivityIndicator
-              size="small"
-              color={colors.tint}
-              style={styles.loadingIndicator}
-            />
-          )}
         </View>
 
         <Pressable
@@ -375,9 +378,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-  },
-  loadingIndicator: {
-    marginLeft: Spacing.xs,
   },
 
   // Weekday row

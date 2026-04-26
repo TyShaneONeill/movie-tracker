@@ -48,7 +48,7 @@ interface CalendarGridSkeletonProps {
 
 function CalendarGridSkeleton({ cardColor, shimmerColor }: CalendarGridSkeletonProps) {
   return (
-    <View style={gridStyles.container}>
+    <View style={gridStyles.container} testID="calendar-grid-skeleton">
       {/* Month header row */}
       <View style={gridStyles.monthHeader}>
         <SkeletonPulse
