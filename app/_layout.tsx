@@ -40,6 +40,7 @@ import { NetworkProvider } from '@/lib/network-context';
 import { OfflineBanner } from '@/components/offline-banner';
 import { AdsProvider } from '@/lib/ads-context';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { BugReportRoot } from '@/components/BugReportRoot';
 import { AchievementProvider } from '@/lib/achievement-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
@@ -328,7 +329,9 @@ export default function RootLayout() {
                       <PremiumProvider>
                         <AchievementProvider>
                           <ErrorBoundary>
-                            <RootLayoutNav />
+                            <BugReportRoot>
+                              <RootLayoutNav />
+                            </BugReportRoot>
                           </ErrorBoundary>
                         </AchievementProvider>
                       </PremiumProvider>

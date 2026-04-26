@@ -60,28 +60,41 @@ assets/                 # Images, fonts
 - Dynamic routes use brackets: `[id].tsx`
 - Typed routes enabled via `experiments.typedRoutes` in app.json
 
+## UI Changes (REQUIRED)
+
+When making UI changes, always check **all screen components that share the same pattern** — e.g., `journey/[id].tsx`, `journey/movie/[tmdbId].tsx`, and similar dynamic route siblings. Never assume a fix or style change applies to only one file. Search for files with the same structure and apply changes consistently.
+
 ## Git Workflow (REQUIRED)
 
 **Never commit directly to `main`.** All work must go through PRs:
 
-1. **Create a branch** before making changes:
+1. **Verify your branch** before any git operation — run `git branch --show-current` first. Never commit or create a PR without confirming you're on the correct branch.
+
+2. **Create a branch** before making changes:
    - `feature/*` - new features
    - `fix/*` - bug fixes
    - `chore/*` - maintenance, config, docs
 
-2. **Commit and push** to the feature branch
+3. **Commit and push** to the feature branch
 
-3. **Create a PR** with `gh pr create`
+4. **Create a PR** with `gh pr create`
 
-4. **CI must pass** (lint + TypeScript) before merging
+5. **CI must pass** (lint + TypeScript) before merging
 
-5. **Merge via GitHub** - PRs to main
+6. **Merge via GitHub** - PRs to main
+
+**Before every commit:**
+- Run `npx tsc --noEmit` and `npm run lint` — fix all errors before committing
+- Run `git status` to verify all modified files are staged before pushing
 
 ```bash
 # Example workflow
+git branch --show-current   # Verify correct branch
 git checkout main && git pull
 git checkout -b feature/my-feature
 # ... make changes ...
+npm run lint && npx tsc --noEmit   # Must pass
+git status                         # Verify staged files
 git add -A && git commit -m "feat: description"
 git push -u origin feature/my-feature
 gh pr create --title "feat: description" --body "Summary..."
