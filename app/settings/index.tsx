@@ -17,6 +17,8 @@ import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { ContentContainer } from '@/components/content-container';
 import { Sentry, captureException } from '@/lib/sentry';
+import { useBugReport } from '@/contexts/BugReportContext';
+import { captureBugReportScreenshot } from '@/lib/bug-report-screenshot';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
 import Constants from 'expo-constants';
@@ -48,6 +50,7 @@ export default function SettingsScreen() {
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
   const { isPremium, tier, subscription, restorePurchases, isLoading: isPremiumLoading } = usePremium();
   const { permissionStatus, requestPermission, isAvailable: isPushAvailable } = usePushNotifications();
+  const { openBugReport } = useBugReport();
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
 
@@ -267,6 +270,14 @@ export default function SettingsScreen() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleReportBug = async () => {
+    hapticImpact();
+    // Capture before the modal mounts so the screenshot reflects the
+    // settings screen, not the modal chrome.
+    const screenshot = await captureBugReportScreenshot();
+    openBugReport('settings', screenshot);
   };
 
   const handleLogout = async () => {
@@ -685,6 +696,29 @@ export default function SettingsScreen() {
               <Text style={[Typography.body.xs, { color: colors.textTertiary }]}>Coming Soon</Text>
             </View>
           </View>
+        </View>
+
+        {/* Support Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>SUPPORT</Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.firstItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={handleReportBug}
+            accessibilityRole="button"
+          >
+            <View style={styles.integrationRow}>
+              <Ionicons name="bug-outline" size={24} color={colors.text} />
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Report a Bug</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
         </View>
 
         {/* Legal Section */}
