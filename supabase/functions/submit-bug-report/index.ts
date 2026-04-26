@@ -12,6 +12,7 @@ import { submitSentryFeedback } from '../_shared/sentry-feedback.ts';
 import { postInitialBugReport } from '../_shared/discord-webhook.ts';
 
 const SENTRY_ORG = Deno.env.get('SENTRY_ORG') ?? '';
+const SENTRY_PROJECT_ID = Deno.env.get('SENTRY_PROJECT_ID') ?? '';
 
 function jsonResponse(req: Request, body: unknown, status: number, extraHeaders: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
@@ -120,10 +121,12 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: 'submission_failed' }, 500);
   }
 
-  // 6. Best-effort Discord ping. Link points to the Feedback vertical
-  // (modern Sentry stores user feedbacks as issues with category=feedback,
-  // surfaced under /issues/feedback/, not the general /issues/ feed).
-  const sentryUrl = `https://${SENTRY_ORG}.sentry.io/issues/feedback/`;
+  // 6. Best-effort Discord ping. Filter the Feedback list by event_id so the
+  // triager lands on the specific report (we don't have the feedbackSlug yet
+  // — Sentry assigns it post-ingestion).
+  const sentryUrl =
+    `https://${SENTRY_ORG}.sentry.io/issues/feedback/` +
+    `?project=${SENTRY_PROJECT_ID}&query=${encodeURIComponent(`event_id:${event_id}`)}`;
   postInitialBugReport({
     eventId: event_id,
     title: cleanTitle,
