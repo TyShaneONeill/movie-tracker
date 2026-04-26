@@ -1,19 +1,22 @@
 /**
  * Sentry client for user feedback + issue comments + related-error lookup.
  *
- * Uses the modern Sentry SDK (`Sentry.captureFeedback`) for ingestion — the
- * legacy /user-feedback/ REST endpoint is deprecated. REST is still used for
- * read-side queries (event GET, related-error issue search, comment POST).
+ * Ingestion uses a direct envelope POST to Sentry's /api/{project_id}/envelope/
+ * endpoint. We tried `npm:@sentry/deno` Sentry.captureFeedback() but it silently
+ * no-ops in Supabase Edge Runtime (transport layer incompatibility — captures
+ * return synthesized event IDs without ever leaving the worker). Direct
+ * envelope POST is the documented SDK-agnostic protocol and works deterministically.
+ *
+ * REST is still used for read-side queries (event GET, related-error issue
+ * search, comment POST).
  *
  * Env deps:
- *   - SENTRY_DSN          ingestion (SDK)
+ *   - SENTRY_DSN          ingestion (parsed for host + project_id + public key)
  *   - SENTRY_AUTH_TOKEN   REST reads + comment POST
  *   - SENTRY_ORG          slug, used in REST URLs and web links
  *   - SENTRY_PROJECT      slug, used in project-scoped REST URLs
  *   - SENTRY_PROJECT_ID   numeric, required by org-scoped /issues/ search
  */
-
-import * as Sentry from 'npm:@sentry/deno';
 
 const SENTRY_DSN = Deno.env.get('SENTRY_DSN');
 const SENTRY_AUTH_TOKEN = Deno.env.get('SENTRY_AUTH_TOKEN');
@@ -29,16 +32,26 @@ if (!SENTRY_DSN || !SENTRY_AUTH_TOKEN || !SENTRY_ORG || !SENTRY_PROJECT || !SENT
 
 const BASE = `https://sentry.io/api/0`;
 
-let sentryInited = false;
-function ensureSentryInit(): void {
-  if (sentryInited) return;
-  if (!SENTRY_DSN) throw new Error('sentry_dsn_not_configured');
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    tracesSampleRate: 0,
-    defaultIntegrations: false,
-  });
-  sentryInited = true;
+interface ParsedDsn {
+  publicKey: string;
+  host: string;
+  scheme: string;
+  projectId: string;
+}
+
+function parseDsn(dsn: string): ParsedDsn {
+  const url = new URL(dsn);
+  return {
+    publicKey: url.username,
+    host: url.host,
+    scheme: url.protocol,
+    projectId: url.pathname.replace(/^\//, ''),
+  };
+}
+
+function generateEventId(): string {
+  // Sentry expects 32-char hex (no dashes).
+  return crypto.randomUUID().replace(/-/g, '');
 }
 
 export interface SubmitFeedbackArgs {
@@ -51,46 +64,104 @@ export interface SubmitFeedbackArgs {
 }
 
 /**
- * Submit user feedback via the Sentry SDK. Returns the assigned event_id.
- * Tags travel in-band on the scope; screenshot (if any) is attached as an
- * envelope item alongside the feedback so there is no eventual-consistency
- * race with a follow-up REST call.
+ * Submit user feedback as a Sentry envelope. Returns the event_id we assigned.
+ *
+ * Envelope format (one item per feedback, plus optional attachment item):
+ *   <header-line: {event_id, sent_at}>
+ *   <item-header: {type:'feedback', content_type:'application/json', length}>
+ *   <item-payload: feedback JSON>
+ *   [<item-header: {type:'attachment', ...}>
+ *    <item-payload: binary bytes>]
+ *
+ * Spec: https://develop.sentry.dev/sdk/telemetry/feedbacks/
  */
 export async function submitSentryFeedback(args: SubmitFeedbackArgs): Promise<string> {
-  ensureSentryInit();
+  if (!SENTRY_DSN) throw new Error('sentry_dsn_not_configured');
 
-  return await Sentry.withScope(async (scope) => {
-    scope.setUser({
+  const dsn = parseDsn(SENTRY_DSN);
+  const eventId = generateEventId();
+  const sentAt = new Date().toISOString();
+  const enc = new TextEncoder();
+
+  const feedbackPayload = {
+    event_id: eventId,
+    timestamp: Date.now() / 1000,
+    platform: 'javascript',
+    environment: 'production',
+    user: {
       id: args.user_id,
       email: args.email ?? undefined,
       username: args.name,
-    });
-    scope.setTags(args.tags);
-
-    const hint: Record<string, unknown> = {};
-    if (args.screenshotBase64) {
-      const bytes = Uint8Array.from(atob(args.screenshotBase64), (c) => c.charCodeAt(0));
-      hint.attachments = [
-        { data: bytes, filename: 'screenshot.png', contentType: 'image/png' },
-      ];
-    }
-
-    const eventId = Sentry.captureFeedback(
-      {
+    },
+    tags: args.tags,
+    contexts: {
+      feedback: {
         name: args.name,
-        email: args.email ?? undefined,
+        contact_email: args.email ?? undefined,
         message: args.message,
+        source: 'user_report_envelope',
       },
-      hint,
-    );
+    },
+  };
+  const feedbackBytes = enc.encode(JSON.stringify(feedbackPayload));
 
-    const flushed = await Sentry.flush(2000);
-    if (!eventId) throw new Error('sentry_feedback_no_event_id');
-    if (!flushed) {
-      console.log(JSON.stringify({ event: 'sentry_feedback_flush_timeout', event_id: eventId }));
-    }
-    return eventId;
+  const envelopeHeaderLine = JSON.stringify({ event_id: eventId, sent_at: sentAt }) + '\n';
+  const feedbackItemHeader = JSON.stringify({
+    type: 'feedback',
+    content_type: 'application/json',
+    length: feedbackBytes.length,
+  }) + '\n';
+
+  const parts: Uint8Array[] = [
+    enc.encode(envelopeHeaderLine),
+    enc.encode(feedbackItemHeader),
+    feedbackBytes,
+    enc.encode('\n'),
+  ];
+
+  if (args.screenshotBase64) {
+    const screenshotBytes = Uint8Array.from(
+      atob(args.screenshotBase64),
+      (c) => c.charCodeAt(0),
+    );
+    const attachmentItemHeader = JSON.stringify({
+      type: 'attachment',
+      attachment_type: 'event.attachment',
+      content_type: 'image/png',
+      filename: 'screenshot.png',
+      length: screenshotBytes.length,
+    }) + '\n';
+    parts.push(enc.encode(attachmentItemHeader), screenshotBytes, enc.encode('\n'));
+  }
+
+  const totalLen = parts.reduce((sum, p) => sum + p.length, 0);
+  const body = new Uint8Array(totalLen);
+  let offset = 0;
+  for (const p of parts) {
+    body.set(p, offset);
+    offset += p.length;
+  }
+
+  const ingestUrl = `${dsn.scheme}//${dsn.host}/api/${dsn.projectId}/envelope/`;
+  const res = await fetch(ingestUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-sentry-envelope',
+      'X-Sentry-Auth':
+        `Sentry sentry_version=7,sentry_key=${dsn.publicKey},sentry_client=cinetrak-bugreport/1.0`,
+    },
+    body,
+    signal: AbortSignal.timeout(5000),
   });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `sentry_envelope_failed status=${res.status} body=${text.slice(0, 400)}`,
+    );
+  }
+
+  return eventId;
 }
 
 /**
