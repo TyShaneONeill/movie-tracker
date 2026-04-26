@@ -40,12 +40,15 @@ interface ParsedDsn {
 }
 
 function parseDsn(dsn: string): ParsedDsn {
-  const url = new URL(dsn);
+  // Trim defensively — copy-pasted secret values often pick up trailing
+  // newlines/whitespace which the URL parser preserves in pathname, producing
+  // a malformed ingest URL.
+  const url = new URL(dsn.trim());
   return {
     publicKey: url.username,
     host: url.host,
     scheme: url.protocol,
-    projectId: url.pathname.replace(/^\//, ''),
+    projectId: url.pathname.replace(/^\/+|\/+$/g, '').trim(),
   };
 }
 
