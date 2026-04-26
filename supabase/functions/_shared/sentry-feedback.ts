@@ -142,14 +142,16 @@ export async function submitSentryFeedback(args: SubmitFeedbackArgs): Promise<st
     offset += p.length;
   }
 
-  const ingestUrl = `${dsn.scheme}//${dsn.host}/api/${dsn.projectId}/envelope/`;
+  // Auth lives in the query string, not just the header — Sentry's edge LB
+  // routes envelope traffic by inspecting `sentry_key=` in the URL. Header-only
+  // auth gets bounced to a generic 404 before Sentry's relay sees it.
+  const ingestUrl =
+    `${dsn.scheme}//${dsn.host}/api/${dsn.projectId}/envelope/` +
+    `?sentry_key=${dsn.publicKey}&sentry_version=7&sentry_client=cinetrak-bugreport/1.0`;
+
   const res = await fetch(ingestUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-sentry-envelope',
-      'X-Sentry-Auth':
-        `Sentry sentry_version=7,sentry_key=${dsn.publicKey},sentry_client=cinetrak-bugreport/1.0`,
-    },
+    headers: { 'Content-Type': 'application/x-sentry-envelope' },
     body,
     signal: AbortSignal.timeout(5000),
   });
