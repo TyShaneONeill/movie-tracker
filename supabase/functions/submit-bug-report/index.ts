@@ -120,8 +120,10 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: 'submission_failed' }, 500);
   }
 
-  // 6. Best-effort Discord ping
-  const sentryUrl = `https://${SENTRY_ORG}.sentry.io/issues/?query=event_id:${event_id}`;
+  // 6. Best-effort Discord ping. Link points to the Feedback vertical
+  // (modern Sentry stores user feedbacks as issues with category=feedback,
+  // surfaced under /issues/feedback/, not the general /issues/ feed).
+  const sentryUrl = `https://${SENTRY_ORG}.sentry.io/issues/feedback/`;
   postInitialBugReport({
     eventId: event_id,
     title: cleanTitle,
