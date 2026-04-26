@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Modal, View, Text, TextInput, Pressable, Image, StyleSheet,
-  Platform, ActivityIndicator, ScrollView,
+  Platform, ActivityIndicator, ScrollView, KeyboardAvoidingView, Keyboard,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import Constants from 'expo-constants';
@@ -62,12 +62,17 @@ export function BugReportModal() {
   }, []);
 
   const handleClose = useCallback(() => {
+    // Dismiss the keyboard before unmounting the modal — without this on iOS
+    // the keyboard stays visible briefly and intercepts touches on the
+    // underlying screen, making the app feel frozen.
+    Keyboard.dismiss();
     reset();
     closeBugReport();
   }, [reset, closeBugReport]);
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
+    Keyboard.dismiss();
     setSubmitting(true);
     setError(null);
     const result = await submitBugReport({
@@ -92,7 +97,10 @@ export function BugReportModal() {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose} transparent>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.backdrop}
+      >
         <View style={styles.sheet}>
           <View style={styles.header}>
             <Pressable onPress={handleClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
@@ -155,7 +163,7 @@ export function BugReportModal() {
             </Pressable>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
