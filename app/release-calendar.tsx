@@ -165,11 +165,19 @@ export default function ReleaseCalendarScreen() {
     router.push(`/movie/${tmdbId}`);
   }, []);
 
-  // Month navigation
+  // Month navigation. Default selectedDate to today when navigating to the
+  // current month, otherwise the 1st of the new month — both keep the day-list
+  // header rendering a valid date instead of "Invalid Date NaN" from a null.
   const handleMonthChange = useCallback((newYear: number, newMonth: number) => {
     setYear(newYear);
     setMonth(newMonth);
-    setSelectedDate(null);
+    const today = new Date();
+    const isCurrentMonth =
+      newYear === today.getFullYear() && newMonth === today.getMonth() + 1;
+    const day = isCurrentMonth ? today.getDate() : 1;
+    const mm = String(newMonth).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    setSelectedDate(`${newYear}-${mm}-${dd}`);
   }, []);
 
   // Toggle watchlist for a release

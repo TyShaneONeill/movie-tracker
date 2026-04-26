@@ -1,0 +1,63 @@
+import React from 'react';
+import { render } from '@testing-library/react-native';
+import CalendarGrid from '@/components/calendar/calendar-grid';
+
+// Mock theme context so colors resolve without a provider tree.
+jest.mock('@/lib/theme-context', () => ({
+  useTheme: () => ({ effectiveTheme: 'light' }),
+}));
+
+// Mock @expo/vector-icons — pulls in expo-asset which isn't in transformIgnorePatterns.
+jest.mock('@expo/vector-icons', () => {
+  const { View } = require('react-native');
+  return { Ionicons: View };
+});
+
+const baseProps = {
+  year: 2026,
+  month: 4,
+  selectedDate: null,
+  onSelectDate: jest.fn(),
+  onMonthChange: jest.fn(),
+};
+
+describe('CalendarGrid — skeleton wiring', () => {
+  it('renders CalendarGridSkeleton when isLoading is true and no dates exist', () => {
+    const { getByTestId, queryByTestId } = render(
+      <CalendarGrid
+        {...baseProps}
+        datesWithReleases={[]}
+        isLoading
+      />
+    );
+
+    expect(getByTestId('calendar-grid-skeleton')).toBeTruthy();
+    expect(queryByTestId('calendar-grid')).toBeNull();
+  });
+
+  it('renders the actual grid when data exists, even during background refetch', () => {
+    const { getByTestId, queryByTestId } = render(
+      <CalendarGrid
+        {...baseProps}
+        datesWithReleases={['2026-04-15']}
+        isLoading
+      />
+    );
+
+    expect(getByTestId('calendar-grid')).toBeTruthy();
+    expect(queryByTestId('calendar-grid-skeleton')).toBeNull();
+  });
+
+  it('renders the actual grid when not loading and no data (empty month state)', () => {
+    const { getByTestId, queryByTestId } = render(
+      <CalendarGrid
+        {...baseProps}
+        datesWithReleases={[]}
+        isLoading={false}
+      />
+    );
+
+    expect(getByTestId('calendar-grid')).toBeTruthy();
+    expect(queryByTestId('calendar-grid-skeleton')).toBeNull();
+  });
+});
