@@ -4,7 +4,7 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { verifySentryWebhookSignature } from '../_shared/webhook-signature.ts';
 import { fetchFeedbackEvent, postSentryComment } from '../_shared/sentry-feedback.ts';
 import { buildAnalysisContext } from '../_shared/bug-report-context.ts';
-import { analyzeBugReport } from '../_shared/claude-client.ts';
+import { analyzeBugReport } from '../_shared/gemini-client.ts';
 import {
   formatSentryComment,
   formatDiscordAnalysis,
