@@ -6,6 +6,7 @@ import { BugReportConfirmModal } from './BugReportConfirmModal';
 import { useShakeGesture } from '@/hooks/useShakeGesture';
 import { useAuth } from '@/hooks/use-auth';
 import { captureBugReportScreenshot } from '@/lib/bug-report-screenshot';
+import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 
 function BugReportShake() {
   const { user } = useAuth();
@@ -20,6 +21,10 @@ function BugReportShake() {
   }, []);
 
   const onShake = useCallback(async () => {
+    // Fire the haptic first so the user gets immediate tactile confirmation
+    // that the shake registered, before the screenshot capture introduces
+    // any perceptible delay.
+    hapticImpact(ImpactFeedbackStyle.Medium);
     const shot = await captureBugReportScreenshot();
     setPendingScreenshot(shot);
     setConfirmVisible(true);
