@@ -145,9 +145,11 @@ export async function submitSentryFeedback(args: SubmitFeedbackArgs): Promise<st
   // Auth lives in the query string, not just the header — Sentry's edge LB
   // routes envelope traffic by inspecting `sentry_key=` in the URL. Header-only
   // auth gets bounced to a generic 404 before Sentry's relay sees it.
+  // Note: keep query values free of unencoded `/` — the LB does crude path
+  // matching and treats slashes in query values as path separators (404).
   const ingestUrl =
     `${dsn.scheme}//${dsn.host}/api/${dsn.projectId}/envelope/` +
-    `?sentry_key=${dsn.publicKey}&sentry_version=7&sentry_client=cinetrak-bugreport/1.0`;
+    `?sentry_key=${dsn.publicKey}&sentry_version=7`;
 
   const res = await fetch(ingestUrl, {
     method: 'POST',
