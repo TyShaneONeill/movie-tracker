@@ -2,7 +2,11 @@
 // deno-lint-ignore-file no-explicit-any
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { verifySentryWebhookSignature } from '../_shared/webhook-signature.ts';
-import { fetchFeedbackEvent, postSentryComment } from '../_shared/sentry-feedback.ts';
+import {
+  fetchFeedbackEvent,
+  fetchLatestEventIdForIssue,
+  postSentryComment,
+} from '../_shared/sentry-feedback.ts';
 import { buildAnalysisContext } from '../_shared/bug-report-context.ts';
 import { analyzeBugReport } from '../_shared/gemini-client.ts';
 import {
@@ -43,12 +47,54 @@ Deno.serve(async (req) => {
     return new Response('bad_request', { status: 400 });
   }
 
-  // Sentry Feedback webhooks send `data.feedback` containing event_id + issue_id
-  const event_id: string | undefined = payload?.data?.feedback?.event_id;
-  const issue_id: string | undefined = payload?.data?.issue?.id;
-  if (!event_id || !issue_id) {
-    console.log(JSON.stringify({ event: 'analyze_malformed_payload' }));
+  // Modern Sentry sends `issue.created` for new feedbacks. Payload shape:
+  //   { action: 'created', data: { issue: { id, issueCategory, latestEventId?, ... } } }
+  // Legacy shape (older feedback-specific webhook) had data.feedback.event_id.
+  // Support both.
+  const issue_id: string | undefined =
+    payload?.data?.issue?.id ?? payload?.data?.issue_id;
+  const issueCategory: string | undefined = payload?.data?.issue?.issueCategory;
+  let event_id: string | undefined =
+    payload?.data?.feedback?.event_id ??
+    payload?.data?.issue?.latestEventId ??
+    payload?.data?.event?.event_id;
+
+  // Guard: only process feedback-category issues. Otherwise we'd run LLM
+  // analysis on every error event Sentry emits, which is expensive and not
+  // what we built this for.
+  if (issueCategory && issueCategory !== 'feedback') {
+    console.log(JSON.stringify({ event: 'analyze_skipped_non_feedback', issue_id, category: issueCategory }));
+    return new Response('ok', { status: 200 });
+  }
+
+  if (!issue_id) {
+    console.log(JSON.stringify({
+      event: 'analyze_malformed_payload',
+      action: payload?.action,
+      keys: Object.keys(payload?.data ?? {}),
+      issue_keys: Object.keys(payload?.data?.issue ?? {}),
+      raw_preview: rawBody.slice(0, 800),
+    }));
     return new Response('bad_request', { status: 400 });
+  }
+
+  // If we don't have an event_id yet, look it up via the issue's events list
+  // (most recent event for the feedback issue).
+  if (!event_id) {
+    try {
+      event_id = await fetchLatestEventIdForIssue(issue_id);
+    } catch (err) {
+      console.log(JSON.stringify({
+        event: 'analyze_event_id_fetch_failed',
+        issue_id,
+        error: (err as Error).message,
+      }));
+    }
+  }
+
+  if (!event_id) {
+    console.log(JSON.stringify({ event: 'analyze_no_event_id', issue_id }));
+    return new Response('ok', { status: 200 });
   }
 
   // 3. Fetch context

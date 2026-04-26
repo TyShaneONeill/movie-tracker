@@ -172,6 +172,26 @@ export async function submitSentryFeedback(args: SubmitFeedbackArgs): Promise<st
 }
 
 /**
+ * Look up the most recent event_id for a given issue. Used when Sentry's
+ * issue.created webhook arrives without a direct event_id reference.
+ */
+export async function fetchLatestEventIdForIssue(issue_id: string): Promise<string | undefined> {
+  const url = `${BASE}/organizations/${SENTRY_ORG}/issues/${issue_id}/events/?limit=1&sort=-timestamp`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${SENTRY_AUTH_TOKEN}` },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) {
+    throw new Error(`sentry_issue_events_fetch_failed status=${res.status}`);
+  }
+  const events = (await res.json()) as Array<{ eventID?: string; id?: string }>;
+  if (!Array.isArray(events) || events.length === 0) return undefined;
+  // Sentry's issue events endpoint returns `eventID` (camelCase). Some older
+  // responses use `id`. Try both.
+  return events[0].eventID ?? events[0].id;
+}
+
+/**
  * Fetch a feedback event's full details + a small set of related error
  * events from the same user in the 10 minutes prior. Used by
  * analyze-bug-report to build the LLM prompt context.
