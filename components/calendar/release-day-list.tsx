@@ -22,6 +22,14 @@ interface ReleaseDayListProps {
   onToggleWatchlist?: (tmdbId: number) => void;
   tasteScores?: Map<number, string | null>;
   isLoading?: boolean;
+  /**
+   * When true and `releases` is empty, the empty state message changes
+   * from the default "No releases on this date" to a watchlist-specific
+   * "Your watchlist is empty / Add movies to your watchlist to see them
+   * here." message. Used when the my-releases filter is on but the
+   * user has zero watchlist items.
+   */
+  watchlistOnlyEmpty?: boolean;
 }
 
 /** Release type grouping configuration */
@@ -74,6 +82,7 @@ export function ReleaseDayList({
   onToggleWatchlist,
   tasteScores,
   isLoading = false,
+  watchlistOnlyEmpty = false,
 }: ReleaseDayListProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -121,10 +130,12 @@ export function ReleaseDayList({
             color={colors.textTertiary}
           />
           <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
-            No releases on this date
+            {watchlistOnlyEmpty ? 'Your watchlist is empty' : 'No releases on this date'}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textTertiary }]}>
-            Check another day or adjust your filters
+            {watchlistOnlyEmpty
+              ? 'Add movies to your watchlist to see them here'
+              : 'Check another day or adjust your filters'}
           </Text>
         </View>
       </View>
