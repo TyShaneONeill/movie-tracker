@@ -5,7 +5,7 @@
  * and tap movies to view details.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,10 @@ import { addMovieToLibrary, removeMovieFromLibrary } from '@/lib/movie-service';
 import { scoreRelease } from '@/lib/taste-profile-service';
 import { supabase } from '@/lib/supabase';
 import type { TMDBMovie } from '@/lib/tmdb.types';
+import {
+  filterDatesByWatchlist,
+  filterDayReleases,
+} from '@/lib/calendar-filters';
 
 /** Filter chip configuration */
 interface FilterChip {
@@ -60,6 +65,7 @@ export default function ReleaseCalendarScreen() {
 
   // Filter state: all release types enabled by default
   const [filterTypes, setFilterTypes] = useState<Set<number>>(new Set([1, 2, 3, 4, 5, 6]));
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Auth & query client
@@ -71,23 +77,65 @@ export default function ReleaseCalendarScreen() {
   const { data: watchlistIds } = useWatchlistIds(!!user);
   const { data: tasteProfile } = useTasteProfile();
 
+  // Track whether hydration has completed so we don't persist
+  // before we've loaded the saved state (avoids clobbering with defaults).
+  const filtersHydratedRef = useRef(false);
+
   // Load saved filter preferences
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      filtersHydratedRef.current = true; // guest mode — no hydration possible
+      return;
+    }
     supabase
       .from('profiles')
       .select('calendar_default_filters')
       .eq('id', user.id)
       .single()
-      .then(({ data: profile }) => {
+      .then(({ data: profile, error }) => {
+        if (error) {
+          console.warn('[release-calendar] hydrate filters failed', error);
+          filtersHydratedRef.current = true;
+          return;
+        }
         if (profile?.calendar_default_filters) {
-          const saved = profile.calendar_default_filters as { release_types?: number[] };
+          const saved = profile.calendar_default_filters as {
+            release_types?: number[];
+            my_watchlist_only?: boolean;
+          };
           if (saved.release_types) {
             setFilterTypes(new Set(saved.release_types));
           }
+          if (typeof saved.my_watchlist_only === 'boolean') {
+            setWatchlistOnly(saved.my_watchlist_only);
+          }
         }
+        filtersHydratedRef.current = true;
       });
   }, [user]);
+
+  // Auto-persist filter changes after hydration completes.
+  // Replaces the old Apply-button-only persistence — every filter change
+  // (Switch toggle, chip toggle) immediately writes to the profile.
+  // Logs failures so silent RLS/auth errors don't hide bugs.
+  useEffect(() => {
+    if (!user) return;
+    if (!filtersHydratedRef.current) return;
+    supabase
+      .from('profiles')
+      .update({
+        calendar_default_filters: {
+          release_types: [...filterTypes],
+          my_watchlist_only: watchlistOnly,
+        },
+      })
+      .eq('id', user.id)
+      .then(({ error }) => {
+        if (error) {
+          console.warn('[release-calendar] persist filters failed', error);
+        }
+      });
+  }, [user, filterTypes, watchlistOnly]);
 
   // Watchlist toggle mutation
   const watchlistMutation = useMutation({
@@ -122,21 +170,33 @@ export default function ReleaseCalendarScreen() {
     },
   });
 
-  // Get releases for selected date, filtered by type
+  // Get releases for selected date, filtered by type and watchlist
   const selectedDayReleases = useMemo(() => {
     if (!data || !selectedDate) return [];
-    const day = data.days.find(d => d.date === selectedDate);
+    const day = data.days.find((d) => d.date === selectedDate);
     if (!day) return [];
-    return day.releases.filter(r => filterTypes.has(r.release_type));
-  }, [data, selectedDate, filterTypes]);
+    return filterDayReleases(day.releases, filterTypes, watchlistIds, watchlistOnly);
+  }, [data, selectedDate, filterTypes, watchlistIds, watchlistOnly]);
 
   // Dates that have watchlist items
   const watchlistDates = useMemo(() => {
     if (!data || !watchlistIds) return [];
     return data.days
-      .filter(d => d.releases.some(r => watchlistIds.has(r.tmdb_id)))
-      .map(d => d.date);
+      .filter((d) => d.releases.some((r) => watchlistIds.has(r.tmdb_id)))
+      .map((d) => d.date);
   }, [data, watchlistIds]);
+
+  // Dates with releases respecting the watchlistOnly filter (drives red dots)
+  const filteredDatesWithReleases = useMemo(
+    () =>
+      filterDatesByWatchlist(
+        data?.days ?? [],
+        watchlistIds,
+        watchlistOnly,
+        data?.dates_with_releases ?? []
+      ),
+    [data, watchlistIds, watchlistOnly]
+  );
 
   // Taste scores for the selected day's releases
   const tasteScores = useMemo(() => {
@@ -151,14 +211,17 @@ export default function ReleaseCalendarScreen() {
 
   // Dates with taste-matched releases (for golden dots on calendar)
   const personalizedDates = useMemo(() => {
-    if (!data || !tasteProfile) return [];
+    if (!tasteProfile || !data) return [];
     return data.days
-      .filter(d => d.releases.some(r => {
-        const result = scoreRelease(r.genre_ids, r.tmdb_id, tasteProfile);
-        return result.score >= 50;
-      }))
-      .map(d => d.date);
-  }, [data, tasteProfile]);
+      .filter((d) =>
+        d.releases.some((r) => {
+          if (watchlistOnly && !(watchlistIds?.has(r.tmdb_id) ?? false)) return false;
+          const result = scoreRelease(r.genre_ids, r.tmdb_id, tasteProfile);
+          return result.score >= 50;
+        })
+      )
+      .map((d) => d.date);
+  }, [data, watchlistOnly, watchlistIds, tasteProfile]);
 
   // Navigate to movie detail
   const handleMoviePress = useCallback((tmdbId: number) => {
@@ -202,9 +265,12 @@ export default function ReleaseCalendarScreen() {
 
   // Check if a chip is active
   const isChipActive = useCallback(
-    (chip: FilterChip) => chip.types.every(t => filterTypes.has(t)),
+    (chip: FilterChip) => chip.types.every((t) => filterTypes.has(t)),
     [filterTypes]
   );
+
+  // True when watchlistOnly is on but the user has zero watchlist items
+  const watchlistOnlyEmpty = watchlistOnly && (watchlistIds?.size ?? 0) === 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -241,7 +307,7 @@ export default function ReleaseCalendarScreen() {
           year={year}
           month={month}
           selectedDate={selectedDate}
-          datesWithReleases={data?.dates_with_releases ?? []}
+          datesWithReleases={filteredDatesWithReleases}
           watchlistDates={watchlistDates}
           personalizedDates={personalizedDates}
           onSelectDate={setSelectedDate}
@@ -262,6 +328,7 @@ export default function ReleaseCalendarScreen() {
             onToggleWatchlist={handleToggleWatchlist}
             tasteScores={tasteScores}
             isLoading={isLoading}
+            watchlistOnlyEmpty={watchlistOnlyEmpty}
           />
         </ScrollView>
       </ContentContainer>
@@ -288,6 +355,21 @@ export default function ReleaseCalendarScreen() {
                 <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
             </View>
+
+            {/* Watchlist Only Section — auth-gated */}
+            {user && (
+              <View style={styles.switchRow}>
+                <Text style={[styles.switchLabel, { color: colors.text }]}>
+                  Show only my watchlist
+                </Text>
+                <Switch
+                  value={watchlistOnly}
+                  onValueChange={setWatchlistOnly}
+                  trackColor={{ false: colors.backgroundSecondary, true: colors.tint }}
+                  accessibilityLabel="Show only releases in my watchlist"
+                />
+              </View>
+            )}
 
             {/* Release Type Section */}
             <Text style={[styles.filterSectionTitle, { color: colors.textSecondary }]}>
@@ -326,23 +408,14 @@ export default function ReleaseCalendarScreen() {
               })}
             </View>
 
-            {/* Apply Button */}
+            {/* Done Button — filters auto-persist on change; this just dismisses the sheet */}
             <Pressable
-              onPress={() => {
-                setShowFilters(false);
-                // Persist filter preferences
-                if (user) {
-                  supabase
-                    .from('profiles')
-                    .update({ calendar_default_filters: { release_types: [...filterTypes] } })
-                    .eq('id', user.id);
-                }
-              }}
+              onPress={() => setShowFilters(false)}
               style={[styles.applyButton, { backgroundColor: colors.tint }]}
               accessibilityRole="button"
-              accessibilityLabel="Apply filters"
+              accessibilityLabel="Close filters"
             >
-              <Text style={styles.applyButtonText}>Apply Filters</Text>
+              <Text style={styles.applyButtonText}>Done</Text>
             </Pressable>
           </View>
         </>
@@ -449,5 +522,18 @@ const styles = StyleSheet.create({
   applyButtonText: {
     ...Typography.button.primary,
     color: '#ffffff',
+  },
+
+  // Watchlist-only switch row
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  switchLabel: {
+    ...Typography.body.base,
+    flex: 1,
   },
 });
