@@ -17,6 +17,8 @@ import { Image } from 'expo-image';
 
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { captureException } from '@/lib/sentry';
@@ -49,6 +51,7 @@ export default function LetterboxdImportScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
@@ -148,6 +151,8 @@ export default function LetterboxdImportScreen() {
       setState('done');
       triggerAchievementCheck();
       hapticNotification(NotificationFeedbackType.Success);
+      // Refresh library + calendar's watchlist filter once after the import loop
+      invalidateUserMovieQueries(queryClient);
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), {
         context: 'letterboxd-import-import-movies',
@@ -155,7 +160,7 @@ export default function LetterboxdImportScreen() {
       setError('An error occurred during import. Some movies may have been imported.');
       setState('review');
     }
-  }, [user, matches, triggerAchievementCheck]);
+  }, [user, matches, triggerAchievementCheck, queryClient]);
 
   const handleDone = useCallback(() => {
     hapticImpact();
