@@ -8,6 +8,7 @@ import {
   updateJourney,
   deleteJourney,
 } from '@/lib/movie-service';
+import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import type { UserMovie, FirstTake, JourneyUpdate } from '@/lib/database.types';
 
 // Type for journey with associated first take
@@ -110,8 +111,8 @@ export function useJourneyMutations(tmdbId?: number) {
   const deleteMutation = useMutation({
     mutationFn: (journeyId: string) => deleteJourney(journeyId),
     onSuccess: () => {
-      // Invalidate user movies list
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      // Invalidate user movies list + dependent watchlist-tmdb-ids
+      invalidateUserMovieQueries(queryClient);
       // Invalidate all journey queries
       queryClient.invalidateQueries({ queryKey: ['journey'] });
       // Invalidate journeys by movie (for carousel updates)
@@ -185,8 +186,8 @@ export function useCreateJourney() {
       queryClient.invalidateQueries({
         queryKey: ['journeysByMovie', newJourney.tmdb_id],
       });
-      // Invalidate user movies list
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      // Invalidate user movies list + dependent watchlist-tmdb-ids
+      invalidateUserMovieQueries(queryClient);
     },
   });
 
