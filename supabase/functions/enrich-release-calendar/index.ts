@@ -43,6 +43,7 @@ interface ReleaseCalendarUpsertRow {
   backdrop_path: string | null;
   genre_ids: number[] | null;
   vote_average: number | null;
+  fetched_at: string;
 }
 
 /**
@@ -60,6 +61,7 @@ function buildRowsFromTMDB(
   const regional = response.results.find((r) => r.iso_3166_1 === region);
   if (!regional) return [];
 
+  const fetchedAt = new Date().toISOString();
   const byKey = new Map<string, ReleaseCalendarUpsertRow>();
   for (const entry of regional.release_dates) {
     const row: ReleaseCalendarUpsertRow = {
@@ -74,6 +76,7 @@ function buildRowsFromTMDB(
       backdrop_path: meta.backdrop_path,
       genre_ids: meta.genre_ids,
       vote_average: meta.vote_average,
+      fetched_at: fetchedAt,
     };
     const key = `${row.tmdb_id}:${row.region}:${row.release_type}`;
     const existing = byKey.get(key);
