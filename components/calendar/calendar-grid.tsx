@@ -8,10 +8,12 @@
 import React, { useMemo, useCallback, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated from 'react-native-reanimated';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { CalendarGridSkeleton } from './calendar-skeleton';
+import { useMonthSlideAnimation } from '@/hooks/use-month-slide-animation';
 
 interface CalendarGridProps {
   year: number;
@@ -68,6 +70,7 @@ export default function CalendarGrid({
 }: CalendarGridProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { animatedStyle } = useMonthSlideAnimation(year, month);
 
   const todayString = useMemo(() => getTodayString(), []);
 
@@ -189,86 +192,91 @@ export default function CalendarGrid({
   }
 
   return (
-    <View style={styles.container} testID="calendar-grid">
-      {/* Month selector header */}
-      <View style={styles.monthHeader}>
-        <Pressable
-          onPress={handlePrevMonth}
-          style={({ pressed }) => [
-            styles.arrowButton,
-            { opacity: pressed ? 0.5 : 1 },
-          ]}
-          hitSlop={12}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={colors.textSecondary}
-          />
-        </Pressable>
+    <View style={styles.slideClip}>
+      <Animated.View
+        style={[styles.container, animatedStyle]}
+        testID="calendar-grid"
+      >
+        {/* Month selector header */}
+        <View style={styles.monthHeader}>
+          <Pressable
+            onPress={handlePrevMonth}
+            style={({ pressed }) => [
+              styles.arrowButton,
+              { opacity: pressed ? 0.5 : 1 },
+            ]}
+            hitSlop={12}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={22}
+              color={colors.textSecondary}
+            />
+          </Pressable>
 
-        <View style={styles.monthLabelContainer}>
-          <Text style={[Typography.display.h4, { color: colors.tint }]}>
-            {monthLabel}
-          </Text>
-        </View>
-
-        <Pressable
-          onPress={handleNextMonth}
-          style={({ pressed }) => [
-            styles.arrowButton,
-            { opacity: pressed ? 0.5 : 1 },
-          ]}
-          hitSlop={12}
-        >
-          <Ionicons
-            name="chevron-forward"
-            size={22}
-            color={colors.textSecondary}
-          />
-        </Pressable>
-      </View>
-
-      {/* Weekday headers */}
-      <View style={styles.weekdayRow}>
-        {WEEKDAYS.map((day) => (
-          <View key={day} style={styles.weekdayCell}>
-            <Text
-              style={[
-                Typography.body.sm,
-                { color: colors.textSecondary },
-              ]}
-            >
-              {day}
+          <View style={styles.monthLabelContainer}>
+            <Text style={[Typography.display.h4, { color: colors.tint }]}>
+              {monthLabel}
             </Text>
           </View>
-        ))}
-      </View>
 
-      {/* Day grid — wrapped with swipe detection for month navigation */}
-      <View
-        onTouchStart={handleSwipeTouchStart}
-        onTouchEnd={handleSwipeTouchEnd}
-        accessibilityLabel="Swipe left or right to change months"
-      >
-        <View style={styles.dayGrid}>
-          {dayCells.map((cell, index) => {
-            if (cell.day === 0) {
-              // Empty padding cell
-              return <View key={`empty-${index}`} style={styles.dayCell} />;
-            }
-
-            return (
-              <DayCellView
-                key={cell.dateString}
-                cell={cell}
-                colors={colors}
-                onPress={onSelectDate}
-              />
-            );
-          })}
+          <Pressable
+            onPress={handleNextMonth}
+            style={({ pressed }) => [
+              styles.arrowButton,
+              { opacity: pressed ? 0.5 : 1 },
+            ]}
+            hitSlop={12}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={22}
+              color={colors.textSecondary}
+            />
+          </Pressable>
         </View>
-      </View>
+
+        {/* Weekday headers */}
+        <View style={styles.weekdayRow}>
+          {WEEKDAYS.map((day) => (
+            <View key={day} style={styles.weekdayCell}>
+              <Text
+                style={[
+                  Typography.body.sm,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {day}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Day grid — wrapped with swipe detection for month navigation */}
+        <View
+          onTouchStart={handleSwipeTouchStart}
+          onTouchEnd={handleSwipeTouchEnd}
+          accessibilityLabel="Swipe left or right to change months"
+        >
+          <View style={styles.dayGrid}>
+            {dayCells.map((cell, index) => {
+              if (cell.day === 0) {
+                // Empty padding cell
+                return <View key={`empty-${index}`} style={styles.dayCell} />;
+              }
+
+              return (
+                <DayCellView
+                  key={cell.dateString}
+                  cell={cell}
+                  colors={colors}
+                  onPress={onSelectDate}
+                />
+              );
+            })}
+          </View>
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -359,6 +367,10 @@ const DAY_CIRCLE_SIZE = 36;
 const DOT_SIZE = 4;
 
 const styles = StyleSheet.create({
+  slideClip: {
+    overflow: 'hidden', // CRITICAL: prevents off-screen new month from bleeding into adjacent UI during slide
+  },
+
   container: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,

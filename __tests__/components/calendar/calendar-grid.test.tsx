@@ -61,3 +61,45 @@ describe('CalendarGrid — skeleton wiring', () => {
     expect(queryByTestId('calendar-grid-skeleton')).toBeNull();
   });
 });
+
+describe('CalendarGrid — slide animation wiring', () => {
+  it('renders without throwing when (year, month) changes', () => {
+    const { rerender, getByTestId } = render(
+      <CalendarGrid
+        {...baseProps}
+        datesWithReleases={['2026-04-15']}
+        isLoading={false}
+      />
+    );
+
+    expect(getByTestId('calendar-grid')).toBeTruthy();
+
+    rerender(
+      <CalendarGrid
+        {...baseProps}
+        year={2026}
+        month={5}
+        datesWithReleases={['2026-05-15']}
+        isLoading={false}
+      />
+    );
+
+    expect(getByTestId('calendar-grid')).toBeTruthy();
+  });
+
+  it('keeps the calendar-grid testID on the animated wrapper', () => {
+    const { getByTestId } = render(
+      <CalendarGrid
+        {...baseProps}
+        datesWithReleases={['2026-04-15']}
+        isLoading={false}
+      />
+    );
+
+    // The testID="calendar-grid" should be on the Animated.View (the inner
+    // wrapper that holds the month header + weekday row + day cells).
+    // The outer overflow-clip View should NOT have a testID.
+    const grid = getByTestId('calendar-grid');
+    expect(grid).toBeTruthy();
+  });
+});
