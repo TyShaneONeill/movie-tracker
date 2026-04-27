@@ -4,7 +4,6 @@ import {
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -85,14 +84,16 @@ export function useMonthSlideAnimation(year: number, month: number) {
       return;
     }
 
+    // Snap synchronously to the off-screen start position, then animate
+    // back to 0. Two-line pattern (instead of withSequence with a 0-duration
+    // first step) because reanimated 4.x can optimize duration:0 into a
+    // no-op, collapsing the sequence to "0 → 0" with no visible motion.
     const startX = direction === 'next' ? SCREEN_WIDTH : -SCREEN_WIDTH;
-    translateX.value = withSequence(
-      withTiming(startX, { duration: 0 }),
-      withTiming(0, {
-        duration: SLIDE_DURATION_MS,
-        easing: Easing.out(Easing.cubic),
-      })
-    );
+    translateX.value = startX;
+    translateX.value = withTiming(0, {
+      duration: SLIDE_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+    });
   }, [year, month, reduceMotion, translateX]);
 
   const animatedStyle = useAnimatedStyle(() => ({
