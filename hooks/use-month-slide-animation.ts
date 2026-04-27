@@ -56,12 +56,24 @@ export function useMonthSlideAnimation(year: number, month: number) {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (!cancelled) setReduceMotion(enabled);
+      })
+      .catch(() => {
+        // Default reduceMotion=false stays. AccessibilityInfo
+        // shouldn't reject on supported platforms; this guard
+        // prevents an unhandled-promise warning if it ever does.
+      });
     const subscription = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
       setReduceMotion
     );
-    return () => subscription.remove();
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {
