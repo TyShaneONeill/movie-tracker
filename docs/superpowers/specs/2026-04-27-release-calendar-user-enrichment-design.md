@@ -176,19 +176,18 @@ The `void` operator + `.catch` makes intent explicit (fire-and-forget). Mutation
 
 ### 3. Tests
 
-**Edge function — `supabase/functions/enrich-release-calendar/test.ts`** (new):
-- Parser tests (pure, no I/O):
-  - Hokum's known TMDB response (5 release entries, US only) → 5 rows for region='US' (all types preserved)
-  - Multi-region response → only requested region returned
-  - Empty `results` → empty array
-  - Region not in results → empty array
-  - ISO date `2026-05-01T00:00:00.000Z` → `'2026-05-01'`
-- Input validation tests (handler):
-  - Missing tmdb_id → 400
-  - Negative tmdb_id → 400
-  - Invalid region (not 2 chars) → 400 OR coerced to default
+**Edge function: no automated tests** — matches existing codebase pattern (none of the 30+ existing supabase functions have Deno tests; setting up Deno test infrastructure for one snowflake function is out of scope). Verified instead via:
+- Local: `supabase functions serve enrich-release-calendar` + `curl` with known fixture (Hokum tmdb_id 1430077) → assert 5 rows upserted for region='US'
+- Production deploy + manual curl with Hokum (idempotent — already populated, asserts no errors)
 
-**No new tests for `lib/movie-service.ts:addMovieToLibrary`** — the fire-and-forget call is one line of trivial wiring; existing service-level tests already cover the upsert path. Mocking `supabase.functions.invoke` would assert on call shape, which is low-value and brittle. Manual device validation covers integration.
+**Client-side Jest tests in `__tests__/lib/movie-service.test.ts`** (existing file):
+- `addMovieToLibrary` calls `supabase.functions.invoke('enrich-release-calendar', { body: { tmdb_id } })` after successful upsert (default behavior, `skipEnrich` omitted)
+- `addMovieToLibrary` does NOT call `supabase.functions.invoke` when `skipEnrich: true` is passed
+- Existing test for upsert success/failure path is not affected — fire-and-forget never throws to the caller
+- Mock `supabase.functions.invoke` via the existing supabase mock pattern in the test file
+
+**Client-side Jest test in `__tests__/lib/letterboxd-service.test.ts`** (existing file):
+- The bulk import path passes `skipEnrich: true` to every `addMovieToLibrary` call. Assert via mock spy on the existing `addMovieToLibrary` mock.
 
 ### 4. Post-merge backfill (operational, not in PR)
 
