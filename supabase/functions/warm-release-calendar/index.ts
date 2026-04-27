@@ -45,6 +45,7 @@ interface ReleaseCalendarRow {
 
 interface ResponseBody {
   rows_upserted: number;
+  rows_reconciled: number;  // NEW: count of null-title rows fixed via /movie/{id}
   months_warmed: string[];
   duration_ms: number;
 }
@@ -168,8 +169,127 @@ Deno.serve(async (req: Request) => {
       if (error) throw new Error(`upsert failed: ${error.message}`);
     }
 
+    // === Reconciliation pass ===
+    // Fix null-title rows in the warm window by fetching /movie/{id} directly.
+    // Bypasses the discover-API popularity ceiling: rows for movies that have
+    // fallen out of TMDB's monthly top-100 (or pre-SP1 legacy rows that were
+    // never in `movies` table) get their metadata populated here.
+    // Idempotent — re-runs converge any remaining null-title rows over time.
+    const warmStart = `${monthsWarmed[0]}-01`;
+    const lastMonthLabel = monthsWarmed[monthsWarmed.length - 1];
+    const [lastYear, lastMonthNum] = lastMonthLabel.split('-').map(Number);
+    const lastDayOfWindow = new Date(lastYear, lastMonthNum, 0).getDate();
+    const warmEnd = `${lastMonthLabel}-${String(lastDayOfWindow).padStart(2, '0')}`;
+
+    const { data: nullTitleRows, error: queryErr } = await supabase
+      .from('release_calendar')
+      .select('tmdb_id, region, release_type')
+      .is('title', null)
+      .eq('region', region)
+      .gte('release_date', warmStart)
+      .lte('release_date', warmEnd);
+
+    let rowsReconciled = 0;
+    if (queryErr) {
+      console.error('[warm-release-calendar] reconciliation query failed:', queryErr);
+    } else if (nullTitleRows && nullTitleRows.length > 0) {
+      console.log(
+        `[warm-release-calendar] Reconciling ${nullTitleRows.length} null-title rows for region=${region}`
+      );
+
+      const reconciliationRows: Array<Pick<
+        ReleaseCalendarRow,
+        | 'tmdb_id'
+        | 'region'
+        | 'release_type'
+        | 'title'
+        | 'poster_path'
+        | 'backdrop_path'
+        | 'genre_ids'
+        | 'vote_average'
+      >> = [];
+
+      for (let r = 0; r < nullTitleRows.length; r += BATCH_SIZE) {
+        const batch = nullTitleRows.slice(r, r + BATCH_SIZE);
+        const fetchResults = await Promise.all(
+          batch.map(async (stuck) => {
+            try {
+              const url = `${TMDB_BASE_URL}/movie/${stuck.tmdb_id}?api_key=${TMDB_API_KEY}`;
+              const detailRes = await fetch(url);
+              if (!detailRes.ok) {
+                // 404 = unknown id; 429 = rate-limit; 5xx = TMDB hiccup. Retry next run.
+                console.warn(
+                  `[warm-release-calendar] reconcile fetch failed for ${stuck.tmdb_id}: ${detailRes.status}`
+                );
+                return null;
+              }
+              const detail = (await detailRes.json()) as {
+                title: string;
+                poster_path: string | null;
+                backdrop_path: string | null;
+                genres: { id: number }[];
+                vote_average: number | null;
+              };
+              if (!detail.title) return null; // empty title → still un-fixable
+
+              return {
+                tmdb_id: stuck.tmdb_id,
+                region: stuck.region,
+                release_type: stuck.release_type,
+                title: detail.title,
+                poster_path: detail.poster_path,
+                backdrop_path: detail.backdrop_path,
+                genre_ids: detail.genres?.map((g) => g.id) ?? null,
+                vote_average: detail.vote_average ?? null,
+              };
+            } catch (e) {
+              console.error(
+                `[warm-release-calendar] reconcile fetch threw for ${stuck.tmdb_id}:`,
+                e
+              );
+              return null;
+            }
+          })
+        );
+
+        for (const result of fetchResults) {
+          if (result) reconciliationRows.push(result);
+        }
+
+        if (r + BATCH_SIZE < nullTitleRows.length) {
+          await new Promise((res) => setTimeout(res, BATCH_DELAY_MS));
+        }
+      }
+
+      if (reconciliationRows.length > 0) {
+        // Upsert with onConflict triggers UPDATE for existing rows; the SET
+        // clause only includes columns in the payload, so release_date,
+        // certification, note, and fetched_at are preserved (not overwritten
+        // with NULL or now()).
+        const { error: reconcileErr } = await supabase
+          .from('release_calendar')
+          .upsert(reconciliationRows, {
+            onConflict: 'tmdb_id,region,release_type',
+            ignoreDuplicates: false,
+          });
+        if (reconcileErr) {
+          console.error(
+            '[warm-release-calendar] reconcile upsert failed:',
+            reconcileErr
+          );
+        } else {
+          rowsReconciled = reconciliationRows.length;
+          console.log(
+            `[warm-release-calendar] Reconciled ${rowsReconciled} rows from ${nullTitleRows.length} attempted`
+          );
+        }
+      }
+    }
+    // === end reconciliation pass ===
+
     const response: ResponseBody = {
       rows_upserted: deduped.length,
+      rows_reconciled: rowsReconciled,
       months_warmed: monthsWarmed,
       duration_ms: Date.now() - started,
     };
