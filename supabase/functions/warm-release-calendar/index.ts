@@ -181,9 +181,16 @@ Deno.serve(async (req: Request) => {
     const lastDayOfWindow = new Date(lastYear, lastMonthNum, 0).getDate();
     const warmEnd = `${lastMonthLabel}-${String(lastDayOfWindow).padStart(2, '0')}`;
 
+    // Select release_date in addition to the conflict-key columns. The upsert
+    // payload needs release_date because it's NOT NULL with no default — if
+    // omitted, the INSERT path of `INSERT ... ON CONFLICT DO UPDATE` fails the
+    // not-null constraint *before* conflict resolution runs, silently aborting
+    // every row. Pass-through value: same as queried, so the UPDATE clause
+    // writes it back unchanged. (certification, note, fetched_at are nullable;
+    // omitting them is fine — they're preserved by being absent from the SET clause.)
     const { data: nullTitleRows, error: queryErr } = await supabase
       .from('release_calendar')
-      .select('tmdb_id, region, release_type')
+      .select('tmdb_id, region, release_type, release_date')
       .is('title', null)
       .eq('region', region)
       .gte('release_date', warmStart)
@@ -202,6 +209,7 @@ Deno.serve(async (req: Request) => {
         | 'tmdb_id'
         | 'region'
         | 'release_type'
+        | 'release_date'
         | 'title'
         | 'poster_path'
         | 'backdrop_path'
@@ -236,6 +244,7 @@ Deno.serve(async (req: Request) => {
                 tmdb_id: stuck.tmdb_id,
                 region: stuck.region,
                 release_type: stuck.release_type,
+                release_date: stuck.release_date, // passthrough — required for INSERT NOT NULL
                 title: detail.title,
                 poster_path: detail.poster_path,
                 backdrop_path: detail.backdrop_path,
