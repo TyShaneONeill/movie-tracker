@@ -181,7 +181,7 @@ export async function importMovies(
 
     try {
       const status: MovieStatus = 'watched';
-      const userMovie = await addMovieToLibrary(userId, match.tmdbMovie, status);
+      const userMovie = await addMovieToLibrary(userId, match.tmdbMovie, status, { skipEnrich: true });
 
       // Update watched_at if available from the Letterboxd entry
       if (match.entry.watchedDate) {
