@@ -73,13 +73,10 @@ Failing-first → green TDD pattern. Three test files, all already exist except 
 - Same helper call also invokes `queryClient.invalidateQueries` with `['watchlist-tmdb-ids']`
 - Both calls happen on the same QueryClient instance
 
-**Update `__tests__/hooks/use-user-movies.test.ts`:**
-- Assert `['watchlist-tmdb-ids']` is invalidated alongside `['userMovies']` on each of `addMutation`, `updateMutation`, `removeMutation` success.
-
 **Update `__tests__/hooks/use-movie-actions.test.ts`:**
-- Assert same for the `downgradeStatusMutation` and any other user_movies-touching mutations in this file. Implementation pass greps `['userMovies']` references in this file as the source of truth for which mutations need updating.
+- Assert `['watchlist-tmdb-ids']` is invalidated alongside `['userMovies']` on each of `addMutation`, `removeMutation`, `changeStatusMutation`, `downgradeStatusMutation` success/onSettled. This is the most-trafficked watchlist add/remove path (movie detail screens) and the existing test harness has the infrastructure ready.
 
-**No tests for `app/scan/review.tsx`, `hooks/use-journey.ts`, `app/settings/letterboxd-import.tsx`** — no existing screen/hook test infrastructure for these paths. Adding it is out of scope; manual device validation covers them. The helper has its own unit test, so we know the call works; the integration risk on these three callsites is small.
+**No tests for `hooks/use-user-movies.ts`, `hooks/use-journey.ts`, `app/scan/review.tsx`, `app/settings/letterboxd-import.tsx`** — no existing test files for these paths (verified by directory listing). Adding test infrastructure is out of scope for a 1-2h fix. The helper has its own unit test, so we know the call works correctly; integration risk on these callsites is captured by manual device validation. (The `use-user-movies.ts` test gap pre-exists this PR — flag for separate follow-up.)
 
 **Test pattern:** `jest.spyOn(queryClient, 'invalidateQueries')` and assert by `queryKey` argument. Mirrors existing patterns in `__tests__/hooks/use-episode-actions.test.ts` (lines 242, 320, 403).
 
