@@ -3,6 +3,7 @@ import Toast from 'react-native-toast-message';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { MUTATION_KEYS } from '@/lib/query-client';
+import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import { analytics } from '@/lib/analytics';
 
 interface GenerateArtRequest {
@@ -143,7 +144,7 @@ export function useGenerateArt() {
       // Local invalidation for immediate UI update (in addition to global toast)
       queryClient.invalidateQueries({ queryKey: ['journey', variables.journeyId] });
       queryClient.invalidateQueries({ queryKey: ['journeysByMovie'] });
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ['ai-trial-used'] });
       queryClient.invalidateQueries({ queryKey: ['ad-credits'] });
     },

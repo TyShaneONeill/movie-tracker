@@ -8,6 +8,7 @@ import {
   removeMovieFromLibrary,
   getMovieByTmdbId,
 } from '@/lib/movie-service';
+import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import type { UserMovie, MovieStatus, GroupedUserMovie } from '@/lib/database.types';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 
@@ -73,7 +74,7 @@ export function useUserMovies(status?: MovieStatus) {
       status?: MovieStatus;
     }) => addMovieToLibrary(user!.id, movie, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
     },
   });
 
@@ -86,14 +87,14 @@ export function useUserMovies(status?: MovieStatus) {
       status: MovieStatus;
     }) => updateMovieStatus(user!.id, tmdbId, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
     },
   });
 
   const removeMutation = useMutation({
     mutationFn: (tmdbId: number) => removeMovieFromLibrary(user!.id, tmdbId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
     },
   });
 

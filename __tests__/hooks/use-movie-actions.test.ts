@@ -23,6 +23,7 @@ jest.mock('@/lib/movie-service', () => ({
   addMovieToLibrary: jest.fn(),
   removeMovieFromLibrary: jest.fn(),
   updateMovieStatus: jest.fn(),
+  downgradeMovieStatus: jest.fn(),
   getMovieLike: jest.fn(),
   likeMovie: jest.fn(),
   unlikeMovie: jest.fn(),
@@ -35,6 +36,7 @@ import {
   addMovieToLibrary,
   removeMovieFromLibrary,
   updateMovieStatus,
+  downgradeMovieStatus,
   getMovieLike,
   likeMovie,
   unlikeMovie,
@@ -46,6 +48,7 @@ const mockGetMovieByTmdbId = getMovieByTmdbId as jest.Mock;
 const mockAddMovieToLibrary = addMovieToLibrary as jest.Mock;
 const mockRemoveMovieFromLibrary = removeMovieFromLibrary as jest.Mock;
 const mockUpdateMovieStatus = updateMovieStatus as jest.Mock;
+const mockDowngradeMovieStatus = downgradeMovieStatus as jest.Mock;
 const mockGetMovieLike = getMovieLike as jest.Mock;
 const mockLikeMovie = likeMovie as jest.Mock;
 const mockUnlikeMovie = unlikeMovie as jest.Mock;
@@ -478,6 +481,100 @@ describe('useMovieActions', () => {
         expect(cached).toBeTruthy();
         expect(cached?.id).toBe('movie-1');
         expect(cached?.status).toBe('watchlist');
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Watchlist invalidation (cross-screen freshness — SP4-A follow-up)
+  // ==========================================================================
+
+  describe('watchlist invalidation', () => {
+    it('invalidates watchlist-tmdb-ids when adding to watchlist', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+      const spy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      mockGetMovieByTmdbId.mockResolvedValue(null);
+      mockAddMovieToLibrary.mockResolvedValue(makeUserMovie({ status: 'watchlist' }));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSaved).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.addToWatchlist(makeTMDBMovie() as any, 'watchlist');
+      });
+
+      await waitFor(() => {
+        expect(spy).toHaveBeenCalledWith({ queryKey: ['watchlist-tmdb-ids'] });
+      });
+    });
+
+    it('invalidates watchlist-tmdb-ids when removing from watchlist', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+      const spy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      mockGetMovieByTmdbId.mockResolvedValue(makeUserMovie({ status: 'watchlist' }));
+      mockRemoveMovieFromLibrary.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSaved).toBe(true);
+      });
+
+      await act(async () => {
+        await result.current.removeFromWatchlist();
+      });
+
+      await waitFor(() => {
+        expect(spy).toHaveBeenCalledWith({ queryKey: ['watchlist-tmdb-ids'] });
+      });
+    });
+
+    it('invalidates watchlist-tmdb-ids when changing status', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+      const spy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      mockGetMovieByTmdbId.mockResolvedValue(makeUserMovie({ status: 'watchlist' }));
+      mockUpdateMovieStatus.mockResolvedValue(makeUserMovie({ status: 'watching' }));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.currentStatus).toBe('watchlist');
+      });
+
+      await act(async () => {
+        await result.current.changeStatus('watching');
+      });
+
+      await waitFor(() => {
+        expect(spy).toHaveBeenCalledWith({ queryKey: ['watchlist-tmdb-ids'] });
+      });
+    });
+
+    it('invalidates watchlist-tmdb-ids when downgrading status', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+      const spy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      mockGetMovieByTmdbId.mockResolvedValue(makeUserMovie({ status: 'watched' }));
+      mockDowngradeMovieStatus.mockResolvedValue(makeUserMovie({ status: 'watchlist' }));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.currentStatus).toBe('watched');
+      });
+
+      await act(async () => {
+        await result.current.downgradeStatus('watchlist');
+      });
+
+      await waitFor(() => {
+        expect(spy).toHaveBeenCalledWith({ queryKey: ['watchlist-tmdb-ids'] });
       });
     });
   });

@@ -13,6 +13,7 @@ import {
   likeMovie,
   unlikeMovie,
 } from '@/lib/movie-service';
+import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import type { UserMovie, UserMovieLike, MovieStatus } from '@/lib/database.types';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 
@@ -125,7 +126,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
       if (variables?.status === 'watched') {
         triggerAchievementCheck();
       }
@@ -166,7 +167,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
     },
     onSuccess: () => {
       analytics.track('movie:watchlist_remove', { tmdb_id: tmdbId });
@@ -205,7 +206,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     },
     onSettled: (_data, _error, newStatus) => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
       if (newStatus === 'watched') {
         triggerAchievementCheck();
         earn('mark_watched', `movie:${tmdbId}`);
@@ -267,7 +268,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
     },
   });
 

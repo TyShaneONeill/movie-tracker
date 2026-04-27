@@ -30,6 +30,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useTasteProfile } from '@/hooks/use-taste-profile';
 import { addMovieToLibrary, removeMovieFromLibrary } from '@/lib/movie-service';
+import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import { scoreRelease } from '@/lib/taste-profile-service';
 import { supabase } from '@/lib/supabase';
 import type { TMDBMovie } from '@/lib/tmdb.types';
@@ -165,8 +166,7 @@ export default function ReleaseCalendarScreen() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['watchlist-tmdb-ids'] });
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      invalidateUserMovieQueries(queryClient);
     },
   });
 
