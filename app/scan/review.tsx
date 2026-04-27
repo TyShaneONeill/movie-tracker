@@ -39,6 +39,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { captureException } from '@/lib/sentry';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { ContentContainer } from '@/components/content-container';
+import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 
 // ============================================================================
 // Helpers
@@ -478,8 +479,8 @@ export default function TicketReviewScreen() {
       // Trigger achievement check once for the entire bulk operation
       triggerAchievementCheck();
 
-      // Bust caches so profile + journey carousel reflect the new rows immediately
-      queryClient.invalidateQueries({ queryKey: ['userMovies'] });
+      // Bust caches so profile + journey carousel + calendar reflect the new rows immediately
+      invalidateUserMovieQueries(queryClient);
       for (const ticket of validTickets) {
         if (ticket.tmdbMatch?.movie.id) {
           queryClient.invalidateQueries({ queryKey: ['journeysByMovie', ticket.tmdbMatch.movie.id] });
