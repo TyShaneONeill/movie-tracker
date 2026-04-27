@@ -79,6 +79,16 @@ export function useMonthSlideAnimation(year: number, month: number) {
     const direction = inferDirection(prevRef.current, { year, month });
     prevRef.current = { year, month };
 
+    if (__DEV__) {
+      console.log('[useMonthSlideAnimation] effect fired', {
+        year,
+        month,
+        direction,
+        reduceMotion,
+        screenWidth: SCREEN_WIDTH,
+      });
+    }
+
     if (direction === 'none' || reduceMotion) {
       translateX.value = 0;
       return;
@@ -96,9 +106,12 @@ export function useMonthSlideAnimation(year: number, month: number) {
     });
   }, [year, month, reduceMotion, translateX]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
 
   return { animatedStyle };
 }
