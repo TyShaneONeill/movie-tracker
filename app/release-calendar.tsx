@@ -5,7 +5,7 @@
  * and tap movies to view details.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -77,15 +77,27 @@ export default function ReleaseCalendarScreen() {
   const { data: watchlistIds } = useWatchlistIds(!!user);
   const { data: tasteProfile } = useTasteProfile();
 
+  // Track whether hydration has completed so we don't persist
+  // before we've loaded the saved state (avoids clobbering with defaults).
+  const filtersHydratedRef = useRef(false);
+
   // Load saved filter preferences
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      filtersHydratedRef.current = true; // guest mode — no hydration possible
+      return;
+    }
     supabase
       .from('profiles')
       .select('calendar_default_filters')
       .eq('id', user.id)
       .single()
-      .then(({ data: profile }) => {
+      .then(({ data: profile, error }) => {
+        if (error) {
+          console.warn('[release-calendar] hydrate filters failed', error);
+          filtersHydratedRef.current = true;
+          return;
+        }
         if (profile?.calendar_default_filters) {
           const saved = profile.calendar_default_filters as {
             release_types?: number[];
@@ -94,12 +106,36 @@ export default function ReleaseCalendarScreen() {
           if (saved.release_types) {
             setFilterTypes(new Set(saved.release_types));
           }
-          if (saved.my_watchlist_only) {
+          if (typeof saved.my_watchlist_only === 'boolean') {
             setWatchlistOnly(saved.my_watchlist_only);
           }
         }
+        filtersHydratedRef.current = true;
       });
   }, [user]);
+
+  // Auto-persist filter changes after hydration completes.
+  // Replaces the old Apply-button-only persistence — every filter change
+  // (Switch toggle, chip toggle) immediately writes to the profile.
+  // Logs failures so silent RLS/auth errors don't hide bugs.
+  useEffect(() => {
+    if (!user) return;
+    if (!filtersHydratedRef.current) return;
+    supabase
+      .from('profiles')
+      .update({
+        calendar_default_filters: {
+          release_types: [...filterTypes],
+          my_watchlist_only: watchlistOnly,
+        },
+      })
+      .eq('id', user.id)
+      .then(({ error }) => {
+        if (error) {
+          console.warn('[release-calendar] persist filters failed', error);
+        }
+      });
+  }, [user, filterTypes, watchlistOnly]);
 
   // Watchlist toggle mutation
   const watchlistMutation = useMutation({
@@ -372,28 +408,14 @@ export default function ReleaseCalendarScreen() {
               })}
             </View>
 
-            {/* Apply Button */}
+            {/* Done Button — filters auto-persist on change; this just dismisses the sheet */}
             <Pressable
-              onPress={() => {
-                setShowFilters(false);
-                // Persist filter preferences
-                if (user) {
-                  supabase
-                    .from('profiles')
-                    .update({
-                      calendar_default_filters: {
-                        release_types: [...filterTypes],
-                        my_watchlist_only: watchlistOnly,
-                      },
-                    })
-                    .eq('id', user.id);
-                }
-              }}
+              onPress={() => setShowFilters(false)}
               style={[styles.applyButton, { backgroundColor: colors.tint }]}
               accessibilityRole="button"
-              accessibilityLabel="Apply filters"
+              accessibilityLabel="Close filters"
             >
-              <Text style={styles.applyButtonText}>Apply Filters</Text>
+              <Text style={styles.applyButtonText}>Done</Text>
             </Pressable>
           </View>
         </>
