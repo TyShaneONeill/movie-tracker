@@ -5,7 +5,7 @@
  * and tap movies to view details.
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import CalendarGrid from '@/components/calendar/calendar-grid';
 import { ReleaseDayList } from '@/components/calendar/release-day-list';
 import { useReleaseCalendar, useWatchlistIds } from '@/hooks/use-release-calendar';
+import { useCalendarFilters, FILTER_CHIPS } from '@/hooks/use-calendar-filters';
 import { ContentContainer } from '@/components/content-container';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -32,25 +33,11 @@ import { useTasteProfile } from '@/hooks/use-taste-profile';
 import { addMovieToLibrary, removeMovieFromLibrary } from '@/lib/movie-service';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import { scoreRelease } from '@/lib/taste-profile-service';
-import { supabase } from '@/lib/supabase';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 import {
   filterDatesByWatchlist,
   filterDayReleases,
 } from '@/lib/calendar-filters';
-
-/** Filter chip configuration */
-interface FilterChip {
-  key: string;
-  label: string;
-  types: number[];
-}
-
-const FILTER_CHIPS: FilterChip[] = [
-  { key: 'theatrical', label: 'Theatrical', types: [1, 2, 3] },
-  { key: 'streaming', label: 'Streaming', types: [6] },
-  { key: 'digital_physical', label: 'Digital / Physical', types: [4, 5] },
-];
 
 export default function ReleaseCalendarScreen() {
   const { effectiveTheme } = useTheme();
@@ -64,79 +51,20 @@ export default function ReleaseCalendarScreen() {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   );
 
-  // Filter state: all release types enabled by default
-  const [filterTypes, setFilterTypes] = useState<Set<number>>(new Set([1, 2, 3, 4, 5, 6]));
-  const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Auth & query client
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Filter state (hydration, persistence, and helpers extracted to hook)
+  const { filterTypes, watchlistOnly, setWatchlistOnly, toggleFilterChip, isChipActive } =
+    useCalendarFilters(user);
+
   // Data fetching
   const { data, isLoading } = useReleaseCalendar({ month, year });
   const { data: watchlistIds } = useWatchlistIds(!!user);
   const { data: tasteProfile } = useTasteProfile();
-
-  // Track whether hydration has completed so we don't persist
-  // before we've loaded the saved state (avoids clobbering with defaults).
-  const filtersHydratedRef = useRef(false);
-
-  // Load saved filter preferences
-  useEffect(() => {
-    if (!user) {
-      filtersHydratedRef.current = true; // guest mode — no hydration possible
-      return;
-    }
-    supabase
-      .from('profiles')
-      .select('calendar_default_filters')
-      .eq('id', user.id)
-      .single()
-      .then(({ data: profile, error }) => {
-        if (error) {
-          console.warn('[release-calendar] hydrate filters failed', error);
-          filtersHydratedRef.current = true;
-          return;
-        }
-        if (profile?.calendar_default_filters) {
-          const saved = profile.calendar_default_filters as {
-            release_types?: number[];
-            my_watchlist_only?: boolean;
-          };
-          if (saved.release_types) {
-            setFilterTypes(new Set(saved.release_types));
-          }
-          if (typeof saved.my_watchlist_only === 'boolean') {
-            setWatchlistOnly(saved.my_watchlist_only);
-          }
-        }
-        filtersHydratedRef.current = true;
-      });
-  }, [user]);
-
-  // Auto-persist filter changes after hydration completes.
-  // Replaces the old Apply-button-only persistence — every filter change
-  // (Switch toggle, chip toggle) immediately writes to the profile.
-  // Logs failures so silent RLS/auth errors don't hide bugs.
-  useEffect(() => {
-    if (!user) return;
-    if (!filtersHydratedRef.current) return;
-    supabase
-      .from('profiles')
-      .update({
-        calendar_default_filters: {
-          release_types: [...filterTypes],
-          my_watchlist_only: watchlistOnly,
-        },
-      })
-      .eq('id', user.id)
-      .then(({ error }) => {
-        if (error) {
-          console.warn('[release-calendar] persist filters failed', error);
-        }
-      });
-  }, [user, filterTypes, watchlistOnly]);
 
   // Watchlist toggle mutation
   const watchlistMutation = useMutation({
@@ -248,26 +176,6 @@ export default function ReleaseCalendarScreen() {
     const isOnWatchlist = watchlistIds?.has(tmdbId) ?? false;
     watchlistMutation.mutate({ tmdbId, isOnWatchlist });
   }, [watchlistIds, watchlistMutation]);
-
-  // Toggle a filter chip (add/remove its types from the active set)
-  const toggleFilterChip = useCallback((chip: FilterChip) => {
-    setFilterTypes(prev => {
-      const next = new Set(prev);
-      const allActive = chip.types.every(t => next.has(t));
-      if (allActive) {
-        chip.types.forEach(t => next.delete(t));
-      } else {
-        chip.types.forEach(t => next.add(t));
-      }
-      return next;
-    });
-  }, []);
-
-  // Check if a chip is active
-  const isChipActive = useCallback(
-    (chip: FilterChip) => chip.types.every((t) => filterTypes.has(t)),
-    [filterTypes]
-  );
 
   // True when watchlistOnly is on but the user has zero watchlist items
   const watchlistOnlyEmpty = watchlistOnly && (watchlistIds?.size ?? 0) === 0;
