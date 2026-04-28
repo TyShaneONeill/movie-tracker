@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { selectBestTrailer, type TMDBVideosResponse } from '../_shared/select-best-trailer.ts';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
@@ -44,6 +45,7 @@ interface ReleaseCalendarUpsertRow {
   genre_ids: number[] | null;
   vote_average: number | null;
   fetched_at: string;
+  trailer_youtube_key: string | null;
 }
 
 /**
@@ -57,6 +59,7 @@ function buildRowsFromTMDB(
   tmdbId: number,
   region: string,
   meta: MovieMeta,
+  trailerKey: string | null,
 ): ReleaseCalendarUpsertRow[] {
   const regional = response.results.find((r) => r.iso_3166_1 === region);
   if (!regional) return [];
@@ -77,6 +80,7 @@ function buildRowsFromTMDB(
       genre_ids: meta.genre_ids,
       vote_average: meta.vote_average,
       fetched_at: fetchedAt,
+      trailer_youtube_key: trailerKey,
     };
     const key = `${row.tmdb_id}:${row.region}:${row.release_type}`;
     const existing = byKey.get(key);
@@ -124,8 +128,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const tmdbUrl = `${TMDB_BASE_URL}/movie/${tmdbId}/release_dates?api_key=${TMDB_API_KEY}`;
-    const tmdbRes = await fetch(tmdbUrl);
+    const releaseDatesUrl = `${TMDB_BASE_URL}/movie/${tmdbId}/release_dates?api_key=${TMDB_API_KEY}`;
+    const videosUrl = `${TMDB_BASE_URL}/movie/${tmdbId}/videos?api_key=${TMDB_API_KEY}`;
+    const [tmdbRes, tmdbVideosRes] = await Promise.all([
+      fetch(releaseDatesUrl),
+      fetch(videosUrl),
+    ]);
     if (tmdbRes.status === 404) {
       console.log(`[enrich-release-calendar] tmdb_id ${tmdbId} not found in TMDB`);
       return new Response(
@@ -141,6 +149,23 @@ Deno.serve(async (req: Request) => {
       );
     }
     const tmdbResponse = (await tmdbRes.json()) as TMDBReleaseDatesResponse;
+
+    let trailerKey: string | null = null;
+    if (tmdbVideosRes.ok) {
+      try {
+        const videosResponse = (await tmdbVideosRes.json()) as TMDBVideosResponse;
+        trailerKey = selectBestTrailer(videosResponse);
+      } catch (e) {
+        console.warn(
+          `[enrich-release-calendar] videos parse failed for ${tmdbId}:`,
+          e
+        );
+      }
+    } else {
+      console.warn(
+        `[enrich-release-calendar] videos fetch failed for ${tmdbId}: ${tmdbVideosRes.status}`
+      );
+    }
 
     const { data: movieRow, error: movieErr } = await supabase
       .from('movies')
@@ -164,7 +189,7 @@ Deno.serve(async (req: Request) => {
       vote_average: movieRow?.tmdb_vote_average ?? null,
     };
 
-    const rows = buildRowsFromTMDB(tmdbResponse, tmdbId as number, region, meta);
+    const rows = buildRowsFromTMDB(tmdbResponse, tmdbId as number, region, meta, trailerKey);
     if (rows.length === 0) {
       return new Response(
         JSON.stringify({ inserted: 0, region, tmdb_id: tmdbId }),
