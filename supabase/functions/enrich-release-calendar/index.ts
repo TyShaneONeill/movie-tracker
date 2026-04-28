@@ -142,11 +142,19 @@ Deno.serve(async (req: Request) => {
     }
     const tmdbResponse = (await tmdbRes.json()) as TMDBReleaseDatesResponse;
 
-    const { data: movieRow } = await supabase
+    const { data: movieRow, error: movieErr } = await supabase
       .from('movies')
       .select('title, poster_path, backdrop_path, genre_ids, tmdb_vote_average')
       .eq('tmdb_id', tmdbId)
       .maybeSingle();
+    if (movieErr) {
+      // Best-effort lookup — fall through to null meta. Warn so RLS or
+      // transient DB errors don't silently degrade calendar metadata.
+      console.warn(
+        `[enrich-release-calendar] movies lookup failed for ${tmdbId}:`,
+        movieErr
+      );
+    }
 
     const meta: MovieMeta = {
       title: movieRow?.title ?? null,
