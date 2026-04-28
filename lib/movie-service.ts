@@ -135,7 +135,8 @@ export async function fetchUserMovies(
 export async function addMovieToLibrary(
   userId: string,
   movie: TMDBMovie,
-  status: MovieStatus = 'watchlist'
+  status: MovieStatus = 'watchlist',
+  options: { skipEnrich?: boolean } = {}
 ): Promise<UserMovie> {
   const now = new Date();
   const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -162,6 +163,17 @@ export async function addMovieToLibrary(
 
   if (error) {
     throw new Error(error.message || 'Failed to add movie');
+  }
+
+  // Fire-and-forget enrichment of release_calendar — improves calendar accuracy
+  // for niche/indie titles missed by the daily warming worker. Skipped during
+  // bulk imports (e.g., Letterboxd) where 1000 calls would pressure TMDB rate limits.
+  if (!options.skipEnrich) {
+    void supabase.functions
+      .invoke('enrich-release-calendar', { body: { tmdb_id: movie.id } })
+      .catch((err) => {
+        console.warn('[enrich-release-calendar] fire-and-forget failed', err);
+      });
   }
 
   return data;

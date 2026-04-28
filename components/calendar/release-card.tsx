@@ -82,11 +82,11 @@ export function ReleaseCard({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title */}
+        {/* Title — paddingRight reserves space for the absolutely-positioned watchlist button so long titles don't wrap underneath it */}
         <Text
           style={[
             Typography.body.smMedium,
-            { color: colors.text, fontSize: 15, fontWeight: '700' },
+            { color: colors.text, fontSize: 15, fontWeight: '700', paddingRight: 36 },
           ]}
           numberOfLines={2}
         >

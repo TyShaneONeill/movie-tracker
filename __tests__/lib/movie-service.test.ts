@@ -429,6 +429,29 @@ describe('addMovieToLibrary', () => {
 
     await expect(addMovieToLibrary(USER_ID, movie as any)).rejects.toThrow('Failed to add movie');
   });
+
+  it('fires the enrich-release-calendar edge function after a successful upsert (default skipEnrich=false)', async () => {
+    setupQueryChain({ data: upserted, error: null });
+    mockInvoke.mockResolvedValue({ data: { inserted: 1 }, error: null });
+
+    await addMovieToLibrary(USER_ID, movie as any);
+
+    expect(mockInvoke).toHaveBeenCalledWith('enrich-release-calendar', {
+      body: { tmdb_id: movie.id },
+    });
+  });
+
+  it('does NOT fire the enrich-release-calendar edge function when skipEnrich=true', async () => {
+    setupQueryChain({ data: upserted, error: null });
+    mockInvoke.mockResolvedValue({ data: { inserted: 1 }, error: null });
+
+    await addMovieToLibrary(USER_ID, movie as any, 'watchlist', { skipEnrich: true });
+
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      'enrich-release-calendar',
+      expect.anything()
+    );
+  });
 });
 
 describe('updateMovieStatus', () => {
