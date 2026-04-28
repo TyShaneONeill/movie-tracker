@@ -34,7 +34,7 @@ export async function getReleaseCalendar(
 
   const { data, error } = await supabase
     .from('release_calendar')
-    .select('tmdb_id, title, poster_path, backdrop_path, genre_ids, vote_average, release_type, release_date')
+    .select('tmdb_id, title, poster_path, backdrop_path, genre_ids, vote_average, release_type, release_date, trailer_youtube_key')
     .eq('region', region)
     .gte('release_date', startDate)
     .lte('release_date', endDate)
@@ -43,7 +43,12 @@ export async function getReleaseCalendar(
 
   if (error) throw new Error(error.message || 'Failed to fetch release calendar');
 
-  const rows = data ?? [];
+  // Cast to any[] because database.types.ts hasn't been regenerated since the
+  // trailer_youtube_key migration. Supabase's select() parser produces a
+  // SelectQueryError for unknown columns in the generated types, which makes
+  // `data` unreadable. The cast is safe — the column exists in the live DB.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows: any[] = data ?? [];
 
   const dayMap = new Map<string, CalendarRelease[]>();
   for (const r of rows) {
@@ -57,6 +62,7 @@ export async function getReleaseCalendar(
       genre_ids: r.genre_ids ?? [],
       vote_average: r.vote_average ?? 0,
       release_date: r.release_date,
+      trailer_youtube_key: (r as { trailer_youtube_key?: string | null }).trailer_youtube_key ?? null,
     };
     const existing = dayMap.get(r.release_date) || [];
     existing.push(release);

@@ -62,6 +62,7 @@ describe('ReleaseDayList — empty-state variants', () => {
       genre_ids: [28],
       vote_average: 7.5,
       release_date: '2026-04-15',
+      trailer_youtube_key: null,
     };
     const { queryByText } = render(
       <ReleaseDayList
