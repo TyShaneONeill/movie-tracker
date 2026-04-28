@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { selectBestTrailer, type TMDBVideosResponse } from '../_shared/select-best-trailer.ts';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const MAX_DISCOVER_PAGES = 5;
@@ -41,6 +42,7 @@ interface ReleaseCalendarRow {
   genre_ids: number[] | null;
   vote_average: number | null;
   fetched_at: string;
+  trailer_youtube_key: string | null;
 }
 
 interface ResponseBody {
@@ -104,13 +106,29 @@ Deno.serve(async (req: Request) => {
         const batch = allMovies.slice(i2, i2 + BATCH_SIZE);
         const results = await Promise.all(batch.map(async (movie) => {
           try {
-            const url = `${TMDB_BASE_URL}/movie/${movie.id}/release_dates?api_key=${TMDB_API_KEY}`;
-            const res = await fetch(url);
-            if (!res.ok) return null;
-            const data = await res.json();
-            const country = data.results.find((r: { iso_3166_1: string }) => r.iso_3166_1 === region);
+            const [releaseDatesRes, videosRes] = await Promise.all([
+              fetch(`${TMDB_BASE_URL}/movie/${movie.id}/release_dates?api_key=${TMDB_API_KEY}`),
+              fetch(`${TMDB_BASE_URL}/movie/${movie.id}/videos?api_key=${TMDB_API_KEY}`),
+            ]);
+
+            if (!releaseDatesRes.ok) return null;
+            const releaseDatesData = await releaseDatesRes.json();
+            const country = releaseDatesData.results.find((r: { iso_3166_1: string }) => r.iso_3166_1 === region);
             if (!country) return null;
-            return { movie, entries: country.release_dates as ReleaseDateEntry[] };
+
+            let trailerKey: string | null = null;
+            if (videosRes.ok) {
+              try {
+                const videosData = (await videosRes.json()) as TMDBVideosResponse;
+                trailerKey = selectBestTrailer(videosData);
+              } catch (e) {
+                console.warn(`[warm-release-calendar] videos parse failed for ${movie.id}:`, e);
+              }
+            } else {
+              console.warn(`[warm-release-calendar] videos fetch failed for ${movie.id}: ${videosRes.status}`);
+            }
+
+            return { movie, entries: country.release_dates as ReleaseDateEntry[], trailerKey };
           } catch (e) {
             console.error(`[warm-release-calendar] release_dates fetch failed for ${movie.id}:`, e);
             return null;
@@ -138,6 +156,7 @@ Deno.serve(async (req: Request) => {
               genre_ids: result.movie.genre_ids ?? null,
               vote_average: result.movie.vote_average ?? null,
               fetched_at: new Date().toISOString(),
+              trailer_youtube_key: result.trailerKey,
             });
           }
         }
