@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Platform, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { hapticImpact } from '@/lib/haptics';
@@ -11,7 +11,6 @@ import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { usePremium } from '@/hooks/use-premium';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
-import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
@@ -49,7 +48,6 @@ export default function SettingsScreen() {
   const { signOut, user } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
   const { isPremium, tier, subscription, restorePurchases, isLoading: isPremiumLoading } = usePremium();
-  const { permissionStatus, requestPermission, isAvailable: isPushAvailable } = usePushNotifications();
   const { openBugReport } = useBugReport();
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
@@ -223,16 +221,6 @@ export default function SettingsScreen() {
           ]
         );
       }
-    }
-  };
-
-  const handleNotificationsPress = async () => {
-    hapticImpact();
-    if (permissionStatus === 'undetermined') {
-      await requestPermission();
-    } else {
-      // granted or denied — open iOS Settings so user can toggle
-      await Linking.openSettings();
     }
   };
 
@@ -524,28 +512,21 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {isPushAvailable && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.settingsItem,
-                { backgroundColor: colors.card, borderBottomColor: colors.border },
-                pressed && { backgroundColor: colors.backgroundSecondary },
-              ]}
-              onPress={handleNotificationsPress}
-            >
-              <View>
-                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Notifications</Text>
-                <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>
-                  {permissionStatus === 'granted' ? 'Enabled — tap to manage in Settings' : 'Tap to enable push notifications'}
-                </Text>
-              </View>
-              {permissionStatus === 'granted' ? (
-                <Ionicons name="checkmark-circle" size={22} color={colors.tint} />
-              ) : (
-                <ChevronRightIcon color={colors.textSecondary} />
-              )}
-            </Pressable>
-          )}
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
+              pressed && { backgroundColor: colors.backgroundSecondary },
+            ]}
+            onPress={() => { hapticImpact(); router.push('/settings/notifications'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Notification settings"
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Notifications</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
 
           <View
             style={[
