@@ -96,9 +96,26 @@ Deno.serve(async (req: Request) => {
         );
         continue;
       }
-      const json = await resp.json() as { sent?: number; error?: string };
+      // 200 OK from send-push-notification can still carry `error` ("No tokens
+      // found") or `skipped` ("all_opted_out") — these are expected empty-send
+      // outcomes, not failures. Only non-OK status (handled above) counts as
+      // an error in our fan-out result.
+      const json = await resp.json() as {
+        sent?: number;
+        error?: string;
+        skipped?: string;
+      };
       sent += json.sent ?? 0;
-      if (json.error) errors++;
+      if (json.error || json.skipped) {
+        console.log(
+          `[send-release-reminders] group skipped: ${JSON.stringify({
+            tmdb_id: payload.data.tmdb_id,
+            category: payload.data.category,
+            error: json.error,
+            skipped: json.skipped,
+          })}`
+        );
+      }
     }
 
     const result: Result = {
