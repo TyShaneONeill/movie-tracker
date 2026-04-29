@@ -76,8 +76,10 @@ This is the **first consumer** of the push-notification infrastructure shipped i
         |    theatrical release_type rows for the same movie/region/date pick the
         |    single canonical theatrical push (not 3 pushes).
         |
-        | 5. For each surviving (user_id, tmdb_id, category) pick the best title
-        |    (release_calendar.title, fall back to movies.title via join if NULL).
+        | 5. Skip any rows where release_calendar.title IS NULL.
+        |    The warming pipeline reconciles null titles separately; we
+        |    don't ship pushes with placeholder copy. The next day's
+        |    cron will pick them up if they've been reconciled by then.
         |
         | 6. Build payload per group:
         |        title: '🎬 {title} — now in theaters'   (theatrical)
@@ -320,7 +322,9 @@ If TMDB updates a movie's `release_date` (e.g., delayed from 2026-05-01 to 2026-
 2. Apply two new migrations: RPC + cron. (Supabase MCP: `apply_migration`.)
 3. Deploy edge function: `supabase functions deploy send-release-reminders` (or via Supabase MCP `deploy_edge_function`).
 4. Confirm `pg_cron` job is scheduled: `SELECT * FROM cron.job WHERE jobname = 'send-release-reminders';`.
-5. PostHog instrumentation: capture `notifications:toggle_changed` (with `enabled` property) and `release_reminder:tapped` (deep-link receipt). Add to `lib/analytics.ts` if a similar pattern exists; otherwise inline. (TBD in plan stage.)
+5. PostHog instrumentation via the existing `analytics` export from `lib/analytics.ts`:
+   - `analytics.track('notifications:toggle_changed', { feature: 'release_reminders', enabled: true|false })` from the settings screen on toggle commit.
+   - `analytics.track('release_reminder:tapped', { tmdb_id, category })` from `handleNotificationResponse` in `lib/push-notification-service.ts` when the response's `data.feature === 'release_reminders'`. Wiring point: extend the existing handler to inspect `data.feature` before navigating; emit the event, then call `router.push(url)` as today.
 6. Wait for the next 14:00 UTC fire and inspect `push_notification_log` for delivery rate.
 
 ## 13. Observability
