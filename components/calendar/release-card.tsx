@@ -4,7 +4,7 @@
  * rating, and a watchlist toggle button.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,7 @@ import type { CalendarRelease } from '@/lib/tmdb.types';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
-import { openTrailer } from '@/lib/trailer-utils';
+import { TrailerModal } from '@/components/modals/trailer-modal';
 
 interface ReleaseCardProps {
   release: CalendarRelease;
@@ -32,6 +32,7 @@ export function ReleaseCard({
 }: ReleaseCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const [showTrailer, setShowTrailer] = useState(false);
 
   const posterUrl = getTMDBImageUrl(release.poster_path, 'w185');
 
@@ -47,146 +48,157 @@ export function ReleaseCard({
     : null;
 
   return (
-    <Pressable
-      onPress={() => onPress(release.tmdb_id)}
-      style={({ pressed }) => [
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-        },
-        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
-      ]}
-    >
-      {/* Poster */}
-      {posterUrl ? (
-        <Image
-          source={{ uri: posterUrl }}
-          style={[styles.poster, { backgroundColor: colors.backgroundSecondary }]}
-          contentFit="cover"
-          transition={200}
-        />
-      ) : (
-        <View
-          style={[
-            styles.poster,
-            {
-              backgroundColor: colors.backgroundSecondary,
-              justifyContent: 'center',
-              alignItems: 'center',
-            },
-          ]}
-        >
-          <Ionicons name="film-outline" size={24} color={colors.textTertiary} />
-        </View>
-      )}
-
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Title — paddingRight reserves space for the absolutely-positioned watchlist button so long titles don't wrap underneath it */}
-        <Text
-          style={[
-            Typography.body.smMedium,
-            { color: colors.text, fontSize: 15, fontWeight: '700', paddingRight: 36 },
-          ]}
-          numberOfLines={2}
-        >
-          {release.title}
-        </Text>
-
-        {/* Genre Pills */}
-        {genreLabels.length > 0 && (
-          <View style={styles.genreRow}>
-            {genreLabels.map((genre) => (
-              <View
-                key={genre}
-                style={[
-                  styles.genrePill,
-                  { backgroundColor: colors.backgroundSecondary },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.genreText,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {genre}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Rating */}
-        {ratingDisplay && (
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={12} color={colors.textSecondary} />
-            <Text
-              style={[
-                styles.ratingText,
-                { color: colors.textSecondary },
-              ]}
-            >
-              {ratingDisplay}
-            </Text>
-          </View>
-        )}
-
-        {/* Taste Match Indicator */}
-        {tasteLabel && !isOnWatchlist && (
-          <View style={styles.tasteRow}>
-            <Ionicons name="sparkles" size={12} color={colors.tint} />
-            <Text style={[styles.tasteText, { color: colors.tint }]}>
-              {tasteLabel}
-            </Text>
-          </View>
-        )}
-
-        {/* Watchlist Button */}
-        {onToggleWatchlist && (
-          <Pressable
-            onPress={() => onToggleWatchlist(release.tmdb_id)}
-            hitSlop={8}
+    <>
+      <Pressable
+        onPress={() => onPress(release.tmdb_id)}
+        style={({ pressed }) => [
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+          pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
+        ]}
+      >
+        {/* Poster */}
+        {posterUrl ? (
+          <Image
+            source={{ uri: posterUrl }}
+            style={[styles.poster, { backgroundColor: colors.backgroundSecondary }]}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <View
             style={[
-              styles.watchlistButton,
-              isOnWatchlist
-                ? { backgroundColor: colors.tint }
-                : {
-                    backgroundColor: 'transparent',
-                    borderWidth: 1.5,
-                    borderColor: colors.textSecondary,
-                  },
+              styles.poster,
+              {
+                backgroundColor: colors.backgroundSecondary,
+                justifyContent: 'center',
+                alignItems: 'center',
+              },
             ]}
           >
-            <Ionicons
-              name={isOnWatchlist ? 'checkmark' : 'add'}
-              size={16}
-              color={isOnWatchlist ? '#fff' : colors.textSecondary}
-            />
-          </Pressable>
+            <Ionicons name="film-outline" size={24} color={colors.textTertiary} />
+          </View>
         )}
 
-        {/* Play Trailer Button — bottom-right, separate tap target from card press */}
-        {release.trailer_youtube_key && (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation?.();
-              openTrailer(release.trailer_youtube_key!);
-            }}
-            hitSlop={8}
-            style={styles.trailerButton}
-            accessibilityRole="button"
-            accessibilityLabel="Play trailer"
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Title — paddingRight reserves space for the absolutely-positioned watchlist button so long titles don't wrap underneath it */}
+          <Text
+            style={[
+              Typography.body.smMedium,
+              { color: colors.text, fontSize: 15, fontWeight: '700', paddingRight: 36 },
+            ]}
+            numberOfLines={2}
           >
-            <Text style={[styles.trailerText, { color: colors.tint }]}>
-              Play Trailer
-            </Text>
-            <Ionicons name="play-circle" size={16} color={colors.tint} />
-          </Pressable>
-        )}
-      </View>
-    </Pressable>
+            {release.title}
+          </Text>
+
+          {/* Genre Pills */}
+          {genreLabels.length > 0 && (
+            <View style={styles.genreRow}>
+              {genreLabels.map((genre) => (
+                <View
+                  key={genre}
+                  style={[
+                    styles.genrePill,
+                    { backgroundColor: colors.backgroundSecondary },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.genreText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {genre}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Rating */}
+          {ratingDisplay && (
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={12} color={colors.textSecondary} />
+              <Text
+                style={[
+                  styles.ratingText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {ratingDisplay}
+              </Text>
+            </View>
+          )}
+
+          {/* Taste Match Indicator */}
+          {tasteLabel && !isOnWatchlist && (
+            <View style={styles.tasteRow}>
+              <Ionicons name="sparkles" size={12} color={colors.tint} />
+              <Text style={[styles.tasteText, { color: colors.tint }]}>
+                {tasteLabel}
+              </Text>
+            </View>
+          )}
+
+          {/* Watchlist Button */}
+          {onToggleWatchlist && (
+            <Pressable
+              onPress={() => onToggleWatchlist(release.tmdb_id)}
+              hitSlop={8}
+              style={[
+                styles.watchlistButton,
+                isOnWatchlist
+                  ? { backgroundColor: colors.tint }
+                  : {
+                      backgroundColor: 'transparent',
+                      borderWidth: 1.5,
+                      borderColor: colors.textSecondary,
+                    },
+              ]}
+            >
+              <Ionicons
+                name={isOnWatchlist ? 'checkmark' : 'add'}
+                size={16}
+                color={isOnWatchlist ? '#fff' : colors.textSecondary}
+              />
+            </Pressable>
+          )}
+
+          {/* Play Trailer Button — bottom-right, separate tap target from card press. Opens in-app modal (matches movie detail page pattern) instead of external YouTube. */}
+          {release.trailer_youtube_key && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                setShowTrailer(true);
+              }}
+              hitSlop={8}
+              style={styles.trailerButton}
+              accessibilityRole="button"
+              accessibilityLabel="Play trailer"
+            >
+              <Text style={[styles.trailerText, { color: colors.tint }]}>
+                Play Trailer
+              </Text>
+              <Ionicons name="play-circle" size={16} color={colors.tint} />
+            </Pressable>
+          )}
+        </View>
+      </Pressable>
+
+      {/* In-app YouTube trailer modal — same pattern as movie detail page */}
+      {release.trailer_youtube_key && (
+        <TrailerModal
+          visible={showTrailer}
+          onClose={() => setShowTrailer(false)}
+          videoKey={release.trailer_youtube_key}
+        />
+      )}
+    </>
   );
 }
 

@@ -16,6 +16,12 @@ jest.mock('expo-image', () => {
   return { Image: View };
 });
 
+// TrailerModal is rendered by ReleaseCard but not exercised in these tests;
+// stub it out to avoid pulling react-native-youtube-iframe + its WebView deps.
+jest.mock('@/components/modals/trailer-modal', () => ({
+  TrailerModal: () => null,
+}));
+
 const baseProps = {
   date: '2026-04-15',
   releases: [],
