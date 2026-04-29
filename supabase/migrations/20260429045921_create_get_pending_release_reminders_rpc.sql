@@ -13,7 +13,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
   SELECT
     eligible.user_id,
@@ -29,8 +29,8 @@ AS $$
         ELSE 'streaming'
       END AS category,
       rc.title
-    FROM release_calendar rc
-    JOIN user_movies um
+    FROM public.release_calendar rc
+    JOIN public.user_movies um
       ON um.tmdb_id = rc.tmdb_id
       AND um.status = 'watchlist'
     WHERE rc.region = 'US'
@@ -40,7 +40,7 @@ AS $$
   ) AS eligible
   WHERE NOT EXISTS (
     SELECT 1
-    FROM push_notification_log pnl
+    FROM public.push_notification_log pnl
     WHERE pnl.feature = 'release_reminders'
       AND pnl.user_id = eligible.user_id
       AND pnl.data->>'tmdb_id' = eligible.tmdb_id::text
