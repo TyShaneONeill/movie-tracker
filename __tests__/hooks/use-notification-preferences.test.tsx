@@ -9,10 +9,15 @@ jest.mock('@/lib/notification-preferences-service');
 const getMock = service.getNotificationPreference as jest.Mock;
 const setMock = service.setNotificationPreference as jest.Mock;
 
+// Memoize the QueryClient via useState so re-renders inside tests don't
+// reset the cache mid-flight (a well-known React Query test footgun).
 function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  const [client] = React.useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })
+  );
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
