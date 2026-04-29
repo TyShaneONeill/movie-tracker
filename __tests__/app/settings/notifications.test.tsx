@@ -63,7 +63,7 @@ describe('NotificationsSettingsScreen', () => {
     });
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
     const toggle = await findByLabelText('Release reminders');
-    fireEvent(toggle, 'valueChange', true);
+    fireEvent.press(toggle);
     await waitFor(() => expect(requestPermission).toHaveBeenCalled());
     await waitFor(() =>
       expect(setPrefMock).toHaveBeenCalledWith('release_reminders', true)
@@ -83,7 +83,7 @@ describe('NotificationsSettingsScreen', () => {
     });
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
     const toggle = await findByLabelText('Release reminders');
-    fireEvent(toggle, 'valueChange', true);
+    fireEvent.press(toggle);
     await waitFor(() => expect(requestPermission).toHaveBeenCalled());
     expect(setPrefMock).not.toHaveBeenCalled();
     expect(Toast.show).toHaveBeenCalledWith(
@@ -101,7 +101,7 @@ describe('NotificationsSettingsScreen', () => {
     });
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
     const toggle = await findByLabelText('Release reminders');
-    fireEvent(toggle, 'valueChange', false);
+    fireEvent.press(toggle);
     await waitFor(() =>
       expect(setPrefMock).toHaveBeenCalledWith('release_reminders', false)
     );
@@ -121,7 +121,7 @@ describe('NotificationsSettingsScreen', () => {
     });
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
     const toggle = await findByLabelText('Release reminders');
-    fireEvent(toggle, 'valueChange', true);
+    fireEvent.press(toggle);
     await waitFor(() =>
       expect(setPrefMock).toHaveBeenCalledWith('release_reminders', true)
     );
