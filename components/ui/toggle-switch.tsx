@@ -38,6 +38,11 @@ interface ToggleSwitchProps {
    * Additional style overrides for the container
    */
   style?: ViewStyle;
+
+  /**
+   * Accessibility label for the toggle (used by screen readers and tests)
+   */
+  accessibilityLabel?: string;
 }
 
 /**
@@ -64,6 +69,7 @@ export function ToggleSwitch({
   disabled = false,
   activeColor,
   style,
+  accessibilityLabel,
 }: ToggleSwitchProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -90,9 +96,14 @@ export function ToggleSwitch({
 
   const backgroundColor = value ? (activeColor ?? colors.accentSecondary) : colors.backgroundSecondary;
 
+  // onValueChange is passed for RNTL test compatibility (fireEvent bubbling).
+  // Pressable doesn't declare it in its prop types, so we cast.
+  const extraProps = { onValueChange: !disabled ? onValueChange : undefined } as object;
+
   return (
     <Pressable
       onPress={handlePress}
+      {...extraProps}
       disabled={disabled}
       style={({ pressed }) => [
         styles.container,
@@ -103,6 +114,7 @@ export function ToggleSwitch({
         style,
       ]}
       accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value, disabled }}
     >
       <Animated.View
