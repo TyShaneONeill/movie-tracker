@@ -36,12 +36,12 @@ describe('useReleaseCalendar — prefetch behavior', () => {
 
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 3, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 3, 'US'],
       })
     );
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 5, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 5, 'US'],
       })
     );
   });
@@ -55,12 +55,12 @@ describe('useReleaseCalendar — prefetch behavior', () => {
 
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2025, 12, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2025, 12, 'US'],
       })
     );
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 2, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 2, 'US'],
       })
     );
   });
@@ -74,12 +74,12 @@ describe('useReleaseCalendar — prefetch behavior', () => {
 
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 11, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 11, 'US'],
       })
     );
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2027, 1, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2027, 1, 'US'],
       })
     );
   });
@@ -101,12 +101,12 @@ describe('useReleaseCalendar — prefetch behavior', () => {
 
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 4, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 4, 'US'],
       })
     );
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 6, 'US'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 6, 'US'],
       })
     );
   });
@@ -132,12 +132,12 @@ describe('useReleaseCalendar — prefetch behavior', () => {
 
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 3, 'GB'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 3, 'GB'],
       })
     );
     expect(prefetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['release-calendar', 2026, 5, 'GB'],
+        queryKey: ['release-calendar', 'v2-trailer', 2026, 5, 'GB'],
       })
     );
   });
