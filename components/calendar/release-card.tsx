@@ -13,6 +13,7 @@ import type { CalendarRelease } from '@/lib/tmdb.types';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { openTrailer } from '@/lib/trailer-utils';
 
 interface ReleaseCardProps {
   release: CalendarRelease;
@@ -165,6 +166,25 @@ export function ReleaseCard({
             />
           </Pressable>
         )}
+
+        {/* Play Trailer Button — bottom-right, separate tap target from card press */}
+        {release.trailer_youtube_key && (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              openTrailer(release.trailer_youtube_key!);
+            }}
+            hitSlop={8}
+            style={styles.trailerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Play trailer"
+          >
+            <Text style={[styles.trailerText, { color: colors.tint }]}>
+              Play Trailer
+            </Text>
+            <Ionicons name="play-circle" size={16} color={colors.tint} />
+          </Pressable>
+        )}
       </View>
     </Pressable>
   );
@@ -230,6 +250,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  trailerButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trailerText: {
+    ...Typography.body.smMedium,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 
