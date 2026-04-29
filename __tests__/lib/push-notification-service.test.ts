@@ -27,6 +27,12 @@ jest.mock('expo-router', () => ({
   },
 }));
 
+jest.mock('@/lib/analytics', () => ({
+  analytics: {
+    track: jest.fn(),
+  },
+}));
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
@@ -338,5 +344,31 @@ describe('handleNotificationResponse', () => {
     // After timers run, it should be called
     jest.runAllTimers();
     expect(mockRouterPush).toHaveBeenCalledWith('/achievements');
+  });
+
+  it('emits release_reminder:tapped when feature is release_reminders', () => {
+    const { analytics } = require('@/lib/analytics');
+    const trackSpy = analytics.track as jest.Mock;
+    trackSpy.mockClear();
+
+    const response: any = {
+      notification: {
+        request: {
+          content: {
+            data: {
+              url: '/movie/12345',
+              tmdb_id: 12345,
+              category: 'theatrical',
+              feature: 'release_reminders',
+            },
+          },
+        },
+      },
+    };
+    handleNotificationResponse(response);
+    expect(trackSpy).toHaveBeenCalledWith('release_reminder:tapped', {
+      tmdb_id: 12345,
+      category: 'theatrical',
+    });
   });
 });
