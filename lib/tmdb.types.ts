@@ -403,6 +403,7 @@ export interface CalendarRelease {
   genre_ids: number[];
   vote_average: number;
   release_date: string; // YYYY-MM-DD
+  trailer_youtube_key: string | null;
 }
 
 export interface CalendarDay {

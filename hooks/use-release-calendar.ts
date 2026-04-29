@@ -50,21 +50,26 @@ export function useReleaseCalendar({
     const next = nextMonth(year, month);
 
     queryClient.prefetchQuery({
-      queryKey: ['release-calendar', prev.year, prev.month, region],
+      queryKey: ['release-calendar', 'v2-trailer', prev.year, prev.month, region],
       queryFn: () => getReleaseCalendar(prev.month, prev.year, region),
       staleTime: RC_STALE_TIME,
       gcTime: RC_GC_TIME,
     });
     queryClient.prefetchQuery({
-      queryKey: ['release-calendar', next.year, next.month, region],
+      queryKey: ['release-calendar', 'v2-trailer', next.year, next.month, region],
       queryFn: () => getReleaseCalendar(next.month, next.year, region),
       staleTime: RC_STALE_TIME,
       gcTime: RC_GC_TIME,
     });
   }, [year, month, region, enabled, queryClient]);
 
+  // Cache key includes a 'v2-trailer' version segment to invalidate any
+  // AsyncStorage-persisted caches from before the trailer_youtube_key
+  // column was added. Old caches lacked the field; without this bump,
+  // React Query would consider the persisted data fresh within staleTime
+  // and not refetch the new shape. One-time pain at upgrade.
   return useQuery<ReleaseCalendarResponse, Error>({
-    queryKey: ['release-calendar', year, month, region],
+    queryKey: ['release-calendar', 'v2-trailer', year, month, region],
     queryFn: () => getReleaseCalendar(month, year, region),
     enabled,
     staleTime: RC_STALE_TIME,
