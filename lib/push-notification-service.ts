@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from './supabase';
+import { analytics } from './analytics';
 
 // ============================================================================
 // Types
@@ -258,6 +259,13 @@ export function getNotificationUrl(
 export function handleNotificationResponse(
   response: Notifications.NotificationResponse
 ): void {
+  const data = response.notification.request.content.data;
+  if (data && data.feature === 'release_reminders') {
+    analytics.track('release_reminder:tapped', {
+      tmdb_id: typeof data.tmdb_id === 'number' ? data.tmdb_id : null,
+      category: typeof data.category === 'string' ? data.category : null,
+    });
+  }
   const url = getNotificationUrl(response.notification);
   if (url) {
     setTimeout(() => {

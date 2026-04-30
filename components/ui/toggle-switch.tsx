@@ -38,6 +38,11 @@ interface ToggleSwitchProps {
    * Additional style overrides for the container
    */
   style?: ViewStyle;
+
+  /**
+   * Accessibility label for screen readers and tests
+   */
+  accessibilityLabel?: string;
 }
 
 /**
@@ -64,6 +69,7 @@ export function ToggleSwitch({
   disabled = false,
   activeColor,
   style,
+  accessibilityLabel,
 }: ToggleSwitchProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -103,6 +109,7 @@ export function ToggleSwitch({
         style,
       ]}
       accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value, disabled }}
     >
       <Animated.View
