@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { requireServiceRole } from "../_shared/cron-auth.ts";
 import { groupRemindersByMovie, type PendingReminder } from "./build-reminder-payload.ts";
 
 interface Result {
@@ -11,36 +12,8 @@ interface Result {
 }
 
 Deno.serve(async (req: Request) => {
-  // Supabase verify_jwt=true has already validated the JWT signature.
-  // We additionally require role=service_role so non-cron callers (anon/authenticated)
-  // cannot trigger the fanout.
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    return new Response(
-      JSON.stringify({ error: "Invalid token" }),
-      { status: 401, headers: { "Content-Type": "application/json" } }
-    );
-  }
-  let payload: { role?: string };
-  try {
-    // base64url decode the JWT payload
-    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const decoded = atob(padded + "==".slice(0, (4 - padded.length % 4) % 4));
-    payload = JSON.parse(decoded);
-  } catch {
-    return new Response(
-      JSON.stringify({ error: "Invalid token" }),
-      { status: 401, headers: { "Content-Type": "application/json" } }
-    );
-  }
-  if (payload.role !== "service_role") {
-    return new Response(
-      JSON.stringify({ error: "Forbidden" }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
-    );
-  }
+  const authError = requireServiceRole(req);
+  if (authError) return authError;
 
   // serviceRoleKey is still needed to authenticate internal calls to send-push-notification
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
