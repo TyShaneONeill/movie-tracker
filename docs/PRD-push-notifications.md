@@ -675,16 +675,19 @@ async function signOut() {
 
 A generic push notification sender. It is **not** called directly by clients -- it is invoked by other edge functions (cron jobs, webhooks) or by database triggers via `pg_net`. Follows the existing edge function boilerplate pattern from `supabase/functions/check-achievements/index.ts` and others.
 
+> **⚠️ Auth pattern note (April 2026):** The original draft of this PRD specified `verify_jwt = false` + manual `authHeader.includes(serviceRoleKey)`. **DO NOT use that pattern.** It silently 401s on the `pg_net` path because the Bearer token's bytes don't byte-match the env var (vault/env divergence). Caused `check-push-receipts` to fail every 15 minutes in production for an unknown duration. Fixed by PR #412 + the shared helper. New cron-fired functions MUST use `verify_jwt = true` in `config.toml` AND import `requireServiceRole` from `supabase/functions/_shared/cron-auth.ts`. The helper file's docstring documents the WHY in detail.
+
 ```typescript
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { requireServiceRole } from "../_shared/cron-auth.ts";
 
 interface PushRequest {
   user_ids: string[];           // Users to notify
   title: string;
   body: string;
   data?: Record<string, any>;  // Must include `url` for deep linking
-  feature: string;              // 'release_reminder' | 'social' | 'digest' | etc.
+  feature: string;              // 'release_reminders' | 'social' | 'digest' | etc.
   channel_id?: string;          // Android channel (default: 'default')
 }
 
@@ -696,15 +699,9 @@ interface ExpoTicket {
 }
 
 Deno.serve(async (req: Request) => {
-  // Only accept internal calls (service_role key in Authorization header)
-  const authHeader = req.headers.get('authorization') || '';
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  if (!authHeader.includes(serviceRoleKey)) {
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+  // Reject anything that isn't a service_role caller. See _shared/cron-auth.ts.
+  const authError = requireServiceRole(req);
+  if (authError) return authError;
 
   try {
     const EXPO_ACCESS_TOKEN = Deno.env.get('EXPO_ACCESS_TOKEN');
@@ -859,7 +856,7 @@ Deno.serve(async (req: Request) => {
 });
 ```
 
-**Note on `verify_jwt`**: This function should use `verify_jwt = false` because it is invoked internally by other edge functions or `pg_net`, not by client apps. Authentication is handled via the service_role key check in the function body.
+**Note on `verify_jwt`**: This function MUST use `verify_jwt = true`. Supabase validates the JWT signature at the gateway, and `requireServiceRole` then enforces `role === 'service_role'` to ensure only internal callers (other edge functions, `pg_net` cron jobs) can trigger it. The earlier-recommended `verify_jwt = false` + `authHeader.includes(serviceRoleKey)` pattern is broken on the `pg_net` path and must not be used — see the helper's docstring at `supabase/functions/_shared/cron-auth.ts` for the full failure mode.
 
 ### 5.2 Cron Job Pattern (for consumers)
 
