@@ -12,15 +12,38 @@ interface ExpoReceiptsResponse {
 }
 
 Deno.serve(async (req: Request) => {
-  // Only accept internal calls (service_role key in Authorization header)
+  // Supabase verify_jwt=true has already validated the JWT signature at the gateway.
+  // We additionally require role=service_role so non-cron callers (anon/authenticated)
+  // cannot trigger this internal function. Same pattern as send-release-reminders.
   const authHeader = req.headers.get('authorization') || '';
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  if (!authHeader.includes(serviceRoleKey)) {
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  const parts = token.split('.');
+  if (parts.length !== 3) {
     return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
+      JSON.stringify({ error: 'Invalid token' }),
       { status: 401, headers: { 'Content-Type': 'application/json' } }
     );
   }
+  let payload: { role?: string };
+  try {
+    const padded = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(padded + '=='.slice(0, (4 - padded.length % 4) % 4));
+    payload = JSON.parse(decoded);
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'Invalid token' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+  if (payload.role !== 'service_role') {
+    return new Response(
+      JSON.stringify({ error: 'Forbidden' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // serviceRoleKey is still needed below for the supabase admin client
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
   try {
     const EXPO_ACCESS_TOKEN = Deno.env.get('EXPO_ACCESS_TOKEN');
