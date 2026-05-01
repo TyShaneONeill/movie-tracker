@@ -4,11 +4,10 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Toast from 'react-native-toast-message';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -19,6 +18,7 @@ import { useNotificationPreference } from '@/hooks/use-notification-preferences'
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { hapticImpact } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
+import type { NotificationFeature } from '@/lib/notification-preferences-service';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -28,48 +28,78 @@ function ChevronLeftIcon({ color }: { color: string }) {
   );
 }
 
-export default function NotificationsSettingsScreen() {
-  const { effectiveTheme } = useTheme();
-  const colors = Colors[effectiveTheme];
-  const { enabled, isLoading, setEnabled, isUpdating } =
-    useNotificationPreference('release_reminders');
-  const { permissionStatus, requestPermission, isAvailable } = usePushNotifications();
+function FeatureToggleRow({
+  feature,
+  title,
+  description,
+  colors,
+}: {
+  feature: NotificationFeature;
+  title: string;
+  description: string;
+  colors: typeof Colors['dark'];
+}) {
+  const { enabled, setEnabled, isUpdating } = useNotificationPreference(feature);
 
-  const handleToggle = async (next: boolean) => {
+  const handleToggle = (next: boolean) => {
     hapticImpact();
-    if (next && permissionStatus !== 'granted') {
-      const granted = await requestPermission();
-      if (!granted) {
-        Toast.show({
-          type: 'info',
-          text1: 'Permission required',
-          text2: 'Enable notifications in your device Settings to get release reminders.',
-          visibilityTime: 4000,
-        });
-        return;
-      }
-    }
     setEnabled(next);
     analytics.track('notifications:toggle_changed', {
-      feature: 'release_reminders',
+      feature,
       enabled: next,
     });
   };
 
-  if (isLoading) {
-    return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top']}
-      >
-        <ActivityIndicator
-          size="small"
-          color={colors.tint}
-          style={{ marginTop: Spacing.lg }}
-        />
-      </SafeAreaView>
-    );
-  }
+  return (
+    <View
+      style={[
+        styles.row,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <View style={styles.rowText}>
+        <Text
+          style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}
+        >
+          {title}
+        </Text>
+        <Text
+          style={[Typography.body.sm, { color: colors.textSecondary, marginTop: 2 }]}
+        >
+          {description}
+        </Text>
+      </View>
+      <ToggleSwitch
+        value={enabled}
+        onValueChange={handleToggle}
+        disabled={isUpdating}
+        accessibilityLabel={title}
+      />
+    </View>
+  );
+}
+
+export default function NotificationsSettingsScreen() {
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+  const { permissionStatus, requestPermission, isAvailable } = usePushNotifications();
+
+  const handleMasterToggle = async (next: boolean) => {
+    hapticImpact();
+    if (permissionStatus === 'undetermined') {
+      // Tap from undetermined: ask iOS for permission. The hook will refresh
+      // permissionStatus automatically; the toggle value re-derives.
+      await requestPermission();
+      return;
+    }
+    // Tap from granted or denied: we can't change iOS perm from the app, only
+    // direct the user to iOS Settings.
+    Linking.openURL('app-settings:').catch(() => {
+      // Best-effort; iOS may decline if the URL can't be opened.
+    });
+  };
+
+  const masterValue = permissionStatus === 'granted';
 
   return (
     <SafeAreaView
@@ -96,33 +126,72 @@ export default function NotificationsSettingsScreen() {
         >
           <View style={styles.rowText}>
             <Text
-              style={[
-                Typography.body.base,
-                { color: colors.text, fontWeight: '600' },
-              ]}
+              style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}
             >
-              Release reminders
+              Push Notifications
             </Text>
             <Text
-              style={[
-                Typography.body.sm,
-                { color: colors.textSecondary, marginTop: 2 },
-              ]}
+              style={[Typography.body.sm, { color: colors.textSecondary, marginTop: 2 }]}
             >
-              Notify me when a watchlisted movie hits theaters or streaming.
+              Pushes are required to receive any notifications below.
             </Text>
           </View>
           <ToggleSwitch
-            value={enabled}
-            onValueChange={handleToggle}
-            disabled={isUpdating || !isAvailable}
-            accessibilityLabel="Release reminders"
+            value={masterValue}
+            onValueChange={handleMasterToggle}
+            disabled={!isAvailable}
+            accessibilityLabel="Push Notifications"
           />
         </View>
+
+        {permissionStatus === 'granted' && (
+          <View style={styles.featuresSection}>
+            <Text
+              style={[Typography.body.xs, styles.sectionLabel, { color: colors.textTertiary }]}
+            >
+              CUSTOMIZE
+            </Text>
+            <FeatureToggleRow
+              feature="release_reminders"
+              title="Release reminders"
+              description="Get notified when watchlisted movies release."
+              colors={colors}
+            />
+            <FeatureToggleRow
+              feature="tv_episode_reminders"
+              title="TV episode reminders"
+              description="Get notified when new episodes drop on shows you're watching."
+              colors={colors}
+            />
+          </View>
+        )}
+
+        {permissionStatus === 'denied' && (
+          <View style={styles.deniedSection}>
+            <Text
+              style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}
+            >
+              Notifications are off in iOS Settings.
+            </Text>
+            <Pressable
+              onPress={() => {
+                hapticImpact();
+                Linking.openURL('app-settings:').catch(() => {});
+              }}
+              hitSlop={10}
+              style={styles.openSettingsLink}
+            >
+              <Text
+                style={[Typography.body.base, { color: colors.tint, fontWeight: '600' }]}
+              >
+                Open Settings →
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
         {!isAvailable && (
-          <Text
-            style={[styles.helpText, { color: colors.textTertiary }]}
-          >
+          <Text style={[styles.helpText, { color: colors.textTertiary }]}>
             Notifications are not available on this platform.
           </Text>
         )}
@@ -152,6 +221,24 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   rowText: { flex: 1 },
+  featuresSection: {
+    marginTop: Spacing.lg,
+  },
+  sectionLabel: {
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  deniedSection: {
+    marginTop: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  openSettingsLink: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
   helpText: {
     fontSize: 12,
     marginTop: Spacing.sm,
