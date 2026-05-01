@@ -153,6 +153,7 @@ function useProtectedRoute() {
       // Authenticated but hasn't completed onboarding → go to onboarding
       performNavigation('/(onboarding)');
     } else if (user && hasCompletedOnboarding && inOnboardingGroup) {
+      // Defense-in-depth: (onboarding)/_layout.tsx also carries a synchronous Redirect guard.
       // Authenticated and completed onboarding but still on onboarding → go to tabs
       performNavigation('/(tabs)');
     }

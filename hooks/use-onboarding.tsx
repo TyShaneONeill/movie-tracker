@@ -6,7 +6,7 @@ import { captureException } from '@/lib/sentry';
 interface OnboardingContextType {
   hasCompletedOnboarding: boolean | null;
   isLoading: boolean;
-  completeOnboarding: () => Promise<void>;
+  completeOnboarding: () => Promise<boolean>;
   resetOnboarding: () => Promise<void>;
 }
 
@@ -55,8 +55,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     checkOnboardingStatus();
   }, [user?.id, authLoading]);
 
-  const completeOnboarding = useCallback(async () => {
-    if (!user?.id) return;
+  const completeOnboarding = useCallback(async (): Promise<boolean> => {
+    if (!user?.id) return false;
 
     try {
       // Use type assertion to work around Supabase client generic inference issue
@@ -67,12 +67,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         captureException(error instanceof Error ? error : new Error(String(error)), { context: 'complete-onboarding-update' });
-        return;
+        return false;
       }
 
       setHasCompletedOnboarding(true);
+      return true;
     } catch (error) {
       captureException(error instanceof Error ? error : new Error(String(error)), { context: 'complete-onboarding' });
+      return false;
     }
   }, [user?.id]);
 

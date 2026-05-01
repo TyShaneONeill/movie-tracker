@@ -26,6 +26,7 @@ import { useOnboarding } from '@/hooks/use-onboarding';
 import { supabase } from '@/lib/supabase';
 import { uploadAvatar, updateProfileAvatarUrl } from '@/lib/avatar-service';
 import { captureException } from '@/lib/sentry';
+import { analytics } from '@/lib/analytics';
 import { useUsernameValidation } from '@/hooks/use-username-validation';
 import { ContentContainer } from '@/components/content-container';
 
@@ -119,12 +120,21 @@ export default function ProfileSetupScreen() {
         await queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       }
 
+      const onboardingPersisted = await completeOnboarding();
+
+      if (onboardingPersisted) {
+        analytics.track('onboarding:complete', {
+          has_avatar: !!avatarUrl,
+          has_username: !!username.trim(),
+        });
+        analytics.setPersonProperties({ onboarding_completed: true });
+      }
+
       Toast.show({
         type: 'success',
         text1: 'Profile saved',
         visibilityTime: 2000,
       });
-      await completeOnboarding();
       router.replace('/(tabs)');
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), { context: 'profile-setup-complete' });
