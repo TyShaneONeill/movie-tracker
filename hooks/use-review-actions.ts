@@ -9,6 +9,7 @@ import {
   type CreateReviewData,
 } from '@/lib/review-service';
 import type { Review, ReviewVisibility } from '@/lib/database.types';
+import { analytics } from '@/lib/analytics';
 
 interface UseReviewActionsResult {
   // State
@@ -45,7 +46,14 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
       if (!user) throw new Error('Not authenticated');
       return createReview(user.id, { ...data, mediaType: mediaType as 'movie' | 'tv_show' });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      analytics.track('review:create', {
+        media_type: mediaType,
+        has_text: !!variables.reviewText,
+        rating: variables.rating,
+        is_rewatch: !!variables.isRewatch,
+        visibility: variables.visibility ?? 'public',
+      });
       queryClient.invalidateQueries({ queryKey: ['review', user?.id, tmdbId, mediaType] });
       queryClient.invalidateQueries({ queryKey: ['movieReviews', tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['friendsRatings', tmdbId] });

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -21,6 +21,16 @@ jest.mock('@/hooks/use-auth', () => ({
 
 jest.mock('@/lib/achievement-context', () => ({
   useAchievementCheck: () => ({ triggerAchievementCheck: jest.fn() }),
+}));
+
+const mockTrack = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  analytics: {
+    track: (...args: unknown[]) => mockTrack(...args),
+    identify: jest.fn(),
+    reset: jest.fn(),
+    setPersonProperties: jest.fn(),
+  },
 }));
 
 import { useReviewActions } from '@/hooks/use-review-actions';
@@ -91,5 +101,45 @@ describe('useReviewActions', () => {
     expect(typeof result.current.createReview).toBe('function');
     expect(typeof result.current.updateReview).toBe('function');
     expect(typeof result.current.deleteReview).toBe('function');
+  });
+
+  it('fires analytics review:create event after createReview success', async () => {
+    mockCreateReview.mockResolvedValue({
+      id: 'rev-2',
+      user_id: 'user-1',
+      tmdb_id: 550,
+      rating: 8,
+      review_text: 'Solid',
+      is_rewatch: false,
+      visibility: 'public',
+      media_type: 'movie',
+    });
+
+    const { result } = renderHook(() => useReviewActions(550, 'movie'), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoadingReview).toBe(false));
+
+    await act(async () => {
+      await result.current.createReview({
+        tmdbId: 550,
+        rating: 8,
+        reviewText: 'Solid',
+        isRewatch: false,
+        visibility: 'public',
+      } as Parameters<typeof result.current.createReview>[0]);
+    });
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      'review:create',
+      expect.objectContaining({
+        media_type: 'movie',
+        has_text: true,
+        rating: 8,
+        is_rewatch: false,
+        visibility: 'public',
+      }),
+    );
   });
 });
