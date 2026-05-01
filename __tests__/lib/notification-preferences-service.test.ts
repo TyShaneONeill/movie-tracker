@@ -36,9 +36,9 @@ beforeEach(() => {
 });
 
 describe('getNotificationPreference', () => {
-  it('returns true when no row exists (default)', async () => {
+  it('returns null when no row exists (no preference set)', async () => {
     mockSelectChain({ data: null, error: null });
-    expect(await getNotificationPreference('release_reminders')).toBe(true);
+    expect(await getNotificationPreference('release_reminders')).toBe(null);
   });
 
   it('returns true when the row says enabled=true', async () => {
@@ -51,9 +51,9 @@ describe('getNotificationPreference', () => {
     expect(await getNotificationPreference('release_reminders')).toBe(false);
   });
 
-  it('returns true when user is unauthenticated (graceful)', async () => {
+  it('returns null when user is unauthenticated (graceful)', async () => {
     getUserMock.mockResolvedValueOnce({ data: { user: null }, error: null });
-    expect(await getNotificationPreference('release_reminders')).toBe(true);
+    expect(await getNotificationPreference('release_reminders')).toBe(null);
   });
 });
 
