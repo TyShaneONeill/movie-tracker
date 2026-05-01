@@ -18,6 +18,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { useWideLayout, MAX_CONTENT_WIDTH } from '@/hooks/use-wide-layout';
 
 
 interface OnboardingSlide {
@@ -76,17 +77,23 @@ export default function OnboardingScreen() {
   const { effectiveTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const { isWide } = useWideLayout();
   const colors = Colors[effectiveTheme];
+
+  // On wide layouts (web/tablet), constrain slide width to the shared content max so
+  // the FlatList carousel matches the rest of the app's centered 720px column.
+  // Without this, slides render at full window width and content sits off to the side.
+  const slideWidth = isWide ? Math.min(screenWidth, MAX_CONTENT_WIDTH) : screenWidth;
 
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Required for scrollToIndex to work properly on web
   const getItemLayout = useCallback((_: unknown, index: number) => ({
-    length: screenWidth,
-    offset: screenWidth * index,
+    length: slideWidth,
+    offset: slideWidth * index,
     index,
-  }), [screenWidth]);
+  }), [slideWidth]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -115,7 +122,7 @@ export default function OnboardingScreen() {
   const isLastSlide = currentIndex === SLIDES.length - 1;
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
-    <View style={[styles.slide, { width: screenWidth }]}>
+    <View style={[styles.slide, { width: slideWidth }]}>
       <LinearGradient
         colors={item.gradient}
         start={{ x: 0, y: 0 }}
@@ -137,20 +144,23 @@ export default function OnboardingScreen() {
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Slides */}
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        renderItem={renderSlide}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        getItemLayout={getItemLayout}
-        bounces={false}
-      />
+      {/* Slides — constrained to MAX_CONTENT_WIDTH on web/tablet so the carousel
+          centers within the shared content column instead of sprawling full-window. */}
+      <View style={[styles.flatListContainer, isWide && styles.flatListContainerWide]}>
+        <FlatList
+          ref={flatListRef}
+          data={SLIDES}
+          renderItem={renderSlide}
+          keyExtractor={(item) => item.id}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          getItemLayout={getItemLayout}
+          bounces={false}
+        />
+      </View>
 
       <ContentContainer>
         {/* Pagination dots */}
@@ -205,6 +215,14 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  flatListContainer: {
+    flex: 1,
+  },
+  flatListContainerWide: {
+    maxWidth: MAX_CONTENT_WIDTH,
+    width: '100%',
+    alignSelf: 'center',
   },
   slide: {
     flex: 1,
