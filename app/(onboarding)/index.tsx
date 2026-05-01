@@ -18,7 +18,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
-import { useOnboarding } from '@/hooks/use-onboarding';
 
 
 interface OnboardingSlide {
@@ -75,7 +74,6 @@ const SLIDES: OnboardingSlide[] = [
 
 export default function OnboardingScreen() {
   const { effectiveTheme } = useTheme();
-  const { completeOnboarding } = useOnboarding();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const colors = Colors[effectiveTheme];
@@ -110,11 +108,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleSkip = async () => {
-    await completeOnboarding();
-    router.replace('/(tabs)');
-  };
-
   const handleGetStarted = () => {
     router.push('/(onboarding)/profile-setup');
   };
@@ -144,15 +137,6 @@ export default function OnboardingScreen() {
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Skip button */}
-      <View style={styles.header}>
-        <Pressable onPress={handleSkip} style={styles.skipButton}>
-          <ThemedText style={[styles.skipText, { color: colors.textSecondary }]}>
-            Skip
-          </ThemedText>
-        </Pressable>
-      </View>
-
       {/* Slides */}
       <FlatList
         ref={flatListRef}
@@ -221,19 +205,6 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  skipButton: {
-    padding: Spacing.sm,
-  },
-  skipText: {
-    ...Typography.body.base,
-    fontWeight: '500',
   },
   slide: {
     flex: 1,
