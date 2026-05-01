@@ -34,6 +34,7 @@ import { RewardedAdButton } from '@/components/ads/rewarded-ad-button';
 import { useAds } from '@/lib/ads-context';
 import { supabase } from '@/lib/supabase';
 import { captureException } from '@/lib/sentry';
+import { analytics } from '@/lib/analytics';
 
 // ============================================================================
 // Constants
@@ -260,9 +261,10 @@ export default function ScannerScreen() {
       p_user_id: user.id,
     });
     if (rpcError) {
-      console.error('Failed to increment bonus scans:', rpcError);
+      captureException(new Error(rpcError.message), { context: 'scanner-increment-bonus-scans' });
       return;
     }
+    analytics.track('scan:bonus_granted');
     // Re-fetch scan status to update UI
     const status = await fetchScanStatus();
     setScansRemaining(status.scansRemaining);
