@@ -51,8 +51,13 @@ describe('NotificationsSettingsScreen', () => {
       isAvailable: true,
     });
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
-    expect(await findByLabelText('Release reminders')).toBeTruthy();
-  });
+    // CI runners are slower than local — findBy* defaults to 1s polling, which
+    // races the React Query loading→data transition under worker resource
+    // pressure. Allow 8s for the toggle to appear after ActivityIndicator.
+    expect(
+      await findByLabelText('Release reminders', {}, { timeout: 8000 })
+    ).toBeTruthy();
+  }, 15000);
 
   it('toggling ON requests permission and persists when granted', async () => {
     const requestPermission = jest.fn().mockResolvedValue(true);
