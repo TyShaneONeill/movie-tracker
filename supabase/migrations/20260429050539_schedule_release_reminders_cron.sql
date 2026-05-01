@@ -21,7 +21,8 @@ SELECT cron.schedule(
         WHERE name = 'service_role_key'
       )
     ),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   ) AS request_id;
   $$
 );
