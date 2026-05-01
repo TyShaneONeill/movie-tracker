@@ -15,7 +15,12 @@ Deno.serve(async (req: Request) => {
   const authError = requireServiceRole(req);
   if (authError) return authError;
 
-  // serviceRoleKey is still needed to authenticate internal calls to send-push-notification
+  // Forward the inbound auth header for the internal call to send-push-notification.
+  // Supabase migrated SUPABASE_SERVICE_ROLE_KEY env var to the new sb_secret_* format
+  // which is NOT a JWT and fails verify_jwt=true gateway validation. The vault-stored
+  // service_role_key (legacy JWT) is what cron uses for inbound auth, so we forward
+  // it for outbound auth. (Discovered 2026-05-01 during PR #416 deploy.)
+  const inboundAuth = req.headers.get("authorization") || "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
   try {
@@ -56,7 +61,7 @@ Deno.serve(async (req: Request) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceRoleKey}`,
+            "Authorization": inboundAuth,
           },
           body: JSON.stringify(payload),
         }
