@@ -122,6 +122,20 @@ describe('NotificationsSettingsScreen — granted permission', () => {
     });
   });
 
+  it('toggling release_reminders OFF persists enabled=false', async () => {
+    getPrefMock.mockResolvedValue(true);
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const release = await findByLabelText('Release reminders');
+    fireEvent(release, 'valueChange', false);
+    await waitFor(() =>
+      expect(setPrefMock).toHaveBeenCalledWith('release_reminders', false)
+    );
+    expect(trackSpy).toHaveBeenCalledWith('notifications:toggle_changed', {
+      feature: 'release_reminders',
+      enabled: false,
+    });
+  });
+
   it('tapping master toggle while granted opens iOS Settings', async () => {
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
     const master = await findByLabelText('Push Notifications');

@@ -23,7 +23,7 @@ export function useNotificationPreference(feature: NotificationFeature) {
   });
 
   return {
-    enabled: query.data ?? true,
+    enabled: query.data ?? false,
     isLoading: query.isLoading,
     setEnabled: mutation.mutate,
     isUpdating: mutation.isPending,
