@@ -33,7 +33,7 @@ TMPFILE=$(mktemp)
 trap "rm -f $TMPFILE" EXIT
 
 doppler secrets download --no-file --format env --config "$CONFIG" \
-  | grep -E '^(TMDB_|OMDB_|SENTRY_|REVENUECAT_|GEMINI_|EXPO_ACCESS_TOKEN|DISCORD_)' \
+  | grep -E '^(TMDB_|OMDB_|SENTRY_|REVENUECAT_|GEMINI_|EXPO_ACCESS_TOKEN|DISCORD_|POSTHOG_|NEW_USERS_DISCORD_)' \
   > "$TMPFILE"
 
 LINE_COUNT=$(wc -l < "$TMPFILE" | tr -d ' ')
