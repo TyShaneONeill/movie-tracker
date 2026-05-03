@@ -1,0 +1,32 @@
+title = "CineTrak gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "discord-webhook-url"
+description = "Discord webhook URL"
+regex = '''https://discord(?:app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+'''
+tags = ["webhook", "discord"]
+
+[[rules]]
+id = "supabase-service-role-key"
+description = "Supabase service role JWT (legacy) or sb_secret_ key"
+regex = '''(?:eyJ[A-Za-z0-9_-]{20,}\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}|sb_secret_[A-Za-z0-9_-]{20,})'''
+tags = ["supabase", "key"]
+
+[allowlist]
+description = "Paths and patterns that are intentionally not secrets"
+paths = [
+  '''\.env\.example$''',
+  '''^web-build-test/''',
+  '''^dist/''',
+  '''^docs/credential-audit-post-rebrand\.md$''',
+  '''^Projects/CineTrak/Security/''',
+  '''^\.gitleaks\.toml$''',
+]
+regexes = [
+  '''placeholder''',
+  '''<.+?>''',
+  '''example\.com''',
+]
