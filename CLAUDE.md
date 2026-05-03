@@ -6,14 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cinetrak is a React Native mobile app (iOS, Android, Web) built with Expo and expo-router for file-based routing.
 
+## First-time setup
+
+See [`docs/operations/dev-environment-setup.md`](docs/operations/dev-environment-setup.md) — covers prerequisites (Node, Xcode, Homebrew), Doppler binding, gitleaks pre-commit hook, and account access requests.
+
 ## Development Commands
+
+These wrap with `doppler run --` automatically (env vars come from Doppler, not `.env.local`). If they fail with `doppler: not found` or `Could not find requested project`, you haven't completed the setup linked above.
 
 ```bash
 npm start          # Start Expo dev server
 npm run ios        # Run on iOS simulator
 npm run android    # Run on Android emulator
 npm run web        # Run in web browser
-npm run lint       # Run ESLint
+npm run lint       # Run ESLint (no Doppler needed)
+npm test           # Run Jest unit tests (no Doppler needed)
 ```
 
 ## Edge Function Deploy Commands
