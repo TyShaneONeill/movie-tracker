@@ -47,10 +47,24 @@ export default function SettingsScreen() {
   const colors = Colors[effectiveTheme];
   const { signOut, user } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
-  const { isPremium, tier, subscription, restorePurchases, isLoading: isPremiumLoading } = usePremium();
+  const { isPremium, tier, subscription, restorePurchases, manageSubscription, managementUrl, isLoading: isPremiumLoading } = usePremium();
   const { openBugReport } = useBugReport();
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+
+  const handleManageSubscription = async () => {
+    hapticImpact();
+    analytics.track('premium:manage_subscription_clicked', { plan: tier ?? 'plus' });
+    const result = await manageSubscription();
+    if (!result.success && result.error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not open',
+        text2: result.error,
+        visibilityTime: 4000,
+      });
+    }
+  };
 
   const handleRestorePurchases = async () => {
     hapticImpact();
@@ -454,7 +468,7 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
 
-          {isPremium && tier !== 'dev' && (
+          {isPremium && tier !== 'dev' && managementUrl && (
             <Pressable
               style={({ pressed }) => [
                 styles.settingsItem,
@@ -462,10 +476,7 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.card, borderBottomColor: colors.border },
                 pressed && { backgroundColor: colors.backgroundSecondary }
               ]}
-              onPress={() => {
-                hapticImpact();
-                analytics.track('premium:cancel', { plan: tier ?? 'plus' });
-              }}
+              onPress={handleManageSubscription}
             >
               <View>
                 <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Manage Subscription</Text>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import { useAuth } from '@/hooks/use-auth';
 import { useAds } from '@/lib/ads-context';
 import { fetchSubscriptionStatus } from '@/lib/premium-service';
@@ -28,12 +28,16 @@ interface PremiumContextType {
   isLoading: boolean;
   /** Current subscription info from RevenueCat (null if free or unavailable) */
   subscription: SubscriptionInfo | null;
+  /** Platform-appropriate management URL: Apple/Play deep link on native, Stripe portal on web */
+  managementUrl: string | null;
   /** Check if a specific feature is unlocked for the current tier */
   checkFeature: (featureKey: PremiumFeatureKey) => boolean;
   /** Purchase a package via RevenueCat / Stripe Checkout */
   purchasePackage: (packageToPurchase: unknown) => Promise<PurchaseResult>;
   /** Restore purchases via RevenueCat */
   restorePurchases: () => Promise<RestoreResult>;
+  /** Open the platform-appropriate subscription management UI */
+  manageSubscription: () => Promise<ManageSubscriptionResult>;
 }
 
 export interface SubscriptionInfo {
@@ -56,14 +60,21 @@ export interface RestoreResult {
   message: string;
 }
 
+export interface ManageSubscriptionResult {
+  success: boolean;
+  error?: string;
+}
+
 const PremiumContext = createContext<PremiumContextType>({
   tier: 'free',
   isPremium: false,
   isLoading: true,
   subscription: null,
+  managementUrl: null,
   checkFeature: () => false,
   purchasePackage: async () => ({ success: false, error: 'Not initialized' }),
   restorePurchases: async () => ({ restored: false, tier: 'free', message: 'Not initialized' }),
+  manageSubscription: async () => ({ success: false, error: 'Not initialized' }),
 });
 
 export function PremiumProvider({ children }: { children: React.ReactNode }) {
@@ -73,6 +84,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const [tier, setTier] = useState<PremiumTier>('free');
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [managementUrl, setManagementUrl] = useState<string | null>(null);
   const [purchasesInstance, setPurchasesInstance] = useState<any>(null);
   const [isNativeInitialized, setIsNativeInitialized] = useState(false);
   const [availablePackages, setAvailablePackages] = useState<any[]>([]);
@@ -90,6 +102,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       setTier('free');
       setSubscription(null);
+      setManagementUrl(null);
       setIsLoading(false);
       return;
     }
@@ -211,6 +224,12 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     try {
       const plusEntitlement = customerInfo?.entitlements?.active?.['plus'];
 
+      // RevenueCat populates managementURL for active subs across all stores:
+      // App Store → itms-apps://, Play Store → https://play.google.com/...,
+      // Web Billing → RevenueCat-hosted Stripe customer portal URL
+      const url = customerInfo?.managementURL ?? null;
+      setManagementUrl(typeof url === 'string' && url.length > 0 ? url : null);
+
       if (plusEntitlement) {
         setTier('plus');
         setSubscription({
@@ -233,6 +252,30 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       });
     }
   };
+
+  /** Open the platform-appropriate subscription management UI */
+  const manageSubscription = useCallback(async (): Promise<ManageSubscriptionResult> => {
+    if (!managementUrl) {
+      return { success: false, error: 'Subscription management is not available right now.' };
+    }
+
+    try {
+      if (Platform.OS === 'web') {
+        const opened = window.open(managementUrl, '_blank', 'noopener,noreferrer');
+        if (!opened) {
+          return { success: false, error: 'Pop-up blocked. Allow pop-ups for pocketstubs.com and try again.' };
+        }
+      } else {
+        await Linking.openURL(managementUrl);
+      }
+      return { success: true };
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), {
+        context: 'premium-manage-subscription',
+      });
+      return { success: false, error: 'Could not open subscription management. Please try again.' };
+    }
+  }, [managementUrl]);
 
   /** Purchase a package via RevenueCat (StoreKit on native, Stripe Checkout on web) */
   const purchasePackage = useCallback(async (packageToPurchase: unknown): Promise<PurchaseResult> => {
@@ -345,11 +388,13 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       isPremium,
       isLoading,
       subscription,
+      managementUrl,
       checkFeature,
       purchasePackage,
       restorePurchases,
+      manageSubscription,
     }),
-    [tier, isPremium, isLoading, subscription, checkFeature, purchasePackage, restorePurchases]
+    [tier, isPremium, isLoading, subscription, managementUrl, checkFeature, purchasePackage, restorePurchases, manageSubscription]
   );
 
   return (
