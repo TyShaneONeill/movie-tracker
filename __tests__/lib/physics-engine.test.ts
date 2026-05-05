@@ -1,4 +1,4 @@
-import { stepPhysics, DEFAULT_PHYSICS_CONFIG } from '@/lib/physics-engine';
+import { stepPhysics, wake, applyImpulse, DEFAULT_PHYSICS_CONFIG } from '@/lib/physics-engine';
 import type { Particle } from '@/lib/physics-engine';
 
 describe('stepPhysics — air drag', () => {
@@ -126,5 +126,53 @@ describe('stepPhysics — kernel friction', () => {
     // friction=0 means the friction branch is skipped → vy must equal the
     // baseline (only damping applied, no tangential reduction from collision).
     expect(aCollide.vy).toBeCloseTo(aAlone.vy, 6);
+  });
+});
+
+describe('wake', () => {
+  it('unfreezes all frozen particles and resets frame counters', () => {
+    const particles: Particle[] = [
+      { x: 0, y: 0, vx: 0, vy: 0, radius: 10, frozen: true,  frozenFrames: 8, landed: true },
+      { x: 0, y: 0, vx: 0, vy: 0, radius: 10, frozen: true,  frozenFrames: 12, landed: true },
+      { x: 0, y: 0, vx: 0, vy: 0, radius: 10, frozen: false, frozenFrames: 3, landed: false },
+    ];
+    wake(particles);
+    expect(particles[0].frozen).toBe(false);
+    expect(particles[0].frozenFrames).toBe(0);
+    expect(particles[1].frozen).toBe(false);
+    expect(particles[1].frozenFrames).toBe(0);
+    expect(particles[2].frozen).toBe(false);
+    expect(particles[2].frozenFrames).toBe(0);
+  });
+});
+
+describe('applyImpulse', () => {
+  it('adds velocity opposite of gravity vector and wakes frozen particles', () => {
+    const particles: Particle[] = [
+      { x: 0, y: 0, vx: 0, vy: 0, radius: 10, frozen: true, frozenFrames: 8, landed: true },
+      { x: 0, y: 0, vx: 0, vy: 0, radius: 10, frozen: false, frozenFrames: 0, landed: true },
+    ];
+    // Gravity is straight down (gx=0, gy=1) → impulse should be straight up (vy negative)
+    applyImpulse(particles, 12, 0, 1);
+    expect(particles[0].frozen).toBe(false);
+    expect(particles[0].vy).toBeCloseTo(-12, 1);
+    expect(particles[0].vx).toBeCloseTo(0, 1);
+    expect(particles[1].vy).toBeCloseTo(-12, 1);
+  });
+
+  it('applies impulse opposite of any gravity direction', () => {
+    const p: Particle = { x: 0, y: 0, vx: 0, vy: 0, radius: 10, frozen: false, frozenFrames: 0, landed: true };
+    // Gravity to the right (gx=1, gy=0) → impulse should push left
+    applyImpulse([p], 10, 1, 0);
+    expect(p.vx).toBeCloseTo(-10, 1);
+    expect(p.vy).toBeCloseTo(0, 1);
+  });
+
+  it('handles zero gravity vector gracefully (no-op)', () => {
+    const p: Particle = { x: 0, y: 0, vx: 5, vy: 5, radius: 10, frozen: false, frozenFrames: 0, landed: true };
+    applyImpulse([p], 12, 0, 0);
+    // No direction to push — velocity unchanged
+    expect(p.vx).toBeCloseTo(5);
+    expect(p.vy).toBeCloseTo(5);
   });
 });

@@ -151,3 +151,45 @@ export function initParticles(
     landed: false,
   }));
 }
+
+/**
+ * Unfreezes every particle and resets its sleep counter. Called by the
+ * orchestrator when motion delta exceeds wakeThreshold so settled kernels
+ * react to the next frame's gravity vector.
+ */
+export function wake(particles: Particle[]): void {
+  'worklet';
+  for (let i = 0; i < particles.length; i++) {
+    particles[i].frozen = false;
+    particles[i].frozenFrames = 0;
+  }
+}
+
+/**
+ * Applies a velocity impulse to every particle, in the direction opposite
+ * to the supplied gravity vector. Magnitude is in pixels-per-frame units.
+ * Wakes frozen particles so they participate in the impulse.
+ *
+ * If the gravity vector has zero magnitude (no clear "down"), the call is
+ * a no-op — there's no meaningful direction to push.
+ */
+export function applyImpulse(
+  particles: Particle[],
+  magnitude: number,
+  gravityX: number,
+  gravityY: number,
+): void {
+  'worklet';
+  const gMag = Math.sqrt(gravityX * gravityX + gravityY * gravityY);
+  if (gMag === 0) return;
+  // Opposite direction = negate gravity, normalize, multiply by magnitude
+  const ix = -(gravityX / gMag) * magnitude;
+  const iy = -(gravityY / gMag) * magnitude;
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    p.frozen = false;
+    p.frozenFrames = 0;
+    p.vx += ix;
+    p.vy += iy;
+  }
+}
