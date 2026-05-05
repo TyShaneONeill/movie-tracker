@@ -15,6 +15,8 @@ export interface PhysicsConfig {
   restitution: number;
   maxSpeed: number;
   overlapCorrection: number;
+  airDrag: number;        // per-kernel-size drag (0 = disabled)
+  kernelFriction: number; // tangential damping on collision (applied in Task 3)
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
@@ -23,6 +25,8 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   restitution: 0.38,
   maxSpeed: 2.2,
   overlapCorrection: 0.50,
+  airDrag: 0.5,
+  kernelFriction: 0.15,
 };
 
 const DAMPING = 0.91;
@@ -37,9 +41,13 @@ export function stepPhysics(
   gravityX: number,
   gravityY: number,
   bounds: { w: number; h: number },
-  dt: number
+  dt: number,
+  config?: PhysicsConfig
 ): void {
   'worklet';
+  // Per-kernel air drag — falls through to global DAMPING only when undefined
+  // or 0, preserving behavior for callers that don't pass config yet.
+  const dragCoeff = config?.airDrag ?? 0;
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
 
@@ -67,8 +75,13 @@ export function stepPhysics(
     if (p.y - p.radius < 0) { p.y = p.radius; p.vy = Math.abs(p.vy) * RESTITUTION; }
     if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * RESTITUTION; p.landed = true; }
 
-    p.vx *= DAMPING;
-    p.vy *= DAMPING;
+    // Per-particle damping = global DAMPING modulated by per-kernel air drag.
+    // Smaller radii get a smaller multiplier (more damping), larger radii closer
+    // to 1 (less damping). airDrag = 0 disables (regression guard for callers
+    // not yet passing config).
+    const sizeDragMultiplier = dragCoeff > 0 ? Math.max(0, 1 - dragCoeff / p.radius) : 1;
+    p.vx *= DAMPING * sizeDragMultiplier;
+    p.vy *= DAMPING * sizeDragMultiplier;
 
     // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
