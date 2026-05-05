@@ -191,8 +191,16 @@ export function usePopcornPhysics(
       if (finite) {
         const mag = Math.sqrt(g.gx * g.gx + g.gy * g.gy);
         if (mag > 0.01) {
-          gx = (g.gx / mag) * cfg.gravity;
-          gy = (g.gy / mag) * cfg.gravity;
+          // Blend sensor gravity with phone-bottom-anchored gravity.
+          // tiltInfluence = 0 → bag is anchored, sensor ignored.
+          // tiltInfluence = 1 → pure world-gravity (sand-tray feel).
+          // Default 0.35 keeps "down = bottom of phone" dominant while
+          // still letting tilt nudge the cascade direction.
+          const t = cfg.tiltInfluence;
+          const sensorGx = g.gx / mag;
+          const sensorGy = g.gy / mag;
+          gx = sensorGx * t * cfg.gravity;
+          gy = ((1 - t) + sensorGy * t) * cfg.gravity;
         }
 
         // Wake-on-motion: if gravity-vector magnitude changed beyond threshold,

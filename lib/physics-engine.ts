@@ -20,6 +20,7 @@ export interface PhysicsConfig {
   jumpImpulse: number;    // velocity magnitude on jump detection
   jumpThreshold: number;  // minimum vertical accel spike (g-units) to register a jump
   wakeThreshold: number;  // minimum gravity-vector magnitude change per second (g/s) to wake frozen particles
+  tiltInfluence: number;  // 0 = ignore sensor, gravity always points to phone bottom (bag-on-table feel); 1 = full world-gravity (sand-tray feel)
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
@@ -33,6 +34,7 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   jumpImpulse: 12.0,
   jumpThreshold: 1.4,
   wakeThreshold: 0.3,
+  tiltInfluence: 0.35,
 };
 
 const DAMPING = 0.91;
