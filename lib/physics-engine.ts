@@ -51,8 +51,12 @@ export function stepPhysics(
   config?: PhysicsConfig
 ): void {
   'worklet';
-  // Per-kernel air drag — falls through to global DAMPING only when undefined
-  // or 0, preserving behavior for callers that don't pass config yet.
+  // Read tuning knobs from config with module-constant fallbacks. Callers that
+  // don't pass config get exact pre-config behavior (regression guard).
+  const damping = config?.damping ?? DAMPING;
+  const restitution = config?.restitution ?? RESTITUTION;
+  const maxSpeed = config?.maxSpeed ?? MAX_SPEED;
+  const overlapCorrection = config?.overlapCorrection ?? OVERLAP_CORRECTION;
   const dragCoeff = config?.airDrag ?? 0;
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -66,9 +70,9 @@ export function stepPhysics(
     // Speed clamp only after first floor contact — allows fast ballistic entry
     if (p.landed) {
       const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-      if (speed > MAX_SPEED) {
-        p.vx = (p.vx / speed) * MAX_SPEED;
-        p.vy = (p.vy / speed) * MAX_SPEED;
+      if (speed > maxSpeed) {
+        p.vx = (p.vx / speed) * maxSpeed;
+        p.vy = (p.vy / speed) * maxSpeed;
       }
     }
 
@@ -76,18 +80,18 @@ export function stepPhysics(
     p.y += p.vy * dt;
 
     // Wall collisions
-    if (p.x - p.radius < 0) { p.x = p.radius; p.vx = Math.abs(p.vx) * RESTITUTION; }
-    if (p.x + p.radius > bounds.w) { p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * RESTITUTION; }
-    if (p.y - p.radius < 0) { p.y = p.radius; p.vy = Math.abs(p.vy) * RESTITUTION; }
-    if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * RESTITUTION; p.landed = true; }
+    if (p.x - p.radius < 0) { p.x = p.radius; p.vx = Math.abs(p.vx) * restitution; }
+    if (p.x + p.radius > bounds.w) { p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution; }
+    if (p.y - p.radius < 0) { p.y = p.radius; p.vy = Math.abs(p.vy) * restitution; }
+    if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution; p.landed = true; }
 
-    // Per-particle damping = global DAMPING modulated by per-kernel air drag.
+    // Per-particle damping = configured damping modulated by per-kernel air drag.
     // Smaller radii get a smaller multiplier (more damping), larger radii closer
     // to 1 (less damping). airDrag = 0 disables (regression guard for callers
     // not yet passing config).
     const sizeDragMultiplier = dragCoeff > 0 ? Math.max(0, 1 - dragCoeff / p.radius) : 1;
-    p.vx *= DAMPING * sizeDragMultiplier;
-    p.vy *= DAMPING * sizeDragMultiplier;
+    p.vx *= damping * sizeDragMultiplier;
+    p.vy *= damping * sizeDragMultiplier;
 
     // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
@@ -113,7 +117,7 @@ export function stepPhysics(
       const minDist = a.radius + b.radius;
       if (distSq < minDist * minDist && distSq > 0) {
         const dist = Math.sqrt(distSq);
-        const overlap = (minDist - dist) * OVERLAP_CORRECTION;
+        const overlap = (minDist - dist) * overlapCorrection;
         const nx = dx / dist, ny = dy / dist;
         if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
         if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
