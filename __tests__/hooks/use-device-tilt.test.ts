@@ -99,6 +99,29 @@ describe('useDeviceTilt', () => {
     expect(result.current.jumpQueue.value[0].magnitude).toBeGreaterThan(1.4);
   });
 
+  it('caps jumpQueue at JUMP_QUEUE_MAX entries to prevent unbounded growth', async () => {
+    const { result } = renderHook(() => useDeviceTilt({ jumpThreshold: 1.4 }));
+    await waitFor(() =>
+      expect(
+        (DeviceMotion as unknown as { __subscriberCount: () => number }).__subscriberCount(),
+      ).toBe(1),
+    );
+
+    // Alternate z between a large magnitude and ~0 so every per-frame delta
+    // crosses the 1.4g threshold (|30 - 0|/9.8 ≈ 3.06 > 1.4).
+    act(() => {
+      for (let i = 0; i < 20; i++) {
+        const z = i % 2 === 0 ? 30 : 0;
+        (DeviceMotion as unknown as { __emit: (d: unknown) => void }).__emit({
+          accelerationIncludingGravity: { x: 0, y: 0, z },
+        });
+      }
+    });
+
+    // 20 events emitted with no consumer drain — the cap (16) must hold.
+    expect(result.current.jumpQueue.value.length).toBeLessThanOrEqual(16);
+  });
+
   it('returns no-op SharedValues when DeviceMotion.isAvailableAsync resolves false', async () => {
     (DeviceMotion.isAvailableAsync as jest.Mock).mockResolvedValueOnce(false);
     const { result } = renderHook(() => useDeviceTilt());

@@ -20,6 +20,9 @@ export interface DeviceTiltResult {
 
 const GRAVITY_DOWN_DEFAULT = { gx: 0, gy: 1 };
 
+/** Defensive cap on the jump queue — protects against unbounded growth if a consumer ever fails to drain. Worklets drain at ~60Hz so this should rarely be reached. */
+const JUMP_QUEUE_MAX = 16;
+
 /**
  * Subscribes to expo-sensors DeviceMotion. Exposes gravity vector + jump
  * events as SharedValues so worklets can react without re-rendering React.
@@ -27,6 +30,16 @@ const GRAVITY_DOWN_DEFAULT = { gx: 0, gy: 1 };
  * On devices where DeviceMotion is unavailable (web, simulators without
  * sensors), returns identity values (straight-down gravity, empty queue)
  * so the orchestrator can fall through gracefully.
+ *
+ * Contract: the orchestrator MUST drain `jumpQueue` each frame. The
+ * `JUMP_QUEUE_MAX` cap is a defensive backstop, not part of the API
+ * contract — relying on it will drop events.
+ *
+ * Caveat: jump detection compares the per-frame change in
+ * `|accelerationIncludingGravity.z|` against `jumpThreshold` in g-units.
+ * Fast rotation between orientations (e.g. flipping face-up → portrait)
+ * can produce false-positive jumps, so consumers should treat the queue
+ * as advisory rather than authoritative.
  */
 export function useDeviceTilt(options: DeviceTiltOptions = {}): DeviceTiltResult {
   const updateInterval = options.updateInterval ?? 16;
@@ -69,7 +82,8 @@ export function useDeviceTilt(options: DeviceTiltOptions = {}): DeviceTiltResult
           const zMag = Math.abs(a.z);
           const deltaG = Math.abs(zMag - prevZMag) / 9.8;
           if (deltaG > jumpThreshold) {
-            jumpQueue.value = [...jumpQueue.value, { magnitude: deltaG }];
+            const next = [...jumpQueue.value, { magnitude: deltaG }];
+            jumpQueue.value = next.length > JUMP_QUEUE_MAX ? next.slice(-JUMP_QUEUE_MAX) : next;
           }
           prevZMag = zMag;
         });
