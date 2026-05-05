@@ -29,6 +29,11 @@ interface Bounds {
 const IMPACT_VELOCITY_THRESHOLD = 1.5;
 const IMPACT_THROTTLE_MS = 50;
 
+// Module-level latch — `popcorn:motion_engine_started` is intended as one-shot
+// per JS session. The mount useEffect below would otherwise re-fire under
+// React StrictMode, fast-refresh, or any caller-driven remount.
+let engineStartedTracked = false;
+
 export function usePopcornPhysics(
   kernels: PopcornKernel[],
   bounds: Bounds,
@@ -88,11 +93,14 @@ export function usePopcornPhysics(
         // Same — fall through with reduce_motion_enabled=false.
       }
       if (cancelled) return;
-      analytics.track('popcorn:motion_engine_started', {
-        enabled: motionEnabled,
-        sensor_available: sensorAvailable,
-        reduce_motion_enabled: reduceMotion,
-      });
+      if (!engineStartedTracked) {
+        analytics.track('popcorn:motion_engine_started', {
+          enabled: motionEnabled,
+          sensor_available: sensorAvailable,
+          reduce_motion_enabled: reduceMotion,
+        });
+        engineStartedTracked = true;
+      }
       Sentry.addBreadcrumb({
         category: 'popcorn-motion',
         message: `engine_started enabled=${motionEnabled} sensor=${sensorAvailable} reduceMotion=${reduceMotion}`,
