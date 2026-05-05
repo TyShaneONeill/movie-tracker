@@ -1,0 +1,90 @@
+import { useEffect } from 'react';
+import { DeviceMotion } from 'expo-sensors';
+import { useSharedValue, type SharedValue } from 'react-native-reanimated';
+import { captureException } from '@/lib/sentry';
+import type { JumpEvent } from '@/lib/popcorn-events';
+
+export interface DeviceTiltOptions {
+  /** Update rate in ms. Default 16 (~60 Hz). */
+  updateInterval?: number;
+  /** Min vertical accel magnitude (g-units) to register a jump. Default 1.4. */
+  jumpThreshold?: number;
+}
+
+export interface DeviceTiltResult {
+  /** Reanimated SharedValue holding the screen-space gravity unit vector. {gx: 0, gy: 1} = straight down. */
+  gravity: SharedValue<{ gx: number; gy: number }>;
+  /** Reanimated SharedValue queue of jump events. Worklets drain this each frame. */
+  jumpQueue: SharedValue<JumpEvent[]>;
+}
+
+const GRAVITY_DOWN_DEFAULT = { gx: 0, gy: 1 };
+
+/**
+ * Subscribes to expo-sensors DeviceMotion. Exposes gravity vector + jump
+ * events as SharedValues so worklets can react without re-rendering React.
+ *
+ * On devices where DeviceMotion is unavailable (web, simulators without
+ * sensors), returns identity values (straight-down gravity, empty queue)
+ * so the orchestrator can fall through gracefully.
+ */
+export function useDeviceTilt(options: DeviceTiltOptions = {}): DeviceTiltResult {
+  const updateInterval = options.updateInterval ?? 16;
+  const jumpThreshold = options.jumpThreshold ?? 1.4;
+
+  const gravity = useSharedValue(GRAVITY_DOWN_DEFAULT);
+  const jumpQueue = useSharedValue<JumpEvent[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let subscription: { remove: () => void } | null = null;
+    let prevZMag = 9.8; // gravity-only baseline
+
+    (async () => {
+      try {
+        const available = await DeviceMotion.isAvailableAsync();
+        if (cancelled || !available) return;
+
+        DeviceMotion.setUpdateInterval(updateInterval);
+        subscription = DeviceMotion.addListener((data: { accelerationIncludingGravity?: { x: number; y: number; z: number } }) => {
+          const a = data?.accelerationIncludingGravity;
+          if (!a) return;
+
+          // Convert from m/s² (where -9.8 in z = at rest face-up) to a
+          // unit vector pointing in the screen's "down" direction.
+          // Screen +y is "down", so we map device sensor axes accordingly.
+          const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+          if (mag > 0.001) {
+            // Note: device axes are device-frame; for typical portrait use,
+            // a.x is screen-horizontal (right=+) and a.y is screen-vertical (up=+).
+            // We invert y because screen +y is downward. z is screen-normal.
+            gravity.value = {
+              gx: a.x / mag,
+              gy: -a.y / mag, // flip so screen-down is positive
+            };
+          }
+
+          // Jump detection: sudden change in z-magnitude beyond threshold.
+          // Threshold is in g-units (1g = 9.8 m/s²).
+          const zMag = Math.abs(a.z);
+          const deltaG = Math.abs(zMag - prevZMag) / 9.8;
+          if (deltaG > jumpThreshold) {
+            jumpQueue.value = [...jumpQueue.value, { magnitude: deltaG }];
+          }
+          prevZMag = zMag;
+        });
+      } catch (error) {
+        captureException(error instanceof Error ? error : new Error(String(error)), {
+          context: 'use-device-tilt-init',
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
+  }, [updateInterval, jumpThreshold, gravity, jumpQueue]);
+
+  return { gravity, jumpQueue };
+}
