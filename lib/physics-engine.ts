@@ -24,17 +24,21 @@ export interface PhysicsConfig {
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
-  gravity: 9.5,
-  damping: 0.91,
-  restitution: 0.38,
-  maxSpeed: 2.2,
+  // Tuned values from Config A + Gemini's friction adjustment after
+  // on-device testing 2026-05-04. "Heavy & anchored" — bag-on-table feel
+  // that filters hand jitter, with low inter-kernel friction so kernels
+  // tumble individually instead of clumping during a pour.
+  gravity: 13.0,
+  damping: 0.88,
+  restitution: 0.30,
+  maxSpeed: 8.0,
   overlapCorrection: 0.50,
-  airDrag: 0.5,
-  kernelFriction: 0.15,
-  jumpImpulse: 12.0,
+  airDrag: 0.60,
+  kernelFriction: 0.10,
+  jumpImpulse: 28.0,
   jumpThreshold: 1.4,
-  wakeThreshold: 0.3,
-  tiltInfluence: 0.35,
+  wakeThreshold: 0.40,
+  tiltInfluence: 0.15,
 };
 
 const DAMPING = 0.91;
