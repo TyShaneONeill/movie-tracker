@@ -137,16 +137,17 @@ export function stepPhysics(
     p.vx *= damping * speedScale;
     p.vy *= damping * speedScale;
 
-    // Visual rotation: kernels tumble proportional to motion. Per-kernel
-    // personality offset (-0.15 to +0.15) determines spin direction so two
-    // adjacent kernels with the same trajectory still rotate differently.
-    // Frozen kernels skip this loop entirely → settled kernels keep their
-    // last orientation, which looks correct (a real kernel at rest is angled
-    // however it landed). Magic numbers tuned for "tumble visible during
-    // cascade, subtle during settle."
-    const personalityOffset = (p.personality ?? 1) - 1;
-    const rotationFromMotion = p.vx * 0.04 + p.vy * personalityOffset * 0.20;
-    p.rotation = (p.rotation ?? 0) + rotationFromMotion * dt;
+    // Visual rotation: kernels tumble proportional to speed, but ONLY above
+    // a threshold — otherwise damping=1.0 leaves tiny residual velocities
+    // that perpetually accumulate rotation, making settled kernels look like
+    // spinning tops. Below threshold, kernels stay at their current angle
+    // (which is what real popcorn does at rest).
+    const motionSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+    if (motionSpeed > 0.5) {
+      const personalityOffset = (p.personality ?? 1) - 1;
+      const rotationFromMotion = p.vx * 0.01 + p.vy * personalityOffset * 0.05;
+      p.rotation = (p.rotation ?? 0) + rotationFromMotion * dt;
+    }
 
     // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
