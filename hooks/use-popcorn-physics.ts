@@ -1,27 +1,67 @@
 import { useEffect } from 'react';
-import { useSharedValue, useFrameCallback } from 'react-native-reanimated';
-import { stepPhysics } from '@/lib/physics-engine';
-import { DEFAULT_PHYSICS_CONFIG } from '@/lib/physics-engine';
+import { useSharedValue, useFrameCallback, runOnJS } from 'react-native-reanimated';
+import {
+  stepPhysics,
+  wake,
+  applyImpulse,
+  DEFAULT_PHYSICS_CONFIG,
+} from '@/lib/physics-engine';
 import type { Particle, PhysicsConfig } from '@/lib/physics-engine';
 import type { PopcornKernel } from '@/lib/popcorn-service';
+import type {
+  ImpactEvent,
+  JumpEvent,
+  PopcornEventCallbacks,
+} from '@/lib/popcorn-events';
 import { kernelSize } from '@/lib/kernel-generator';
+import { useDeviceTilt } from '@/hooks/use-device-tilt';
+import { usePopcornMotionEnabled } from '@/hooks/use-feature-flag';
 
-interface Bounds { w: number; h: number }
+interface Bounds {
+  w: number;
+  h: number;
+}
+
+const IMPACT_VELOCITY_THRESHOLD = 1.5;
+const IMPACT_THROTTLE_MS = 50;
 
 export function usePopcornPhysics(
   kernels: PopcornKernel[],
   bounds: Bounds,
-  config: PhysicsConfig = DEFAULT_PHYSICS_CONFIG
+  config: PhysicsConfig = DEFAULT_PHYSICS_CONFIG,
+  callbacks: PopcornEventCallbacks = {},
 ) {
+  const motionEnabled = usePopcornMotionEnabled();
+  const tilt = useDeviceTilt({ jumpThreshold: config.jumpThreshold });
+
   const particles = useSharedValue<Particle[]>([]);
   const boundsRef = useSharedValue(bounds);
   const prevTimestamp = useSharedValue<number>(-1);
   const configRef = useSharedValue(config);
+  const motionEnabledRef = useSharedValue(motionEnabled);
+  const prevGravityMag = useSharedValue(1); // baseline ~1g
+  const lastImpactTime = useSharedValue(0);
 
   useEffect(() => {
     configRef.value = config;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.gravity, config.damping, config.restitution, config.maxSpeed, config.overlapCorrection]);
+  }, [
+    config.gravity,
+    config.damping,
+    config.restitution,
+    config.maxSpeed,
+    config.overlapCorrection,
+    config.airDrag,
+    config.kernelFriction,
+    config.jumpImpulse,
+    config.jumpThreshold,
+    config.wakeThreshold,
+  ]);
+
+  useEffect(() => {
+    motionEnabledRef.value = motionEnabled;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [motionEnabled]);
 
   // Initialise or add new particles when kernels list grows
   useEffect(() => {
@@ -52,6 +92,13 @@ export function usePopcornPhysics(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bounds.w, bounds.h]);
 
+  const onImpactJS = (event: ImpactEvent) => {
+    callbacks.onImpact?.(event);
+  };
+  const onJumpJS = (event: JumpEvent) => {
+    callbacks.onJump?.(event);
+  };
+
   useFrameCallback((info) => {
     'worklet';
     if (particles.value.length === 0) return;
@@ -61,17 +108,78 @@ export function usePopcornPhysics(
     prevTimestamp.value = now;
     const dt = Math.min(elapsed / 16.67, 1.0);
 
-    // Skip entirely if everything is settled — saves CPU when bag is at rest
+    // Resolve gravity vector for this frame.
+    const cfg = configRef.value;
+    const useMotion = motionEnabledRef.value;
+    let gx = 0;
+    let gy = cfg.gravity;
+
+    if (useMotion) {
+      const g = tilt.gravity.value;
+      // NaN guard — sensor data should never be NaN, but applyImpulse and
+      // stepPhysics both assume finite inputs. Fall back to constant gravity
+      // if anything looks off.
+      const finite =
+        Number.isFinite(g.gx) && Number.isFinite(g.gy);
+      if (finite) {
+        const mag = Math.sqrt(g.gx * g.gx + g.gy * g.gy);
+        if (mag > 0.01) {
+          gx = (g.gx / mag) * cfg.gravity;
+          gy = (g.gy / mag) * cfg.gravity;
+        }
+
+        // Wake-on-motion: if gravity-vector magnitude changed beyond threshold,
+        // unfreeze all so settled kernels react to the new orientation.
+        const deltaG =
+          Math.abs(mag - prevGravityMag.value) / Math.max(elapsed / 1000, 0.001);
+        if (deltaG > cfg.wakeThreshold) {
+          wake(particles.value);
+        }
+        prevGravityMag.value = mag;
+
+        // Drain jump queue → applyImpulse opposite-of-gravity for each event
+        const queue = tilt.jumpQueue.value;
+        if (queue.length > 0) {
+          for (let q = 0; q < queue.length; q++) {
+            applyImpulse(particles.value, cfg.jumpImpulse, gx, gy);
+            runOnJS(onJumpJS)(queue[q]);
+          }
+          tilt.jumpQueue.value = [];
+        }
+      }
+    }
+
+    // Skip step entirely if everything is settled — saves CPU when bag is at rest
     let allFrozen = true;
     for (let i = 0; i < particles.value.length; i++) {
-      if (!particles.value[i].frozen) { allFrozen = false; break; }
+      if (!particles.value[i].frozen) {
+        allFrozen = false;
+        break;
+      }
     }
     if (allFrozen) return;
 
     const next = particles.value.slice();
-    stepPhysics(next, 0, configRef.value.gravity, boundsRef.value, dt);
+    stepPhysics(next, gx, gy, boundsRef.value, dt, cfg);
+
+    // Throttled impact detection — emit at most once per IMPACT_THROTTLE_MS.
+    // Approximate: fires when any kernel is moving fast, not strictly on the
+    // collision frame. Sufficient for haptics; precise per-collision events
+    // can be added later if sound demands it.
+    if (now - lastImpactTime.value > IMPACT_THROTTLE_MS) {
+      for (let i = 0; i < next.length; i++) {
+        const p = next[i];
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > IMPACT_VELOCITY_THRESHOLD && !p.frozen) {
+          runOnJS(onImpactJS)({ velocity: speed, kernelId: String(i) });
+          lastImpactTime.value = now;
+          break;
+        }
+      }
+    }
+
     particles.value = next;
   });
 
-  return { particles };
+  return { particles, motionEnabled };
 }
