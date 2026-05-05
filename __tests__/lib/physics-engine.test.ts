@@ -73,3 +73,58 @@ describe('stepPhysics — air drag', () => {
     expect(Object.is(p.vx, -0)).toBe(false);
   });
 });
+
+describe('stepPhysics — kernel friction', () => {
+  it('damps tangential velocity on inter-kernel collision', () => {
+    // Two particles, side by side, moving in opposite tangential directions.
+    // Their normal velocities will resolve via overlap correction; tangential
+    // velocities should be damped by kernelFriction.
+    const a: Particle = {
+      x: 100, y: 100, vx: 0, vy: 5, radius: 10,
+      frozen: false, frozenFrames: 0, landed: true,
+    };
+    const b: Particle = {
+      // Slightly overlapping with a; collision normal points right (+x).
+      x: 115, y: 100, vx: 0, vy: -5, radius: 10,
+      frozen: false, frozenFrames: 0, landed: true,
+    };
+    const particles = [a, b];
+    const bounds = { w: 1000, h: 1000 };
+    const config = { ...DEFAULT_PHYSICS_CONFIG, gravity: 0, kernelFriction: 0.5, airDrag: 0 };
+
+    stepPhysics(particles, 0, 0, bounds, 1.0, config);
+
+    // Tangential (vy) should be damped; was 5 / -5
+    expect(Math.abs(a.vy)).toBeLessThan(5);
+    expect(Math.abs(b.vy)).toBeLessThan(5);
+  });
+
+  it('with kernelFriction = 0, tangential velocity matches no-collision baseline (regression guard)', () => {
+    // landed:false avoids the post-landing speed clamp so we can isolate the
+    // friction code path. Compare two runs:
+    //   (1) collision occurs with friction=0 — friction branch must be a no-op
+    //   (2) no collision baseline — same particle alone
+    // Both must produce identical tangential velocity.
+    const config = { ...DEFAULT_PHYSICS_CONFIG, gravity: 0, kernelFriction: 0, airDrag: 0 };
+
+    const aCollide: Particle = {
+      x: 100, y: 100, vx: 0, vy: 1, radius: 10,
+      frozen: false, frozenFrames: 0, landed: false,
+    };
+    const bCollide: Particle = {
+      x: 115, y: 100, vx: 0, vy: -1, radius: 10,
+      frozen: false, frozenFrames: 0, landed: false,
+    };
+    stepPhysics([aCollide, bCollide], 0, 0, { w: 1000, h: 1000 }, 1.0, config);
+
+    const aAlone: Particle = {
+      x: 100, y: 100, vx: 0, vy: 1, radius: 10,
+      frozen: false, frozenFrames: 0, landed: false,
+    };
+    stepPhysics([aAlone], 0, 0, { w: 1000, h: 1000 }, 1.0, config);
+
+    // friction=0 means the friction branch is skipped → vy must equal the
+    // baseline (only damping applied, no tangential reduction from collision).
+    expect(aCollide.vy).toBeCloseTo(aAlone.vy, 6);
+  });
+});

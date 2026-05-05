@@ -97,6 +97,7 @@ export function stepPhysics(
   }
 
   // Overlap correction — frozen particles are immovable obstacles
+  const friction = config?.kernelFriction ?? 0;
   for (let i = 0; i < particles.length; i++) {
     for (let j = i + 1; j < particles.length; j++) {
       const a = particles[i], b = particles[j];
@@ -110,6 +111,24 @@ export function stepPhysics(
         const nx = dx / dist, ny = dy / dist;
         if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
         if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
+
+        // Tangential friction: damp velocity component perpendicular to the
+        // collision normal. Normal component is preserved (elastic-ish),
+        // tangential is reduced by `friction`.
+        if (friction > 0) {
+          // Tangent vector is (-ny, nx) — perpendicular to normal.
+          const tx = -ny, ty = nx;
+          const aTangent = a.vx * tx + a.vy * ty;
+          const bTangent = b.vx * tx + b.vy * ty;
+          if (!a.frozen) {
+            a.vx -= aTangent * tx * friction;
+            a.vy -= aTangent * ty * friction;
+          }
+          if (!b.frozen) {
+            b.vx -= bTangent * tx * friction;
+            b.vy -= bTangent * ty * friction;
+          }
+        }
       }
     }
   }
