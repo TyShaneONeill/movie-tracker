@@ -39,7 +39,7 @@ export function usePopcornPhysics(
   const prevTimestamp = useSharedValue<number>(-1);
   const configRef = useSharedValue(config);
   const motionEnabledRef = useSharedValue(motionEnabled);
-  const prevGravityMag = useSharedValue(1); // baseline ~1g
+  const prevGravityMag = useSharedValue(-1); // sentinel: skip first-frame delta
   const lastImpactTime = useSharedValue(0);
 
   useEffect(() => {
@@ -130,22 +130,34 @@ export function usePopcornPhysics(
 
         // Wake-on-motion: if gravity-vector magnitude changed beyond threshold,
         // unfreeze all so settled kernels react to the new orientation.
-        const deltaG =
-          Math.abs(mag - prevGravityMag.value) / Math.max(elapsed / 1000, 0.001);
-        if (deltaG > cfg.wakeThreshold) {
-          wake(particles.value);
+        // Sentinel (-1) means first frame after init or sensor recovery — seed
+        // the baseline this frame and skip the delta to avoid a spurious wake.
+        if (prevGravityMag.value < 0) {
+          prevGravityMag.value = mag;
+        } else {
+          const deltaG =
+            Math.abs(mag - prevGravityMag.value) / Math.max(elapsed / 1000, 0.001);
+          if (deltaG > cfg.wakeThreshold) {
+            wake(particles.value);
+          }
+          prevGravityMag.value = mag;
         }
-        prevGravityMag.value = mag;
 
-        // Drain jump queue → applyImpulse opposite-of-gravity for each event
+        // Drain jump queue → applyImpulse opposite-of-gravity for each event.
+        // Snapshot-then-clear so a sensor emit between read and clear isn't
+        // silently dropped — it'll be picked up next frame.
         const queue = tilt.jumpQueue.value;
         if (queue.length > 0) {
+          tilt.jumpQueue.value = [];
           for (let q = 0; q < queue.length; q++) {
             applyImpulse(particles.value, cfg.jumpImpulse, gx, gy);
             runOnJS(onJumpJS)(queue[q]);
           }
-          tilt.jumpQueue.value = [];
         }
+      } else {
+        // Sensor data is non-finite — fall through to constant gravity above.
+        // Reset baseline so a recovered sensor doesn't compare against stale data.
+        prevGravityMag.value = -1;
       }
     }
 
