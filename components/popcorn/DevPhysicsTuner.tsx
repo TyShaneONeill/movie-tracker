@@ -13,7 +13,7 @@ const TUNABLES: { key: keyof PhysicsConfig; min: number; max: number; step: numb
   { key: 'gravity', min: 0, max: 40, step: 0.1 },
   { key: 'damping', min: 0.5, max: 1.0, step: 0.005 },
   { key: 'restitution', min: 0, max: 1.0, step: 0.01 },
-  { key: 'airDrag', min: 0, max: 2.0, step: 0.01 },
+  { key: 'airDrag', min: 0, max: 0.5, step: 0.005 },
   { key: 'kernelFriction', min: 0, max: 1.0, step: 0.005 },
   { key: 'jumpImpulse', min: 0, max: 80, step: 0.5 },
   { key: 'jumpThreshold', min: 0.3, max: 3.0, step: 0.05 },

@@ -36,7 +36,10 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   restitution: 0.30,
   maxSpeed: 8.0,
   overlapCorrection: 0.50,
-  airDrag: 0.60,
+  // Quadratic drag coefficient. At speed=8 (maxSpeed), this gives ~38% per-frame
+  // reduction; at speed=2 (settle phase), only ~3%. Drag is meaningful only when
+  // kernels are flying, near-zero when they're glidng to rest.
+  airDrag: 0.10,
   kernelFriction: 0.10,
   jumpImpulse: 28.0,
   jumpThreshold: 1.4,
@@ -112,13 +115,23 @@ export function stepPhysics(
     if (p.y - p.radius < 0) { p.y = p.radius; p.vy = Math.abs(p.vy) * restitution; }
     if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution; p.landed = true; }
 
-    // Per-particle damping = configured damping modulated by per-kernel air drag.
-    // Smaller radii get a smaller multiplier (more damping), larger radii closer
-    // to 1 (less damping). airDrag = 0 disables (regression guard for callers
-    // not yet passing config).
-    const sizeDragMultiplier = dragCoeff > 0 ? Math.max(0, 1 - dragCoeff / p.radius) : 1;
-    p.vx *= damping * sizeDragMultiplier;
-    p.vy *= damping * sizeDragMultiplier;
+    // Drag = linear damping (small constant bleed for eventual rest) + quadratic
+    // air drag (proportional to v²). The quadratic term means drag is strong at
+    // high speeds (brakes shake/cascade overshoot) but near-zero at low speeds
+    // (kernels glide and settle crisply instead of feeling like they're falling
+    // through honey). Smaller radii experience more drag per unit speed
+    // (higher surface-to-volume ratio). airDrag = 0 disables the quadratic term.
+    let speedScale = 1;
+    if (dragCoeff > 0) {
+      const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      if (speed > 0) {
+        const dragForce = (dragCoeff / p.radius) * speed * speed;
+        const newSpeed = Math.max(0, speed - dragForce * dt);
+        speedScale = newSpeed / speed;
+      }
+    }
+    p.vx *= damping * speedScale;
+    p.vy *= damping * speedScale;
 
     // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
