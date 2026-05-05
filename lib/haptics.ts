@@ -7,7 +7,9 @@ export function hapticImpact(
   style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light
 ): void {
   if (Platform.OS !== 'web') {
-    Haptics.impactAsync(style);
+    // Swallow rejections — taptic engine throttling and simulator absence
+    // both reject; neither is actionable.
+    Haptics.impactAsync(style).catch(() => {});
   }
 }
 
@@ -15,12 +17,12 @@ export function hapticNotification(
   type: Haptics.NotificationFeedbackType
 ): void {
   if (Platform.OS !== 'web') {
-    Haptics.notificationAsync(type);
+    Haptics.notificationAsync(type).catch(() => {});
   }
 }
 
 export function hapticSelection(): void {
   if (Platform.OS !== 'web') {
-    Haptics.selectionAsync();
+    Haptics.selectionAsync().catch(() => {});
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSharedValue, useFrameCallback, runOnJS } from 'react-native-reanimated';
 import {
   stepPhysics,
@@ -92,11 +92,20 @@ export function usePopcornPhysics(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bounds.w, bounds.h]);
 
+  // Wrap callbacks in a ref so the worklet always reaches the latest callback
+  // identity. Without this, a PopcornBag re-render with a re-memoized
+  // handleImpact / handleJump would never propagate — the worklet's runOnJS
+  // closures captured the original `callbacks` object at mount time.
+  const callbacksRef = useRef(callbacks);
+  useEffect(() => {
+    callbacksRef.current = callbacks;
+  }, [callbacks]);
+
   const onImpactJS = (event: ImpactEvent) => {
-    callbacks.onImpact?.(event);
+    callbacksRef.current?.onImpact?.(event);
   };
   const onJumpJS = (event: JumpEvent) => {
-    callbacks.onJump?.(event);
+    callbacksRef.current?.onJump?.(event);
   };
 
   useFrameCallback((info) => {
