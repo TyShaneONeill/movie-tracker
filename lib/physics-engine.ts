@@ -12,6 +12,10 @@ export interface Particle {
    *  for callers (and tests) that don't supply it, preserving original
    *  behavior when absent. */
   personality?: number;
+  /** Visual rotation in radians. Updated by stepPhysics each frame based on
+   *  velocity × personality. Read by the renderer to apply a Skia transform.
+   *  Optional — defaults to 0 for callers that don't track rotation. */
+  rotation?: number;
 }
 
 export interface PhysicsConfig {
@@ -27,22 +31,22 @@ export interface PhysicsConfig {
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
-  // Tuned 2026-05-04 after the v2 simplification pass: sensor gravity is
-  // applied directly (no blended-anchor formula), so the magnitude here is
-  // the *only* knob controlling fall speed. Kept slightly above world-g
-  // for a snappier feel in a small on-screen bag.
-  gravity: 10.0,
-  damping: 0.91,
-  restitution: 0.30,
-  maxSpeed: 8.0,
+  // Tuned 2026-05-05 on-device after switching to quadratic drag. The user
+  // arrived at this combo after rejecting several "calibrated" defaults:
+  // damping=1.0 (no exponential decay) lets kernels carry momentum like real
+  // granular media; quadratic airDrag=0.5 brakes high-speed events instead;
+  // kernelFriction=1.0 prevents inter-kernel swirl; restitution=1.0 keeps wall
+  // bounces lively (energy bleeds via airDrag, not walls); high maxSpeed=30
+  // means kernels can really fly during a shake before drag catches up.
+  gravity: 8.0,
+  damping: 1.00,
+  restitution: 1.00,
+  maxSpeed: 30.0,
   overlapCorrection: 0.50,
-  // Quadratic drag coefficient. At speed=8 (maxSpeed), this gives ~38% per-frame
-  // reduction; at speed=2 (settle phase), only ~3%. Drag is meaningful only when
-  // kernels are flying, near-zero when they're glidng to rest.
-  airDrag: 0.10,
-  kernelFriction: 0.10,
-  jumpImpulse: 28.0,
-  jumpThreshold: 1.4,
+  airDrag: 0.50,
+  kernelFriction: 1.00,
+  jumpImpulse: 75.0,
+  jumpThreshold: 3.0,
 };
 
 const DAMPING = 0.91;
@@ -132,6 +136,17 @@ export function stepPhysics(
     }
     p.vx *= damping * speedScale;
     p.vy *= damping * speedScale;
+
+    // Visual rotation: kernels tumble proportional to motion. Per-kernel
+    // personality offset (-0.15 to +0.15) determines spin direction so two
+    // adjacent kernels with the same trajectory still rotate differently.
+    // Frozen kernels skip this loop entirely → settled kernels keep their
+    // last orientation, which looks correct (a real kernel at rest is angled
+    // however it landed). Magic numbers tuned for "tumble visible during
+    // cascade, subtle during settle."
+    const personalityOffset = (p.personality ?? 1) - 1;
+    const rotationFromMotion = p.vx * 0.04 + p.vy * personalityOffset * 0.20;
+    p.rotation = (p.rotation ?? 0) + rotationFromMotion * dt;
 
     // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {

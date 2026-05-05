@@ -20,7 +20,13 @@ export function MilestoneKernel({ kernel, index, particles }: Props) {
   const transform = useDerivedValue(() => {
     const p = particles.value[index];
     if (!p) return [];
-    return [{ translateX: p.x - size / 2 }, { translateY: p.y - size / 2 }];
+    return [
+      { translateX: p.x },
+      { translateY: p.y },
+      { rotate: p.rotation ?? 0 },
+      { translateX: -size / 2 },
+      { translateY: -size / 2 },
+    ];
   });
 
   return (
