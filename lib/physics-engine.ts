@@ -43,6 +43,11 @@ const MAX_SPEED = 2.2;
 const OVERLAP_CORRECTION = 0.50;
 const SLEEP_THRESHOLD = 0.08;
 const FRAMES_TO_FREEZE = 8;
+// Center of the kernelSize() radius range (kernelSize returns 28-42px → radius 14-21px).
+// Used to compute per-kernel mass response: lighter kernels (smaller radius) accelerate
+// more under gravity, heavier ones less. Without this, every kernel sees the same
+// dv/dt and the pile translates as one rigid block — that's the "moves as one unit" bug.
+const REFERENCE_RADIUS = 17;
 
 export function stepPhysics(
   particles: Particle[],
@@ -68,15 +73,23 @@ export function stepPhysics(
     // Frozen particles are completely skipped — no gravity, no movement
     if (p.frozen) continue;
 
-    p.vx += gravityX * dt;
-    p.vy += gravityY * dt;
+    // Per-kernel mass response: smaller kernels accelerate more under gravity,
+    // larger ones less. Breaks velocity synchronization so the pile no longer
+    // translates as a rigid block. With the 14-21px radius range, this gives
+    // ~1.5x acceleration spread between smallest and largest kernels.
+    const massResponse = REFERENCE_RADIUS / p.radius;
+    p.vx += gravityX * dt * massResponse;
+    p.vy += gravityY * dt * massResponse;
 
-    // Speed clamp only after first floor contact — allows fast ballistic entry
+    // Speed clamp scaled per-kernel by radius — heavier kernels can move faster.
+    // Without this, every landed kernel hits the same maxSpeed and they all
+    // travel at the same velocity during a cascade (looks like a rigid block).
     if (p.landed) {
       const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-      if (speed > maxSpeed) {
-        p.vx = (p.vx / speed) * maxSpeed;
-        p.vy = (p.vy / speed) * maxSpeed;
+      const perMaxSpeed = maxSpeed * (p.radius / REFERENCE_RADIUS);
+      if (speed > perMaxSpeed) {
+        p.vx = (p.vx / speed) * perMaxSpeed;
+        p.vy = (p.vy / speed) * perMaxSpeed;
       }
     }
 
