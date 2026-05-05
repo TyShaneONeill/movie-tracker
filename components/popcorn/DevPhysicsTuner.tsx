@@ -17,9 +17,7 @@ const TUNABLES: { key: keyof PhysicsConfig; min: number; max: number; step: numb
   { key: 'kernelFriction', min: 0, max: 1.0, step: 0.005 },
   { key: 'jumpImpulse', min: 0, max: 80, step: 0.5 },
   { key: 'jumpThreshold', min: 0.3, max: 3.0, step: 0.05 },
-  { key: 'wakeThreshold', min: 0.05, max: 2.0, step: 0.01 },
   { key: 'maxSpeed', min: 0.5, max: 30, step: 0.1 },
-  { key: 'tiltInfluence', min: 0, max: 1, step: 0.05 },
 ];
 
 export function DevPhysicsTuner({ config, onChange }: Props) {

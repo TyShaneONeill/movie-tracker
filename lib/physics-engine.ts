@@ -16,20 +16,18 @@ export interface PhysicsConfig {
   maxSpeed: number;
   overlapCorrection: number;
   airDrag: number;        // per-kernel-size drag (0 = disabled)
-  kernelFriction: number; // tangential damping on collision (applied in Task 3)
+  kernelFriction: number; // tangential damping on collision
   jumpImpulse: number;    // velocity magnitude on jump detection
   jumpThreshold: number;  // minimum vertical accel spike (g-units) to register a jump
-  wakeThreshold: number;  // minimum gravity-vector magnitude change per second (g/s) to wake frozen particles
-  tiltInfluence: number;  // 0 = ignore sensor, gravity always points to phone bottom (bag-on-table feel); 1 = full world-gravity (sand-tray feel)
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
-  // Tuned values from Config A + Gemini's friction adjustment after
-  // on-device testing 2026-05-04. "Heavy & anchored" — bag-on-table feel
-  // that filters hand jitter, with low inter-kernel friction so kernels
-  // tumble individually instead of clumping during a pour.
-  gravity: 13.0,
-  damping: 0.88,
+  // Tuned 2026-05-04 after the v2 simplification pass: sensor gravity is
+  // applied directly (no blended-anchor formula), so the magnitude here is
+  // the *only* knob controlling fall speed. Kept slightly above world-g
+  // for a snappier feel in a small on-screen bag.
+  gravity: 10.0,
+  damping: 0.91,
   restitution: 0.30,
   maxSpeed: 8.0,
   overlapCorrection: 0.50,
@@ -37,8 +35,6 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   kernelFriction: 0.10,
   jumpImpulse: 28.0,
   jumpThreshold: 1.4,
-  wakeThreshold: 0.40,
-  tiltInfluence: 0.15,
 };
 
 const DAMPING = 0.91;
@@ -47,12 +43,6 @@ const MAX_SPEED = 2.2;
 const OVERLAP_CORRECTION = 0.50;
 const SLEEP_THRESHOLD = 0.08;
 const FRAMES_TO_FREEZE = 8;
-// Multi-pass position-based dynamics: stacks of kernels need overlap
-// corrections to propagate through N pairs in one frame, otherwise
-// gravity re-pushes the bottom layer into the floor/neighbors and the
-// pile boils instead of settling. 3 passes is the industry default for
-// PBD; covers ~30-particle deep stacks at 60Hz without frame drops.
-const SOLVER_ITERATIONS = 3;
 
 export function stepPhysics(
   particles: Particle[],
@@ -70,6 +60,8 @@ export function stepPhysics(
   const maxSpeed = config?.maxSpeed ?? MAX_SPEED;
   const overlapCorrection = config?.overlapCorrection ?? OVERLAP_CORRECTION;
   const dragCoeff = config?.airDrag ?? 0;
+  const friction = config?.kernelFriction ?? 0;
+
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
 
@@ -118,46 +110,40 @@ export function stepPhysics(
     }
   }
 
-  // Multi-pass overlap correction — frozen particles are immovable obstacles.
-  // Each pass propagates positional corrections one layer up a stack;
-  // SOLVER_ITERATIONS=3 is enough to settle deep piles in a single frame
-  // and avoids the "boiling pile" instability of single-pass PBD.
-  // Friction is gated to the first pass — applying it on every iteration
-  // would compound the tangential damping by SOLVER_ITERATIONS× and
-  // make kernels feel sticky.
-  const friction = config?.kernelFriction ?? 0;
-  for (let iter = 0; iter < SOLVER_ITERATIONS; iter++) {
-    const applyFriction = iter === 0 && friction > 0;
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const a = particles[i], b = particles[j];
-        if (a.frozen && b.frozen) continue;
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const distSq = dx * dx + dy * dy;
-        const minDist = a.radius + b.radius;
-        if (distSq < minDist * minDist && distSq > 0) {
-          const dist = Math.sqrt(distSq);
-          const overlap = (minDist - dist) * overlapCorrection;
-          const nx = dx / dist, ny = dy / dist;
-          if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
-          if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
+  // Single-pass overlap correction — frozen particles are immovable obstacles.
+  // We previously ran a 3-pass PBD solver here to settle deep stacks in one
+  // frame, but combined with strong gravity that was the root cause of the
+  // "boiling pile" jitter — the multi-pass nudged kernels apart faster than
+  // sleep detection could catch them. One pass + damping settles fine on
+  // device; deeper stacks just take an extra frame or two to relax.
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const a = particles[i], b = particles[j];
+      if (a.frozen && b.frozen) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distSq = dx * dx + dy * dy;
+      const minDist = a.radius + b.radius;
+      if (distSq < minDist * minDist && distSq > 0) {
+        const dist = Math.sqrt(distSq);
+        const overlap = (minDist - dist) * overlapCorrection;
+        const nx = dx / dist, ny = dy / dist;
+        if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
+        if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
 
-          // Tangential friction (first pass only): damp velocity component
-          // perpendicular to the collision normal. Normal component is
-          // preserved (elastic-ish), tangential is reduced by `friction`.
-          if (applyFriction) {
-            // Tangent vector is (-ny, nx) — perpendicular to normal.
-            const tx = -ny, ty = nx;
-            const aTangent = a.vx * tx + a.vy * ty;
-            const bTangent = b.vx * tx + b.vy * ty;
-            if (!a.frozen) {
-              a.vx -= aTangent * tx * friction;
-              a.vy -= aTangent * ty * friction;
-            }
-            if (!b.frozen) {
-              b.vx -= bTangent * tx * friction;
-              b.vy -= bTangent * ty * friction;
-            }
+        // Tangential friction: damp velocity component perpendicular to the
+        // collision normal. Normal component is preserved (elastic-ish),
+        // tangential is reduced by `friction`. friction=0 skips the branch.
+        if (friction > 0) {
+          const tx = -ny, ty = nx;
+          const aTangent = a.vx * tx + a.vy * ty;
+          const bTangent = b.vx * tx + b.vy * ty;
+          if (!a.frozen) {
+            a.vx -= aTangent * tx * friction;
+            a.vy -= aTangent * ty * friction;
+          }
+          if (!b.frozen) {
+            b.vx -= bTangent * tx * friction;
+            b.vy -= bTangent * ty * friction;
           }
         }
       }
@@ -185,8 +171,8 @@ export function initParticles(
 
 /**
  * Unfreezes every particle and resets its sleep counter. Called by the
- * orchestrator when motion delta exceeds wakeThreshold so settled kernels
- * react to the next frame's gravity vector.
+ * orchestrator on shake/jump so settled kernels react to the next frame's
+ * gravity vector.
  */
 export function wake(particles: Particle[]): void {
   'worklet';

@@ -28,6 +28,11 @@ interface Bounds {
 
 const IMPACT_VELOCITY_THRESHOLD = 1.5;
 const IMPACT_THROTTLE_MS = 50;
+// Wake frozen kernels when the gravity-vector magnitude changes by more than
+// this much per second (g/s) — i.e. when the user shakes or rotates the phone.
+// Constant rather than a tuner knob; the device-side feel didn't differ
+// meaningfully across the 0.2–0.8 range we tried.
+const WAKE_DELTA_THRESHOLD = 0.4;
 
 // Module-level latch — `popcorn:motion_engine_started` is intended as one-shot
 // per JS session. The mount useEffect below would otherwise re-fire under
@@ -53,24 +58,11 @@ export function usePopcornPhysics(
 
   useEffect(() => {
     configRef.value = config;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    config.gravity,
-    config.damping,
-    config.restitution,
-    config.maxSpeed,
-    config.overlapCorrection,
-    config.airDrag,
-    config.kernelFriction,
-    config.jumpImpulse,
-    config.jumpThreshold,
-    config.wakeThreshold,
-  ]);
+  }, [config, configRef]);
 
   useEffect(() => {
     motionEnabledRef.value = motionEnabled;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [motionEnabled]);
+  }, [motionEnabled, motionEnabledRef]);
 
   // One-shot telemetry on engine init. Captures sensor + a11y state so we can
   // tell from PostHog dashboards whether the motion path is reachable in the
@@ -141,8 +133,7 @@ export function usePopcornPhysics(
 
   useEffect(() => {
     boundsRef.value = bounds;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bounds.w, bounds.h]);
+  }, [bounds, bounds.w, bounds.h, boundsRef]);
 
   // Wrap callbacks in a ref so the worklet always reaches the latest callback
   // identity. Without this, a PopcornBag re-render with a re-memoized
@@ -175,7 +166,12 @@ export function usePopcornPhysics(
     prevTimestamp.value = now;
     const dt = Math.min(elapsed / 16.67, 1.0);
 
-    // Resolve gravity vector for this frame.
+    // Resolve gravity vector for this frame. Default = straight down at full
+    // configured magnitude. When motion is enabled and the sensor reports a
+    // valid unit vector, use it directly — no blending, no anchoring. The
+    // sensor unit vector is what "down" actually is for the user; multiplying
+    // it by cfg.gravity preserves the magnitude knob without the bottom-bias
+    // formula that previously made the bag feel glued.
     const cfg = configRef.value;
     const useMotion = motionEnabledRef.value;
     let gx = 0;
@@ -183,24 +179,12 @@ export function usePopcornPhysics(
 
     if (useMotion) {
       const g = tilt.gravity.value;
-      // NaN guard — sensor data should never be NaN, but applyImpulse and
-      // stepPhysics both assume finite inputs. Fall back to constant gravity
-      // if anything looks off.
-      const finite =
-        Number.isFinite(g.gx) && Number.isFinite(g.gy);
+      const finite = Number.isFinite(g.gx) && Number.isFinite(g.gy);
       if (finite) {
         const mag = Math.sqrt(g.gx * g.gx + g.gy * g.gy);
         if (mag > 0.01) {
-          // Blend sensor gravity with phone-bottom-anchored gravity.
-          // tiltInfluence = 0 → bag is anchored, sensor ignored.
-          // tiltInfluence = 1 → pure world-gravity (sand-tray feel).
-          // Default 0.35 keeps "down = bottom of phone" dominant while
-          // still letting tilt nudge the cascade direction.
-          const t = cfg.tiltInfluence;
-          const sensorGx = g.gx / mag;
-          const sensorGy = g.gy / mag;
-          gx = sensorGx * t * cfg.gravity;
-          gy = ((1 - t) + sensorGy * t) * cfg.gravity;
+          gx = (g.gx / mag) * cfg.gravity;
+          gy = (g.gy / mag) * cfg.gravity;
         }
 
         // Wake-on-motion: if gravity-vector magnitude changed beyond threshold,
@@ -212,7 +196,7 @@ export function usePopcornPhysics(
         } else {
           const deltaG =
             Math.abs(mag - prevGravityMag.value) / Math.max(elapsed / 1000, 0.001);
-          if (deltaG > cfg.wakeThreshold) {
+          if (deltaG > WAKE_DELTA_THRESHOLD) {
             wake(particles.value);
           }
           prevGravityMag.value = mag;
