@@ -60,4 +60,16 @@ describe('stepPhysics — air drag', () => {
     const expectedVx = 2 * Math.pow(0.91, 30);
     expect(p.vx).toBeCloseTo(expectedVx, 3);
   });
+
+  it('clamps the size-drag multiplier at 0 when radius < airDrag (no sign flip)', () => {
+    const p: Particle = {
+      x: 100, y: 100, vx: 2, vy: 0, radius: 0.4,
+      frozen: false, frozenFrames: 0, landed: false,
+    };
+    const config = { ...DEFAULT_PHYSICS_CONFIG, gravity: 0, airDrag: 0.5 };
+    stepPhysics([p], 0, 0, { w: 1000, h: 1000 }, 1.0, config);
+    // multiplier = max(0, 1 - 0.5/0.4) = max(0, -0.25) = 0 → vx becomes 0
+    expect(p.vx).toBe(0);
+    expect(Object.is(p.vx, -0)).toBe(false);
+  });
 });
