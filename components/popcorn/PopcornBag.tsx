@@ -4,7 +4,6 @@ import { Canvas } from '@shopify/react-native-skia';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { usePopcornPhysics } from '@/hooks/use-popcorn-physics';
 import { useBagJiggle } from '@/hooks/use-bag-jiggle';
-import { hapticImpact } from '@/lib/haptics';
 import { PopcornKernel } from './PopcornKernel';
 import { MilestoneKernel } from './MilestoneKernel';
 import type { PopcornKernel as KernelData } from '@/lib/popcorn-service';
@@ -25,7 +24,6 @@ export function PopcornBag({ kernels, width, height, config = DEFAULT_PHYSICS_CO
 
   const handleImpact = useCallback(
     (event: ImpactEvent) => {
-      hapticImpact();
       jiggle.triggerJiggle(event.velocity);
     },
     [jiggle]

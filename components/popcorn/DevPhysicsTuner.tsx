@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PhysicsConfig } from '@/lib/physics-engine';
 
 interface Props {
@@ -21,8 +22,9 @@ const TUNABLES: { key: keyof PhysicsConfig; min: number; max: number; step: numb
 ];
 
 export function DevPhysicsTuner({ config, onChange }: Props) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { bottom: insets.bottom + 70 }]}>
       <Text style={styles.title}>Physics tuner (DEV)</Text>
       {TUNABLES.map(({ key, min, max, step }) => (
         <View key={key} style={styles.row}>
@@ -46,7 +48,6 @@ export function DevPhysicsTuner({ config, onChange }: Props) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 20,
     left: 8,
     right: 8,
     backgroundColor: 'rgba(0,0,0,0.85)',
