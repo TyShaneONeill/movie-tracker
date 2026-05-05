@@ -15,7 +15,7 @@ import type {
   JumpEvent,
   PopcornEventCallbacks,
 } from '@/lib/popcorn-events';
-import { kernelSize } from '@/lib/kernel-generator';
+import { kernelSize, kernelPersonality } from '@/lib/kernel-generator';
 import { useDeviceTilt } from '@/hooks/use-device-tilt';
 import { usePopcornMotionEnabled } from '@/hooks/use-feature-flag';
 import { analytics } from '@/lib/analytics';
@@ -123,6 +123,7 @@ export function usePopcornPhysics(
         frozen: false,
         frozenFrames: 0,
         landed: false,
+        personality: kernelPersonality(k.seed),
       };
     });
     if (newParticles.length > 0) {

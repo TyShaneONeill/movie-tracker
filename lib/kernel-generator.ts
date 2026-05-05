@@ -48,6 +48,16 @@ export function kernelSize(seed: number): number {
   return 28 + Math.floor(rng() * 15);
 }
 
+// Per-kernel "personality" — a permanent multiplier on physics responsiveness.
+// Two kernels of the same size will behave differently because of this.
+// Stable across sessions: kernel #42 is always slightly heavier than kernel #43.
+// Range 0.85–1.15 so a 30° tilt produces visibly different trajectories per
+// kernel without making any one of them feel broken.
+export function kernelPersonality(seed: number): number {
+  const rng = makeLCG(seed ^ 0xCAFEBABE);
+  return 0.85 + rng() * 0.30;
+}
+
 // How much butter on this kernel: 0.1–0.65 (seeded)
 export function kernelButterOpacity(seed: number): number {
   const rng = makeLCG(seed ^ 0xBEEF1234);

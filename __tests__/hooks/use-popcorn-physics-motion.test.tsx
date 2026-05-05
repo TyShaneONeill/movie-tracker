@@ -13,9 +13,10 @@ jest.mock('react-native-reanimated', () => ({
 }));
 
 // kernel-generator imports @shopify/react-native-skia which doesn't transpile
-// under jest. Stub the only function the hook uses.
+// under jest. Stub the functions the hook uses.
 jest.mock('@/lib/kernel-generator', () => ({
   kernelSize: (seed: number) => 32 + (seed % 8),
+  kernelPersonality: (seed: number) => 0.85 + ((seed % 30) / 100),
 }));
 
 jest.mock('expo-sensors', () => {

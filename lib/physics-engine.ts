@@ -7,6 +7,11 @@ export interface Particle {
   frozen: boolean;
   frozenFrames: number;
   landed: boolean;
+  /** Permanent per-kernel multiplier on gravity response (0.85–1.15).
+   *  Derived from kernel seed at creation time. Optional — defaults to 1
+   *  for callers (and tests) that don't supply it, preserving original
+   *  behavior when absent. */
+  personality?: number;
 }
 
 export interface PhysicsConfig {
@@ -73,11 +78,16 @@ export function stepPhysics(
     // Frozen particles are completely skipped — no gravity, no movement
     if (p.frozen) continue;
 
-    // Per-kernel mass response: smaller kernels accelerate more under gravity,
-    // larger ones less. Breaks velocity synchronization so the pile no longer
-    // translates as a rigid block. With the 14-21px radius range, this gives
-    // ~1.5x acceleration spread between smallest and largest kernels.
-    const massResponse = REFERENCE_RADIUS / p.radius;
+    // Per-kernel mass response combines two stable, seed-derived properties:
+    //   1. Radius — smaller kernels are lighter (accelerate more under gravity).
+    //   2. Personality — a permanent ±15% multiplier so two kernels of the
+    //      *same* size still behave differently. This gives each kernel a
+    //      persistent identity: shake the bag and specific kernels will
+    //      reliably end up in different places, every time.
+    // Combined effect: ~1.5× spread from radius alone, plus another ±15%
+    // from personality, yields kernels that visibly diverge under gravity.
+    const personality = p.personality ?? 1;
+    const massResponse = (REFERENCE_RADIUS / p.radius) * personality;
     p.vx += gravityX * dt * massResponse;
     p.vy += gravityY * dt * massResponse;
 
