@@ -122,7 +122,6 @@ export function usePopcornPhysics(
         radius: r,
         frozen: false,
         frozenFrames: 0,
-        landed: false,
         personality: kernelPersonality(k.seed),
         rotation: (((k.seed * 2654435761) >>> 0) / 0xFFFFFFFF) * Math.PI * 2,
       };

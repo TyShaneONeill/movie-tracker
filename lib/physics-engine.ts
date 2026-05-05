@@ -6,7 +6,6 @@ export interface Particle {
   radius: number;
   frozen: boolean;
   frozenFrames: number;
-  landed: boolean;
   /** Permanent per-kernel multiplier on gravity response (0.85–1.15).
    *  Derived from kernel seed at creation time. Optional — defaults to 1
    *  for callers (and tests) that don't supply it, preserving original
@@ -98,17 +97,9 @@ export function stepPhysics(
     p.vx += gravityX * dt * massResponse;
     p.vy += gravityY * dt * massResponse;
 
-    // Speed clamp scaled per-kernel by radius — heavier kernels can move faster.
-    // Without this, every landed kernel hits the same maxSpeed and they all
-    // travel at the same velocity during a cascade (looks like a rigid block).
-    if (p.landed) {
-      const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-      const perMaxSpeed = maxSpeed * (p.radius / REFERENCE_RADIUS);
-      if (speed > perMaxSpeed) {
-        p.vx = (p.vx / speed) * perMaxSpeed;
-        p.vy = (p.vy / speed) * perMaxSpeed;
-      }
-    }
+    // (Speed clamp removed: quadratic airDrag now enforces terminal velocity
+    // naturally, so the post-landing clamp was redundant and was actively
+    // synchronizing velocities into a rigid block.)
 
     p.x += p.vx * dt;
     p.y += p.vy * dt;
@@ -117,7 +108,7 @@ export function stepPhysics(
     if (p.x - p.radius < 0) { p.x = p.radius; p.vx = Math.abs(p.vx) * restitution; }
     if (p.x + p.radius > bounds.w) { p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution; }
     if (p.y - p.radius < 0) { p.y = p.radius; p.vy = Math.abs(p.vy) * restitution; }
-    if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution; p.landed = true; }
+    if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution; }
 
     // Drag = linear damping (small constant bleed for eventual rest) + quadratic
     // air drag (proportional to v²). The quadratic term means drag is strong at
@@ -137,15 +128,16 @@ export function stepPhysics(
     p.vx *= damping * speedScale;
     p.vy *= damping * speedScale;
 
-    // Visual rotation: kernels tumble proportional to speed, but ONLY above
-    // a threshold — otherwise damping=1.0 leaves tiny residual velocities
-    // that perpetually accumulate rotation, making settled kernels look like
-    // spinning tops. Below threshold, kernels stay at their current angle
-    // (which is what real popcorn does at rest).
+    // Visual rotation, gated by motion threshold so settled kernels don't
+    // accumulate rotation from residual velocity jitter.
+    //   • Floor rolling: a circle rolling at velocity v rotates at v/radius
+    //     rad/sec — exact pure-rolling math.
+    //   • Airborne tumble: vy × personality gives chaotic end-over-end
+    //     spin where bigger personality = more dramatic tumble. Each kernel
+    //     has its own characteristic rate.
     const motionSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
     if (motionSpeed > 0.5) {
-      const personalityOffset = (p.personality ?? 1) - 1;
-      const rotationFromMotion = p.vx * 0.01 + p.vy * personalityOffset * 0.05;
+      const rotationFromMotion = (p.vx / p.radius) + (p.vy * personality * 0.05);
       p.rotation = (p.rotation ?? 0) + rotationFromMotion * dt;
     }
 
@@ -182,20 +174,23 @@ export function stepPhysics(
         if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
         if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
 
-        // Tangential friction: damp velocity component perpendicular to the
-        // collision normal. Normal component is preserved (elastic-ish),
-        // tangential is reduced by `friction`. friction=0 skips the branch.
+        // Tangential friction: damp the RELATIVE tangential velocity between
+        // the two kernels (Newton's 3rd law — equal and opposite). The
+        // previous version damped each kernel's WORLD-frame tangential
+        // velocity independently, which acted as a 100% world-space brake
+        // and forced the entire pile to translate as one rigid block during
+        // a cascade. Now friction only resists kernels SLIDING PAST each
+        // other; coordinated motion (cascade, pour) is preserved.
         if (friction > 0) {
           const tx = -ny, ty = nx;
-          const aTangent = a.vx * tx + a.vy * ty;
-          const bTangent = b.vx * tx + b.vy * ty;
+          const relTangent = ((a.vx - b.vx) * tx + (a.vy - b.vy) * ty) * friction * 0.5;
           if (!a.frozen) {
-            a.vx -= aTangent * tx * friction;
-            a.vy -= aTangent * ty * friction;
+            a.vx -= relTangent * tx;
+            a.vy -= relTangent * ty;
           }
           if (!b.frozen) {
-            b.vx -= bTangent * tx * friction;
-            b.vy -= bTangent * ty * friction;
+            b.vx += relTangent * tx;
+            b.vy += relTangent * ty;
           }
         }
       }
@@ -217,7 +212,6 @@ export function initParticles(
     radius: radii[i] ?? 18,
     frozen: false,
     frozenFrames: 0,
-    landed: false,
   }));
 }
 
