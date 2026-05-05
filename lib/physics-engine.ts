@@ -17,6 +17,9 @@ export interface PhysicsConfig {
   overlapCorrection: number;
   airDrag: number;        // per-kernel-size drag (0 = disabled)
   kernelFriction: number; // tangential damping on collision (applied in Task 3)
+  jumpImpulse: number;    // velocity magnitude on jump detection
+  jumpThreshold: number;  // minimum vertical accel spike (g-units) to register a jump
+  wakeThreshold: number;  // minimum gravity-vector magnitude change per second (g/s) to wake frozen particles
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
@@ -27,6 +30,9 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   overlapCorrection: 0.50,
   airDrag: 0.5,
   kernelFriction: 0.15,
+  jumpImpulse: 12.0,
+  jumpThreshold: 1.4,
+  wakeThreshold: 0.3,
 };
 
 const DAMPING = 0.91;
