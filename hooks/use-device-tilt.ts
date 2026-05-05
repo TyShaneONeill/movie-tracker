@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { DeviceMotion } from 'expo-sensors';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
-import { captureException } from '@/lib/sentry';
+import { captureException, Sentry } from '@/lib/sentry';
 import type { JumpEvent } from '@/lib/popcorn-events';
 
 export interface DeviceTiltOptions {
@@ -56,9 +56,23 @@ export function useDeviceTilt(options: DeviceTiltOptions = {}): DeviceTiltResult
     (async () => {
       try {
         const available = await DeviceMotion.isAvailableAsync();
-        if (cancelled || !available) return;
+        if (cancelled || !available) {
+          if (!available) {
+            Sentry.addBreadcrumb({
+              category: 'popcorn-motion',
+              message: 'sensor_unavailable',
+              level: 'info',
+            });
+          }
+          return;
+        }
 
         DeviceMotion.setUpdateInterval(updateInterval);
+        Sentry.addBreadcrumb({
+          category: 'popcorn-motion',
+          message: `sensor_started intervalMs=${updateInterval} jumpThreshold=${jumpThreshold}`,
+          level: 'info',
+        });
         subscription = DeviceMotion.addListener((data: { accelerationIncludingGravity?: { x: number; y: number; z: number } }) => {
           const a = data?.accelerationIncludingGravity;
           if (!a) return;
@@ -88,6 +102,11 @@ export function useDeviceTilt(options: DeviceTiltOptions = {}): DeviceTiltResult
           prevZMag = zMag;
         });
       } catch (error) {
+        Sentry.addBreadcrumb({
+          category: 'popcorn-motion',
+          message: `sensor_error ${error instanceof Error ? error.message : String(error)}`,
+          level: 'error',
+        });
         captureException(error instanceof Error ? error : new Error(String(error)), {
           context: 'use-device-tilt-init',
         });
@@ -96,7 +115,14 @@ export function useDeviceTilt(options: DeviceTiltOptions = {}): DeviceTiltResult
 
     return () => {
       cancelled = true;
-      subscription?.remove();
+      if (subscription) {
+        subscription.remove();
+        Sentry.addBreadcrumb({
+          category: 'popcorn-motion',
+          message: 'sensor_stopped',
+          level: 'info',
+        });
+      }
     };
   }, [updateInterval, jumpThreshold, gravity, jumpQueue]);
 

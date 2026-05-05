@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import { useSharedValue, useFrameCallback, runOnJS } from 'react-native-reanimated';
+import { DeviceMotion } from 'expo-sensors';
 import {
   stepPhysics,
   wake,
@@ -16,6 +18,8 @@ import type {
 import { kernelSize } from '@/lib/kernel-generator';
 import { useDeviceTilt } from '@/hooks/use-device-tilt';
 import { usePopcornMotionEnabled } from '@/hooks/use-feature-flag';
+import { analytics } from '@/lib/analytics';
+import { Sentry } from '@/lib/sentry';
 
 interface Bounds {
   w: number;
@@ -63,6 +67,46 @@ export function usePopcornPhysics(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [motionEnabled]);
 
+  // One-shot telemetry on engine init. Captures sensor + a11y state so we can
+  // tell from PostHog dashboards whether the motion path is reachable in the
+  // wild. `motionEnabled` is captured as of mount — if a user toggles the
+  // feature flag mid-session we won't re-fire (acceptable: this event answers
+  // "did motion start" not "is motion currently on").
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let sensorAvailable = false;
+      let reduceMotion = false;
+      try {
+        sensorAvailable = await DeviceMotion.isAvailableAsync();
+      } catch {
+        // Sensor probe failures shouldn't block telemetry; report sensor_available=false.
+      }
+      try {
+        reduceMotion = await AccessibilityInfo.isReduceMotionEnabled();
+      } catch {
+        // Same — fall through with reduce_motion_enabled=false.
+      }
+      if (cancelled) return;
+      analytics.track('popcorn:motion_engine_started', {
+        enabled: motionEnabled,
+        sensor_available: sensorAvailable,
+        reduce_motion_enabled: reduceMotion,
+      });
+      Sentry.addBreadcrumb({
+        category: 'popcorn-motion',
+        message: `engine_started enabled=${motionEnabled} sensor=${sensorAvailable} reduceMotion=${reduceMotion}`,
+        level: 'info',
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally empty — fire once on mount. `motionEnabled` value at mount
+    // is what we want; we don't re-emit on flag flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Initialise or add new particles when kernels list grows
   useEffect(() => {
     if (kernels.length === 0 || bounds.w === 0 || bounds.h === 0) return;
@@ -106,6 +150,12 @@ export function usePopcornPhysics(
   };
   const onJumpJS = (event: JumpEvent) => {
     callbacksRef.current?.onJump?.(event);
+    // Sample at 1% — jumps fire often enough that full capture would dwarf
+    // every other event in the project. 1% is enough to confirm detection
+    // isn't pathological without flooding the pipeline.
+    if (Math.random() < 0.01) {
+      analytics.track('popcorn:motion_jump_detected', { magnitude: event.magnitude });
+    }
   };
 
   useFrameCallback((info) => {

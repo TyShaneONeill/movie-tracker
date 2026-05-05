@@ -32,6 +32,18 @@ jest.mock('expo-linking', () => ({
 // Mock sentry
 jest.mock('@/lib/sentry', () => ({
   captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  initSentry: jest.fn(),
+  setSentryUser: jest.fn(),
+  Sentry: {
+    addBreadcrumb: jest.fn(),
+    captureException: jest.fn(),
+    captureMessage: jest.fn(),
+    setUser: jest.fn(),
+    withScope: jest.fn((fn: (scope: { setExtras: jest.Mock }) => void) =>
+      fn({ setExtras: jest.fn() }),
+    ),
+  },
 }));
 
 // Mock @sentry/react-native (native module — not available in test environment)
