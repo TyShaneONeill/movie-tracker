@@ -25,6 +25,8 @@ const TUNABLES: { key: keyof PhysicsConfig; min: number; max: number; step: numb
   { key: 'framesToFreeze', min: 1, max: 60, step: 1 },
   { key: 'personalityStrength', min: 0, max: 3, step: 0.05 },
   { key: 'massResponseStrength', min: 0, max: 3, step: 0.05 },
+  { key: 'wallAbsorption', min: 0, max: 1, step: 0.01 },
+  { key: 'solverIterations', min: 1, max: 5, step: 1 },
 ];
 
 export function DevPhysicsTuner({ config, onChange }: Props) {

@@ -173,6 +173,9 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
   const framesToFreeze = cfg.framesToFreeze ?? FRAMES_TO_FREEZE;
   const personalityStrength = cfg.personalityStrength ?? 1.0;
   const massResponseStrength = cfg.massResponseStrength ?? 1.0;
+  const wallAbsorption = cfg.wallAbsorption ?? 0;
+  const wallBounce = restitution * (1 - wallAbsorption);
+  const solverIterations = Math.max(1, Math.floor(cfg.solverIterations ?? 1));
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -190,19 +193,19 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
     p.y += p.vy * dt;
 
     if (p.x - p.radius < 0) {
-      p.x = p.radius; p.vx = Math.abs(p.vx) * restitution;
+      p.x = p.radius; p.vx = Math.abs(p.vx) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * angularKickWall;
     }
     if (p.x + p.radius > bounds.w) {
-      p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution;
+      p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * angularKickWall;
     }
     if (p.y - p.radius < 0) {
-      p.y = p.radius; p.vy = Math.abs(p.vy) * restitution;
+      p.y = p.radius; p.vy = Math.abs(p.vy) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
     if (p.y + p.radius > bounds.h) {
-      p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution;
+      p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
 
@@ -232,29 +235,32 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
     }
   }
 
-  for (let i = 0; i < particles.length; i++) {
-    for (let j = i + 1; j < particles.length; j++) {
-      const a = particles[i], b = particles[j];
-      if (a.frozen && b.frozen) continue;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const distSq = dx * dx + dy * dy;
-      const minDist = a.radius + b.radius;
-      if (distSq < minDist * minDist && distSq > 0) {
-        const dist = Math.sqrt(distSq);
-        const overlap = (minDist - dist) * overlapCorrection;
-        const nx = dx / dist, ny = dy / dist;
-        if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
-        if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
+  for (let iter = 0; iter < solverIterations; iter++) {
+    const isFirstIter = iter === 0;
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i], b = particles[j];
+        if (a.frozen && b.frozen) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const distSq = dx * dx + dy * dy;
+        const minDist = a.radius + b.radius;
+        if (distSq < minDist * minDist && distSq > 0) {
+          const dist = Math.sqrt(distSq);
+          const overlap = (minDist - dist) * overlapCorrection;
+          const nx = dx / dist, ny = dy / dist;
+          if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
+          if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
 
-        if (friction > 0) {
-          const tx = -ny, ty = nx;
-          const relTangentRaw = (a.vx - b.vx) * tx + (a.vy - b.vy) * ty;
-          const relTangent = relTangentRaw * friction * 0.5;
-          if (!a.frozen) { a.vx -= relTangent * tx; a.vy -= relTangent * ty; }
-          if (!b.frozen) { b.vx += relTangent * tx; b.vy += relTangent * ty; }
-          const angularKick = relTangentRaw * friction * angularKickCollision;
-          if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
-          if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
+          if (isFirstIter && friction > 0) {
+            const tx = -ny, ty = nx;
+            const relTangentRaw = (a.vx - b.vx) * tx + (a.vy - b.vy) * ty;
+            const relTangent = relTangentRaw * friction * 0.5;
+            if (!a.frozen) { a.vx -= relTangent * tx; a.vy -= relTangent * ty; }
+            if (!b.frozen) { b.vx += relTangent * tx; b.vy += relTangent * ty; }
+            const angularKick = relTangentRaw * friction * angularKickCollision;
+            if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
+            if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
+          }
         }
       }
     }
@@ -321,6 +327,8 @@ const config = {
   framesToFreeze: 8,
   personalityStrength: 1.0,
   massResponseStrength: 1.0,
+  wallAbsorption: 0,
+  solverIterations: 1,
 };
 
 const SLIDER_DEFS = [
@@ -338,6 +346,8 @@ const SLIDER_DEFS = [
   { key: 'framesToFreeze',    min: 1,    max: 60,   step: 1 },
   { key: 'personalityStrength', min: 0,  max: 3,    step: 0.05 },
   { key: 'massResponseStrength', min: 0, max: 3,    step: 0.05 },
+  { key: 'wallAbsorption',    min: 0,    max: 1,    step: 0.01 },
+  { key: 'solverIterations',  min: 1,    max: 5,    step: 1 },
 ];
 
 //=============================================================================

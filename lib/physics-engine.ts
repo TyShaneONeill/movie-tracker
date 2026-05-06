@@ -36,6 +36,8 @@ export interface PhysicsConfig {
   framesToFreeze: number;     // consecutive low-velocity frames before freeze (higher = stay alive longer)
   personalityStrength: number; // multiplier on per-kernel personality variation (1 = default, 0 = uniform, 2 = exaggerated)
   massResponseStrength: number; // multiplier on radius-based mass variation (1 = default, 0 = uniform, 2 = exaggerated)
+  wallAbsorption: number;      // extra perpendicular-velocity loss on wall hits (0 = no extra loss, 1 = full absorb). Stops bottom-stack bounce jitter without changing restitution feel.
+  solverIterations: number;    // overlap-correction passes per frame. 1 = single-pass; 2-3 helps deep stacks (100+ kernels) settle without "freaking out" in corners.
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
@@ -66,6 +68,8 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   // Variation multipliers (1.0 = current behavior, scales seed-derived spread):
   personalityStrength: 1.0,
   massResponseStrength: 1.0,
+  wallAbsorption: 0,
+  solverIterations: 1,
 };
 
 const DAMPING = 0.91;
@@ -104,6 +108,9 @@ export function stepPhysics(
   const framesToFreeze = config?.framesToFreeze ?? FRAMES_TO_FREEZE;
   const personalityStrength = config?.personalityStrength ?? 1.0;
   const massResponseStrength = config?.massResponseStrength ?? 1.0;
+  const wallAbsorption = config?.wallAbsorption ?? 0;
+  const wallBounce = restitution * (1 - wallAbsorption);
+  const solverIterations = Math.max(1, Math.floor(config?.solverIterations ?? 1));
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -139,19 +146,19 @@ export function stepPhysics(
     // Wall collisions. Floor/wall friction imparts angular impulse — horizontal
     // velocity into the floor partially converts to rolling spin.
     if (p.x - p.radius < 0) {
-      p.x = p.radius; p.vx = Math.abs(p.vx) * restitution;
+      p.x = p.radius; p.vx = Math.abs(p.vx) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * angularKickWall;
     }
     if (p.x + p.radius > bounds.w) {
-      p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution;
+      p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * angularKickWall;
     }
     if (p.y - p.radius < 0) {
-      p.y = p.radius; p.vy = Math.abs(p.vy) * restitution;
+      p.y = p.radius; p.vy = Math.abs(p.vy) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
     if (p.y + p.radius > bounds.h) {
-      p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution;
+      p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * wallBounce;
       p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
 
@@ -194,50 +201,47 @@ export function stepPhysics(
     }
   }
 
-  // Single-pass overlap correction — frozen particles are immovable obstacles.
-  // We previously ran a 3-pass PBD solver here to settle deep stacks in one
-  // frame, but combined with strong gravity that was the root cause of the
-  // "boiling pile" jitter — the multi-pass nudged kernels apart faster than
-  // sleep detection could catch them. One pass + damping settles fine on
-  // device; deeper stacks just take an extra frame or two to relax.
-  for (let i = 0; i < particles.length; i++) {
-    for (let j = i + 1; j < particles.length; j++) {
-      const a = particles[i], b = particles[j];
-      if (a.frozen && b.frozen) continue;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const distSq = dx * dx + dy * dy;
-      const minDist = a.radius + b.radius;
-      if (distSq < minDist * minDist && distSq > 0) {
-        const dist = Math.sqrt(distSq);
-        const overlap = (minDist - dist) * overlapCorrection;
-        const nx = dx / dist, ny = dy / dist;
-        if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
-        if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
+  // Multi-pass overlap correction. solverIterations=1 = single-pass; higher
+  // counts propagate corrections through deep stacks in one frame (helps
+  // 100+ kernel configurations stop "freaking out" in corners). Friction +
+  // angular kicks fire only on the first iteration so they don't compound.
+  for (let iter = 0; iter < solverIterations; iter++) {
+    const isFirstIter = iter === 0;
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i], b = particles[j];
+        if (a.frozen && b.frozen) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const distSq = dx * dx + dy * dy;
+        const minDist = a.radius + b.radius;
+        if (distSq < minDist * minDist && distSq > 0) {
+          const dist = Math.sqrt(distSq);
+          const overlap = (minDist - dist) * overlapCorrection;
+          const nx = dx / dist, ny = dy / dist;
+          if (!a.frozen) { a.x -= nx * overlap; a.y -= ny * overlap; }
+          if (!b.frozen) { b.x += nx * overlap; b.y += ny * overlap; }
 
-        // Tangential friction: damp the RELATIVE tangential velocity between
-        // the two kernels (Newton's 3rd law — equal and opposite). The
-        // previous version damped each kernel's WORLD-frame tangential
-        // velocity independently, which acted as a 100% world-space brake
-        // and forced the entire pile to translate as one rigid block during
-        // a cascade. Now friction only resists kernels SLIDING PAST each
-        // other; coordinated motion (cascade, pour) is preserved.
-        if (friction > 0) {
-          const tx = -ny, ty = nx;
-          const relTangentRaw = (a.vx - b.vx) * tx + (a.vy - b.vy) * ty;
-          const relTangent = relTangentRaw * friction * 0.5;
-          if (!a.frozen) {
-            a.vx -= relTangent * tx;
-            a.vy -= relTangent * ty;
+          // Tangential friction (first iter only — applying it across all
+          // iterations would compound and over-damp). Damps the RELATIVE
+          // tangential velocity between the colliding pair (Newton's 3rd
+          // law: equal and opposite). Coordinated motion is preserved;
+          // only kernels SLIDING PAST each other are resisted.
+          if (isFirstIter && friction > 0) {
+            const tx = -ny, ty = nx;
+            const relTangentRaw = (a.vx - b.vx) * tx + (a.vy - b.vy) * ty;
+            const relTangent = relTangentRaw * friction * 0.5;
+            if (!a.frozen) {
+              a.vx -= relTangent * tx;
+              a.vy -= relTangent * ty;
+            }
+            if (!b.frozen) {
+              b.vx += relTangent * tx;
+              b.vy += relTangent * ty;
+            }
+            const angularKick = relTangentRaw * friction * angularKickCollision;
+            if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
+            if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
           }
-          if (!b.frozen) {
-            b.vx += relTangent * tx;
-            b.vy += relTangent * ty;
-          }
-          // Angular impulse from contact friction. Equal-and-opposite.
-          // Tunable via angularKickCollision config knob.
-          const angularKick = relTangentRaw * friction * angularKickCollision;
-          if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
-          if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
         }
       }
     }
