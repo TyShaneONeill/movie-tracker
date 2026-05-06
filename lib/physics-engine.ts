@@ -11,10 +11,12 @@ export interface Particle {
    *  for callers (and tests) that don't supply it, preserving original
    *  behavior when absent. */
   personality?: number;
-  /** Visual rotation in radians. Updated by stepPhysics each frame based on
-   *  velocity × personality. Read by the renderer to apply a Skia transform.
-   *  Optional — defaults to 0 for callers that don't track rotation. */
+  /** Visual rotation in radians. Optional — defaults to 0. */
   rotation?: number;
+  /** Angular velocity in radians per frame. Built up by collisions
+   *  (kernel-on-kernel and kernel-on-floor); decays each frame via
+   *  angular damping. Optional — defaults to 0. */
+  angularVelocity?: number;
 }
 
 export interface PhysicsConfig {
@@ -104,11 +106,24 @@ export function stepPhysics(
     p.x += p.vx * dt;
     p.y += p.vy * dt;
 
-    // Wall collisions
-    if (p.x - p.radius < 0) { p.x = p.radius; p.vx = Math.abs(p.vx) * restitution; }
-    if (p.x + p.radius > bounds.w) { p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution; }
-    if (p.y - p.radius < 0) { p.y = p.radius; p.vy = Math.abs(p.vy) * restitution; }
-    if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution; }
+    // Wall collisions. Floor/wall friction imparts angular impulse — horizontal
+    // velocity into the floor partially converts to rolling spin.
+    if (p.x - p.radius < 0) {
+      p.x = p.radius; p.vx = Math.abs(p.vx) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * 0.3;
+    }
+    if (p.x + p.radius > bounds.w) {
+      p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * 0.3;
+    }
+    if (p.y - p.radius < 0) {
+      p.y = p.radius; p.vy = Math.abs(p.vy) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+    }
+    if (p.y + p.radius > bounds.h) {
+      p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+    }
 
     // Drag = linear damping (small constant bleed for eventual rest) + quadratic
     // air drag (proportional to v²). The quadratic term means drag is strong at
@@ -128,18 +143,13 @@ export function stepPhysics(
     p.vx *= damping * speedScale;
     p.vy *= damping * speedScale;
 
-    // Visual rotation, gated by motion threshold so settled kernels don't
-    // accumulate rotation from residual velocity jitter.
-    //   • Floor rolling: a circle rolling at velocity v rotates at v/radius
-    //     rad/sec — exact pure-rolling math.
-    //   • Airborne tumble: vy × personality gives chaotic end-over-end
-    //     spin where bigger personality = more dramatic tumble. Each kernel
-    //     has its own characteristic rate.
-    const motionSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-    if (motionSpeed > 0.5) {
-      const rotationFromMotion = (p.vx / p.radius) + (p.vy * personality * 0.05);
-      p.rotation = (p.rotation ?? 0) + rotationFromMotion * dt;
-    }
+    // Angular velocity model: rotation accumulates from collision kicks
+    // (kernel-on-kernel + wall hits, set above and below) and decays each
+    // frame via angular damping. Pure airborne motion no longer drives spin
+    // — kernels only rotate when something happens to them.
+    const angVel = p.angularVelocity ?? 0;
+    p.rotation = (p.rotation ?? 0) + angVel * dt;
+    p.angularVelocity = angVel * 0.92;
 
     // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
@@ -183,7 +193,8 @@ export function stepPhysics(
         // other; coordinated motion (cascade, pour) is preserved.
         if (friction > 0) {
           const tx = -ny, ty = nx;
-          const relTangent = ((a.vx - b.vx) * tx + (a.vy - b.vy) * ty) * friction * 0.5;
+          const relTangentRaw = (a.vx - b.vx) * tx + (a.vy - b.vy) * ty;
+          const relTangent = relTangentRaw * friction * 0.5;
           if (!a.frozen) {
             a.vx -= relTangent * tx;
             a.vy -= relTangent * ty;
@@ -192,6 +203,12 @@ export function stepPhysics(
             b.vx += relTangent * tx;
             b.vy += relTangent * ty;
           }
+          // Angular impulse from contact friction. Equal-and-opposite
+          // (a's surface drags b's, b's surface drags a's). Coefficient
+          // tuned visually — too high = top-fidget, too low = static.
+          const angularKick = relTangentRaw * friction * 0.04;
+          if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
+          if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
         }
       }
     }

@@ -179,10 +179,22 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
     p.x += p.vx * dt;
     p.y += p.vy * dt;
 
-    if (p.x - p.radius < 0) { p.x = p.radius; p.vx = Math.abs(p.vx) * restitution; }
-    if (p.x + p.radius > bounds.w) { p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution; }
-    if (p.y - p.radius < 0) { p.y = p.radius; p.vy = Math.abs(p.vy) * restitution; }
-    if (p.y + p.radius > bounds.h) { p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution; }
+    if (p.x - p.radius < 0) {
+      p.x = p.radius; p.vx = Math.abs(p.vx) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * 0.3;
+    }
+    if (p.x + p.radius > bounds.w) {
+      p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * 0.3;
+    }
+    if (p.y - p.radius < 0) {
+      p.y = p.radius; p.vy = Math.abs(p.vy) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+    }
+    if (p.y + p.radius > bounds.h) {
+      p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+    }
 
     let speedScale = 1;
     if (dragCoeff > 0) {
@@ -196,11 +208,9 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
     p.vx *= damping * speedScale;
     p.vy *= damping * speedScale;
 
-    const motionSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-    if (motionSpeed > 0.5) {
-      const rotationFromMotion = (p.vx / p.radius) + (p.vy * personality * 0.05);
-      p.rotation = (p.rotation ?? 0) + rotationFromMotion * dt;
-    }
+    const angVel = p.angularVelocity ?? 0;
+    p.rotation = (p.rotation ?? 0) + angVel * dt;
+    p.angularVelocity = angVel * 0.92;
 
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
       p.frozenFrames++;
@@ -228,9 +238,13 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
 
         if (friction > 0) {
           const tx = -ny, ty = nx;
-          const relTangent = ((a.vx - b.vx) * tx + (a.vy - b.vy) * ty) * friction * 0.5;
+          const relTangentRaw = (a.vx - b.vx) * tx + (a.vy - b.vy) * ty;
+          const relTangent = relTangentRaw * friction * 0.5;
           if (!a.frozen) { a.vx -= relTangent * tx; a.vy -= relTangent * ty; }
           if (!b.frozen) { b.vx += relTangent * tx; b.vy += relTangent * ty; }
+          const angularKick = relTangentRaw * friction * 0.04;
+          if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
+          if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
         }
       }
     }
