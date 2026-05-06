@@ -18,13 +18,17 @@
       "channel": "preview"
     },
     "production": {
-      "channel": "production"
+      "channel": "production",
+      "autoIncrement": "versionCode"
     }
   },
   "submit": {
     "production": {
       "ios": {
         "ascAppId": "6760832346"
+      },
+      "android": {
+        "track": "internal"
       }
     }
   }
