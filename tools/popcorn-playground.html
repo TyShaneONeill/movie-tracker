@@ -166,6 +166,9 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
   const overlapCorrection = cfg.overlapCorrection;
   const dragCoeff = cfg.airDrag;
   const friction = cfg.kernelFriction;
+  const angularDamping = cfg.angularDamping ?? 0.92;
+  const angularKickWall = cfg.angularKickWall ?? 0.10;
+  const angularKickCollision = cfg.angularKickCollision ?? 0.20;
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -181,19 +184,19 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
 
     if (p.x - p.radius < 0) {
       p.x = p.radius; p.vx = Math.abs(p.vx) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * angularKickWall;
     }
     if (p.x + p.radius > bounds.w) {
       p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * angularKickWall;
     }
     if (p.y - p.radius < 0) {
       p.y = p.radius; p.vy = Math.abs(p.vy) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
     if (p.y + p.radius > bounds.h) {
       p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
 
     let speedScale = 1;
@@ -210,7 +213,7 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
 
     const angVel = p.angularVelocity ?? 0;
     p.rotation = (p.rotation ?? 0) + angVel * dt;
-    p.angularVelocity = angVel * 0.92;
+    p.angularVelocity = angVel * angularDamping;
 
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
       p.frozenFrames++;
@@ -242,7 +245,7 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
           const relTangent = relTangentRaw * friction * 0.5;
           if (!a.frozen) { a.vx -= relTangent * tx; a.vy -= relTangent * ty; }
           if (!b.frozen) { b.vx += relTangent * tx; b.vy += relTangent * ty; }
-          const angularKick = relTangentRaw * friction * 0.04;
+          const angularKick = relTangentRaw * friction * angularKickCollision;
           if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
           if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
         }
@@ -304,6 +307,9 @@ const config = {
   kernelFriction: 1.00,
   jumpImpulse: 75.0,
   jumpThreshold: 3.0,
+  angularDamping: 0.92,
+  angularKickWall: 0.10,
+  angularKickCollision: 0.20,
 };
 
 const SLIDER_DEFS = [
@@ -314,6 +320,9 @@ const SLIDER_DEFS = [
   { key: 'airDrag',           min: 0,    max: 0.5,  step: 0.005 },
   { key: 'kernelFriction',    min: 0,    max: 1.0,  step: 0.005 },
   { key: 'jumpImpulse',       min: 0,    max: 80,   step: 0.5 },
+  { key: 'angularDamping',    min: 0.5,  max: 1.0,  step: 0.005 },
+  { key: 'angularKickWall',   min: 0,    max: 1.0,  step: 0.01 },
+  { key: 'angularKickCollision', min: 0, max: 1.0,  step: 0.01 },
 ];
 
 //=============================================================================

@@ -29,6 +29,9 @@ export interface PhysicsConfig {
   kernelFriction: number; // tangential damping on collision
   jumpImpulse: number;    // velocity magnitude on jump detection
   jumpThreshold: number;  // minimum vertical accel spike (g-units) to register a jump
+  angularDamping: number;     // per-frame angular velocity retention (0.92 = 8% decay/frame)
+  angularKickWall: number;    // strength of rotational impulse from wall hits
+  angularKickCollision: number; // strength of rotational impulse from inter-kernel collision
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
@@ -48,6 +51,11 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   kernelFriction: 1.00,
   jumpImpulse: 75.0,
   jumpThreshold: 3.0,
+  angularDamping: 0.92,
+  // Wall kicks were 0.3 — kernels spazzed on wall hits. Dialed back; tunable.
+  angularKickWall: 0.10,
+  // Collision kicks were 0.04 — barely visible. Bumped; tunable.
+  angularKickCollision: 0.20,
 };
 
 const DAMPING = 0.91;
@@ -79,6 +87,9 @@ export function stepPhysics(
   const overlapCorrection = config?.overlapCorrection ?? OVERLAP_CORRECTION;
   const dragCoeff = config?.airDrag ?? 0;
   const friction = config?.kernelFriction ?? 0;
+  const angularDamping = config?.angularDamping ?? 0.92;
+  const angularKickWall = config?.angularKickWall ?? 0.10;
+  const angularKickCollision = config?.angularKickCollision ?? 0.20;
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -110,19 +121,19 @@ export function stepPhysics(
     // velocity into the floor partially converts to rolling spin.
     if (p.x - p.radius < 0) {
       p.x = p.radius; p.vx = Math.abs(p.vx) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) - (p.vy / p.radius) * angularKickWall;
     }
     if (p.x + p.radius > bounds.w) {
       p.x = bounds.w - p.radius; p.vx = -Math.abs(p.vx) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vy / p.radius) * angularKickWall;
     }
     if (p.y - p.radius < 0) {
       p.y = p.radius; p.vy = Math.abs(p.vy) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
     if (p.y + p.radius > bounds.h) {
       p.y = bounds.h - p.radius; p.vy = -Math.abs(p.vy) * restitution;
-      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * 0.3;
+      p.angularVelocity = (p.angularVelocity ?? 0) + (p.vx / p.radius) * angularKickWall;
     }
 
     // Drag = linear damping (small constant bleed for eventual rest) + quadratic
@@ -149,7 +160,7 @@ export function stepPhysics(
     // — kernels only rotate when something happens to them.
     const angVel = p.angularVelocity ?? 0;
     p.rotation = (p.rotation ?? 0) + angVel * dt;
-    p.angularVelocity = angVel * 0.92;
+    p.angularVelocity = angVel * angularDamping;
 
     // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
     if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
@@ -203,10 +214,9 @@ export function stepPhysics(
             b.vx += relTangent * tx;
             b.vy += relTangent * ty;
           }
-          // Angular impulse from contact friction. Equal-and-opposite
-          // (a's surface drags b's, b's surface drags a's). Coefficient
-          // tuned visually — too high = top-fidget, too low = static.
-          const angularKick = relTangentRaw * friction * 0.04;
+          // Angular impulse from contact friction. Equal-and-opposite.
+          // Tunable via angularKickCollision config knob.
+          const angularKick = relTangentRaw * friction * angularKickCollision;
           if (!a.frozen) a.angularVelocity = (a.angularVelocity ?? 0) - angularKick / a.radius;
           if (!b.frozen) b.angularVelocity = (b.angularVelocity ?? 0) + angularKick / b.radius;
         }
