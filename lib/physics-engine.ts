@@ -41,35 +41,29 @@ export interface PhysicsConfig {
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
-  // Tuned 2026-05-05 on-device after switching to quadratic drag. The user
-  // arrived at this combo after rejecting several "calibrated" defaults:
-  // damping=1.0 (no exponential decay) lets kernels carry momentum like real
-  // granular media; quadratic airDrag=0.5 brakes high-speed events instead;
-  // kernelFriction=1.0 prevents inter-kernel swirl; restitution=1.0 keeps wall
-  // bounces lively (energy bleeds via airDrag, not walls); high maxSpeed=30
-  // means kernels can really fly during a shake before drag catches up.
-  gravity: 8.0,
-  damping: 1.00,
-  restitution: 1.00,
-  maxSpeed: 30.0,
-  overlapCorrection: 0.50,
+  // Final tune locked in 2026-05-05 after extensive playground iteration.
+  // Energy bleeds via wallAbsorption=1 + heavy damping; no rotation kicks
+  // (clean still pile); max solver iterations + ultra-gentle overlap
+  // correction settles deep stacks without jitter; max personality +
+  // mass response gives every kernel a distinct trajectory under gravity.
+  gravity: 7.20,
+  damping: 0.50,
+  restitution: 0.00,
+  maxSpeed: 30.00,
+  overlapCorrection: 0.05,
   airDrag: 0.50,
   kernelFriction: 1.00,
-  jumpImpulse: 75.0,
-  jumpThreshold: 3.0,
-  angularDamping: 0.92,
-  // Wall kicks were 0.3 — kernels spazzed on wall hits. Dialed back; tunable.
-  angularKickWall: 0.10,
-  // Collision kicks were 0.04 — barely visible. Bumped; tunable.
-  angularKickCollision: 0.20,
-  // Sleep + freeze (formerly module constants):
-  sleepThreshold: 0.08,
-  framesToFreeze: 8,
-  // Variation multipliers (1.0 = current behavior, scales seed-derived spread):
-  personalityStrength: 1.0,
-  massResponseStrength: 1.0,
-  wallAbsorption: 0,
-  solverIterations: 1,
+  jumpImpulse: 0.00,
+  jumpThreshold: 3.00,
+  angularDamping: 0.50,
+  angularKickWall: 0.00,
+  angularKickCollision: 0.00,
+  sleepThreshold: 0.01,
+  framesToFreeze: 1,
+  personalityStrength: 3.00,
+  massResponseStrength: 3.00,
+  wallAbsorption: 1.00,
+  solverIterations: 5,
 };
 
 const DAMPING = 0.91;
