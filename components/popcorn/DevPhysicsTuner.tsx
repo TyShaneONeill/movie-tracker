@@ -21,6 +21,10 @@ const TUNABLES: { key: keyof PhysicsConfig; min: number; max: number; step: numb
   { key: 'angularDamping', min: 0.5, max: 1.0, step: 0.005 },
   { key: 'angularKickWall', min: 0, max: 1.0, step: 0.01 },
   { key: 'angularKickCollision', min: 0, max: 1.0, step: 0.01 },
+  { key: 'sleepThreshold', min: 0.01, max: 0.5, step: 0.005 },
+  { key: 'framesToFreeze', min: 1, max: 60, step: 1 },
+  { key: 'personalityStrength', min: 0, max: 3, step: 0.05 },
+  { key: 'massResponseStrength', min: 0, max: 3, step: 0.05 },
 ];
 
 export function DevPhysicsTuner({ config, onChange }: Props) {

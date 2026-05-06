@@ -32,6 +32,10 @@ export interface PhysicsConfig {
   angularDamping: number;     // per-frame angular velocity retention (0.92 = 8% decay/frame)
   angularKickWall: number;    // strength of rotational impulse from wall hits
   angularKickCollision: number; // strength of rotational impulse from inter-kernel collision
+  sleepThreshold: number;     // velocity below which kernels count toward freezing (lower = harder to settle)
+  framesToFreeze: number;     // consecutive low-velocity frames before freeze (higher = stay alive longer)
+  personalityStrength: number; // multiplier on per-kernel personality variation (1 = default, 0 = uniform, 2 = exaggerated)
+  massResponseStrength: number; // multiplier on radius-based mass variation (1 = default, 0 = uniform, 2 = exaggerated)
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
@@ -56,6 +60,12 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   angularKickWall: 0.10,
   // Collision kicks were 0.04 — barely visible. Bumped; tunable.
   angularKickCollision: 0.20,
+  // Sleep + freeze (formerly module constants):
+  sleepThreshold: 0.08,
+  framesToFreeze: 8,
+  // Variation multipliers (1.0 = current behavior, scales seed-derived spread):
+  personalityStrength: 1.0,
+  massResponseStrength: 1.0,
 };
 
 const DAMPING = 0.91;
@@ -90,6 +100,10 @@ export function stepPhysics(
   const angularDamping = config?.angularDamping ?? 0.92;
   const angularKickWall = config?.angularKickWall ?? 0.10;
   const angularKickCollision = config?.angularKickCollision ?? 0.20;
+  const sleepThreshold = config?.sleepThreshold ?? SLEEP_THRESHOLD;
+  const framesToFreeze = config?.framesToFreeze ?? FRAMES_TO_FREEZE;
+  const personalityStrength = config?.personalityStrength ?? 1.0;
+  const massResponseStrength = config?.massResponseStrength ?? 1.0;
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -105,8 +119,13 @@ export function stepPhysics(
     //      reliably end up in different places, every time.
     // Combined effect: ~1.5× spread from radius alone, plus another ±15%
     // from personality, yields kernels that visibly diverge under gravity.
-    const personality = p.personality ?? 1;
-    const massResponse = (REFERENCE_RADIUS / p.radius) * personality;
+    // Scale per-kernel variation by config multipliers. Strength=0 → uniform
+    // (no variation); 1 → default seeded variation; 2 → doubled spread.
+    const rawPersonality = p.personality ?? 1;
+    const scaledPersonality = 1 + (rawPersonality - 1) * personalityStrength;
+    const rawMassResponse = REFERENCE_RADIUS / p.radius;
+    const scaledMassResponse = 1 + (rawMassResponse - 1) * massResponseStrength;
+    const massResponse = scaledMassResponse * scaledPersonality;
     p.vx += gravityX * dt * massResponse;
     p.vy += gravityY * dt * massResponse;
 
@@ -162,10 +181,10 @@ export function stepPhysics(
     p.rotation = (p.rotation ?? 0) + angVel * dt;
     p.angularVelocity = angVel * angularDamping;
 
-    // Sleep detection — must be slow for FRAMES_TO_FREEZE consecutive frames
-    if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
+    // Sleep detection — must be slow for framesToFreeze consecutive frames
+    if (Math.abs(p.vx) < sleepThreshold && Math.abs(p.vy) < sleepThreshold) {
       p.frozenFrames++;
-      if (p.frozenFrames >= FRAMES_TO_FREEZE) {
+      if (p.frozenFrames >= framesToFreeze) {
         p.vx = 0;
         p.vy = 0;
         p.frozen = true;

@@ -169,13 +169,20 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
   const angularDamping = cfg.angularDamping ?? 0.92;
   const angularKickWall = cfg.angularKickWall ?? 0.10;
   const angularKickCollision = cfg.angularKickCollision ?? 0.20;
+  const sleepThreshold = cfg.sleepThreshold ?? SLEEP_THRESHOLD;
+  const framesToFreeze = cfg.framesToFreeze ?? FRAMES_TO_FREEZE;
+  const personalityStrength = cfg.personalityStrength ?? 1.0;
+  const massResponseStrength = cfg.massResponseStrength ?? 1.0;
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     if (p.frozen) continue;
 
-    const personality = p.personality ?? 1;
-    const massResponse = (REFERENCE_RADIUS / p.radius) * personality;
+    const rawPersonality = p.personality ?? 1;
+    const scaledPersonality = 1 + (rawPersonality - 1) * personalityStrength;
+    const rawMassResponse = REFERENCE_RADIUS / p.radius;
+    const scaledMassResponse = 1 + (rawMassResponse - 1) * massResponseStrength;
+    const massResponse = scaledMassResponse * scaledPersonality;
     p.vx += gx * dt * massResponse;
     p.vy += gy * dt * massResponse;
 
@@ -215,9 +222,9 @@ function stepPhysics(particles, gx, gy, bounds, dt, cfg) {
     p.rotation = (p.rotation ?? 0) + angVel * dt;
     p.angularVelocity = angVel * angularDamping;
 
-    if (Math.abs(p.vx) < SLEEP_THRESHOLD && Math.abs(p.vy) < SLEEP_THRESHOLD) {
+    if (Math.abs(p.vx) < sleepThreshold && Math.abs(p.vy) < sleepThreshold) {
       p.frozenFrames++;
-      if (p.frozenFrames >= FRAMES_TO_FREEZE) {
+      if (p.frozenFrames >= framesToFreeze) {
         p.vx = 0; p.vy = 0; p.frozen = true;
       }
     } else {
@@ -310,6 +317,10 @@ const config = {
   angularDamping: 0.92,
   angularKickWall: 0.10,
   angularKickCollision: 0.20,
+  sleepThreshold: 0.08,
+  framesToFreeze: 8,
+  personalityStrength: 1.0,
+  massResponseStrength: 1.0,
 };
 
 const SLIDER_DEFS = [
@@ -323,6 +334,10 @@ const SLIDER_DEFS = [
   { key: 'angularDamping',    min: 0.5,  max: 1.0,  step: 0.005 },
   { key: 'angularKickWall',   min: 0,    max: 1.0,  step: 0.01 },
   { key: 'angularKickCollision', min: 0, max: 1.0,  step: 0.01 },
+  { key: 'sleepThreshold',    min: 0.01, max: 0.5,  step: 0.005 },
+  { key: 'framesToFreeze',    min: 1,    max: 60,   step: 1 },
+  { key: 'personalityStrength', min: 0,  max: 3,    step: 0.05 },
+  { key: 'massResponseStrength', min: 0, max: 3,    step: 0.05 },
 ];
 
 //=============================================================================
