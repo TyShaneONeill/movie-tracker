@@ -42,7 +42,7 @@ export default {
     },
     android: {
       package: "com.pocketstubs.app",
-      versionCode: 5,
+      versionCode: 6,
       adaptiveIcon: {
         backgroundColor: "#000000",
         foregroundImage: "./assets/images/android-icon-foreground.png",
