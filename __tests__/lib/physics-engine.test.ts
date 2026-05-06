@@ -13,7 +13,10 @@ describe('stepPhysics — air drag', () => {
     };
     const particles = [small, large];
     const bounds = { w: 1000, h: 1000 };
-    const config = { ...DEFAULT_PHYSICS_CONFIG, gravity: 0, airDrag: 0.5 };
+    // Pin damping high enough that 30 frames of decay don't bring both to
+    // ~0 (which would make the comparison degenerate). This test is about
+    // *relative* drag between sizes, not the global damping default.
+    const config = { ...DEFAULT_PHYSICS_CONFIG, gravity: 0, airDrag: 0.5, damping: 0.95 };
 
     // No gravity, just drag — over 30 frames
     for (let i = 0; i < 30; i++) {
