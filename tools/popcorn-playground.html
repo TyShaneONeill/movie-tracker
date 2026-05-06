@@ -329,6 +329,7 @@ const config = {
   massResponseStrength: 3.00,
   wallAbsorption: 1.00,
   solverIterations: 5,
+  tiltDeadband: 0.10,
 };
 
 const SLIDER_DEFS = [
@@ -348,6 +349,7 @@ const SLIDER_DEFS = [
   { key: 'massResponseStrength', min: 0, max: 3,    step: 0.05 },
   { key: 'wallAbsorption',    min: 0,    max: 1,    step: 0.01 },
   { key: 'solverIterations',  min: 1,    max: 5,    step: 1 },
+  { key: 'tiltDeadband',      min: 0,    max: 0.5,  step: 0.005 },
 ];
 
 //=============================================================================
@@ -504,6 +506,7 @@ function copyConfig() {
 }
 
 // Mouse → gravity vector. Position relative to canvas center → unit vector.
+// Apply same deadband as the production orchestrator so playground matches feel.
 canvas.addEventListener('mousemove', (e) => {
   if (!mouseDown) return;
   const rect = canvas.getBoundingClientRect();
@@ -511,8 +514,17 @@ canvas.addEventListener('mousemove', (e) => {
   const dy = (e.clientY - rect.top)  - bounds.h / 2;
   const mag = Math.sqrt(dx*dx + dy*dy);
   if (mag > 1) {
-    gravityVec = { gx: dx / mag, gy: dy / mag };
-    wake(particles); // sensor change wakes settled kernels
+    const ux = dx / mag, uy = dy / mag;
+    const dead = config.tiltDeadband ?? 0;
+    const sign = ux > 0 ? 1 : -1;
+    const fx = dead > 0 ? sign * Math.max(0, Math.abs(ux) - dead) : ux;
+    const m = Math.sqrt(fx*fx + uy*uy);
+    if (m > 0.01) {
+      gravityVec = { gx: fx / m, gy: uy / m };
+    } else {
+      gravityVec = { gx: 0, gy: 1 };
+    }
+    wake(particles);
   }
 });
 

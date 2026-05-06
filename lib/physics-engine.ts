@@ -38,6 +38,7 @@ export interface PhysicsConfig {
   massResponseStrength: number; // multiplier on radius-based mass variation (1 = default, 0 = uniform, 2 = exaggerated)
   wallAbsorption: number;      // extra perpendicular-velocity loss on wall hits (0 = no extra loss, 1 = full absorb). Stops bottom-stack bounce jitter without changing restitution feel.
   solverIterations: number;    // overlap-correction passes per frame. 1 = single-pass; 2-3 helps deep stacks (100+ kernels) settle without "freaking out" in corners.
+  tiltDeadband: number;        // sensor noise filter: horizontal tilt magnitude below this is squashed to zero (ignore hand jitter). 0.10 ≈ 6°, 0.20 ≈ 11°.
 }
 
 export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
@@ -64,6 +65,7 @@ export const DEFAULT_PHYSICS_CONFIG: PhysicsConfig = {
   massResponseStrength: 3.00,
   wallAbsorption: 1.00,
   solverIterations: 5,
+  tiltDeadband: 0.10,
 };
 
 const DAMPING = 0.91;

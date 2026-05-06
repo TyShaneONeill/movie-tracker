@@ -27,6 +27,7 @@ const TUNABLES: { key: keyof PhysicsConfig; min: number; max: number; step: numb
   { key: 'massResponseStrength', min: 0, max: 3, step: 0.05 },
   { key: 'wallAbsorption', min: 0, max: 1, step: 0.01 },
   { key: 'solverIterations', min: 1, max: 5, step: 1 },
+  { key: 'tiltDeadband', min: 0, max: 0.5, step: 0.005 },
 ];
 
 export function DevPhysicsTuner({ config, onChange }: Props) {

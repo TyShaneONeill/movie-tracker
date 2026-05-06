@@ -182,9 +182,19 @@ export function usePopcornPhysics(
       const g = tilt.gravity.value;
       const finite = Number.isFinite(g.gx) && Number.isFinite(g.gy);
       if (finite) {
-        const mag = Math.sqrt(g.gx * g.gx + g.gy * g.gy);
+        // Soft deadband on the horizontal tilt component: subtract the
+        // configured threshold from |gx| (clamped at 0). Below threshold =
+        // hand jitter, ignored. Above threshold = real tilt, passes through
+        // with a small offset. gy is left raw because vertical orientation
+        // is the dominant signal and doesn't need filtering.
+        const dead = cfg.tiltDeadband;
+        const sign = g.gx > 0 ? 1 : -1;
+        const filteredGx = dead > 0
+          ? sign * Math.max(0, Math.abs(g.gx) - dead)
+          : g.gx;
+        const mag = Math.sqrt(filteredGx * filteredGx + g.gy * g.gy);
         if (mag > 0.01) {
-          gx = (g.gx / mag) * cfg.gravity;
+          gx = (filteredGx / mag) * cfg.gravity;
           gy = (g.gy / mag) * cfg.gravity;
         }
 
