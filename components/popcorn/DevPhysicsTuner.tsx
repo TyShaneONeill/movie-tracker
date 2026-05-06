@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PhysicsConfig } from '@/lib/physics-engine';
@@ -30,26 +30,55 @@ const TUNABLES: { key: keyof PhysicsConfig; min: number; max: number; step: numb
   { key: 'tiltDeadband', min: 0, max: 0.5, step: 0.005 },
 ];
 
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
 export function DevPhysicsTuner({ config, onChange }: Props) {
   const insets = useSafeAreaInsets();
+  const [collapsed, setCollapsed] = useState(true);
+  const [activeKey, setActiveKey] = useState<keyof PhysicsConfig | null>(null);
+
+  // When expanded, cap height at ~45% of screen so the bag stays visible above.
+  const maxScrollHeight = Math.floor(SCREEN_HEIGHT * 0.45);
+
   return (
     <View style={[styles.container, { bottom: insets.bottom + 70 }]}>
-      <Text style={styles.title}>Physics tuner (DEV)</Text>
-      {TUNABLES.map(({ key, min, max, step }) => (
-        <View key={key} style={styles.row}>
-          <Text style={styles.label}>
-            {key}: {(config[key] as number).toFixed(2)}
-          </Text>
-          <Slider
-            style={styles.slider}
-            minimumValue={min}
-            maximumValue={max}
-            step={step}
-            value={config[key] as number}
-            onValueChange={(v) => onChange({ ...config, [key]: v })}
-          />
-        </View>
-      ))}
+      {/* Header bar — always visible, tappable to toggle */}
+      <Pressable
+        onPress={() => setCollapsed((c) => !c)}
+        style={({ pressed }) => [styles.header, pressed && styles.headerPressed]}
+      >
+        <Text style={styles.title}>
+          {collapsed ? '▸' : '▾'} Physics tuner (DEV)
+          {activeKey && collapsed ? `  ·  ${activeKey}: ${(config[activeKey] as number).toFixed(2)}` : ''}
+        </Text>
+      </Pressable>
+
+      {!collapsed && (
+        <ScrollView
+          style={{ maxHeight: maxScrollHeight }}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator
+        >
+          {TUNABLES.map(({ key, min, max, step }) => (
+            <View key={key} style={styles.row}>
+              <Text style={styles.label}>
+                {key}: {(config[key] as number).toFixed(2)}
+              </Text>
+              <Slider
+                style={styles.slider}
+                minimumValue={min}
+                maximumValue={max}
+                step={step}
+                value={config[key] as number}
+                onValueChange={(v) => {
+                  setActiveKey(key);
+                  onChange({ ...config, [key]: v });
+                }}
+              />
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -59,11 +88,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    // More translucent so the bag is visible through the panel while tuning.
+    backgroundColor: 'rgba(0,0,0,0.55)',
     padding: 8,
     borderRadius: 8,
   },
-  title: { color: '#fff', fontWeight: '700', marginBottom: 4 },
+  header: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  headerPressed: {
+    opacity: 0.7,
+  },
+  title: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  scrollContent: {
+    paddingTop: 4,
+  },
   row: { marginBottom: 4 },
   label: { color: '#fff', fontSize: 11 },
   slider: { width: '100%', height: 24 },
