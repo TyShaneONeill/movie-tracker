@@ -5,11 +5,12 @@ import { router } from 'expo-router';
 import { PopcornBag } from '@/components/popcorn/PopcornBag';
 import { PopcornCountBadge } from '@/components/popcorn/PopcornCountBadge';
 import { MilestonesGrid } from '@/components/popcorn/MilestonesGrid';
+import { DevPhysicsTuner } from '@/components/popcorn/DevPhysicsTuner';
 import { usePopcorn } from '@/hooks/use-popcorn';
 import { useAchievements } from '@/hooks/use-achievements';
 import { useEffectiveColorScheme } from '@/lib/theme-context';
 import { Colors } from '@/constants/theme';
-import { DEFAULT_PHYSICS_CONFIG } from '@/lib/physics-engine';
+import { DEFAULT_PHYSICS_CONFIG, type PhysicsConfig } from '@/lib/physics-engine';
 
 type Tab = 'bag' | 'milestones';
 
@@ -18,6 +19,7 @@ export default function PopcornScreen() {
   const colors = Colors[scheme];
   const { width, height } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<Tab>('bag');
+  const [physicsConfig, setPhysicsConfig] = useState<PhysicsConfig>(DEFAULT_PHYSICS_CONFIG);
   const { kernels, totalCount } = usePopcorn();
   const { progress } = useAchievements();
 
@@ -25,8 +27,12 @@ export default function PopcornScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Always render bag in background so physics keeps running */}
       <View style={[styles.canvas, activeTab !== 'bag' && styles.hidden]}>
-        <PopcornBag kernels={kernels} width={width} height={height} config={DEFAULT_PHYSICS_CONFIG} />
+        <PopcornBag kernels={kernels} width={width} height={height} config={physicsConfig} />
       </View>
+
+      {__DEV__ && Platform.OS !== 'web' && activeTab === 'bag' && (
+        <DevPhysicsTuner config={physicsConfig} onChange={setPhysicsConfig} />
+      )}
 
       {/* Back button + count badge — inside SafeAreaView so they clear the status bar */}
       <SafeAreaView style={styles.backButtonContainer} edges={['top']}>

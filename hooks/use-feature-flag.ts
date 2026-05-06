@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Platform, AccessibilityInfo } from 'react-native';
 import { analytics } from '@/lib/analytics';
 
 /**
@@ -36,4 +37,36 @@ export function useFeatureFlag(flagName: string): {
     value,
     reload,
   };
+}
+
+/**
+ * Returns true when the motion-driven popcorn physics engine should be active.
+ * Combines: iOS-only, PostHog flag `popcorn_motion_physics`, Reduce Motion off,
+ * and an env-var dev override (EXPO_PUBLIC_POPCORN_MOTION_OVERRIDE = "true" | "false").
+ *
+ * Reduce Motion is re-checked live via the `reduceMotionChanged` accessibility
+ * event so toggling it in Settings flips the gate without an app restart.
+ */
+export function usePopcornMotionEnabled(): boolean {
+  const { enabled: flagOn } = useFeatureFlag('popcorn_motion_physics');
+  const envOverride = process.env.EXPO_PUBLIC_POPCORN_MOTION_OVERRIDE;
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((rm) => {
+      if (!cancelled) setReduceMotion(rm);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (rm) => {
+      setReduceMotion(rm);
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
+
+  if (envOverride === 'true') return Platform.OS === 'ios' && !reduceMotion;
+  if (envOverride === 'false') return false;
+  return Platform.OS === 'ios' && flagOn && !reduceMotion;
 }

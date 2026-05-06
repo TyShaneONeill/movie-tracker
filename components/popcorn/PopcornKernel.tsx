@@ -19,7 +19,15 @@ export function PopcornKernel({ kernel, index, particles }: Props) {
   const transform = useDerivedValue(() => {
     const p = particles.value[index];
     if (!p) return [];
-    return [{ translateX: p.x - size / 2 }, { translateY: p.y - size / 2 }];
+    // Translate kernel center to (p.x, p.y), rotate around that center,
+    // then offset by -size/2 so the path's top-left lands at the origin.
+    return [
+      { translateX: p.x },
+      { translateY: p.y },
+      { rotate: p.rotation ?? 0 },
+      { translateX: -size / 2 },
+      { translateY: -size / 2 },
+    ];
   });
 
   return (

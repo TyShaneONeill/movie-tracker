@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Platform, View, Text, StyleSheet } from 'react-native';
 import { Canvas } from '@shopify/react-native-skia';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { usePopcornPhysics } from '@/hooks/use-popcorn-physics';
+import { useBagJiggle } from '@/hooks/use-bag-jiggle';
 import { PopcornKernel } from './PopcornKernel';
 import { MilestoneKernel } from './MilestoneKernel';
 import type { PopcornKernel as KernelData } from '@/lib/popcorn-service';
 import type { PhysicsConfig } from '@/lib/physics-engine';
 import { DEFAULT_PHYSICS_CONFIG } from '@/lib/physics-engine';
+import type { ImpactEvent } from '@/lib/popcorn-events';
 
 interface Props {
   kernels: KernelData[];
@@ -17,7 +20,25 @@ interface Props {
 
 export function PopcornBag({ kernels, width, height, config = DEFAULT_PHYSICS_CONFIG }: Props) {
   const bounds = { w: width, h: height };
-  const { particles } = usePopcornPhysics(kernels, bounds, config);
+  const jiggle = useBagJiggle();
+
+  const handleImpact = useCallback(
+    (event: ImpactEvent) => {
+      jiggle.triggerJiggle(event.velocity);
+    },
+    [jiggle]
+  );
+
+  const { particles } = usePopcornPhysics(kernels, bounds, config, {
+    onImpact: handleImpact,
+  });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: jiggle.offsetX.value },
+      { translateY: jiggle.offsetY.value },
+    ],
+  }));
 
   if (Platform.OS === 'web') {
     return (
@@ -32,15 +53,17 @@ export function PopcornBag({ kernels, width, height, config = DEFAULT_PHYSICS_CO
   if (width === 0 || height === 0) return null;
 
   return (
-    <Canvas style={{ width, height, position: 'absolute', top: 0, left: 0 }}>
-      {kernels.map((kernel, i) =>
-        kernel.is_milestone ? (
-          <MilestoneKernel key={kernel.id} kernel={kernel} index={i} particles={particles} />
-        ) : (
-          <PopcornKernel key={kernel.id} kernel={kernel} index={i} particles={particles} />
-        )
-      )}
-    </Canvas>
+    <Animated.View style={[{ width, height, position: 'absolute', top: 0, left: 0 }, animatedStyle]}>
+      <Canvas style={{ width, height }}>
+        {kernels.map((kernel, i) =>
+          kernel.is_milestone ? (
+            <MilestoneKernel key={kernel.id} kernel={kernel} index={i} particles={particles} />
+          ) : (
+            <PopcornKernel key={kernel.id} kernel={kernel} index={i} particles={particles} />
+          )
+        )}
+      </Canvas>
+    </Animated.View>
   );
 }
 
