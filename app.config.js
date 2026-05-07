@@ -42,7 +42,7 @@ export default {
     },
     android: {
       package: "com.pocketstubs.app",
-      versionCode: 7,
+      versionCode: 50,
       adaptiveIcon: {
         backgroundColor: "#000000",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -50,6 +50,10 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
+      // ACTIVITY_RECOGNITION is auto-merged into the manifest by expo-sensors
+      // (it bundles a Pedometer module we don't use). Strip it here so Play
+      // Console doesn't trigger the Health Apps declaration on submit.
+      blockedPermissions: ["android.permission.ACTIVITY_RECOGNITION"],
     },
     web: {
       output: "static",
