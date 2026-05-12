@@ -30,6 +30,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
+import GlassBackButton from '@/components/ui/glass-back-button';
 import Svg, { Path } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -345,12 +346,12 @@ function JourneyTicket({
             style={styles.editButton}
             onPress={() => router.push(`/journey/edit/${journey.id}` as never)}
           >
-            <BlurView intensity={20} tint={effectiveTheme} style={styles.editBlurContainer}>
+            <View style={[styles.editBlurContainer, { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)', borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)' }]}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
                 <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </Svg>
-            </BlurView>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -460,6 +461,7 @@ export default function JourneyCarouselScreen() {
   const { tmdbId } = useLocalSearchParams<{ tmdbId: string }>();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const isDark = effectiveTheme === 'dark';
   const { height: screenHeight, width: windowWidth } = useWindowDimensions();
   const screenWidth = Math.min(windowWidth, MAX_JOURNEY_WIDTH);
   const insets = useSafeAreaInsets();
@@ -658,13 +660,7 @@ export default function JourneyCarouselScreen() {
         </View>
         {/* Back button even during loading */}
         <View style={styles.loadingBackButton}>
-          <Pressable onPress={handleGoBack} style={styles.iconButton}>
-            <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                <Path d="M19 12H5M12 19l-7-7 7-7" />
-              </Svg>
-            </BlurView>
-          </Pressable>
+          <GlassBackButton onPress={handleGoBack} />
         </View>
       </View>
     );
@@ -694,13 +690,7 @@ export default function JourneyCarouselScreen() {
       <ContentContainer>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={handleGoBack} style={styles.iconButton}>
-          <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-              <Path d="M19 12H5M12 19l-7-7 7-7" />
-            </Svg>
-          </BlurView>
-        </Pressable>
+        <GlassBackButton onPress={handleGoBack} />
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerLabel}>
@@ -714,7 +704,7 @@ export default function JourneyCarouselScreen() {
         {/* Next / Rewind button (hidden on "Add New Journey" card) */}
         {currentJourneyIndex < journeys.length ? (
           <Pressable onPress={handleNextJourney} style={styles.iconButton}>
-            <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
+            <View style={[styles.glassInner, { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)', borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)' }]}>
               {currentJourneyIndex < journeys.length - 1 ? (
                 // Forward arrow → next journey
                 <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
@@ -726,7 +716,7 @@ export default function JourneyCarouselScreen() {
                   <Path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
                 </Svg>
               )}
-            </BlurView>
+            </View>
           </Pressable>
         ) : (
           <View style={styles.iconButtonPlaceholder} />
@@ -840,12 +830,11 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: nu
     width: 40,
     height: 40,
   },
-  blurContainer: {
+  glassInner: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: BorderRadius.full,
   },
 
@@ -1022,7 +1011,6 @@ const createTicketStyles = (colors: ThemeColors, ticketHeight: number, ticketWid
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: BorderRadius.full,
   },
   rarityBadge: {

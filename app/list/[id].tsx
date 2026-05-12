@@ -24,8 +24,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import GlassBackButton from '@/components/ui/glass-back-button';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { ContentContainer } from '@/components/content-container';
@@ -202,11 +202,7 @@ export default function ListDetailScreen() {
 
           {/* Back Button */}
           <View style={[dynamicStyles.backButtonContainer, { top: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
-            <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-                <Text style={dynamicStyles.backIcon}>←</Text>
-              </BlurView>
-            </Pressable>
+            <GlassBackButton onPress={handleGoBack} />
           </View>
 
           {/* Hero Content - positioned at bottom */}
@@ -258,11 +254,7 @@ export default function ListDetailScreen() {
           </View>
           {/* Back button during loading */}
           <View style={dynamicStyles.loadingBackButton}>
-            <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-              <BlurView intensity={20} tint={effectiveTheme} style={dynamicStyles.blurContainer}>
-                <Text style={dynamicStyles.backIcon}>←</Text>
-              </BlurView>
-            </Pressable>
+            <GlassBackButton onPress={handleGoBack} />
           </View>
         </View>
       </>
@@ -348,24 +340,6 @@ const createStyles = (colors: ThemeColors) =>
       top: 60, // Fallback, overridden inline with safe area insets
       left: Spacing.md,
       zIndex: 20,
-    },
-    iconButton: {
-      width: 40,
-      height: 40,
-      overflow: 'hidden',
-      borderRadius: BorderRadius.full,
-    },
-    blurContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: BorderRadius.full,
-    },
-    backIcon: {
-      fontSize: 24,
-      color: colors.text,
     },
     heroContent: {
       position: 'absolute',
