@@ -43,7 +43,7 @@ import { usePopcorn } from '@/hooks/use-popcorn';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserTvShows } from '@/hooks/use-user-tv-shows';
-import { MOCK_USER } from '@/lib/mock-data/users';
+import { ProfileIdentitySkeleton, ProfileStatNumberSkeleton } from '@/components/profile-header-skeleton';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie, UserTvShow } from '@/lib/database.types';
@@ -84,7 +84,7 @@ export default function ProfileScreen() {
     const scrollY = useSharedValue(0);
 
     // Fetch user profile and stats
-    const { profile, stats, refetch: refetchProfile, refetchStats } = useProfile();
+    const { profile, stats, isLoading: isProfileLoading, refetch: refetchProfile, refetchStats } = useProfile();
     const { totalCount: popcornCount } = usePopcorn();
 
     // Fetch notification unread count
@@ -620,21 +620,62 @@ export default function ProfileScreen() {
         </View>
     );
 
+    // Profile identity (avatar + name + bio) — skeleton while loading, never fake placeholder data
+    const showProfileSkeleton = isProfileLoading && !profile;
+    const avatarUri = buildAvatarUrl(profile?.avatar_url, profile?.updated_at);
+    const renderProfileIdentity = () => {
+        if (showProfileSkeleton) {
+            return <ProfileIdentitySkeleton shimmerColor={colors.backgroundSecondary} />;
+        }
+        return (
+            <>
+                {avatarUri ? (
+                    <Image
+                        source={{ uri: avatarUri }}
+                        style={[styles.avatar, { borderColor: colors.tint }]}
+                    />
+                ) : (
+                    <View
+                        style={[
+                            styles.avatar,
+                            styles.avatarFallback,
+                            { borderColor: colors.tint, backgroundColor: colors.backgroundSecondary },
+                        ]}
+                    >
+                        <Ionicons name="person" size={44} color={colors.textSecondary} />
+                    </View>
+                )}
+                {profile?.full_name ? (
+                    <ThemedText style={[styles.username, { color: colors.text }]}>
+                        {profile.full_name}
+                    </ThemedText>
+                ) : null}
+                {profile?.bio ? (
+                    <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
+                        {profile.bio}
+                    </ThemedText>
+                ) : null}
+            </>
+        );
+    };
+
+    const renderFollowStatValue = (value: number, prefix?: string) => {
+        if (showProfileSkeleton) {
+            return <ProfileStatNumberSkeleton shimmerColor={colors.backgroundSecondary} />;
+        }
+        return (
+            <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
+                {prefix ? `${prefix} ${value}` : value}
+            </ThemedText>
+        );
+    };
+
     // ListHeaderComponent for FlatList (Collection tab)
     const renderCollectionListHeader = () => (
         <>
             {/* Collapsible Profile Header */}
             <Animated.View style={[styles.header, headerAnimatedStyle]}>
-                <Image
-                    source={{ uri: buildAvatarUrl(profile?.avatar_url, profile?.updated_at) || MOCK_USER.avatarUrl }}
-                    style={[styles.avatar, { borderColor: colors.tint }]}
-                />
-                <ThemedText style={[styles.username, { color: colors.text }]}>
-                    {profile?.full_name || MOCK_USER.name}
-                </ThemedText>
-                <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
-                    {profile?.bio || MOCK_USER.bio}
-                </ThemedText>
+                {renderProfileIdentity()}
                 {/* Follower/Following Stats */}
                 <View style={styles.followStats}>
                     <Pressable
@@ -646,9 +687,7 @@ export default function ProfileScreen() {
                             { opacity: pressed ? 0.7 : 1 },
                         ]}
                     >
-                        <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
-                            {profile?.followers_count ?? 0}
-                        </ThemedText>
+                        {renderFollowStatValue(profile?.followers_count ?? 0)}
                         <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
                             Followers
                         </ThemedText>
@@ -663,9 +702,7 @@ export default function ProfileScreen() {
                             { opacity: pressed ? 0.7 : 1 },
                         ]}
                     >
-                        <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
-                            {profile?.following_count ?? 0}
-                        </ThemedText>
+                        {renderFollowStatValue(profile?.following_count ?? 0)}
                         <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
                             Following
                         </ThemedText>
@@ -1077,16 +1114,7 @@ export default function ProfileScreen() {
                     <ContentContainer>
                     {/* Profile Header */}
                     <Animated.View style={[styles.header, headerAnimatedStyle]}>
-                        <Image
-                            source={{ uri: buildAvatarUrl(profile?.avatar_url, profile?.updated_at) || MOCK_USER.avatarUrl }}
-                            style={[styles.avatar, { borderColor: colors.tint }]}
-                        />
-                        <ThemedText style={[styles.username, { color: colors.text }]}>
-                            {profile?.full_name || MOCK_USER.name}
-                        </ThemedText>
-                        <ThemedText style={[styles.bio, { color: colors.textSecondary }]}>
-                            {profile?.bio || MOCK_USER.bio}
-                        </ThemedText>
+                        {renderProfileIdentity()}
                         {/* Follower/Following Stats */}
                         <View style={styles.followStats}>
                             <Pressable
@@ -1096,9 +1124,7 @@ export default function ProfileScreen() {
                                     { opacity: pressed ? 0.7 : 1 },
                                 ]}
                             >
-                                <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
-                                    {profile?.followers_count ?? 0}
-                                </ThemedText>
+                                {renderFollowStatValue(profile?.followers_count ?? 0)}
                                 <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
                                     Followers
                                 </ThemedText>
@@ -1111,9 +1137,7 @@ export default function ProfileScreen() {
                                     { opacity: pressed ? 0.7 : 1 },
                                 ]}
                             >
-                                <ThemedText style={[styles.followStatValue, { color: colors.text }]}>
-                                    {profile?.following_count ?? 0}
-                                </ThemedText>
+                                {renderFollowStatValue(profile?.following_count ?? 0)}
                                 <ThemedText style={[styles.followStatLabel, { color: colors.textSecondary }]}>
                                     Following
                                 </ThemedText>
@@ -1292,6 +1316,10 @@ const styles = StyleSheet.create({
         borderRadius: 40,
         borderWidth: 3,
         marginBottom: Spacing.sm,
+    },
+    avatarFallback: {
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     username: {
         ...Typography.display.h3,
