@@ -34,7 +34,9 @@ import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+// expo-blur removed: UIVisualEffectView's CABackdropLayer bleeds past RN clip
+// boundaries on iOS regardless of borderRadius/overflow:hidden wrappers.
+// Using semi-opaque View on all platforms instead.
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
@@ -536,9 +538,9 @@ export default function MovieDetailScreen() {
         {/* Back button even during loading */}
         <View style={dynamicStyles.loadingBackButton}>
           <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-            <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
+            <View style={dynamicStyles.blurContainer}>
               <Ionicons name="arrow-back" size={22} color="#ffffff" />
-            </BlurView>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -587,15 +589,9 @@ export default function MovieDetailScreen() {
           {/* Top Buttons */}
           <View style={[dynamicStyles.topButtons, { paddingTop: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
             <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-              {Platform.OS === 'android' ? (
-                <View style={dynamicStyles.blurContainer}>
-                  <Ionicons name="arrow-back" size={22} color="#ffffff" />
-                </View>
-              ) : (
-                <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
-                  <Ionicons name="arrow-back" size={22} color="#ffffff" />
-                </BlurView>
-              )}
+              <View style={dynamicStyles.blurContainer}>
+                <Ionicons name="arrow-back" size={22} color="#ffffff" />
+              </View>
             </Pressable>
             {/* More options button hidden - Coming Soon */}
           </View>
@@ -609,15 +605,9 @@ export default function MovieDetailScreen() {
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              {Platform.OS === 'android' ? (
-                <View style={dynamicStyles.playButtonBlur}>
-                  <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
-                </View>
-              ) : (
-                <BlurView intensity={20} tint="dark" style={dynamicStyles.playButtonBlur}>
-                  <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
-                </BlurView>
-              )}
+              <View style={dynamicStyles.playButtonBlur}>
+                <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
+              </View>
             </Pressable>
           )}
         </View>
@@ -1028,7 +1018,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: BorderRadius.full,
-    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.60)' } : {}),
+    backgroundColor: 'rgba(0, 0, 0, 0.60)',
   },
   backIcon: {
     fontSize: 24,
@@ -1056,7 +1046,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: BorderRadius.full,
-    ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.60)' } : {}),
+    backgroundColor: 'rgba(0, 0, 0, 0.60)',
   },
   playIcon: {
     fontSize: 32,
