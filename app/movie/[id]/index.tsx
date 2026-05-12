@@ -536,9 +536,11 @@ export default function MovieDetailScreen() {
         {/* Back button even during loading */}
         <View style={dynamicStyles.loadingBackButton}>
           <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-            <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
-              <Ionicons name="arrow-back" size={22} color="#ffffff" />
-            </BlurView>
+            <View style={[StyleSheet.absoluteFill, dynamicStyles.iosBlurClip]}>
+              <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
+                <Ionicons name="arrow-back" size={22} color="#ffffff" />
+              </BlurView>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -592,9 +594,11 @@ export default function MovieDetailScreen() {
                   <Ionicons name="arrow-back" size={22} color="#ffffff" />
                 </View>
               ) : (
-                <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
-                  <Ionicons name="arrow-back" size={22} color="#ffffff" />
-                </BlurView>
+                <View style={[StyleSheet.absoluteFill, dynamicStyles.iosBlurClip]}>
+                  <BlurView intensity={40} tint="dark" style={dynamicStyles.blurContainer}>
+                    <Ionicons name="arrow-back" size={22} color="#ffffff" />
+                  </BlurView>
+                </View>
               )}
             </Pressable>
             {/* More options button hidden - Coming Soon */}
@@ -614,9 +618,11 @@ export default function MovieDetailScreen() {
                   <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
                 </View>
               ) : (
-                <BlurView intensity={20} tint="dark" style={dynamicStyles.playButtonBlur}>
-                  <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
-                </BlurView>
+                <View style={[StyleSheet.absoluteFill, dynamicStyles.iosBlurClip]}>
+                  <BlurView intensity={20} tint="dark" style={dynamicStyles.playButtonBlur}>
+                    <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 4 }} />
+                  </BlurView>
+                </View>
               )}
             </Pressable>
           )}
@@ -1029,6 +1035,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: BorderRadius.full,
     ...(Platform.OS === 'android' ? { backgroundColor: 'rgba(0, 0, 0, 0.60)' } : {}),
+  },
+  // Clip wrapper for iOS UIVisualEffectView — parent overflow:hidden doesn't
+  // reliably clip the blur layer, so we mask BlurView at its own layer.
+  iosBlurClip: {
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
   },
   backIcon: {
     fontSize: 24,
