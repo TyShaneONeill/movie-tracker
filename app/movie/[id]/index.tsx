@@ -34,10 +34,8 @@ import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-// expo-blur removed: UIVisualEffectView's CABackdropLayer bleeds past RN clip
-// boundaries on iOS regardless of borderRadius/overflow:hidden wrappers.
-// Using semi-opaque View on all platforms instead.
 import { Ionicons } from '@expo/vector-icons';
+import GlassBackButton from '@/components/ui/glass-back-button';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -537,11 +535,7 @@ export default function MovieDetailScreen() {
         </View>
         {/* Back button even during loading */}
         <View style={dynamicStyles.loadingBackButton}>
-          <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-            <View style={dynamicStyles.blurContainer}>
-              <Ionicons name="arrow-back" size={22} color="#ffffff" />
-            </View>
-          </Pressable>
+          <GlassBackButton onPress={handleGoBack} />
         </View>
       </View>
     );
@@ -588,11 +582,7 @@ export default function MovieDetailScreen() {
 
           {/* Top Buttons */}
           <View style={[dynamicStyles.topButtons, { paddingTop: Platform.OS === 'web' ? Spacing.md : insets.top + Spacing.xs }]}>
-            <Pressable onPress={handleGoBack} style={dynamicStyles.iconButton}>
-              <View style={dynamicStyles.blurContainer}>
-                <Ionicons name="arrow-back" size={22} color="#ffffff" />
-              </View>
-            </Pressable>
+            <GlassBackButton onPress={handleGoBack} style={dynamicStyles.iconButton} />
             {/* More options button hidden - Coming Soon */}
           </View>
 
@@ -1010,15 +1000,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 40,
     overflow: 'hidden',
     borderRadius: BorderRadius.full,
-  },
-  blurContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(0, 0, 0, 0.60)',
   },
   backIcon: {
     fontSize: 24,

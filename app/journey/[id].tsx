@@ -28,6 +28,7 @@ import { useRouter, useLocalSearchParams, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
+import GlassBackButton from '@/components/ui/glass-back-button';
 import Svg, { Path } from 'react-native-svg';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -191,13 +192,7 @@ export default function JourneyCardScreen() {
         </View>
         {/* Back button even during loading */}
         <View style={styles.loadingBackButton}>
-          <Pressable onPress={handleGoBack} style={styles.iconButton}>
-            <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-                <Path d="M19 12H5M12 19l-7-7 7-7" />
-              </Svg>
-            </BlurView>
-          </Pressable>
+          <GlassBackButton onPress={handleGoBack} />
         </View>
       </View>
     );
@@ -227,13 +222,7 @@ export default function JourneyCardScreen() {
       <ContentContainer style={{ flex: 1 }}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={handleGoBack} style={styles.iconButton}>
-          <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
-              <Path d="M19 12H5M12 19l-7-7 7-7" />
-            </Svg>
-          </BlurView>
-        </Pressable>
+        <GlassBackButton onPress={handleGoBack} />
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerLabel}>MY JOURNEY</Text>
@@ -242,12 +231,12 @@ export default function JourneyCardScreen() {
 
         <Link href={`/journey/edit/${id}` as never} asChild>
           <Pressable style={styles.iconButton}>
-            <BlurView intensity={20} tint={effectiveTheme} style={styles.blurContainer}>
+            <View style={[styles.editButtonInner, { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)', borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)' }]}>
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
                 <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </Svg>
-            </BlurView>
+            </View>
           </Pressable>
         </Link>
       </View>
@@ -491,13 +480,12 @@ const createStyles = (colors: ThemeColors, topInset: number, isDark: boolean) =>
     overflow: 'hidden',
     borderRadius: BorderRadius.full,
   },
-  blurContainer: {
+  editButtonInner: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    justifyContent: 'center',
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
 
   // Ticket Card - sizes to content

@@ -22,8 +22,8 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import GlassBackButton from '@/components/ui/glass-back-button';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePersonDetail } from '@/hooks/use-person-detail';
@@ -240,11 +240,7 @@ export default function PersonDetailScreen() {
           <ActivityIndicator size="large" color={colors.tint} />
         </View>
         <View style={[dynamicStyles.backButtonContainer, { top: insets.top + Spacing.xs }]}>
-          <Pressable onPress={handleGoBack} style={dynamicStyles.backButton}>
-            <BlurView intensity={80} tint={effectiveTheme} style={dynamicStyles.blurButton}>
-              <Ionicons name="chevron-back" size={24} color={colors.text} />
-            </BlurView>
-          </Pressable>
+          <GlassBackButton onPress={handleGoBack} />
         </View>
       </View>
     );
@@ -394,11 +390,7 @@ export default function PersonDetailScreen() {
     <View style={dynamicStyles.container}>
       {/* Back button */}
       <View style={[dynamicStyles.backButtonContainer, { top: insets.top + Spacing.xs }]}>
-        <Pressable onPress={handleGoBack} style={dynamicStyles.backButton}>
-          <BlurView intensity={80} tint={effectiveTheme} style={dynamicStyles.blurButton}>
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </BlurView>
-        </Pressable>
+        <GlassBackButton onPress={handleGoBack} />
       </View>
 
       <ContentContainer style={{ flex: 1 }}>
@@ -473,19 +465,6 @@ const createStyles = (colors: ThemeColors) =>
       left: Spacing.md,
       zIndex: 10,
     },
-    backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: BorderRadius.full,
-      overflow: 'hidden',
-    },
-    blurButton: {
-      width: '100%',
-      height: '100%',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
     // Profile Header
     profileHeader: {
       alignItems: 'center',
