@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/lib/theme-context';
@@ -76,6 +76,19 @@ export default function IconButton({
 
   // Render different variants
   if (variant === 'glass') {
+    // Strip shadow/elevation props that a consumer might pass via `style` — on iOS
+    // shadow properties applied to a rectangular Pressable bleed outside the rounded
+    // mask and produce a square halo around the circular button. Flatten first so
+    // array/StyleSheet-ID style values are handled the same as plain objects.
+    const {
+      shadowColor: _shadowColor,
+      shadowOffset: _shadowOffset,
+      shadowOpacity: _shadowOpacity,
+      shadowRadius: _shadowRadius,
+      elevation: _elevation,
+      ...safeStyle
+    } = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
+
     return (
       <Pressable
         onPress={onPress}
@@ -83,18 +96,24 @@ export default function IconButton({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         style={({ pressed }) => [
-          baseButtonStyle,
+          styles.button,
+          { width: size, height: size, borderRadius: size / 2 },
+          safeStyle as ViewStyle,
           styles.glassContainer,
           { borderColor: colors.border },
           pressed && styles.pressed,
           disabled && styles.disabled,
         ]}
       >
-        <BlurView
-          intensity={30}
-          tint={effectiveTheme === 'dark' ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
+        {/* Explicit clip wrapper forces UIVisualEffectView to respect borderRadius on iOS.
+            Relying solely on the parent overflow:hidden does not clip the blur layer. */}
+        <View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, overflow: 'hidden' }]}>
+          <BlurView
+            intensity={30}
+            tint={effectiveTheme === 'dark' ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
         {icon(iconColor)}
       </Pressable>
     );
