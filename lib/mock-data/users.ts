@@ -29,19 +29,6 @@ export interface MockActivity {
   reviewText?: string;
 }
 
-export const MOCK_USER: MockUser = {
-  id: 'user_1',
-  name: 'Alex Chen',
-  username: '@alexchen',
-  avatarUrl: 'https://i.pravatar.cc/300',
-  bio: 'Film Enthusiast & Critic',
-  stats: {
-    watched: 124,
-    reviews: 48,
-    lists: 12,
-  },
-};
-
 export const MOCK_ACTIVITY: MockActivity[] = [
   {
     id: 'activity_1',
