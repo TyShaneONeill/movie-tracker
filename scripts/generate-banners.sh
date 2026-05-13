@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Generate Imagen-optimized prompts for the 6 PocketStubs platform banners, and
-# optionally call the Gemini Imagen API to produce the actual images.
+# Generate image prompts for the 6 PocketStubs platform banners, and
+# optionally call the Gemini Nano Banana API to produce the actual images.
 #
 # Banner Design Spec: evermind vault → Projects/PocketStubs/Business/Banner Design Spec.md
 #
@@ -17,14 +17,22 @@
 #
 # Output: assets/marketing/banners/<platform>-banner.png
 #
-# API reference (Imagen 3, GA as of early 2025):
-#   https://ai.google.dev/api/images
-#   POST https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages
+# API reference (Nano Banana / gemini-2.5-flash-image, GA):
+#   https://ai.google.dev/gemini-api/docs/image-generation
+#   POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent
 #
-# Imagen 4 (imagen-4.0-generate-preview-05-20) is in preview as of May 2026 and
-# not yet GA. This script targets Imagen 3 (GA); swap MODEL below when Imagen 4
-# reaches GA. Verify current model names at:
-#   https://ai.google.dev/gemini-api/docs/imagen
+# Model history:
+#   - Original script targeted imagen-3.0-generate-002 (:generateImages endpoint),
+#     which returns HTTP 404 on generativelanguage.googleapis.com — Imagen 3/4 are
+#     primarily Vertex AI models and are not accessible via flat API-key auth.
+#   - Swapped (May 2026) to gemini-2.5-flash-image ("Nano Banana", stable/GA),
+#     which IS accessible on the standard Gemini API with an API key.
+#   - TODO: When gemini-2.5-flash-image-pro (or equivalent "Nano Banana Pro") reaches
+#     GA + API-key access on generativelanguage.googleapis.com, swap MODEL below.
+#     Check: https://ai.google.dev/gemini-api/docs/models
+#
+# For VIDEO content automation (MA2 phase), use Veo via the Gemini API —
+# different model name and a different request/response shape from image generation.
 #
 # Design note: prompts below are derived from Projects/PocketStubs/Business/Banner Design Spec.md
 # in the vault but are EMBEDDED here (not read at runtime). Reasons:
@@ -45,12 +53,14 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
 # --- Config ---
-# TODO: When Imagen 4 reaches GA, update MODEL to the new model name.
-# Check https://ai.google.dev/gemini-api/docs/imagen for the current GA model.
-MODEL="imagen-3.0-generate-002"
-API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateImages"
+# Nano Banana (stable/GA) — accessible via API key on generativelanguage.googleapis.com.
+# Request shape: :generateContent with responseModalities: ["IMAGE"]
+# Response shape: candidates[0].content.parts[].inlineData.{mimeType,data} (base64)
+# TODO: Swap to Pro variant when GA + API-key-accessible.
+MODEL="gemini-2.5-flash-image"
+API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent"
 OUTPUT_DIR="assets/marketing/banners"
-COST_PER_IMAGE="0.04"
+COST_PER_IMAGE="0.039"
 IMAGE_COUNT=6
 
 MODE="dry-run"
@@ -62,8 +72,8 @@ Usage: $(basename "$0") [--dry-run | --generate | --help]
   (no flags)   Dry-run: print the 6 platform-specific prompts + cost estimate.
                Does NOT call the Gemini API. Default.
   --dry-run    Same as no flags.
-  --generate   Call the Gemini Imagen API to produce 6 PNG banners.
-               Prompts for confirmation before spending (~\$${COST_PER_IMAGE}/image × ${IMAGE_COUNT} = ~\$0.24).
+  --generate   Call the Gemini Nano Banana API to produce 6 PNG banners.
+               Prompts for confirmation before spending (~\$${COST_PER_IMAGE}/image × ${IMAGE_COUNT} = ~\$0.23).
   --help       Show this message.
 
 Reads GEMINI_API_KEY from env (Doppler-injected for the pocketstubs project).
@@ -78,10 +88,11 @@ Output files:
   youtube-banner.png           (2560×1440 — channel art)
   discord-banner.png           (1920×1080 — server banner)
 
-Estimated cost: ~\$${COST_PER_IMAGE}/image × ${IMAGE_COUNT} images = ~\$0.24
+Estimated cost: ~\$${COST_PER_IMAGE}/image × ${IMAGE_COUNT} images = ~\$0.23
 
-API model: ${MODEL}
-API docs:  https://ai.google.dev/api/images
+API model:    ${MODEL}
+API endpoint: ${API_ENDPOINT}
+API docs:     https://ai.google.dev/gemini-api/docs/image-generation
 EOF
   exit 0
 }
@@ -96,7 +107,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Verify prereq binaries ---
-for bin in curl jq; do
+for bin in curl jq base64; do
   if ! command -v "$bin" >/dev/null 2>&1; then
     echo "❌ Missing required binary: $bin" >&2
     exit 1
@@ -128,7 +139,7 @@ BRAND_OVERLAY="PocketStubs brand — clean geometric sans typography, rose-crims
 TAGLINE="Your movie journey, tracked."
 
 # --- Platform prompt definitions ---
-# Format: "platform:filename:width:height:ar_flag:prompt_suffix"
+# Format: "platform:filename:width:height"
 # Each prompt adapts the base motif to the platform's aspect ratio and safe zone needs.
 
 declare -a PLATFORMS=(
@@ -171,6 +182,23 @@ platform_suffix() {
   esac
 }
 
+# Returns the aspect ratio hint to embed in the prompt for each platform.
+# gemini-2.5-flash-image does NOT support responseFormat.image.aspectRatio
+# (that field is only supported by the 3.x preview models). We guide composition
+# via the prompt instead — the model respects aspect ratio language in text.
+# When upgrading to gemini-3.x or gemini-2.5-flash-image-pro, you can add:
+#   "generationConfig": { "responseFormat": { "image": { "aspectRatio": "9:16" } } }
+platform_aspect_hint() {
+  local platform="$1"
+  case "$platform" in
+    instagram|tiktok) printf '%s' "Aspect ratio 9:16 vertical portrait." ;;
+    twitter)          printf '%s' "Aspect ratio 3:1 wide horizontal landscape." ;;
+    reddit)           printf '%s' "Aspect ratio 16:1 ultra-wide horizontal strip." ;;
+    youtube)          printf '%s' "Aspect ratio 16:9 wide landscape." ;;
+    discord)          printf '%s' "Aspect ratio 16:9 wide landscape." ;;
+  esac
+}
+
 # --- Print mode header ---
 echo "PocketStubs Banner Generator"
 echo "Model: ${MODEL}"
@@ -179,14 +207,14 @@ echo ""
 
 if [[ "$MODE" == "dry-run" ]]; then
   echo "Dry run — no API calls will be made."
-  echo "   Run with --generate to spend ~\$0.24 on ${IMAGE_COUNT} images."
+  echo "   Run with --generate to spend ~\$0.23 on ${IMAGE_COUNT} images."
   echo ""
 fi
 
 # --- Prod-gate confirmation for --generate mode ---
 if [[ "$MODE" == "generate" ]]; then
   mkdir -p "${OUTPUT_DIR}"
-  read -p "Type 'yes' to spend ~\$0.24 on Gemini API: " confirm
+  read -rp "Type 'yes' to spend ~\$0.23 on Gemini API (${IMAGE_COUNT} images @ ~\$${COST_PER_IMAGE} each): " confirm
   [[ "$confirm" == "yes" ]] || { echo "Aborted."; exit 1; }
   echo ""
 fi
@@ -195,13 +223,14 @@ fi
 # Collect all tempfiles in an array; set ONE trap before the loop so all are
 # cleaned up on exit regardless of which iteration created them.
 TEMP_FILES=()
-trap 'rm -f "${TEMP_FILES[@]}"' EXIT
+trap '[[ ${#TEMP_FILES[@]} -gt 0 ]] && rm -f "${TEMP_FILES[@]}"' EXIT
 
 for entry in "${PLATFORMS[@]}"; do
   IFS=':' read -r platform filename width height <<< "$entry"
   suffix="$(platform_suffix "$platform")"
+  ar_hint="$(platform_aspect_hint "$platform")"
 
-  FULL_PROMPT="${BASE_MOTIF}. ${BRAND_OVERLAY}. ${suffix}"
+  FULL_PROMPT="${BASE_MOTIF}. ${BRAND_OVERLAY}. ${ar_hint} ${suffix}"
 
   PLATFORM_UPPER="$(printf '%s' "$platform" | tr '[:lower:]' '[:upper:]')"
   echo "--- ${PLATFORM_UPPER} (${width}x${height}) -> ${OUTPUT_DIR}/${filename} ---"
@@ -213,27 +242,21 @@ for entry in "${PLATFORMS[@]}"; do
   echo ""
 
   if [[ "$MODE" == "generate" ]]; then
-    # Determine aspect ratio closest to Imagen's supported ratios
-    # Imagen 3 supports: 1:1, 9:16, 16:9, 3:4, 4:3
-    case "$platform" in
-      instagram|tiktok) AR="9:16" ;;
-      twitter)          AR="3:1"  ;;   # closest to 3:1; Imagen may approximate
-      reddit)           AR="16:1" ;;   # ultra-wide; Imagen will approximate
-      youtube)          AR="16:9" ;;
-      discord)          AR="16:9" ;;
-    esac
+    echo "Calling Gemini Nano Banana API (${MODEL})..."
 
-    echo "Calling Gemini Imagen API..."
-
+    # Nano Banana (gemini-2.5-flash-image) uses :generateContent with
+    # responseModalities: ["IMAGE"]. It does NOT support responseFormat.image.aspectRatio
+    # (that field is only available on 3.x preview models). Aspect ratio is guided
+    # via the prompt text (ar_hint injected into FULL_PROMPT above).
+    # Response: candidates[0].content.parts[].inlineData.{mimeType,data} (base64 PNG).
     PAYLOAD=$(jq -n \
       --arg prompt "$FULL_PROMPT" \
-      --arg ar "$AR" \
       '{
-        prompt: { text: $prompt },
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: $ar,
-          outputMimeType: "image/png"
+        contents: [{
+          parts: [{ text: $prompt }]
+        }],
+        generationConfig: {
+          responseModalities: ["IMAGE"]
         }
       }')
 
@@ -249,31 +272,35 @@ for entry in "${PLATFORMS[@]}"; do
       echo "❌ API error (HTTP ${HTTP_CODE}) for ${platform}. Response:" >&2
       cat "$RESP_FILE" >&2
       echo "" >&2
-      echo "See API docs: https://ai.google.dev/api/images" >&2
+      echo "See API docs: https://ai.google.dev/gemini-api/docs/image-generation" >&2
       exit 1
     fi
 
-    # Extract base64 image data and decode to PNG
-    mkdir -p "${OUTPUT_DIR}"
-    IMAGE_B64=$(jq -r '.predictions[0].bytesBase64Encoded // .images[0].bytesBase64Encoded // empty' "$RESP_FILE")
+    # Extract base64 image data from inlineData and decode to PNG.
+    # Response shape: candidates[0].content.parts[] — some parts are text, some are inlineData.
+    # We select the part that has an inlineData field and extract its base64 data.
+    OUTPUT_PATH="${OUTPUT_DIR}/${filename}"
+    IMAGE_B64=$(jq -r '.candidates[0].content.parts[] | select(.inlineData) | .inlineData.data' "$RESP_FILE")
+
     if [[ -z "$IMAGE_B64" ]]; then
       echo "❌ Could not parse image data from API response for ${platform}." >&2
       echo "Raw response:" >&2
       cat "$RESP_FILE" >&2
       echo "" >&2
-      echo "The Imagen API response shape may have changed. See:" >&2
-      echo "  https://ai.google.dev/api/images" >&2
+      echo "The Nano Banana response shape may have changed. See:" >&2
+      echo "  https://ai.google.dev/gemini-api/docs/image-generation" >&2
       exit 1
     fi
 
-    echo "$IMAGE_B64" | base64 --decode > "${OUTPUT_DIR}/${filename}"
-    echo "✅ Saved: ${OUTPUT_DIR}/${filename}"
+    printf '%s' "$IMAGE_B64" | base64 --decode > "$OUTPUT_PATH"
+    SIZE=$(wc -c < "$OUTPUT_PATH" | tr -d ' ')
+    echo "✅ Saved: ${OUTPUT_PATH} (${SIZE} bytes)"
     echo ""
   fi
 done
 
 # --- Cost summary ---
-TOTAL_COST=$(printf "%.2f" "$(echo "${COST_PER_IMAGE} * ${IMAGE_COUNT}" | bc -l 2>/dev/null || echo "0.24")" 2>/dev/null || echo "0.24")
+TOTAL_COST=$(printf "%.2f" "$(echo "${COST_PER_IMAGE} * ${IMAGE_COUNT}" | bc -l 2>/dev/null || echo "0.23")" 2>/dev/null || echo "0.23")
 echo "--- Summary ---"
 echo "Images: ${IMAGE_COUNT}"
 echo "Estimated cost: ~\$${TOTAL_COST}"
