@@ -80,11 +80,16 @@ gh auth status >/dev/null 2>&1 || {
   exit 1
 }
 
-# --- Step 3: verify issue exists ---
-echo "Verifying issue #$ISSUE_NUM exists..."
-if ! gh issue view "$ISSUE_NUM" --repo "$REPO_FULL" --json title,body >/dev/null 2>&1; then
+# --- Step 3: verify issue exists and is open ---
+echo "Verifying issue #$ISSUE_NUM exists and is open..."
+ISSUE_STATE=$(gh issue view "$ISSUE_NUM" --repo "$REPO_FULL" --json state -q .state 2>/dev/null) || {
   echo "Error: Issue #$ISSUE_NUM not found in $REPO_FULL." >&2
   echo "  Verify with: gh issue view $ISSUE_NUM --repo $REPO_FULL" >&2
+  exit 1
+}
+if [[ "$ISSUE_STATE" != "OPEN" ]]; then
+  echo "Error: Issue #$ISSUE_NUM is $ISSUE_STATE (not OPEN)." >&2
+  echo "  Refusing to run an agent on a non-open issue. If this is intentional, reopen with: gh issue reopen $ISSUE_NUM --repo $REPO_FULL" >&2
   exit 1
 fi
 
@@ -110,7 +115,11 @@ fi
 
 # --- Step 5: pull main ---
 echo "Pulling main..."
-git checkout main >/dev/null 2>&1
+git checkout main >/dev/null 2>&1 || {
+  echo "Error: Could not checkout main in $REPO_ROOT." >&2
+  echo "  Stash or commit your local changes first, then re-run." >&2
+  exit 1
+}
 git pull --ff-only origin main
 
 # --- Step 6: create worktree ---
@@ -166,11 +175,11 @@ sleep 5
 
 # --- Step 13: send the brief via load-buffer + paste-buffer (avoids send-keys escaping) ---
 BRIEF_TMP="$(mktemp -t agent-brief.XXXXXX)"
+trap 'rm -f "$BRIEF_TMP"' EXIT
 printf '%s' "$BRIEF" > "$BRIEF_TMP"
 tmux load-buffer -t "$TMUX_SESSION" "$BRIEF_TMP"
 tmux paste-buffer -t "$TMUX_SESSION"
 tmux send-keys -t "$TMUX_SESSION" Enter
-rm -f "$BRIEF_TMP"
 
 # --- Step 14: clear the SIGINT trap (we're handing off to tmux) ---
 trap - INT

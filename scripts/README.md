@@ -19,6 +19,13 @@ Examples:
 ./scripts/agent-run.sh https://github.com/TyShaneONeill/movie-tracker/issues/437
 ```
 
+### One-time prereqs (before first run)
+
+- `gh auth login` — authenticate the GitHub CLI
+- `doppler login` — authenticate Doppler against your account
+- `omc setup` — bootstrap OMC's slash commands into `~/.claude/`
+- `GITHUB_PAT` set in Doppler `pocketstubs/dev` (verified at runtime by the script; if missing, the script tells you the `doppler secrets set` command to run)
+
 ### What it does
 
 1. Verifies prereqs (`tmux`, `gh`, `doppler`, `omc`)
