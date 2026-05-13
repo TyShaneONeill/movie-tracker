@@ -113,7 +113,7 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
       queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userTvShows'] });
       if (variables?.status === 'watched') {
-        triggerAchievementCheck();
+        triggerAchievementCheck('tv');
       }
     },
     onSuccess: (_data, variables) => {
@@ -196,7 +196,7 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
       queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['userTvShows'] });
       if (newStatus === 'watched') {
-        triggerAchievementCheck();
+        triggerAchievementCheck('tv');
       }
     },
     onSuccess: (_data, newStatus) => {

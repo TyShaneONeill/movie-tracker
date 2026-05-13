@@ -54,6 +54,7 @@ export type Database = {
       }
       achievements: {
         Row: {
+          category: string
           created_at: string
           criteria_type: string
           criteria_value: number
@@ -65,6 +66,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          category?: string
           created_at?: string
           criteria_type: string
           criteria_value?: number
@@ -76,6 +78,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          category?: string
           created_at?: string
           criteria_type?: string
           criteria_value?: number

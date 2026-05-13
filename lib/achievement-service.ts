@@ -2,6 +2,8 @@ import { supabase } from './supabase';
 import { captureException } from './sentry';
 import type { Achievement, AchievementLevel, UserAchievement } from './database.types';
 
+export type AchievementCategory = 'movies' | 'tv';
+
 export interface AwardedAchievementLevel {
   achievement: Achievement;
   level: number;
@@ -96,7 +98,9 @@ export async function fetchUserAchievements(
   }
 }
 
-export async function checkAchievements(): Promise<AwardedAchievementLevel[]> {
+export async function checkAchievements(
+  category?: AchievementCategory
+): Promise<AwardedAchievementLevel[]> {
   try {
     const { data, error } = await supabase.functions.invoke<{
       newly_awarded: AwardedAchievementLevel[];
@@ -110,7 +114,15 @@ export async function checkAchievements(): Promise<AwardedAchievementLevel[]> {
       return [];
     }
 
-    return data.newly_awarded;
+    const awarded = data.newly_awarded ?? [];
+    if (!category) {
+      return awarded;
+    }
+    // Drop cross-category awards so a TV action never surfaces a movie
+    // celebration (and vice-versa) on a new account whose first action was
+    // for one media type. The edge function evaluates every achievement on
+    // every call; the category gate lives on the client.
+    return awarded.filter((a) => a.achievement.category === category);
   } catch (error) {
     captureException(error instanceof Error ? error : new Error(String(error)), {
       context: 'check-achievements',

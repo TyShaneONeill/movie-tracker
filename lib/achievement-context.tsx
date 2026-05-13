@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { checkAchievements } from './achievement-service';
+import { checkAchievements, type AchievementCategory } from './achievement-service';
 import { AchievementCelebration } from '@/components/achievement-celebration';
 
 interface CelebrationData {
@@ -11,7 +11,7 @@ interface CelebrationData {
 }
 
 interface AchievementContextValue {
-  triggerAchievementCheck: () => void;
+  triggerAchievementCheck: (category?: AchievementCategory) => void;
 }
 
 const AchievementContext = createContext<AchievementContextValue>({
@@ -27,8 +27,8 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
   const [showCelebration, setShowCelebration] = useState(false);
   const queryClient = useQueryClient();
 
-  const triggerAchievementCheck = useCallback(() => {
-    checkAchievements()
+  const triggerAchievementCheck = useCallback((category?: AchievementCategory) => {
+    checkAchievements(category)
       .then((newlyAwarded) => {
         if (newlyAwarded.length > 0) {
           const first = newlyAwarded[0];

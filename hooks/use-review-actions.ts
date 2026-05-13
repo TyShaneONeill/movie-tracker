@@ -60,7 +60,7 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
       queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['userReviews', user?.id] });
-      triggerAchievementCheck();
+      triggerAchievementCheck(mediaType === 'tv_show' ? 'tv' : 'movies');
     },
   });
 

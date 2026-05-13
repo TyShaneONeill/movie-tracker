@@ -43,6 +43,7 @@ const makeAchievement = (overrides?: Partial<Achievement>): Achievement => ({
   sort_order: 1,
   created_at: '2024-01-01T00:00:00Z',
   is_revocable: false,
+  category: 'movies',
   ...overrides,
 });
 
@@ -309,6 +310,92 @@ describe('checkAchievements', () => {
       expect.any(Error),
       expect.objectContaining({ context: 'check-achievements' })
     );
+  });
+});
+
+// ----------------------------------------------------------------------------
+// checkAchievements — category filter (regression for new-account TV-first-watch
+// procing movie achievements; see issue #437)
+// ----------------------------------------------------------------------------
+
+describe('checkAchievements — category filter', () => {
+  const movieAward = {
+    achievement: makeAchievement({
+      id: 'ach-movie',
+      name: 'First Take',
+      category: 'movies',
+    }),
+    level: 1,
+    level_description: 'Post your first First Take',
+    unlocked_at: '2024-06-15T12:00:00Z',
+  };
+
+  const tvAward = {
+    achievement: makeAchievement({
+      id: 'ach-tv',
+      name: 'Binge Watcher',
+      category: 'tv',
+      criteria_type: 'tv_watched_count',
+    }),
+    level: 1,
+    level_description: 'Watch your first TV show',
+    unlocked_at: '2024-06-15T12:00:00Z',
+  };
+
+  it('drops movie-category awards when called with "tv" (new-account TV-first-watch regression)', async () => {
+    // Simulates the bug: the edge function happens to return a movie-category
+    // award alongside (or instead of) a TV one when a user's first action is
+    // a TV mark-watched. Without the category filter, the celebration UI
+    // would surface the movie achievement to a user who has only ever
+    // touched TV. With the filter, the movie award is hidden.
+    mockInvoke.mockResolvedValue({
+      data: { newly_awarded: [movieAward, tvAward] },
+      error: null,
+    });
+
+    const result = await checkAchievements('tv');
+
+    expect(result).toEqual([tvAward]);
+    expect(result.some((a) => a.achievement.category === 'movies')).toBe(false);
+  });
+
+  it('drops tv-category awards when called with "movies"', async () => {
+    mockInvoke.mockResolvedValue({
+      data: { newly_awarded: [movieAward, tvAward] },
+      error: null,
+    });
+
+    const result = await checkAchievements('movies');
+
+    expect(result).toEqual([movieAward]);
+    expect(result.some((a) => a.achievement.category === 'tv')).toBe(false);
+  });
+
+  it('returns everything when no category is supplied (backwards compatible)', async () => {
+    mockInvoke.mockResolvedValue({
+      data: { newly_awarded: [movieAward, tvAward] },
+      error: null,
+    });
+
+    const result = await checkAchievements();
+
+    expect(result).toEqual([movieAward, tvAward]);
+  });
+
+  it('returns empty array when the only awards are cross-category', async () => {
+    // The exact symptom from the issue: brand new account, TV-first-watch
+    // triggers a check, the edge function returns a movie-category award
+    // (e.g. First Take with criteria_type=first_take_count tripping on a
+    // TV first take whose count is unfiltered server-side). The TV trigger
+    // must not surface it.
+    mockInvoke.mockResolvedValue({
+      data: { newly_awarded: [movieAward] },
+      error: null,
+    });
+
+    const result = await checkAchievements('tv');
+
+    expect(result).toEqual([]);
   });
 });
 

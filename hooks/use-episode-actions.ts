@@ -53,7 +53,7 @@ export function useEpisodeActions(
       queryKey: ['episodeWatches', user?.id, userTvShowId, seasonNumber],
     });
     queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id] });
-    triggerAchievementCheck();
+    triggerAchievementCheck('tv');
   };
 
   const markWatchedMutation = useMutation({

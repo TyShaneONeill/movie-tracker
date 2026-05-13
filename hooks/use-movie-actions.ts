@@ -128,7 +128,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       invalidateUserMovieQueries(queryClient);
       if (variables?.status === 'watched') {
-        triggerAchievementCheck();
+        triggerAchievementCheck('movies');
       }
       earn('add_title', String(tmdbId));
     },
@@ -208,7 +208,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
       queryClient.invalidateQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
       invalidateUserMovieQueries(queryClient);
       if (newStatus === 'watched') {
-        triggerAchievementCheck();
+        triggerAchievementCheck('movies');
         earn('mark_watched', `movie:${tmdbId}`);
       }
     },

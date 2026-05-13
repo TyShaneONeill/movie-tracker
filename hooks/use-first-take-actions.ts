@@ -63,8 +63,9 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
       queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
       // Invalidate the global activity feed so new First Takes appear on home
       queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
-      // Check for newly earned achievements
-      triggerAchievementCheck();
+      // Check for newly earned achievements — scope to the media type of the
+      // first take so a TV first take never surfaces a movie-category award.
+      triggerAchievementCheck(mediaType === 'tv_show' ? 'tv' : 'movies');
       earn('first_take', newFirstTake.id);
     },
   });
