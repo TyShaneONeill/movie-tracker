@@ -124,7 +124,10 @@ echo "Running npm install (this takes 2-5 min)..."
 npm install
 
 echo "Setting up Doppler (project=pocketstubs, config=dev)..."
-doppler setup --no-interactive --project pocketstubs --config dev
+if ! doppler setup --no-interactive --project pocketstubs --config dev 2>/dev/null; then
+  echo "  doppler --no-interactive not supported (older CLI?); writing .doppler.yaml directly..."
+  printf 'setup:\n  project: pocketstubs\n  config: dev\n' > .doppler.yaml
+fi
 
 # --- Step 8: verify GITHUB_PAT injected ---
 if ! doppler run -- bash -c '[ -n "$GITHUB_PAT" ]' 2>/dev/null; then
