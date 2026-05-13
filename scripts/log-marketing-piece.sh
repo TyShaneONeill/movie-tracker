@@ -140,6 +140,11 @@ fi
 WEEK_PATTERN="## Week of .*(${WEEK_NUM})"
 
 if ! grep -qE "$WEEK_PATTERN" "$MARKETING_LOG"; then
+  # Derive the Monday of the ISO week containing $DATE.
+  # macOS date(1): -v flags must precede -f; -v-Mon doesn't do weekday arithmetic,
+  # so we use %u (ISO weekday, 1=Mon) to compute the day offset.
+  _dow=$(date -j -f "%Y-%m-%d" "${DATE}" "+%u" 2>/dev/null || echo "1")
+  WEEK_MON=$(date -j -v-$((_dow-1))d -f "%Y-%m-%d" "${DATE}" "+%Y-%m-%d" 2>/dev/null || echo "${DATE}")
   cat <<EOF >&2
 Error: Week section for ${ISO_WEEK} not found in Marketing Log.
 
@@ -148,7 +153,7 @@ in: ${MARKETING_LOG}
 
 Add it manually by appending a new section to the file, e.g.:
 
-## Week of $(date -j -f "%G-W%V" "${ISO_WEEK}" "+%Y-%m-%d" 2>/dev/null || echo "YYYY-MM-DD") (${WEEK_NUM})
+## Week of ${WEEK_MON} (${WEEK_NUM})
 
 | Date | Platform | Format | Topic / Pillar | UTM content | Reach | Engagement | Clicks | Signups | Notes |
 |---|---|---|---|---|---|---|---|---|---|

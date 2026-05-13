@@ -25,6 +25,17 @@
 # not yet GA. This script targets Imagen 3 (GA); swap MODEL below when Imagen 4
 # reaches GA. Verify current model names at:
 #   https://ai.google.dev/gemini-api/docs/imagen
+#
+# Design note: prompts below are derived from Projects/PocketStubs/Business/Banner Design Spec.md
+# in the vault but are EMBEDDED here (not read at runtime). Reasons:
+# 1. The Banner Design Spec is locked — motif + tagline + per-platform sizes don't change
+#    between branding cycles. Embedding makes the script self-contained and reviewable.
+# 2. This script runs once per branding cycle (not per content piece), so spec drift
+#    isn't an ongoing risk.
+# 3. If the spec changes, regenerate this script's prompt block from the updated vault file.
+#
+# If we later need event-driven banner generation (e.g., movie-release-aware art per MA4),
+# we'll wire up a runtime spec read at that point. YAGNI for now.
 
 set -euo pipefail
 
