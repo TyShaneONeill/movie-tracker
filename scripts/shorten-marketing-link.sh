@@ -56,13 +56,18 @@ Prereqs:
 
 API docs: https://dub.co/docs/api-reference/endpoint/create-a-link
 EOF
-  exit 0
 }
+# Note: usage() does not call exit — callers control the exit code.
+# --help path exits 0; error paths exit 1.
 
 # --- Parse args ---
-[[ $# -ge 1 ]] || { echo "Error: missing required argument <long-url>" >&2; usage; }
+if [[ $# -lt 1 ]]; then
+  echo "Error: missing required argument <long-url>" >&2
+  usage >&2
+  exit 1
+fi
 case "$1" in
-  --help|-h) usage ;;
+  --help|-h) usage; exit 0 ;;
 esac
 
 LONG_URL="$1"

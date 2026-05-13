@@ -192,6 +192,11 @@ if [[ "$MODE" == "generate" ]]; then
 fi
 
 # --- Build and print/execute prompts per platform ---
+# Collect all tempfiles in an array; set ONE trap before the loop so all are
+# cleaned up on exit regardless of which iteration created them.
+TEMP_FILES=()
+trap 'rm -f "${TEMP_FILES[@]}"' EXIT
+
 for entry in "${PLATFORMS[@]}"; do
   IFS=':' read -r platform filename width height <<< "$entry"
   suffix="$(platform_suffix "$platform")"
@@ -233,7 +238,7 @@ for entry in "${PLATFORMS[@]}"; do
       }')
 
     RESP_FILE=$(mktemp -t banner-resp.XXXXXX)
-    trap "rm -f $RESP_FILE" EXIT
+    TEMP_FILES+=("$RESP_FILE")
 
     HTTP_CODE=$(curl -sS -o "$RESP_FILE" -w "%{http_code}" \
       -X POST "${API_ENDPOINT}?key=${GEMINI_API_KEY}" \

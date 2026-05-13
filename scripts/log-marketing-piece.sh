@@ -62,8 +62,9 @@ Week sections must exist before you can log to them (e.g., "## Week of 2026-05-1
 
 Marketing Log: ${MARKETING_LOG}
 EOF
-  exit 0
 }
+# Note: usage() does not call exit — callers control the exit code.
+# --help path exits 0; error paths exit 1.
 
 # --- Arg defaults ---
 DATE=""
@@ -90,8 +91,8 @@ while [[ $# -gt 0 ]]; do
     --clicks)       CLICKS="$2";       shift 2 ;;
     --signups)      SIGNUPS="$2";      shift 2 ;;
     --notes)        NOTES="$2";        shift 2 ;;
-    --help|-h)      usage ;;
-    *) echo "Unknown flag: $1" >&2; usage ;;
+    --help|-h)      usage; exit 0 ;;
+    *) echo "Unknown flag: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 
@@ -106,7 +107,8 @@ MISSING=()
 if [[ ${#MISSING[@]} -gt 0 ]]; then
   echo "Error: Missing required flags: ${MISSING[*]}" >&2
   echo "" >&2
-  usage
+  usage >&2
+  exit 1
 fi
 
 # --- Validate date format ---
@@ -168,22 +170,28 @@ EOF
 fi
 
 # --- Build the new table row ---
-NEW_ROW="| ${DATE} | ${PLATFORM} | ${FORMAT} | ${PILLAR} | ${UTM_CONTENT} | ${REACH} | ${ENGAGEMENT} | ${CLICKS} | ${SIGNUPS} | ${NOTES} |"
+# Escape | in --notes to avoid corrupting the markdown table column count.
+NOTES_ESCAPED="${NOTES//|/\\|}"
+NEW_ROW="| ${DATE} | ${PLATFORM} | ${FORMAT} | ${PILLAR} | ${UTM_CONTENT} | ${REACH} | ${ENGAGEMENT} | ${CLICKS} | ${SIGNUPS} | ${NOTES_ESCAPED} |"
 
 # --- Insert the row after the table header row in the correct week section ---
 # Strategy:
 #   1. Find the line number of the week section header that matches WEEK_NUM
 #   2. From there, find the first table separator row (|---|...)
-#   3. Insert the new row after that separator row
-#   4. Use a Python one-liner for safe in-place file modification (no sed -i gotchas)
+#   3. Check for an existing row with the same (date, utm_content) tuple — exit 0 if found (idempotency)
+#   4. Insert the new row after that separator row
+#   5. Use Python for safe in-place file modification (no sed -i gotchas)
 
-python3 - "$MARKETING_LOG" "$WEEK_PATTERN" "$NEW_ROW" <<'PYEOF'
+PY_OUT=$(python3 - "$MARKETING_LOG" "$WEEK_PATTERN" "$NEW_ROW" "$DATE" "$UTM_CONTENT" "$WEEK_NUM" <<'PYEOF'
 import sys
 import re
 
 log_path = sys.argv[1]
 week_pattern = sys.argv[2]
 new_row = sys.argv[3]
+date_val = sys.argv[4]
+utm_content = sys.argv[5]
+week_num = sys.argv[6]
 
 with open(log_path, 'r') as f:
     lines = f.readlines()
@@ -212,6 +220,16 @@ if separator_idx is None:
     print(f"Error: Could not find table separator row in week section.", file=sys.stderr)
     sys.exit(1)
 
+# Idempotency check: scan table rows after the separator for same (date, utm_content).
+# A table row in this section ends when we hit a non-table line or the next ## section.
+for i in range(separator_idx + 1, len(lines)):
+    line = lines[i].strip()
+    if not line.startswith('|'):
+        break
+    if date_val in line and utm_content in line:
+        print(f"ALREADY_LOGGED:{line}")
+        sys.exit(0)
+
 # Insert the new row after the separator
 insert_at = separator_idx + 1
 lines.insert(insert_at, new_row + '\n')
@@ -221,8 +239,17 @@ with open(log_path, 'w') as f:
 
 print(f"Inserted at line {insert_at + 1} (after separator in {week_pattern!r} section)")
 PYEOF
+)
 
-# --- Confirm what was appended ---
+# --- Confirm result ---
+if [[ "$PY_OUT" == ALREADY_LOGGED:* ]]; then
+  EXISTING_ROW="${PY_OUT#ALREADY_LOGGED:}"
+  echo "Already logged for ${DATE} / ${UTM_CONTENT} in ${WEEK_NUM} section. Skipping insert." >&2
+  echo "Existing row: ${EXISTING_ROW}" >&2
+  exit 0
+fi
+
+echo "$PY_OUT"
 echo ""
 echo "✅ Appended to Marketing Log (${ISO_WEEK} section):"
 echo ""
