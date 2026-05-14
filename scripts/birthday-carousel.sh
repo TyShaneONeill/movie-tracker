@@ -119,6 +119,16 @@ echo "Target date: $TARGET_DATE (MM-DD: $TARGET_MM_DD)"
 echo "Dry-run: $DRY_RUN | Force: $FORCE"
 echo ""
 
+# --- Early idempotency check (before any API calls) ---
+# We don't know the actor slug yet, so check for any existing note for this date.
+# Use glob to find any existing note matching the date prefix.
+EXISTING_NOTE=$(ls "$VAULT_QUEUE_DIR/$TARGET_DATE-birthday-"*.md 2>/dev/null | head -1 || true)
+if [[ -n "$EXISTING_NOTE" && "$FORCE" != "true" ]]; then
+  echo "Vault note already exists for $TARGET_DATE: $EXISTING_NOTE"
+  echo "   Use --force to regenerate."
+  exit 0
+fi
+
 # --- Step A: TMDB person discovery — find actors with today's birthday ---
 echo "Querying TMDB for actors born on $TARGET_MM_DD..."
 
@@ -387,7 +397,7 @@ ACTOR_HASHTAG=$(echo "$MATCH_NAME" | sed 's/ //g')
 # Lowercase name for the greeting (Letterboxd does lowercase)
 LOWER_NAME=$(echo "$MATCH_NAME" | tr '[:upper:]' '[:lower:]')
 
-VARIANT_A=$(printf 'happy birthday %s\n\nStills from:\n%s\n#%s #HappyBirthday' \
+VARIANT_A=$(printf 'happy birthday %s 👋\n\nStills from:\n%s\n#%s #HappyBirthday' \
   "$LOWER_NAME" "${STILLS_LIST%$'\n'}" "$ACTOR_HASHTAG")
 
 echo "  Variant A:"
@@ -421,22 +431,20 @@ call_gemini() {
   local instruction="$1"
   local label="$2"
 
-  # Substitute placeholders
+  # Substitute all placeholders including multiline FILMS via Python3
+  # (awk -v can't handle newlines in variables on macOS bash 3.x)
   local rendered_prompt
-  rendered_prompt=$(sed \
-    -e "s|{{ACTOR}}|$MATCH_NAME|g" \
-    -e "s|{{ACTOR_HASHTAG}}|$ACTOR_HASHTAG|g" \
-    "$VOICE_PROMPT_TEMPLATE")
-
-  # Substitute multiline FILMS + INSTRUCTION via awk (sed struggles with newlines)
-  rendered_prompt=$(echo "$rendered_prompt" | awk \
-    -v films="$FILMS_BLOCK" \
-    -v instr="$instruction" '
-    {
-      gsub(/\{\{FILMS\}\}/, films);
-      gsub(/\{\{VARIANT_INSTRUCTION\}\}/, instr);
-      print;
-    }')
+  rendered_prompt=$(python3 - "$VOICE_PROMPT_TEMPLATE" "$MATCH_NAME" "$ACTOR_HASHTAG" "$FILMS_BLOCK" "$instruction" <<'PYEOF'
+import sys, pathlib
+tpl_path, actor, hashtag, films, instr = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+text = pathlib.Path(tpl_path).read_text()
+text = text.replace("{{ACTOR}}", actor)
+text = text.replace("{{ACTOR_HASHTAG}}", hashtag)
+text = text.replace("{{FILMS}}", films)
+text = text.replace("{{VARIANT_INSTRUCTION}}", instr)
+print(text, end="")
+PYEOF
+)
 
   # Call Gemini
   local resp_file
