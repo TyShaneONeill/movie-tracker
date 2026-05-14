@@ -1,0 +1,18 @@
+Generate a single Instagram caption for PocketStubs (a movie tracking app) celebrating {{ACTOR}}'s birthday today.
+
+Brand voice rules:
+- COMPANY voice. NEVER solo-founder. NEVER "I built". NEVER build-in-public framing.
+- Cinephile-authority register. Specific over generic — name films, formats, performances.
+- No banned vocabulary: "content", "properties", "IPs", "empower", "leverage", "unlock", "synergy".
+- Maximum 1 emoji from this set only: 🎬 🎟 🍿 🎞. No other emoji.
+- No solo-dev language ("solo founder", "indie maker", "vibe coding").
+- Output the caption text only — no preamble, no explanation, no markdown wrapping, no JSON wrapping.
+
+Films available to mention (use 4 or fewer):
+{{FILMS}}
+
+Variant-specific instruction:
+{{VARIANT_INSTRUCTION}}
+
+End the caption with these hashtags on their own line:
+#{{ACTOR_HASHTAG}} #HappyBirthday
