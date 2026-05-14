@@ -26,7 +26,11 @@ VAULT_QUEUE_DIR="/Users/Shared/evermind/tormajs evermind/Projects/PocketStubs/Bu
 TMDB_BASE="https://api.themoviedb.org/3"
 TMDB_IMG_BASE="https://image.tmdb.org/t/p"
 GEMINI_BASE="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-POPULARITY_THRESHOLD=5
+# TMDB popularity decays between releases — even A-list actors drop to 5-10 between
+# release cycles. Threshold of 20 (per spec) was empirically too high — Pattinson at
+# ~7 today would have been filtered. Lowered to 5 based on first real-run data.
+# Override via env: BIRTHDAY_POPULARITY_THRESHOLD=10 ./scripts/birthday-carousel.sh
+POPULARITY_THRESHOLD=${BIRTHDAY_POPULARITY_THRESHOLD:-5}
 VOTE_COUNT_MIN=100
 MIN_FILMS_VIABLE=2
 
@@ -34,6 +38,10 @@ MIN_FILMS_VIABLE=2
 DRY_RUN=false
 FORCE=false
 DATE_OVERRIDE=""
+GEMINI_FAILED=false
+# Temp file used as a signal flag — bash subshells (command substitution) can't
+# mutate parent-shell variables, so call_gemini() touches this file on fallback.
+GEMINI_FAILED_FLAG="$(mktemp -t bday-gemini-failed.XXXXXX)"
 
 usage() {
   cat <<USAGE
@@ -54,7 +62,6 @@ Generates a daily Letterboxd-style birthday carousel:
 
 Spec: docs/superpowers/specs/2026-05-13-birthday-carousel-design.md
 USAGE
-  exit 1
 }
 
 # --- Parse args ---
@@ -63,8 +70,8 @@ while [[ $# -gt 0 ]]; do
     --date) DATE_OVERRIDE="${2:?--date requires YYYY-MM-DD value}"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --force) FORCE=true; shift ;;
-    -h|--help) usage ;;
-    *) echo "Error: Unknown argument: $1" >&2; usage ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Error: Unknown argument: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 
@@ -138,7 +145,7 @@ echo "Querying TMDB for actors born on $TARGET_MM_DD..."
 # Sort by popularity DESC so we hit the most-popular match first and break early.
 
 CANDIDATES_JSON="$(mktemp -t bday-cand.XXXXXX.json)"
-TEMP_FILES=("$CANDIDATES_JSON")
+TEMP_FILES=("$CANDIDATES_JSON" "$GEMINI_FAILED_FLAG")
 trap '[[ ${#TEMP_FILES[@]} -gt 0 ]] && rm -f "${TEMP_FILES[@]}"' EXIT
 
 # Fetch top 500 popular actors (25 pages x 20 = 500)
@@ -234,7 +241,7 @@ if [[ -z "$MATCH_PERSON_ID" ]]; then
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "  [DRY RUN] Would send: No notable birthday today (popularity > $POPULARITY_THRESHOLD threshold). No carousel generated."
   else
-    EMPTY_MSG="No notable birthday today (popularity > $POPULARITY_THRESHOLD threshold). No carousel generated. Date: $TARGET_DATE"
+    EMPTY_MSG="⏭ No notable birthday today (popularity > $POPULARITY_THRESHOLD threshold). No carousel generated. Date: $TARGET_DATE"
     curl -sS -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$EMPTY_MSG" '{content: $c}')" \
       "$DISCORD_METRICS_WEBHOOK_URL" >/dev/null
@@ -266,7 +273,7 @@ HTTP_CODE=$(curl -sS -o "$CREDITS_RESP" -w "%{http_code}" \
 
 if [[ "$HTTP_CODE" != "200" ]]; then
   echo "Error: TMDB filmography fetch returned HTTP $HTTP_CODE." >&2
-  ERROR_MSG="Birthday carousel ERRORED: TMDB filmography fetch failed for $MATCH_NAME (HTTP $HTTP_CODE). Date: $TARGET_DATE"
+  ERROR_MSG="⚠️ Birthday carousel ERRORED: TMDB filmography fetch failed for $MATCH_NAME (HTTP $HTTP_CODE). Date: $TARGET_DATE"
   if [[ "$DRY_RUN" != "true" ]]; then
     curl -sS -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$ERROR_MSG" '{content: $c}')" \
@@ -304,7 +311,7 @@ fi
 
 if [[ "$FILMS_COUNT" -lt "$MIN_FILMS_VIABLE" ]]; then
   echo "Error: $MATCH_NAME has fewer than $MIN_FILMS_VIABLE qualifying films. Cannot generate carousel." >&2
-  ERROR_MSG="Birthday carousel ERRORED: $MATCH_NAME has only $FILMS_COUNT qualifying films (need at least $MIN_FILMS_VIABLE). Date: $TARGET_DATE"
+  ERROR_MSG="⚠️ Birthday carousel ERRORED: $MATCH_NAME has only $FILMS_COUNT qualifying films (need at least $MIN_FILMS_VIABLE). Date: $TARGET_DATE"
   if [[ "$DRY_RUN" != "true" ]]; then
     curl -sS -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$ERROR_MSG" '{content: $c}')" \
@@ -369,7 +376,7 @@ echo "  Downloaded $DOWNLOADED_COUNT/$FILMS_COUNT images."
 
 if [[ "$DOWNLOADED_COUNT" -lt "$MIN_FILMS_VIABLE" ]]; then
   echo "Error: Only $DOWNLOADED_COUNT images downloaded; need at least $MIN_FILMS_VIABLE. Carousel not viable." >&2
-  ERROR_MSG="Birthday carousel ERRORED: Only $DOWNLOADED_COUNT images downloaded for $MATCH_NAME (need at least $MIN_FILMS_VIABLE). Date: $TARGET_DATE"
+  ERROR_MSG="⚠️ Birthday carousel ERRORED: Only $DOWNLOADED_COUNT images downloaded for $MATCH_NAME (need at least $MIN_FILMS_VIABLE). Date: $TARGET_DATE"
   if [[ "$DRY_RUN" != "true" ]]; then
     curl -sS -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$ERROR_MSG" '{content: $c}')" \
@@ -463,6 +470,7 @@ PYEOF
 
   if [[ "$http_code" != "200" ]]; then
     echo "  Gemini failed for $label (HTTP $http_code). Falling back to templated." >&2
+    echo "failed" > "$GEMINI_FAILED_FLAG"  # signal to parent shell (subshell can't mutate parent vars)
     echo "$VARIANT_A"  # Fallback: reuse Variant A
     return 0
   fi
@@ -472,6 +480,7 @@ PYEOF
 
   if [[ -z "$text" ]]; then
     echo "  Gemini returned empty for $label. Falling back to templated." >&2
+    echo "failed" > "$GEMINI_FAILED_FLAG"  # signal to parent shell (subshell can't mutate parent vars)
     echo "$VARIANT_A"
     return 0
   fi
@@ -530,10 +539,19 @@ VARIANT_A_INDENTED=$(indent_for_yaml "$VARIANT_A")
 VARIANT_B_INDENTED=$(indent_for_yaml "$VARIANT_B")
 VARIANT_C_INDENTED=$(indent_for_yaml "$VARIANT_C")
 
+# Build optional gemini_failed frontmatter line (only present when captions degraded).
+# Read from flag file — call_gemini() runs in a subshell (command substitution) so it
+# can't mutate GEMINI_FAILED directly; it writes to GEMINI_FAILED_FLAG instead.
+GEMINI_FAILED_LINE=""
+if [[ -s "$GEMINI_FAILED_FLAG" ]]; then
+  GEMINI_FAILED=true
+  GEMINI_FAILED_LINE="gemini_failed: true"$'\n'
+fi
+
 cat > "$VAULT_NOTE_PATH" <<NOTE
 ---
 status: pending
-date: $TARGET_DATE
+${GEMINI_FAILED_LINE}date: $TARGET_DATE
 actor:
   name: $MATCH_NAME
   tmdb_id: $MATCH_PERSON_ID
