@@ -128,10 +128,16 @@ echo ""
 
 # --- Early idempotency check (before any API calls) ---
 # We don't know the actor slug yet, so check for any existing note for this date.
-# Use glob to find any existing note matching the date prefix.
-EXISTING_NOTE=$(ls "$VAULT_QUEUE_DIR/$TARGET_DATE-birthday-"*.md 2>/dev/null | head -1 || true)
-if [[ -n "$EXISTING_NOTE" && "$FORCE" != "true" ]]; then
-  echo "Vault note already exists for $TARGET_DATE: $EXISTING_NOTE"
+# Use bash nullglob (whitespace-safe; ls-parsing is fragile with spaces in the vault path).
+# Idempotency: if any vault note exists for this date, no-op unless --force.
+# Edge case: if multiple actors share a date and yesterday's run picked actor A,
+# today's run is correctly skipped even if the script would now pick actor B.
+# Use --force to override + write the new actor's note (will overwrite the old).
+shopt -s nullglob
+EXISTING_NOTES=("$VAULT_QUEUE_DIR/$TARGET_DATE-birthday-"*.md)
+shopt -u nullglob
+if [[ ${#EXISTING_NOTES[@]} -gt 0 && "$FORCE" != "true" ]]; then
+  echo "ℹ️ Vault note already exists for $TARGET_DATE: ${EXISTING_NOTES[0]}"
   echo "   Use --force to regenerate."
   exit 0
 fi
@@ -158,7 +164,7 @@ for page in $(seq 1 "$PAGES_TO_FETCH"); do
   PAGE_RESP="$(mktemp -t bday-page.XXXXXX.json)"
   TEMP_FILES+=("$PAGE_RESP")
 
-  HTTP_CODE=$(curl -sS -o "$PAGE_RESP" -w "%{http_code}" \
+  HTTP_CODE=$(curl -sS --connect-timeout 10 --max-time 30 -o "$PAGE_RESP" -w "%{http_code}" \
     -H "Authorization: Bearer $TMDB_READ_ACCESS_TOKEN" \
     -H "Accept: application/json" \
     "$TMDB_BASE/person/popular?language=en-US&page=$page" || echo "000")
@@ -195,17 +201,14 @@ MATCH_PERSON_ID=""
 MATCH_NAME=""
 MATCH_POPULARITY=""
 
-# Sort filtered list by popularity DESC, get IDs in order
-PERSON_IDS=$(jq -r 'sort_by(-.popularity) | .[].id' "$FILTERED_JSON")
-
 CHECKED=0
-for pid in $PERSON_IDS; do
+while IFS= read -r pid; do
   CHECKED=$((CHECKED + 1))
 
   PERSON_RESP="$(mktemp -t bday-person.XXXXXX.json)"
   TEMP_FILES+=("$PERSON_RESP")
 
-  HTTP_CODE=$(curl -sS -o "$PERSON_RESP" -w "%{http_code}" \
+  HTTP_CODE=$(curl -sS --connect-timeout 10 --max-time 30 -o "$PERSON_RESP" -w "%{http_code}" \
     -H "Authorization: Bearer $TMDB_READ_ACCESS_TOKEN" \
     -H "Accept: application/json" \
     "$TMDB_BASE/person/$pid?language=en-US" || echo "000")
@@ -232,7 +235,7 @@ for pid in $PERSON_IDS; do
     echo "  MATCH (after $CHECKED checks): $MATCH_NAME (TMDB id=$MATCH_PERSON_ID, popularity=$MATCH_POPULARITY, born $BIRTHDAY)"
     break
   fi
-done
+done < <(jq -r 'sort_by(-.popularity) | .[].id' "$FILTERED_JSON")
 
 if [[ -z "$MATCH_PERSON_ID" ]]; then
   echo "  No actor with birthday on $TARGET_MM_DD passes popularity threshold."
@@ -242,7 +245,7 @@ if [[ -z "$MATCH_PERSON_ID" ]]; then
     echo "  [DRY RUN] Would send: No notable birthday today (popularity > $POPULARITY_THRESHOLD threshold). No carousel generated."
   else
     EMPTY_MSG="⏭ No notable birthday today (popularity > $POPULARITY_THRESHOLD threshold). No carousel generated. Date: $TARGET_DATE"
-    curl -sS -X POST -H "Content-Type: application/json" \
+    curl -sS --connect-timeout 10 --max-time 30 -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$EMPTY_MSG" '{content: $c}')" \
       "$DISCORD_METRICS_WEBHOOK_URL" >/dev/null
     echo "  Discord pinged."
@@ -266,7 +269,7 @@ echo "Fetching filmography for $MATCH_NAME (TMDB id=$MATCH_PERSON_ID)..."
 CREDITS_RESP="$(mktemp -t bday-credits.XXXXXX.json)"
 TEMP_FILES+=("$CREDITS_RESP")
 
-HTTP_CODE=$(curl -sS -o "$CREDITS_RESP" -w "%{http_code}" \
+HTTP_CODE=$(curl -sS --connect-timeout 10 --max-time 30 -o "$CREDITS_RESP" -w "%{http_code}" \
   -H "Authorization: Bearer $TMDB_READ_ACCESS_TOKEN" \
   -H "Accept: application/json" \
   "$TMDB_BASE/person/$MATCH_PERSON_ID/movie_credits?language=en-US" || echo "000")
@@ -275,7 +278,7 @@ if [[ "$HTTP_CODE" != "200" ]]; then
   echo "Error: TMDB filmography fetch returned HTTP $HTTP_CODE." >&2
   ERROR_MSG="⚠️ Birthday carousel ERRORED: TMDB filmography fetch failed for $MATCH_NAME (HTTP $HTTP_CODE). Date: $TARGET_DATE"
   if [[ "$DRY_RUN" != "true" ]]; then
-    curl -sS -X POST -H "Content-Type: application/json" \
+    curl -sS --connect-timeout 10 --max-time 30 -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$ERROR_MSG" '{content: $c}')" \
       "$DISCORD_METRICS_WEBHOOK_URL" >/dev/null
   fi
@@ -313,7 +316,7 @@ if [[ "$FILMS_COUNT" -lt "$MIN_FILMS_VIABLE" ]]; then
   echo "Error: $MATCH_NAME has fewer than $MIN_FILMS_VIABLE qualifying films. Cannot generate carousel." >&2
   ERROR_MSG="⚠️ Birthday carousel ERRORED: $MATCH_NAME has only $FILMS_COUNT qualifying films (need at least $MIN_FILMS_VIABLE). Date: $TARGET_DATE"
   if [[ "$DRY_RUN" != "true" ]]; then
-    curl -sS -X POST -H "Content-Type: application/json" \
+    curl -sS --connect-timeout 10 --max-time 30 -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$ERROR_MSG" '{content: $c}')" \
       "$DISCORD_METRICS_WEBHOOK_URL" >/dev/null
   fi
@@ -330,8 +333,9 @@ echo ""
 echo "Downloading backdrops to $DOWNLOAD_DIR..."
 mkdir -p "$DOWNLOAD_DIR"
 
-# Use TMDB's "original" backdrop size for highest quality
-IMG_SIZE="original"
+# Use w1280 — 5-10x smaller than "original" (200-800KB vs 2-4MB per image),
+# still exceeds IG carousel display resolution (1080px wide max).
+IMG_SIZE="w1280"
 
 DOWNLOADED_COUNT=0
 DOWNLOADED_FILMS_JSON="[]"
@@ -355,7 +359,7 @@ while IFS= read -r film_row; do
   IMG_URL="$TMDB_IMG_BASE/$IMG_SIZE$BACKDROP_PATH"
   echo "  [$INDEX] Downloading: $TITLE -> $IMG_PATH"
 
-  HTTP_CODE=$(curl -sS -o "$IMG_PATH" -w "%{http_code}" "$IMG_URL" || echo "000")
+  HTTP_CODE=$(curl -sS --connect-timeout 10 --max-time 60 -o "$IMG_PATH" -w "%{http_code}" "$IMG_URL" || echo "000")
 
   if [[ "$HTTP_CODE" != "200" ]]; then
     echo "    HTTP $HTTP_CODE — removing partial file"
@@ -378,7 +382,7 @@ if [[ "$DOWNLOADED_COUNT" -lt "$MIN_FILMS_VIABLE" ]]; then
   echo "Error: Only $DOWNLOADED_COUNT images downloaded; need at least $MIN_FILMS_VIABLE. Carousel not viable." >&2
   ERROR_MSG="⚠️ Birthday carousel ERRORED: Only $DOWNLOADED_COUNT images downloaded for $MATCH_NAME (need at least $MIN_FILMS_VIABLE). Date: $TARGET_DATE"
   if [[ "$DRY_RUN" != "true" ]]; then
-    curl -sS -X POST -H "Content-Type: application/json" \
+    curl -sS --connect-timeout 10 --max-time 30 -X POST -H "Content-Type: application/json" \
       -d "$(jq -n --arg c "$ERROR_MSG" '{content: $c}')" \
       "$DISCORD_METRICS_WEBHOOK_URL" >/dev/null
   fi
@@ -463,7 +467,7 @@ PYEOF
     '{contents: [{parts: [{text: $p}]}]}')
 
   local http_code
-  http_code=$(curl -sS -o "$resp_file" -w "%{http_code}" -X POST \
+  http_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$resp_file" -w "%{http_code}" -X POST \
     -H "Content-Type: application/json" \
     -d "$req_body" \
     "${GEMINI_BASE}?key=${GEMINI_API_KEY}" || echo "000")
@@ -477,6 +481,21 @@ PYEOF
 
   local text
   text=$(jq -r '.candidates[0].content.parts[0].text // empty' "$resp_file")
+
+  # Sanitize: strip markdown code fences and stray YAML separator lines that would
+  # break the literal-block frontmatter (terminate it early). Also strip leading/
+  # trailing blank lines so the YAML literal-block renders cleanly.
+  text=$(echo "$text" | python3 -c '
+import sys, re
+lines = sys.stdin.read().splitlines()
+# Drop markdown fences and YAML separator lines
+lines = [l for l in lines if not l.startswith("```") and l.strip() != "---"]
+# Strip leading blank lines
+while lines and not lines[0].strip(): lines.pop(0)
+# Strip trailing blank lines
+while lines and not lines[-1].strip(): lines.pop()
+print("\n".join(lines))
+')
 
   if [[ -z "$text" ]]; then
     echo "  Gemini returned empty for $label. Falling back to templated." >&2
@@ -519,21 +538,31 @@ mkdir -p "$VAULT_QUEUE_DIR"
 
 echo "Writing vault note: $VAULT_NOTE_PATH"
 
-# Build films YAML block
-FILMS_YAML=""
-while IFS= read -r film; do
-  TITLE=$(echo "$film" | jq -r '.title')
-  YEAR=$(echo "$film" | jq -r '.year')
-  IMG_PATH=$(echo "$film" | jq -r '.image_path')
-  FILMS_YAML+="  - title: $TITLE"$'\n'
-  FILMS_YAML+="    year: $YEAR"$'\n'
-  FILMS_YAML+="    image_path: $IMG_PATH"$'\n'
-done < <(echo "$DOWNLOADED_FILMS_JSON" | jq -c '.[]')
+# yaml_quote: Single-quote-wrap a YAML scalar; escape embedded single quotes per YAML spec.
+# YAML spec: '' (two single quotes) represents a literal single quote inside a single-quoted scalar.
+# Prevents YAML injection from names like "Spider-Man: No Way Home", "M*A*S*H",
+# "O'Toole", title "Yes"/"No"/"On"/"Off" (YAML 1.1 boolean ambiguity), etc.
+yaml_quote() {
+  printf "'%s'" "${1//\'/\'\'}"
+}
 
 # Indent each caption variant by 6 spaces for YAML literal-block compatibility
 indent_for_yaml() {
   echo "$1" | sed 's/^/      /'
 }
+
+# Build films YAML block — yaml_quote() applied to string scalars to prevent
+# injection from titles like "Spider-Man: No Way Home", "M*A*S*H", paths with spaces.
+# year is an integer — no quoting needed.
+FILMS_YAML=""
+while IFS= read -r film; do
+  TITLE=$(echo "$film" | jq -r '.title')
+  YEAR=$(echo "$film" | jq -r '.year')
+  IMG_PATH=$(echo "$film" | jq -r '.image_path')
+  FILMS_YAML+="  - title: $(yaml_quote "$TITLE")"$'\n'
+  FILMS_YAML+="    year: $YEAR"$'\n'
+  FILMS_YAML+="    image_path: $(yaml_quote "$IMG_PATH")"$'\n'
+done < <(echo "$DOWNLOADED_FILMS_JSON" | jq -c '.[]')
 
 VARIANT_A_INDENTED=$(indent_for_yaml "$VARIANT_A")
 VARIANT_B_INDENTED=$(indent_for_yaml "$VARIANT_B")
@@ -548,12 +577,16 @@ if [[ -s "$GEMINI_FAILED_FLAG" ]]; then
   GEMINI_FAILED_LINE="gemini_failed: true"$'\n'
 fi
 
+# Pre-compute yaml_quote expansions outside the heredoc (heredoc doesn't expand functions).
+YAML_NAME=$(yaml_quote "$MATCH_NAME")
+YAML_DATE=$(yaml_quote "$TARGET_DATE")
+
 cat > "$VAULT_NOTE_PATH" <<NOTE
 ---
 status: pending
-${GEMINI_FAILED_LINE}date: $TARGET_DATE
+${GEMINI_FAILED_LINE}date: $YAML_DATE
 actor:
-  name: $MATCH_NAME
+  name: $YAML_NAME
   tmdb_id: $MATCH_PERSON_ID
   birth_year: $MATCH_BIRTH_YEAR
   age_today: $MATCH_AGE
@@ -619,7 +652,7 @@ fi
 
 DISCORD_PAYLOAD=$(jq -n --arg c "$DISCORD_MSG" '{content: $c}')
 
-HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST \
+HTTP_CODE=$(curl -sS --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" -X POST \
   -H "Content-Type: application/json" \
   -d "$DISCORD_PAYLOAD" \
   "$DISCORD_METRICS_WEBHOOK_URL" || echo "000")
