@@ -234,3 +234,70 @@ The script appends to an existing week section. If the week section doesn't exis
 
 ---
 ```
+
+---
+
+## birthday-carousel.sh
+
+Daily Letterboxd-style actor birthday carousel generator. **First content-automation pattern (C1) per the marketing automation roadmap.** Mimics Letterboxd's recurring "happy birthday \[actor\] 👋 / Stills from: \[films\]" Instagram post format — proven to drive cinephile-audience engagement (Letterboxd's Pattinson birthday post hit 32.1k likes).
+
+### Usage
+
+```bash
+doppler run -- ./scripts/birthday-carousel.sh                    # today
+doppler run -- ./scripts/birthday-carousel.sh --date 2026-05-13  # specific date (testing)
+doppler run -- ./scripts/birthday-carousel.sh --dry-run          # don't write/post; just print
+doppler run -- ./scripts/birthday-carousel.sh --force            # overwrite existing vault note
+doppler run -- ./scripts/birthday-carousel.sh --help
+```
+
+### One-time prereqs (before first run)
+
+- `TMDB_READ_ACCESS_TOKEN` set in Doppler `pocketstubs/dev` (already wired — used elsewhere by cinetrak)
+- `GEMINI_API_KEY` set in Doppler (already wired — used by bug-report analyzer + ticket scanner + banner generator)
+- `DISCORD_METRICS_WEBHOOK_URL` set in Doppler (already wired — daily metrics post here)
+- The vault `Marketing Sprints/Queue/` folder is created on first run if it doesn't exist
+
+### What it does
+
+1. Queries TMDB for actors with today's MM-DD birthday + popularity > 5 (paginates 25 pages of `/person/popular` = top 500)
+2. Picks the most-popular qualifying actor (sorted by TMDB popularity, first birthday match wins)
+3. Fetches their filmography; takes top 4 films by `vote_average` (with `vote_count > 100`, fallback to `> 50`)
+4. Downloads the films' backdrop images to `~/Downloads/birthday-carousel-<DATE>/`
+5. Generates 3 caption variants:
+   - **A (templated, always-safe)**: direct Letterboxd-mimic format
+   - **B (Gemini, cinephile-take)**: hot take about the actor's career arc
+   - **C (Gemini, PocketStubs-listicle)**: "track them all in PocketStubs" CTA framing
+6. Writes vault note to `Projects/PocketStubs/Business/Marketing Sprints/Queue/<DATE>-birthday-<slug>.md` with `status: pending`
+7. Pings the Discord metrics channel with status + actor + 3 captions inline + Obsidian link
+
+**Idempotent**: re-runs no-op immediately (before any API calls) unless `--force`.
+
+### Status messages (Discord)
+
+| Status | When |
+|---|---|
+| `📬 Birthday carousel ready: <actor> (<age>)` | Success — vault note + 3 captions ready |
+| `No notable birthday today (popularity > 5 threshold).` | No qualifying actor for today |
+| `Birthday carousel ERRORED: <reason>.` | TMDB / image / Gemini failure |
+
+### Approval workflow
+
+1. Open the vault note in Obsidian (link in Discord ping)
+2. Pick one of the 3 captions, add your twist
+3. Drag images from `~/Downloads/birthday-carousel-<DATE>/` into IG (in order)
+4. Post manually
+5. Edit vault note frontmatter: `status: pending` → `status: published`
+
+### Spec & plan
+
+- Spec: `docs/superpowers/specs/2026-05-13-birthday-carousel-design.md`
+- Plan: `docs/superpowers/plans/2026-05-13-birthday-carousel.md`
+
+### Future expansion (out of scope for v1)
+
+- Cron / overnight scheduling
+- Buffer API auto-post (paid tier required)
+- IG Graph API auto-post (Meta API is rough)
+- Skip-tracking deny-list (auto-deny actors you've explicitly skipped)
+- Multi-actor days (currently picks 1 max per day)
