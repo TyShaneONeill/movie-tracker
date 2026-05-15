@@ -301,3 +301,81 @@ doppler run -- ./scripts/birthday-carousel.sh --help
 - IG Graph API auto-post (Meta API is rough)
 - Skip-tracking deny-list (auto-deny actors you've explicitly skipped)
 - Multi-actor days (currently picks 1 max per day)
+
+---
+
+## anniversary-post.sh
+
+Daily Letterboxd-style film anniversary post generator. **Second content-automation pattern (C2) per the marketing automation roadmap.** Posts "X years ago today: \<Film> (\<Year>)" nostalgia content for films hitting a milestone anniversary (10/15/20/25/30/40/50/60/70/75/80/90/100 years). Forks ~80% of C1's backbone — same vault note + Discord ping pipeline.
+
+### Usage
+
+```bash
+doppler run -- ./scripts/anniversary-post.sh                    # today
+doppler run -- ./scripts/anniversary-post.sh --date 2026-06-25  # specific date (testing)
+doppler run -- ./scripts/anniversary-post.sh --dry-run          # don't write/post; just print
+doppler run -- ./scripts/anniversary-post.sh --force            # overwrite existing vault note
+doppler run -- ./scripts/anniversary-post.sh --help
+```
+
+### Env overrides
+
+| Var | Default | Effect |
+|---|---|---|
+| `ANNIVERSARY_VOTE_COUNT_MIN` | `500` | Minimum `vote_count` for a film to qualify. Lower = more matches per day. |
+| `ANNIVERSARY_MILESTONES` | `"10 15 20 25 30 40 50 60 70 75 80 90 100"` | Space-separated milestone years. Override e.g. `"25 50 75 100"` for major-only mode. |
+
+### One-time prereqs (before first run)
+
+- `TMDB_READ_ACCESS_TOKEN` set in Doppler `pocketstubs/dev` (already wired)
+- `GEMINI_API_KEY` set in Doppler (already wired)
+- `DISCORD_METRICS_WEBHOOK_URL` set in Doppler (already wired)
+- The vault `Marketing Sprints/Queue/` folder exists (created by C1 already)
+
+### What it does
+
+1. Iterates the milestone year set; for each `Y`, queries TMDB `/discover/movie?primary_release_date.gte=lte=(TARGET_YEAR - Y)-MM-DD&language=en-US&sort_by=vote_count.desc`
+2. Accumulates all candidates across milestone years, filters by `vote_count > $VOTE_COUNT_MIN`, sorts by `vote_count DESC`, picks top 1
+3. Fetches `/movie/{id}/images?include_image_language=en,null`; selects 1 poster (highest `vote_average`) + 3 backdrops (text-free preferred via `iso_639_1 == null`)
+4. Downloads 4 images to `~/Downloads/anniversary-post-<DATE>/` (`1-poster-*.jpg`, `2-still-*.jpg`, ...)
+5. Generates 3 caption variants:
+   - **A (templated, always-safe)**: `X years ago today: Film (Year)\n\nReleased Month D, Year.\n\n#Film #FilmAnniversary`
+   - **B (Gemini, cinephile-take)**: hot take about the film's meaning N years on
+   - **C (Gemini, PocketStubs-listicle)**: "Film turns N today. Track every viewing in PocketStubs." framing
+6. **Year-math hallucination guard**: after each Gemini call, validates the caption contains the literal string `"<milestone> years"` and that every 4-digit year in the output is in `{RELEASE_YEAR, TARGET_YEAR}`. Either check failing → fall back to templated Variant A and write `gemini_failed: true` in frontmatter.
+7. Writes vault note to `Projects/PocketStubs/Business/Marketing Sprints/Queue/<DATE>-anniversary-<film-slug>.md` with `status: pending`
+8. Pings the Discord metrics channel with status + film + 3 captions inline + Obsidian link
+
+**Idempotent**: re-runs no-op immediately (before any API calls) unless `--force`.
+
+**Empty days**: TMDB's `primary_release_date` filter is strict — many days have no qualifying anniversary. The script pings `⏭ No notable anniversary today` and exits cleanly. This is correct behavior, not a bug.
+
+### Status messages (Discord)
+
+| Status | When |
+|---|---|
+| `🎞 Anniversary ready: <film> (<N> years)` | Success — vault note + 3 captions ready |
+| `⏭ No notable anniversary today (vote_count > N across all milestones: ...)` | No qualifying film on this date |
+| `⚠️ Anniversary post ERRORED: <reason>` | TMDB / image / vault-write failure |
+
+### Approval workflow
+
+1. Open the vault note in Obsidian (link in Discord ping)
+2. Pick one of the 3 captions, add your twist
+3. Drag images from `~/Downloads/anniversary-post-<DATE>/` into IG (poster first, then stills)
+4. Post manually
+5. Edit vault note frontmatter: `status: pending` → `status: published`
+
+### Spec
+
+- Spec: `docs/superpowers/specs/2026-05-14-anniversary-post-design.md`
+- Predecessor (reusable backbone): `birthday-carousel.sh` + `docs/superpowers/specs/2026-05-13-birthday-carousel-design.md`
+
+### Future expansion (out of scope for v1)
+
+- Cron / overnight scheduling
+- Buffer API auto-post (paid tier required)
+- IG Graph API auto-post (Meta API is rough)
+- Skip-tracking deny-list (auto-deny films you've explicitly skipped)
+- Multi-anniversary days (currently picks 1 max per day even if multiple milestones land)
+- Shared bash lib for `yaml_quote` + `indent_for_yaml` + `call_gemini` once a third pattern (C3) proves the reuse

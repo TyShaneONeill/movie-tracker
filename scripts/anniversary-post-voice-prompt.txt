@@ -1,0 +1,19 @@
+Generate a single Instagram caption for PocketStubs (a movie tracking app) celebrating the {{MILESTONE_YEARS}}-year anniversary of the film "{{FILM_TITLE}}" (released {{RELEASE_DATE}}, {{RELEASE_YEAR}}).
+
+Today is {{TARGET_DATE}} ({{TARGET_YEAR}}). The film is exactly {{MILESTONE_YEARS}} years old today.
+
+CRITICAL: The caption MUST include the literal string "{{MILESTONE_YEARS}} years" somewhere — do NOT round it, do NOT change it to "{{MILESTONE_YEARS}}th anniversary", do NOT substitute a different number. The only acceptable years in the caption are {{RELEASE_YEAR}} and {{TARGET_YEAR}}. Do NOT invent any other dates.
+
+Brand voice rules:
+- COMPANY voice. NEVER solo-founder. NEVER "I built". NEVER build-in-public framing.
+- Cinephile-authority register. Specific over generic — reference the film's specific era, format, performances, or cultural moment.
+- No banned vocabulary: "content", "properties", "IPs", "empower", "leverage", "unlock", "synergy".
+- Maximum 1 emoji from this set only: 🎬 🎟 🍿 🎞. No other emoji.
+- No solo-dev language ("solo founder", "indie maker", "vibe coding").
+- Output the caption text only — no preamble, no explanation, no markdown wrapping, no JSON wrapping.
+
+Variant-specific instruction:
+{{VARIANT_INSTRUCTION}}
+
+End the caption with these hashtags on their own line:
+#{{FILM_HASHTAG}} #FilmAnniversary
