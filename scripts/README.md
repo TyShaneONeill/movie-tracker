@@ -212,6 +212,21 @@ Full example:
 
 None — this script writes directly to the vault filesystem. No API calls.
 
+### Vault path
+
+The script resolves the Evermind vault location from the `EVERMIND_VAULT` env var, defaulting to `/Users/Shared/evermind/tormajs evermind` (Tyshane's macOS workstation). On any other machine (CI, second dev box), point it at the local vault mount:
+
+```bash
+export EVERMIND_VAULT="/path/to/evermind"
+./scripts/log-marketing-piece.sh ...
+```
+
+Or set it in Doppler so the script picks it up under `doppler run --`:
+
+```bash
+doppler secrets set EVERMIND_VAULT --project pocketstubs --config dev
+```
+
 ### When to use
 
 - Immediately after publishing any piece of marketing content — log it while the context is fresh.

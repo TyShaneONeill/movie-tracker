@@ -2,7 +2,9 @@
 # Append a row to the Marketing Log in the Evermind vault under the correct
 # ISO-week section. Direct filesystem append — no MCP dependency.
 #
-# Marketing Log: /Users/Shared/evermind/tormajs evermind/Projects/PocketStubs/Business/Marketing Log.md
+# Vault path resolution:
+#   EVERMIND_VAULT env var (default: /Users/Shared/evermind/tormajs evermind)
+# Marketing Log: $EVERMIND_VAULT/Projects/PocketStubs/Business/Marketing Log.md
 #
 # Usage:
 #   scripts/log-marketing-piece.sh \
@@ -27,7 +29,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-MARKETING_LOG="/Users/Shared/evermind/tormajs evermind/Projects/PocketStubs/Business/Marketing Log.md"
+EVERMIND_VAULT="${EVERMIND_VAULT:-/Users/Shared/evermind/tormajs evermind}"
+MARKETING_LOG="$EVERMIND_VAULT/Projects/PocketStubs/Business/Marketing Log.md"
 
 usage() {
   cat <<EOF
