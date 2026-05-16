@@ -182,7 +182,7 @@ NEW_ROW="| ${DATE} | ${PLATFORM} | ${FORMAT} | ${PILLAR} | ${UTM_CONTENT} | ${RE
 #   4. Insert the new row after that separator row
 #   5. Use Python for safe in-place file modification (no sed -i gotchas)
 
-PY_OUT=$(python3 - "$MARKETING_LOG" "$WEEK_PATTERN" "$NEW_ROW" "$DATE" "$UTM_CONTENT" "$WEEK_NUM" <<'PYEOF'
+PY_OUT=$(python3 - "$MARKETING_LOG" "$WEEK_PATTERN" "$NEW_ROW" "$DATE" "$UTM_CONTENT" "$WEEK_NUM" "$PLATFORM" <<'PYEOF'
 import sys
 import re
 
@@ -192,6 +192,7 @@ new_row = sys.argv[3]
 date_val = sys.argv[4]
 utm_content = sys.argv[5]
 week_num = sys.argv[6]
+platform = sys.argv[7]
 
 with open(log_path, 'r') as f:
     lines = f.readlines()
@@ -220,13 +221,16 @@ if separator_idx is None:
     print(f"Error: Could not find table separator row in week section.", file=sys.stderr)
     sys.exit(1)
 
-# Idempotency check: scan table rows after the separator for same (date, utm_content).
+# Idempotency check: scan table rows after the separator for same (date, platform, utm_content).
 # A table row in this section ends when we hit a non-table line or the next ## section.
+# Use the pipe-delimited form `| {platform} |` to avoid substring false-positives when
+# a platform name (e.g. "twitter") appears inside another column like notes.
+platform_cell = f"| {platform} |"
 for i in range(separator_idx + 1, len(lines)):
     line = lines[i].strip()
     if not line.startswith('|'):
         break
-    if date_val in line and utm_content in line:
+    if date_val in line and utm_content in line and platform_cell in line:
         print(f"ALREADY_LOGGED:{line}")
         sys.exit(0)
 
@@ -244,7 +248,7 @@ PYEOF
 # --- Confirm result ---
 if [[ "$PY_OUT" == ALREADY_LOGGED:* ]]; then
   EXISTING_ROW="${PY_OUT#ALREADY_LOGGED:}"
-  echo "Already logged for ${DATE} / ${UTM_CONTENT} in ${WEEK_NUM} section. Skipping insert." >&2
+  echo "Already logged for ${DATE} / ${PLATFORM} / ${UTM_CONTENT} in ${WEEK_NUM} section. Skipping insert." >&2
   echo "Existing row: ${EXISTING_ROW}" >&2
   exit 0
 fi
