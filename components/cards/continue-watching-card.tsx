@@ -41,10 +41,9 @@ export function ContinueWatchingCard({
         ? `${episodesWatched}/${totalEpisodes} episodes`
         : null;
 
-  const progressRatio =
-    episodesWatched != null && totalEpisodes != null && totalEpisodes > 0
-      ? episodesWatched / totalEpisodes
-      : 0;
+  const watched = episodesWatched ?? currentEpisode ?? 0;
+  const total = totalEpisodes ?? 0;
+  const progressRatio = total > 0 ? Math.min(watched / total, 1) : 0;
 
   const posterUrl = posterPath
     ? `https://image.tmdb.org/t/p/w185${posterPath}`
@@ -78,16 +77,14 @@ export function ContinueWatchingCard({
       {progressText && (
         <Text style={dynamicStyles.progress}>{progressText}</Text>
       )}
-      {progressRatio > 0 && (
-        <View style={dynamicStyles.progressBarContainer}>
-          <View
-            style={[
-              dynamicStyles.progressBarFill,
-              { width: `${Math.min(progressRatio * 100, 100)}%` },
-            ]}
-          />
-        </View>
-      )}
+      <View style={dynamicStyles.progressBarContainer}>
+        <View
+          style={[
+            dynamicStyles.progressBarFill,
+            { width: `${Math.min(progressRatio * 100, 100)}%` },
+          ]}
+        />
+      </View>
     </Pressable>
   );
 }
