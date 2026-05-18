@@ -34,6 +34,7 @@ import { GuestProvider, useGuest } from '@/lib/guest-context';
 import { Colors } from '@/constants/theme';
 import { toastConfig } from '@/lib/toast-config';
 import { handleAuthDeepLink } from '@/lib/deep-link-handler';
+import { assertAuthEnv } from '@/lib/auth-env-assert';
 import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
 import { NetworkProvider } from '@/lib/network-context';
@@ -66,11 +67,24 @@ function useProtectedRoute() {
 
   // Listen for deep links and PASSWORD_RECOVERY auth events
   useEffect(() => {
-    // Handle deep links (e.g., pocketstubs://reset-password?code=xxx)
+    // Handle deep links (e.g., pocketstubs://reset-password?code=xxx,
+    // pocketstubs://email-confirmed?code=xxx). handleAuthDeepLink performs the
+    // PKCE code exchange (or implicit setSession) for any auth-bearing URL,
+    // then returns the path segment so we can route the user appropriately.
     const handleUrl = async (event: { url: string }) => {
       const path = await handleAuthDeepLink(event.url);
       if (path === 'reset-password') {
         pendingPasswordReset.current = true;
+      } else if (path === 'email-confirmed') {
+        // If exchangeCodeForSession succeeded, onAuthStateChange will route the
+        // now-authenticated user through the normal flow. If it failed (no code
+        // param, expired link, etc.), nudge them to sign in with a friendly toast.
+        Toast.show({
+          type: 'success',
+          text1: 'Email confirmed',
+          text2: 'You can now sign in.',
+          visibilityTime: 4000,
+        });
       }
     };
 
@@ -268,6 +282,9 @@ export default function RootLayout() {
   useEffect(() => {
     SplashScreen.preventAutoHideAsync();
     preloadGenres();
+    // Loudly report any missing OAuth / Supabase env vars on boot so future
+    // builds with broken Doppler / EAS config don't silently disable sign-in.
+    assertAuthEnv();
   }, []);
 
   const [fontsLoaded, fontError] = useFonts({
