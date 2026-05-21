@@ -61,7 +61,6 @@ export default {
       intentFilters: [
         {
           action: "VIEW",
-          autoVerify: true,
           data: [{ scheme: "pocketstubs" }],
           category: ["BROWSABLE", "DEFAULT"],
         },
