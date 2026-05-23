@@ -1,0 +1,57 @@
+# EAS Build ignore file
+# When this file exists, EAS uses it INSTEAD OF .gitignore for tarball uploads.
+# Mirror .gitignore essentials + everything that bloats the upload.
+
+# --- from .gitignore (required, since this overrides .gitignore) ---
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.aab
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.log
+.env*.local
+.env
+
+# --- agent / tooling dirt (NOT needed by EAS Build) ---
+.worktrees/
+.agents/
+.codex/
+.omc/
+.superpowers/
+.idea/
+.vscode/
+AGENTS.md
+
+# --- local-only build outputs ---
+ios/build/
+android/build/
+android/app/build/
+android/.gradle/
+ios/Pods/
+
+# --- screenshots / marketing assets not used at runtime ---
+assets/marketing/
+docs/
+*.md.bak
+
+# --- test snapshots / coverage ---
+coverage/
+__snapshots__/
+.jest-cache/
+
+# --- supabase local ---
+supabase/.temp/
+supabase/.branches/
