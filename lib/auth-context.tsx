@@ -93,8 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Configure Google Sign-In inside useEffect to avoid calling a void TurboModule
   // method at module load time, which causes an NSException → Hermes GC crash on iOS.
+  //
+  // Per-platform client ID requirements:
+  //   - iOS: requires `iosClientId` (the native iOS OAuth client).
+  //   - Android: requires `webClientId` (the Web OAuth client whose ID token Supabase accepts).
+  // Gating the whole init on `googleIosClientId` silently disabled the Android Google
+  // button when only the web client ID was configured.
   useEffect(() => {
-    if (!GoogleSignin || !googleIosClientId) return;
+    if (!GoogleSignin) return;
+    const requiredClientId =
+      Platform.OS === 'ios' ? googleIosClientId : googleWebClientId;
+    if (!requiredClientId) return;
     try {
       GoogleSignin.configure({
         iosClientId: googleIosClientId,
@@ -201,7 +210,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Pass emailRedirectTo so the confirmation link Supabase generates deep-links
+    // back into the app (native) or to the web callback (web). Without this,
+    // confirmed users land at the Supabase default URL with no path back to
+    // their mobile session.
+    const emailRedirectTo =
+      Platform.OS === 'web'
+        ? typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/email-confirmed`
+          : undefined
+        : 'pocketstubs://email-confirmed';
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo },
+    });
     if (!error) {
       analytics.track('auth:sign_up', { method: 'email' });
     }

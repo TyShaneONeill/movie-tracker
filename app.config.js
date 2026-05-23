@@ -54,6 +54,17 @@ export default {
       // (it bundles a Pedometer module we don't use). Strip it here so Play
       // Console doesn't trigger the Health Apps declaration on submit.
       blockedPermissions: ["android.permission.ACTIVITY_RECOGNITION"],
+      // Route pocketstubs:// URLs to the app on Android (e.g.,
+      // pocketstubs://email-confirmed, pocketstubs://reset-password). iOS
+      // handles this via CFBundleURLTypes above; Android needs an explicit
+      // VIEW intent filter for the custom scheme.
+      intentFilters: [
+        {
+          action: "VIEW",
+          data: [{ scheme: "pocketstubs" }],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
     },
     web: {
       output: "static",
