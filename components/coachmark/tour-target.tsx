@@ -10,35 +10,35 @@ interface TourTargetProps {
 
 const MAX_MEASURE_ATTEMPTS = 20;
 const MEASURE_RETRY_DELAY_MS = 100;
+// How many consecutive identical measurements to require before treating
+// the layout as settled and stopping the poll. Two is enough to catch
+// most transient mid-layout positions without dragging the poll out.
+const STABLE_MEASUREMENT_THRESHOLD = 2;
 
 /**
  * Registers its child's on-screen rect with the tour context so the overlay
  * can spotlight it. `collapsable={false}` is required on Android — without
  * it RN may optimize the View away and measureInWindow returns garbage.
  *
- * The component polls measureInWindow on mount until it returns non-zero
- * dimensions (or the attempt budget is exhausted). This is more reliable
- * than waiting for onLayout, which doesn't always fire predictably when a
- * wrapper around a tightly-sized child renders during a navigation
- * transition.
+ * Polls measureInWindow until two consecutive calls return the same rect,
+ * registering each non-zero result along the way. Stopping at the first
+ * non-zero rect was unreliable: the home header re-lays-out after the
+ * initial frame (safe-area inset arrival on Android, font metrics
+ * finalizing, scroll-content sizing), and the early measurement landed
+ * the spotlight on a position the icon had already moved away from.
  */
 export function TourTarget({ id, children, style }: TourTargetProps) {
   const { registerTarget, unregisterTarget, currentStep, isActive } = useTour();
   const ref = useRef<View>(null);
+  const cancelPollRef = useRef<(() => void) | null>(null);
 
-  const measureAndRegister = useCallback(() => {
-    const node = ref.current;
-    if (!node) return;
-    node.measureInWindow((x, y, width, height) => {
-      if (width === 0 || height === 0) return;
-      registerTarget(id, { x, y, width, height });
-    });
-  }, [id, registerTarget]);
+  const startMeasurePoll = useCallback(() => {
+    cancelPollRef.current?.();
 
-  // Mount-time poll: keep trying until we get a non-zero rect or exhaust the budget.
-  useEffect(() => {
     let cancelled = false;
     let attempts = 0;
+    let lastRect: { x: number; y: number; width: number; height: number } | null = null;
+    let stableMatches = 0;
 
     const tick = () => {
       if (cancelled) return;
@@ -58,32 +58,64 @@ export function TourTarget({ id, children, style }: TourTargetProps) {
           }
           return;
         }
-        registerTarget(id, { x, y, width, height });
+        const rect = { x, y, width, height };
+        registerTarget(id, rect);
+
+        if (
+          lastRect &&
+          lastRect.x === x &&
+          lastRect.y === y &&
+          lastRect.width === width &&
+          lastRect.height === height
+        ) {
+          stableMatches++;
+        } else {
+          stableMatches = 1;
+        }
+        lastRect = rect;
+
+        if (stableMatches < STABLE_MEASUREMENT_THRESHOLD && attempts < MAX_MEASURE_ATTEMPTS) {
+          setTimeout(tick, MEASURE_RETRY_DELAY_MS);
+        }
       });
     };
 
-    // Defer one frame so the initial layout has a chance to settle.
     requestAnimationFrame(tick);
 
-    return () => {
+    const cancel = () => {
       cancelled = true;
     };
+    cancelPollRef.current = cancel;
+    return cancel;
   }, [id, registerTarget]);
+
+  useEffect(() => {
+    startMeasurePoll();
+    // Cleanup always cancels whichever poll is currently active in the ref,
+    // not just the one this effect kicked off — handleLayout / tour-activation
+    // may have superseded it with a fresher poll.
+    return () => {
+      cancelPollRef.current?.();
+      cancelPollRef.current = null;
+    };
+  }, [startMeasurePoll]);
 
   const handleLayout = useCallback(
     (_e: LayoutChangeEvent) => {
-      requestAnimationFrame(measureAndRegister);
+      // A layout change is the strongest signal the rect may have moved; restart
+      // the poll so we re-converge on the new settled position.
+      startMeasurePoll();
     },
-    [measureAndRegister]
+    [startMeasurePoll]
   );
 
-  // Re-measure when the tour focuses this target (the element may have moved
-  // since the initial registration, e.g., after a parent re-layout).
+  // Re-measure when the tour focuses this target. The icon may have moved
+  // since the initial registration (parent re-layout, scroll, transition).
   useEffect(() => {
     if (isActive && currentStep?.targetId === id) {
-      requestAnimationFrame(measureAndRegister);
+      startMeasurePoll();
     }
-  }, [isActive, currentStep, id, measureAndRegister]);
+  }, [isActive, currentStep, id, startMeasurePoll]);
 
   useEffect(() => {
     return () => unregisterTarget(id);
