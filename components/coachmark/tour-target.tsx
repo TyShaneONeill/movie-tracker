@@ -8,52 +8,80 @@ interface TourTargetProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const MEASURE_RETRY_COUNT = 4;
-const MEASURE_RETRY_DELAY_MS = 80;
+const MAX_MEASURE_ATTEMPTS = 20;
+const MEASURE_RETRY_DELAY_MS = 100;
 
 /**
  * Registers its child's on-screen rect with the tour context so the overlay
  * can spotlight it. `collapsable={false}` is required on Android — without
  * it RN may optimize the View away and measureInWindow returns garbage.
  *
- * Retries measurement when the first attempt returns 0x0, which happens when
- * the wrapper renders before its child has laid out (common on the first
- * frame of a fresh screen mount).
+ * The component polls measureInWindow on mount until it returns non-zero
+ * dimensions (or the attempt budget is exhausted). This is more reliable
+ * than waiting for onLayout, which doesn't always fire predictably when a
+ * wrapper around a tightly-sized child renders during a navigation
+ * transition.
  */
 export function TourTarget({ id, children, style }: TourTargetProps) {
   const { registerTarget, unregisterTarget, currentStep, isActive } = useTour();
   const ref = useRef<View>(null);
 
-  const measureAndRegister = useCallback(
-    (retriesLeft: number = MEASURE_RETRY_COUNT) => {
+  const measureAndRegister = useCallback(() => {
+    const node = ref.current;
+    if (!node) return;
+    node.measureInWindow((x, y, width, height) => {
+      if (width === 0 || height === 0) return;
+      registerTarget(id, { x, y, width, height });
+    });
+  }, [id, registerTarget]);
+
+  // Mount-time poll: keep trying until we get a non-zero rect or exhaust the budget.
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+
+    const tick = () => {
+      if (cancelled) return;
+      attempts++;
       const node = ref.current;
-      if (!node) return;
+      if (!node) {
+        if (attempts < MAX_MEASURE_ATTEMPTS) {
+          setTimeout(tick, MEASURE_RETRY_DELAY_MS);
+        }
+        return;
+      }
       node.measureInWindow((x, y, width, height) => {
+        if (cancelled) return;
         if (width === 0 || height === 0) {
-          if (retriesLeft > 0) {
-            setTimeout(() => measureAndRegister(retriesLeft - 1), MEASURE_RETRY_DELAY_MS);
+          if (attempts < MAX_MEASURE_ATTEMPTS) {
+            setTimeout(tick, MEASURE_RETRY_DELAY_MS);
           }
           return;
         }
         registerTarget(id, { x, y, width, height });
       });
-    },
-    [id, registerTarget]
-  );
+    };
+
+    // Defer one frame so the initial layout has a chance to settle.
+    requestAnimationFrame(tick);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, registerTarget]);
 
   const handleLayout = useCallback(
     (_e: LayoutChangeEvent) => {
-      // Defer one frame so absolute coords reflect any parent transforms / blur layers.
-      requestAnimationFrame(() => measureAndRegister());
+      requestAnimationFrame(measureAndRegister);
     },
     [measureAndRegister]
   );
 
   // Re-measure when the tour focuses this target (the element may have moved
-  // since onLayout last fired, e.g., after a parent re-layout).
+  // since the initial registration, e.g., after a parent re-layout).
   useEffect(() => {
     if (isActive && currentStep?.targetId === id) {
-      measureAndRegister();
+      requestAnimationFrame(measureAndRegister);
     }
   }, [isActive, currentStep, id, measureAndRegister]);
 

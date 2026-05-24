@@ -180,7 +180,7 @@ export default function HomeScreen() {
               onPress={handleCalendarPress}
               accessibilityLabel="Release calendar"
             />
-            <TourTarget id={TOUR_TARGETS.HOME_SEARCH}>
+            <TourTarget id={TOUR_TARGETS.HOME_SEARCH} style={styles.searchTourSlot}>
               <IconButton
                 variant="card"
                 size={40}
@@ -423,6 +423,12 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     gap: Spacing.sm,
+  },
+  // Explicit dimensions so the tour spotlight can measure the wrapper even
+  // before the inner IconButton has finished its first layout pass.
+  searchTourSlot: {
+    width: 40,
+    height: 40,
   },
   section: {
     marginBottom: Spacing.lg,
