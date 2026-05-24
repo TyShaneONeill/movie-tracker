@@ -17,8 +17,6 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { ContentContainer } from '@/components/content-container';
 import { ThemeSelector } from '@/components/settings/theme-selector';
 import { Sentry, captureException } from '@/lib/sentry';
-import { useBugReport } from '@/contexts/BugReportContext';
-import { captureBugReportScreenshot } from '@/lib/bug-report-screenshot';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
 import Constants from 'expo-constants';
@@ -49,7 +47,6 @@ export default function SettingsScreen() {
   const { signOut, user } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
   const { isPremium, tier, subscription, restorePurchases, manageSubscription, managementUrl, isLoading: isPremiumLoading } = usePremium();
-  const { openBugReport } = useBugReport();
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
 
@@ -266,14 +263,6 @@ export default function SettingsScreen() {
     } finally {
       setIsExporting(false);
     }
-  };
-
-  const handleReportBug = async () => {
-    hapticImpact();
-    // Capture before the modal mounts so the screenshot reflects the
-    // settings screen, not the modal chrome.
-    const screenshot = await captureBugReportScreenshot();
-    openBugReport('settings', screenshot);
   };
 
   const handleLogout = async () => {
@@ -691,9 +680,9 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Support Section */}
+        {/* Help & Feedback Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>SUPPORT</Text>
+          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>HELP & FEEDBACK</Text>
 
           <Pressable
             style={({ pressed }) => [
@@ -703,12 +692,13 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
-            onPress={handleReportBug}
+            onPress={() => { hapticImpact(); router.push('/settings/help'); }}
             accessibilityRole="button"
+            accessibilityLabel="Help and feedback"
           >
             <View style={styles.integrationRow}>
-              <Ionicons name="bug-outline" size={24} color={colors.text} />
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Report a Bug</Text>
+              <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Help & Feedback</Text>
             </View>
             <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>
