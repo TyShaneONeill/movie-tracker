@@ -15,6 +15,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { ContentContainer } from '@/components/content-container';
+import { ThemeSelector } from '@/components/settings/theme-selector';
 import { Sentry, captureException } from '@/lib/sentry';
 import { useBugReport } from '@/contexts/BugReportContext';
 import { captureBugReportScreenshot } from '@/lib/bug-report-screenshot';
@@ -104,16 +105,9 @@ export default function SettingsScreen() {
     if (!subscription) return 'PocketStubs+';
     const expiryStr = subscription.expiresAt ? formatExpiryDate(subscription.expiresAt) : '';
     if (subscription.willRenew) {
-      return expiryStr ? `PocketStubs+ \u2014 Renews ${expiryStr}` : 'PocketStubs+';
+      return expiryStr ? `PocketStubs+ — Renews ${expiryStr}` : 'PocketStubs+';
     }
-    return expiryStr ? `PocketStubs+ \u2014 Expires ${expiryStr}` : 'PocketStubs+ (Not renewing)';
-  };
-
-  const handleThemeToggle = async (isDarkMode: boolean) => {
-    hapticImpact();
-    // When toggle is ON = dark mode, when OFF = light mode
-    // We don't use 'system' from the toggle - it's a simple on/off
-    await setThemePreference(isDarkMode ? 'dark' : 'light');
+    return expiryStr ? `PocketStubs+ — Expires ${expiryStr}` : 'PocketStubs+ (Not renewing)';
   };
 
   const handleFirstTakePromptToggle = async (value: boolean) => {
@@ -511,16 +505,23 @@ export default function SettingsScreen() {
             style={[
               styles.settingsItem,
               styles.firstItem,
+              styles.themeItem,
               { backgroundColor: colors.card, borderBottomColor: colors.border }
             ]}
           >
-            <View>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Dark Mode</Text>
+            <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Appearance</Text>
+            <View style={styles.themeSelectorWrapper}>
+              <ThemeSelector
+                value={themePreference}
+                onChange={setThemePreference}
+                effectiveTheme={effectiveTheme}
+              />
             </View>
-            <ToggleSwitch
-              value={themePreference === 'dark' || (themePreference === 'system' && effectiveTheme === 'dark')}
-              onValueChange={handleThemeToggle}
-            />
+            {themePreference === 'system' && (
+              <Text style={[Typography.body.xs, { color: colors.textTertiary, marginTop: Spacing.xs }]}>
+                PocketStubs will follow your device&apos;s appearance setting.
+              </Text>
+            )}
           </View>
 
           <Pressable
@@ -827,6 +828,14 @@ const styles = StyleSheet.create({
   settingsItemContent: {
     flex: 1,
     marginRight: Spacing.sm,
+  },
+  themeItem: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: Spacing.sm,
+  },
+  themeSelectorWrapper: {
+    width: '100%',
   },
   firstItem: {
     borderTopLeftRadius: BorderRadius.md,

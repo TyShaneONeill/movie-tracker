@@ -22,6 +22,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { Typography } from '@/constants/typography';
 import { ContentContainer } from '@/components/content-container';
+import { PasswordInput } from '@/components/forms/password-input';
 
 export default function SignUpScreen() {
   const { effectiveTheme } = useTheme();
@@ -193,43 +194,41 @@ export default function SignUpScreen() {
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.card,
-                    color: colors.text,
-                    borderColor: colors.border || '#333',
-                  },
-                ]}
-                placeholder="Password"
-                placeholderTextColor={colors.icon}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                editable={!isSubmitting}
-              />
-            </View>
+            <PasswordInput
+              containerStyle={styles.inputGroup}
+              iconColor={colors.icon}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  borderColor: colors.border || '#333',
+                },
+              ]}
+              placeholder="Password"
+              placeholderTextColor={colors.icon}
+              value={password}
+              onChangeText={setPassword}
+              editable={!isSubmitting}
+            />
 
-            <View style={styles.inputGroup}>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.card,
-                    color: colors.text,
-                    borderColor: colors.border || '#333',
-                  },
-                ]}
-                placeholder="Confirm Password"
-                placeholderTextColor={colors.icon}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                editable={!isSubmitting}
-              />
-            </View>
+            <PasswordInput
+              containerStyle={styles.inputGroup}
+              iconColor={colors.icon}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  borderColor: colors.border || '#333',
+                },
+              ]}
+              placeholder="Confirm Password"
+              placeholderTextColor={colors.icon}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              editable={!isSubmitting}
+            />
 
             <Pressable
               style={({ pressed }) => [
