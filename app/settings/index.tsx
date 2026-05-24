@@ -712,14 +712,28 @@ export default function SettingsScreen() {
             style={({ pressed }) => [
               styles.settingsItem,
               styles.firstItem,
-              styles.lastItem,
-              { backgroundColor: colors.card },
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
             onPress={() => WebBrowser.openBrowserAsync('https://pocketstubs.com/privacy')}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy Policy</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => WebBrowser.openBrowserAsync('https://pocketstubs.com/terms')}
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Terms of Service</Text>
             </View>
             <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>

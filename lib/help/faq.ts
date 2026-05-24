@@ -40,7 +40,7 @@ export const FAQ: FaqEntry[] = [
     id: 'movie-not-saving',
     question: "Why didn't my movie save?",
     answer:
-      'The most common cause is a dropped network connection while saving. Check that you are online and try the action again — your changes will sync once the app reaches our servers.\n\nIf the problem keeps happening, try signing out and back in, or use Report a Bug below so we can take a look.',
+      "Most actions in PocketStubs need a network connection to reach our servers. If something didn't save, check that you're online and try again.\n\nIf the issue keeps happening, use Report a Bug below — we'll take a look and follow up.",
     category: 'tracking',
   },
   {
@@ -59,9 +59,9 @@ export const FAQ: FaqEntry[] = [
   },
   {
     id: 'premium-includes',
-    question: 'What does premium include?',
+    question: 'What does PocketStubs+ include?',
     answer:
-      'PocketStubs+ unlocks the full feature set: an ad-free experience, advanced analytics, unlimited custom lists, and early access to new features as we ship them.\n\nYou can see the full list and current pricing under Settings → Subscription → Upgrade.',
+      "PocketStubs+ unlocks every premium feature in the app:\n\n• Ad-free experience — no banners or interstitials\n• Unlimited ticket scans — 20 per day instead of 3\n• Release reminders — push notifications for the movies you care about\n• Calendar genre, platform, and personalized filters\n• Advanced stats — year in review, genre breakdown, total time watched\n• AI poster art — generate unlimited cartoon posters for your journeys\n\nSee Settings → Subscription → Upgrade for current pricing.",
     category: 'premium',
   },
   {
@@ -75,7 +75,7 @@ export const FAQ: FaqEntry[] = [
     id: 'reset-password',
     question: 'Reset password / change email?',
     answer:
-      'To change your password while signed in, go to Settings → Change Password. If you forgot your password, use the "Forgot password?" link on the sign-in screen and we will email you a reset link.\n\nTo change the email on your account, contact support — self-serve email changes are not yet available in-app.',
+      'Password resets are fully self-serve. To change your password while signed in, go to Settings → Change Password. If you forgot your password, tap "Forgot password?" on the sign-in screen and we\'ll email you a reset link.\n\nChanging the email on your account is currently customer-service gated — use Report a Bug below to reach us and we\'ll handle the swap. Self-serve email changes are planned for a future release.',
     category: 'account',
   },
 ];
