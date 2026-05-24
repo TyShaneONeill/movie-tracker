@@ -8,28 +8,43 @@ interface TourTargetProps {
   style?: StyleProp<ViewStyle>;
 }
 
+const MEASURE_RETRY_COUNT = 4;
+const MEASURE_RETRY_DELAY_MS = 80;
+
 /**
  * Registers its child's on-screen rect with the tour context so the overlay
  * can spotlight it. `collapsable={false}` is required on Android — without
  * it RN may optimize the View away and measureInWindow returns garbage.
+ *
+ * Retries measurement when the first attempt returns 0x0, which happens when
+ * the wrapper renders before its child has laid out (common on the first
+ * frame of a fresh screen mount).
  */
 export function TourTarget({ id, children, style }: TourTargetProps) {
   const { registerTarget, unregisterTarget, currentStep, isActive } = useTour();
   const ref = useRef<View>(null);
 
-  const measureAndRegister = useCallback(() => {
-    const node = ref.current;
-    if (!node) return;
-    node.measureInWindow((x, y, width, height) => {
-      if (width === 0 || height === 0) return;
-      registerTarget(id, { x, y, width, height });
-    });
-  }, [id, registerTarget]);
+  const measureAndRegister = useCallback(
+    (retriesLeft: number = MEASURE_RETRY_COUNT) => {
+      const node = ref.current;
+      if (!node) return;
+      node.measureInWindow((x, y, width, height) => {
+        if (width === 0 || height === 0) {
+          if (retriesLeft > 0) {
+            setTimeout(() => measureAndRegister(retriesLeft - 1), MEASURE_RETRY_DELAY_MS);
+          }
+          return;
+        }
+        registerTarget(id, { x, y, width, height });
+      });
+    },
+    [id, registerTarget]
+  );
 
   const handleLayout = useCallback(
     (_e: LayoutChangeEvent) => {
       // Defer one frame so absolute coords reflect any parent transforms / blur layers.
-      requestAnimationFrame(measureAndRegister);
+      requestAnimationFrame(() => measureAndRegister());
     },
     [measureAndRegister]
   );
