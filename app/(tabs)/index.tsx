@@ -180,7 +180,11 @@ export default function HomeScreen() {
               onPress={handleCalendarPress}
               accessibilityLabel="Release calendar"
             />
-            <TourTarget id={TOUR_TARGETS.HOME_SEARCH} style={styles.searchTourSlot}>
+            <TourTarget
+              id={TOUR_TARGETS.HOME_SEARCH}
+              style={styles.searchTourSlot}
+              insideTopSafeArea
+            >
               <IconButton
                 variant="card"
                 size={40}

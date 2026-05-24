@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTour } from '@/lib/onboarding/tour-context';
 
@@ -7,6 +7,19 @@ interface TourTargetProps {
   id: string;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Set to true when this TourTarget is inside a `<SafeAreaView edges=['top']>`
+   * from react-native-safe-area-context on iOS. The native SafeAreaView
+   * applies its top inset at the UIView level (via safeAreaLayoutGuide),
+   * and that offset is invisible to React Native's view tree — so
+   * measureInWindow returns y coords relative to the SafeAreaView's
+   * content frame instead of the device window. The TourOverlay's Modal
+   * uses true screen coords, so without this flag the spotlight lands
+   * `insets.top` higher than the target (e.g., inside the status bar).
+   *
+   * This is a no-op on Android.
+   */
+  insideTopSafeArea?: boolean;
 }
 
 const MAX_MEASURE_ATTEMPTS = 20;
@@ -24,16 +37,18 @@ const STABLE_MEASUREMENT_THRESHOLD = 2;
  * Polls measureInWindow until two consecutive calls return the same rect,
  * registering each non-zero result along the way. Stopping at the first
  * non-zero rect was unreliable: the home header re-lays-out after the
- * initial frame (safe-area inset arrival on Android, font metrics
- * finalizing, scroll-content sizing), and the early measurement landed
- * the spotlight on a position the icon had already moved away from.
+ * initial frame (font metrics finalizing, scroll-content sizing), and
+ * the early measurement landed the spotlight on a position the icon
+ * had already moved away from.
  */
-export function TourTarget({ id, children, style }: TourTargetProps) {
+export function TourTarget({ id, children, style, insideTopSafeArea = false }: TourTargetProps) {
   const { registerTarget, unregisterTarget, currentStep, isActive } = useTour();
   const insets = useSafeAreaInsets();
   const ref = useRef<View>(null);
   const cancelPollRef = useRef<(() => void) | null>(null);
-  const lastLoggedRectRef = useRef<string | null>(null);
+
+  // See `insideTopSafeArea` prop docs for the reason this offset exists.
+  const yOffset = insideTopSafeArea && Platform.OS === 'ios' ? insets.top : 0;
 
   const startMeasurePoll = useCallback(() => {
     cancelPollRef.current?.();
@@ -61,29 +76,14 @@ export function TourTarget({ id, children, style }: TourTargetProps) {
           }
           return;
         }
-        const rect = { x, y, width, height };
-
-        // TEMP DIAGNOSTIC: log the measured rect so we can see what
-        // measureInWindow is actually returning vs. the icon's true screen
-        // position. Logs once per unique rect to avoid console spam.
-        if (__DEV__) {
-          const key = `${x}|${y}|${width}|${height}`;
-          if (lastLoggedRectRef.current !== key) {
-            lastLoggedRectRef.current = key;
-            // eslint-disable-next-line no-console
-            console.log(
-              `[TourTarget:${id}] measured rect`,
-              { x, y, width, height, attempt: attempts, safeAreaTop: insets.top }
-            );
-          }
-        }
-
+        const adjustedY = y + yOffset;
+        const rect = { x, y: adjustedY, width, height };
         registerTarget(id, rect);
 
         if (
           lastRect &&
           lastRect.x === x &&
-          lastRect.y === y &&
+          lastRect.y === adjustedY &&
           lastRect.width === width &&
           lastRect.height === height
         ) {
@@ -106,7 +106,7 @@ export function TourTarget({ id, children, style }: TourTargetProps) {
     };
     cancelPollRef.current = cancel;
     return cancel;
-  }, [id, registerTarget, insets.top]);
+  }, [id, registerTarget, yOffset]);
 
   useEffect(() => {
     startMeasurePoll();
