@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTour } from '@/lib/onboarding/tour-context';
 
 interface TourTargetProps {
@@ -29,8 +30,10 @@ const STABLE_MEASUREMENT_THRESHOLD = 2;
  */
 export function TourTarget({ id, children, style }: TourTargetProps) {
   const { registerTarget, unregisterTarget, currentStep, isActive } = useTour();
+  const insets = useSafeAreaInsets();
   const ref = useRef<View>(null);
   const cancelPollRef = useRef<(() => void) | null>(null);
+  const lastLoggedRectRef = useRef<string | null>(null);
 
   const startMeasurePoll = useCallback(() => {
     cancelPollRef.current?.();
@@ -59,6 +62,22 @@ export function TourTarget({ id, children, style }: TourTargetProps) {
           return;
         }
         const rect = { x, y, width, height };
+
+        // TEMP DIAGNOSTIC: log the measured rect so we can see what
+        // measureInWindow is actually returning vs. the icon's true screen
+        // position. Logs once per unique rect to avoid console spam.
+        if (__DEV__) {
+          const key = `${x}|${y}|${width}|${height}`;
+          if (lastLoggedRectRef.current !== key) {
+            lastLoggedRectRef.current = key;
+            // eslint-disable-next-line no-console
+            console.log(
+              `[TourTarget:${id}] measured rect`,
+              { x, y, width, height, attempt: attempts, safeAreaTop: insets.top }
+            );
+          }
+        }
+
         registerTarget(id, rect);
 
         if (
@@ -87,7 +106,7 @@ export function TourTarget({ id, children, style }: TourTargetProps) {
     };
     cancelPollRef.current = cancel;
     return cancel;
-  }, [id, registerTarget]);
+  }, [id, registerTarget, insets.top]);
 
   useEffect(() => {
     startMeasurePoll();
