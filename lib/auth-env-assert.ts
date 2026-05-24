@@ -28,10 +28,19 @@ const EXTRA_KEY_BY_ENV: Partial<Record<EnvKey, string>> = {
   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 'googleWebClientId',
 };
 
+// Metro only inlines literal `process.env.EXPO_PUBLIC_X` member-access at bundle
+// time — `process.env[variable]` (dynamic) is NOT inlined and returns undefined
+// at runtime, which would produce false-positive "missing env var" reports. So
+// we hoist each value with literal access once, then index this object instead.
+const ENV_VALUES: Record<EnvKey, string | undefined> = {
+  EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+};
+
 function readEnv(key: EnvKey): string | undefined {
-  // process.env.EXPO_PUBLIC_* is inlined at build time by Expo's Metro config.
-  // For values surfaced through app.config.js `extra`, also fall back to Constants.
-  const fromProcess = process.env[key];
+  const fromProcess = ENV_VALUES[key];
   if (fromProcess) return fromProcess;
   const extraKey = EXTRA_KEY_BY_ENV[key];
   if (extraKey) {
