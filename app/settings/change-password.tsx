@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,6 +19,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import Svg, { Path } from 'react-native-svg';
 import { ContentContainer } from '@/components/content-container';
+import { PasswordInput } from '@/components/forms/password-input';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -124,7 +124,8 @@ export default function ChangePasswordScreen() {
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>New Password</Text>
-              <TextInput
+              <PasswordInput
+                iconColor={colors.textSecondary}
                 style={[
                   styles.input,
                   {
@@ -137,7 +138,6 @@ export default function ChangePasswordScreen() {
                 ]}
                 placeholder="Enter new password"
                 placeholderTextColor={colors.textTertiary}
-                secureTextEntry
                 value={newPassword}
                 onChangeText={(text) => {
                   setNewPassword(text);
@@ -154,7 +154,8 @@ export default function ChangePasswordScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>Confirm Password</Text>
-              <TextInput
+              <PasswordInput
+                iconColor={colors.textSecondary}
                 style={[
                   styles.input,
                   {
@@ -167,7 +168,6 @@ export default function ChangePasswordScreen() {
                 ]}
                 placeholder="Confirm new password"
                 placeholderTextColor={colors.textTertiary}
-                secureTextEntry
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);

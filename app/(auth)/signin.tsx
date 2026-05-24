@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useGuest } from '@/lib/guest-context';
 import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { ContentContainer } from '@/components/content-container';
+import { PasswordInput } from '@/components/forms/password-input';
 
 export default function SignInScreen() {
   const { effectiveTheme } = useTheme();
@@ -153,7 +154,8 @@ export default function SignInScreen() {
               editable={!isSubmitting}
             />
 
-            <TextInput
+            <PasswordInput
+              iconColor={colors.icon}
               style={[
                 styles.input,
                 {
@@ -166,7 +168,6 @@ export default function SignInScreen() {
               placeholderTextColor={colors.icon}
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
               editable={!isSubmitting}
             />
 
