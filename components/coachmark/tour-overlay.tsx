@@ -114,22 +114,6 @@ export function TourOverlay() {
           <View style={[StyleSheet.absoluteFill, styles.fallbackDim]} pointerEvents="none" />
         )}
 
-        {/* Top-right Skip pill */}
-        <Pressable
-          onPress={() => {
-            hapticImpact();
-            skip();
-          }}
-          style={[styles.skipPill, { top: insets.top + Spacing.sm }]}
-          accessibilityRole="button"
-          accessibilityLabel="Skip tour"
-          hitSlop={12}
-        >
-          <View style={styles.skipPillInner}>
-            <ThemedText style={styles.skipPillText}>Skip</ThemedText>
-          </View>
-        </Pressable>
-
         {/* Tooltip card */}
         {tooltipPosition && (
           <View
@@ -220,21 +204,6 @@ export function TourOverlay() {
 const styles = StyleSheet.create({
   fallbackDim: {
     backgroundColor: 'rgba(0,0,0,0.78)',
-  },
-  skipPill: {
-    position: 'absolute',
-    right: Spacing.md,
-  },
-  skipPillInner: {
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-  },
-  skipPillText: {
-    color: '#fff',
-    ...Typography.body.sm,
-    fontWeight: '600',
   },
   tooltipContainer: {
     position: 'absolute',
