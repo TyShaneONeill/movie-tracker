@@ -21,6 +21,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="letterboxd-import" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="help" />
+      <Stack.Screen name="feature-toggles" />
     </Stack>
   );
 }
