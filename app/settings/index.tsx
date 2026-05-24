@@ -17,15 +17,12 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { ContentContainer } from '@/components/content-container';
 import { ThemeSelector } from '@/components/settings/theme-selector';
 import { Sentry, captureException } from '@/lib/sentry';
-import { useBugReport } from '@/contexts/BugReportContext';
-import { captureBugReportScreenshot } from '@/lib/bug-report-screenshot';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
 import Constants from 'expo-constants';
 import { acceptAllPendingRequests } from '@/lib/follow-request-service';
 import Toast from 'react-native-toast-message';
 import Svg, { Path, Polyline } from 'react-native-svg';
-import type { ReviewVisibility } from '@/lib/database.types';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -49,7 +46,6 @@ export default function SettingsScreen() {
   const { signOut, user } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
   const { isPremium, tier, subscription, restorePurchases, manageSubscription, managementUrl, isLoading: isPremiumLoading } = usePremium();
-  const { openBugReport } = useBugReport();
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
 
@@ -108,72 +104,6 @@ export default function SettingsScreen() {
       return expiryStr ? `PocketStubs+ — Renews ${expiryStr}` : 'PocketStubs+';
     }
     return expiryStr ? `PocketStubs+ — Expires ${expiryStr}` : 'PocketStubs+ (Not renewing)';
-  };
-
-  const handleFirstTakePromptToggle = async (value: boolean) => {
-    hapticImpact();
-    try {
-      await updatePreference('firstTakePromptEnabled', value);
-    } catch (error) {
-      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-first-take-prompt-toggle' });
-    }
-  };
-
-  const visibilityLabels: Record<ReviewVisibility, string> = {
-    public: 'Public',
-    followers_only: 'Followers Only',
-    private: 'Private',
-  };
-
-  const visibilityCycle: Record<ReviewVisibility, ReviewVisibility> = {
-    public: 'followers_only',
-    followers_only: 'private',
-    private: 'public',
-  };
-
-  const handleReviewVisibilityToggle = async () => {
-    hapticImpact();
-    const current = preferences?.reviewVisibility ?? 'public';
-    const next = visibilityCycle[current];
-    try {
-      await updatePreference('reviewVisibility', next);
-    } catch (error) {
-      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-review-visibility-toggle' });
-    }
-  };
-
-  const collectionViewLabels: Record<string, string> = {
-    movies: 'Movies',
-    tv: 'TV Shows',
-  };
-
-  const handleCollectionViewToggle = async () => {
-    hapticImpact();
-    const current = preferences?.defaultCollectionView ?? 'movies';
-    const next = current === 'movies' ? 'tv' : 'movies';
-    try {
-      await updatePreference('defaultCollectionView', next);
-    } catch (error) {
-      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-collection-view-toggle' });
-    }
-  };
-
-  const handleContinueWatchingToggle = async (value: boolean) => {
-    hapticImpact();
-    try {
-      await updatePreference('showContinueWatching', value);
-    } catch (error) {
-      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-continue-watching-toggle' });
-    }
-  };
-
-  const handleCropTicketPhotosToggle = async (value: boolean) => {
-    hapticImpact();
-    try {
-      await updatePreference('cropTicketPhotos', value);
-    } catch (error) {
-      captureException(error instanceof Error ? error : new Error(String(error)), { context: 'settings-crop-ticket-photos-toggle' });
-    }
   };
 
   const handlePrivacyToggle = (value: boolean) => {
@@ -268,14 +198,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleReportBug = async () => {
-    hapticImpact();
-    // Capture before the modal mounts so the screenshot reflects the
-    // settings screen, not the modal chrome.
-    const screenshot = await captureBugReportScreenshot();
-    openBugReport('settings', screenshot);
-  };
-
   const handleLogout = async () => {
     const doLogout = async () => {
       try {
@@ -318,6 +240,30 @@ export default function SettingsScreen() {
             <ChevronLeftIcon color={colors.text} />
           </Pressable>
           <Text style={[Typography.display.h4, { color: colors.text }]}>Settings</Text>
+        </View>
+
+        {/* Help & Feedback Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>HELP & FEEDBACK</Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.firstItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => { hapticImpact(); router.push('/settings/help'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Help and feedback"
+          >
+            <View style={styles.integrationRow}>
+              <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Help & Feedback</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
         </View>
 
         {/* Account Section */}
@@ -540,93 +486,23 @@ export default function SettingsScreen() {
             <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>
 
-          <View
-            style={[
-              styles.settingsItem,
-              { backgroundColor: colors.card, borderBottomColor: colors.border }
-            ]}
-          >
-            <View style={styles.settingsItemContent}>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Prompt for First Take</Text>
-              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Quick review after marking watched</Text>
-            </View>
-            <ToggleSwitch
-              value={preferences?.firstTakePromptEnabled ?? true}
-              onValueChange={handleFirstTakePromptToggle}
-              disabled={isLoadingPreferences || isUpdating}
-            />
-          </View>
-
           <Pressable
             style={({ pressed }) => [
-              styles.settingsItem,
-              { backgroundColor: colors.card, borderBottomColor: colors.border },
-              pressed && { backgroundColor: colors.backgroundSecondary },
-            ]}
-            onPress={handleReviewVisibilityToggle}
-            disabled={isLoadingPreferences || isUpdating}
-          >
-            <View style={styles.settingsItemContent}>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Review Visibility</Text>
-              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Default visibility for First Takes</Text>
-            </View>
-            <Text style={[Typography.body.sm, { color: colors.tint }]}>
-              {visibilityLabels[preferences?.reviewVisibility ?? 'public']}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.settingsItem,
-              { backgroundColor: colors.card, borderBottomColor: colors.border },
-              pressed && { backgroundColor: colors.backgroundSecondary },
-            ]}
-            onPress={handleCollectionViewToggle}
-            disabled={isLoadingPreferences || isUpdating}
-          >
-            <View style={styles.settingsItemContent}>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Collection View</Text>
-              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Default media type on profile</Text>
-            </View>
-            <Text style={[Typography.body.sm, { color: colors.tint }]}>
-              {collectionViewLabels[preferences?.defaultCollectionView ?? 'movies']}
-            </Text>
-          </Pressable>
-
-          <View
-            style={[
-              styles.settingsItem,
-              { backgroundColor: colors.card, borderBottomColor: colors.border }
-            ]}
-          >
-            <View style={styles.settingsItemContent}>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Continue Watching</Text>
-              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Show section on home screen</Text>
-            </View>
-            <ToggleSwitch
-              value={preferences?.showContinueWatching ?? true}
-              onValueChange={handleContinueWatchingToggle}
-              disabled={isLoadingPreferences || isUpdating}
-            />
-          </View>
-
-          <View
-            style={[
               styles.settingsItem,
               styles.lastItem,
-              { backgroundColor: colors.card }
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary },
             ]}
+            onPress={() => { hapticImpact(); router.push('/settings/feature-toggles'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Feature toggles"
           >
-            <View style={styles.settingsItemContent}>
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Crop ticket photos</Text>
-              <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Experimental: crop scanned ticket photos to remove background</Text>
+            <View style={styles.integrationRow}>
+              <Ionicons name="toggle-outline" size={24} color={colors.text} />
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Feature Toggles</Text>
             </View>
-            <ToggleSwitch
-              value={preferences?.cropTicketPhotos ?? false}
-              onValueChange={handleCropTicketPhotosToggle}
-              disabled={isLoadingPreferences || isUpdating}
-            />
-          </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
         </View>
 
         {/* Integrations Section */}
@@ -691,29 +567,6 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Support Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>SUPPORT</Text>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.settingsItem,
-              styles.firstItem,
-              styles.lastItem,
-              { backgroundColor: colors.card },
-              pressed && { backgroundColor: colors.backgroundSecondary }
-            ]}
-            onPress={handleReportBug}
-            accessibilityRole="button"
-          >
-            <View style={styles.integrationRow}>
-              <Ionicons name="bug-outline" size={24} color={colors.text} />
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Report a Bug</Text>
-            </View>
-            <ChevronRightIcon color={colors.textSecondary} />
-          </Pressable>
-        </View>
-
         {/* Legal Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>LEGAL</Text>
@@ -722,14 +575,28 @@ export default function SettingsScreen() {
             style={({ pressed }) => [
               styles.settingsItem,
               styles.firstItem,
-              styles.lastItem,
-              { backgroundColor: colors.card },
+              { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
             onPress={() => WebBrowser.openBrowserAsync('https://pocketstubs.com/privacy')}
           >
             <View>
               <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy Policy</Text>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => WebBrowser.openBrowserAsync('https://pocketstubs.com/terms')}
+          >
+            <View>
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Terms of Service</Text>
             </View>
             <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>

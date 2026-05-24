@@ -34,7 +34,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'social',
     targetId: TOUR_TARGETS.FEED_TAB,
     title: 'Stay connected',
-    body: 'Follow friends to see what they’re watching and reviewing. Your Feed updates as they share.',
+    body: 'Follow friends to see what they’re watching and reviewing. Your Feed updates as they share. Need help later? It\'s in Settings.',
     tooltipPlacement: 'above',
   },
 ];
