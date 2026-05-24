@@ -44,6 +44,8 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { BugReportRoot } from '@/components/BugReportRoot';
 import { AchievementProvider } from '@/lib/achievement-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
+import { TourProvider } from '@/lib/onboarding/tour-context';
+import { TourOverlay } from '@/components/coachmark/tour-overlay';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useWidgetSync } from '@/hooks/use-widget-sync';
@@ -269,6 +271,7 @@ function RootLayoutNav() {
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
       <Toast config={toastConfig} />
       <OfflineBanner />
+      <TourOverlay />
     </NavigationThemeProvider>
   );
 }
@@ -346,11 +349,13 @@ export default function RootLayout() {
                     <ThemeProvider>
                       <PremiumProvider>
                         <AchievementProvider>
-                          <ErrorBoundary>
-                            <BugReportRoot>
-                              <RootLayoutNav />
-                            </BugReportRoot>
-                          </ErrorBoundary>
+                          <TourProvider>
+                            <ErrorBoundary>
+                              <BugReportRoot>
+                                <RootLayoutNav />
+                              </BugReportRoot>
+                            </ErrorBoundary>
+                          </TourProvider>
                         </AchievementProvider>
                       </PremiumProvider>
                     </ThemeProvider>

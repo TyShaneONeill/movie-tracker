@@ -18,6 +18,8 @@ import { ContentContainer } from '@/components/content-container';
 import { SectionHeader } from '@/components/ui/section-header';
 import { TrendingCard } from '@/components/cards/trending-card';
 import IconButton from '@/components/ui/icon-button';
+import { TourTarget } from '@/components/coachmark/tour-target';
+import { TOUR_TARGETS } from '@/lib/onboarding/tour-steps';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -178,13 +180,15 @@ export default function HomeScreen() {
               onPress={handleCalendarPress}
               accessibilityLabel="Release calendar"
             />
-            <IconButton
-              variant="card"
-              size={40}
-              icon={(color) => <SearchIcon color={color} />}
-              onPress={handleSearchPress}
-              accessibilityLabel="Search"
-            />
+            <TourTarget id={TOUR_TARGETS.HOME_SEARCH}>
+              <IconButton
+                variant="card"
+                size={40}
+                icon={(color) => <SearchIcon color={color} />}
+                onPress={handleSearchPress}
+                accessibilityLabel="Search"
+              />
+            </TourTarget>
           </View>
         </View>
 

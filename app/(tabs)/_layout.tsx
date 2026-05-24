@@ -8,6 +8,7 @@ import { Colors } from '@/constants/theme';
 import { useFeedUnread } from '@/hooks/use-feed-unread';
 import { useTheme } from '@/lib/theme-context';
 import { analytics } from '@/lib/analytics';
+import { TOUR_TARGETS } from '@/lib/onboarding/tour-steps';
 
 export default function TabLayout() {
   const { effectiveTheme } = useTheme();
@@ -27,12 +28,13 @@ export default function TabLayout() {
         const visibleRoutes = routes.filter(r => r.name !== 'popcorn');
         const activeIndex = visibleRoutes.findIndex(r => r.key === activeRoute?.key);
 
-        const navItems = visibleRoutes.map((route, index) => {
+        const navItems = visibleRoutes.map((route) => {
           const { options } = descriptors[route.key];
           const label = options.title ?? route.name;
 
           // Icon components matching ui-mocks/home.html navigation
           let icon: (color: string) => React.ReactNode;
+          let tourTargetId: string | undefined;
 
           if (route.name === 'index') {
             // Home icon
@@ -44,6 +46,7 @@ export default function TabLayout() {
             );
           } else if (route.name === 'feed') {
             // Feed / Activity stream icon
+            tourTargetId = TOUR_TARGETS.FEED_TAB;
             icon = (color: string) => (
               <View style={{ position: 'relative' }}>
                 <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -66,6 +69,7 @@ export default function TabLayout() {
             );
           } else if (route.name === 'scanner') {
             // Camera/Scan icon
+            tourTargetId = TOUR_TARGETS.SCAN_TAB;
             icon = (color: string) => (
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
@@ -94,6 +98,7 @@ export default function TabLayout() {
           return {
             icon,
             label,
+            tourTargetId,
             onPress: () => {
               analytics.track('nav:tab_switch', { tab: route.name });
               const event = navigation.emit({
