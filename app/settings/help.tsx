@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
-import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { hapticImpact } from '@/lib/haptics';
@@ -58,12 +57,7 @@ export default function HelpScreen() {
 
   const handleRequestFeature = () => {
     hapticImpact();
-    Toast.show({
-      type: 'info',
-      text1: 'Coming soon',
-      text2: "We're building this.",
-      visibilityTime: 3000,
-    });
+    router.push('/settings/feedback');
   };
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';

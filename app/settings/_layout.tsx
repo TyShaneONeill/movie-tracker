@@ -22,6 +22,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="notifications" />
       <Stack.Screen name="help" />
       <Stack.Screen name="feature-toggles" />
+      <Stack.Screen name="feedback" />
     </Stack>
   );
 }
