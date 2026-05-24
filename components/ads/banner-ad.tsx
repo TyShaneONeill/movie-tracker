@@ -49,6 +49,14 @@ export function BannerAdComponent({ placement }: BannerAdProps) {
         }}
         onAdLoaded={() => {}}
         onAdFailedToLoad={(error: Error) => {
+          // "no-fill" means AdMob simply had no ad inventory for this user at
+          // this moment — it's the expected outcome for ~30% of requests,
+          // not a bug. Skip Sentry capture for it; everything else (network,
+          // internal, invalid-request) is still worth knowing about.
+          const isNoFill = error.message?.includes('no-fill');
+          if (isNoFill) {
+            return;
+          }
           console.warn(`[AdMob] Banner failed (${placement}):`, error.message);
           captureMessage(`AdMob banner failed: ${placement}`, {
             placement,
