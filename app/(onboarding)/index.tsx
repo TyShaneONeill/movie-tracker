@@ -6,6 +6,7 @@ import {
   FlatList,
   ViewToken,
   useWindowDimensions,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -87,6 +88,19 @@ export default function OnboardingScreen() {
 
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Captured via onLayout on the carousel wrapper. On native, FlatList items
+  // inherit the container's height via flex:1 and content centers fine. On
+  // react-native-web, horizontal-FlatList items don't inherit container height,
+  // so each slide collapses to content height and `justifyContent: 'center'`
+  // has nothing to center within — content sticks to the top with empty space
+  // below. Reading the wrapper's actual height and applying it to each slide
+  // gives the same vertical centering on web as on native.
+  const [slideHeight, setSlideHeight] = useState<number | null>(null);
+
+  const handleCarouselLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setSlideHeight(h);
+  }, []);
 
   // Required for scrollToIndex to work properly on web
   const getItemLayout = useCallback((_: unknown, index: number) => ({
@@ -122,7 +136,13 @@ export default function OnboardingScreen() {
   const isLastSlide = currentIndex === SLIDES.length - 1;
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
-    <View style={[styles.slide, { width: slideWidth }]}>
+    <View
+      style={[
+        styles.slide,
+        { width: slideWidth },
+        slideHeight !== null && { height: slideHeight },
+      ]}
+    >
       <LinearGradient
         colors={item.gradient}
         start={{ x: 0, y: 0 }}
@@ -146,7 +166,10 @@ export default function OnboardingScreen() {
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
       {/* Slides — constrained to MAX_CONTENT_WIDTH on web/tablet so the carousel
           centers within the shared content column instead of sprawling full-window. */}
-      <View style={[styles.flatListContainer, isWide && styles.flatListContainerWide]}>
+      <View
+        style={[styles.flatListContainer, isWide && styles.flatListContainerWide]}
+        onLayout={handleCarouselLayout}
+      >
         <FlatList
           ref={flatListRef}
           data={SLIDES}
