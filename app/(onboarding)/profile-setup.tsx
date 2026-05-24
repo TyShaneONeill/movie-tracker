@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  InteractionManager,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboarding } from '@/hooks/use-onboarding';
+import { useTour } from '@/lib/onboarding/tour-context';
 import { supabase } from '@/lib/supabase';
 import { uploadAvatar, updateProfileAvatarUrl } from '@/lib/avatar-service';
 import { captureException } from '@/lib/sentry';
@@ -34,6 +36,7 @@ export default function ProfileSetupScreen() {
   const { effectiveTheme } = useTheme();
   const { user } = useAuth();
   const { completeOnboarding } = useOnboarding();
+  const { startTourIfNotCompleted } = useTour();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const colors = Colors[effectiveTheme];
@@ -136,6 +139,11 @@ export default function ProfileSetupScreen() {
         visibilityTime: 2000,
       });
       router.replace('/(tabs)');
+      // Defer the tour start until the tabs screen has mounted and its TourTargets
+      // (e.g. the Home header Search icon) have registered their layout.
+      InteractionManager.runAfterInteractions(() => {
+        startTourIfNotCompleted();
+      });
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), { context: 'profile-setup-complete' });
       setError('An unexpected error occurred');

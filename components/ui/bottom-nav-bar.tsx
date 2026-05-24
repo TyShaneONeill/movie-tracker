@@ -5,11 +5,14 @@ import { hapticImpact } from '@/lib/haptics';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
+import { TourTarget } from '@/components/coachmark/tour-target';
 
 export interface NavItem {
   icon: (color: string) => React.ReactNode;
   label: string;
   onPress: () => void;
+  /** Optional ID for the onboarding tour to spotlight this item. */
+  tourTargetId?: string;
 }
 
 export interface BottomNavBarProps {
@@ -26,6 +29,7 @@ export interface BottomNavBarProps {
  * - Active state with accent color
  * - Haptic feedback on iOS
  * - Floating above content with rounded corners
+ * - Optional per-item tour anchor for the first-launch coachmark tour
  */
 export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
   const { effectiveTheme } = useTheme();
@@ -40,9 +44,8 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
     <View style={styles.navItems}>
       {items.map((item, index) => {
         const isActive = index === activeIndex;
-        return (
+        const pressable = (
           <Pressable
-            key={index}
             onPress={() => handlePress(index, item.onPress)}
             accessibilityRole="tab"
             accessibilityLabel={item.label}
@@ -64,6 +67,19 @@ export function BottomNavBar({ items, activeIndex }: BottomNavBarProps) {
               {item.label}
             </ThemedText>
           </Pressable>
+        );
+
+        if (item.tourTargetId) {
+          return (
+            <TourTarget key={index} id={item.tourTargetId} style={styles.navItemSlot}>
+              {pressable}
+            </TourTarget>
+          );
+        }
+        return (
+          <View key={index} style={styles.navItemSlot}>
+            {pressable}
+          </View>
         );
       })}
     </View>
@@ -136,6 +152,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  navItemSlot: {
+    flex: 1,
   },
   navItem: {
     flex: 1,
