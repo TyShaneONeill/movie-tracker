@@ -140,6 +140,16 @@ PocketStubs uses semantic versioning. **Do NOT bump the version with every PR.**
 2. Update `version` in `package.json` to match
 3. The settings screen reads the version dynamically from `expo-constants` — no other files need changing
 
+## Database / Supabase
+
+**All schema changes MUST be authored as committed `.sql` files in `supabase/migrations/`** before being pushed to any remote DB. Author new migrations with `supabase migration new <name>`, edit the generated file, verify locally with `supabase db reset` or `supabase migration up`, then push via `supabase db push` after PR review.
+
+**The `mcp__plugin_supabase_supabase__apply_migration` MCP tool is banned for schema changes.** Using it to apply DDL without a corresponding committed file is what caused the April–May 2026 drift that required the baseline cleanup. The tool may only be used for read-only diagnostics or emergency hotfixes that are immediately back-filled into a real migration file.
+
+`supabase/migrations-archive/` holds the previous (incomplete) migration history for historical reference; Supabase tooling does not look there.
+
+See [`docs/supabase-migration-workflow.md`](docs/supabase-migration-workflow.md) for the full workflow and history.
+
 ## Ad Network Architecture
 
 - **AdMob** (`react-native-google-mobile-ads`) — iOS + Android apps only. Supports banner, native, rewarded ads.
