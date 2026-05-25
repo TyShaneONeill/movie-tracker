@@ -14,9 +14,19 @@ Both files MUST be served with `Content-Type: application/json` and MUST be vali
 ## `assetlinks.json` (Android App Links)
 
 - `package_name` must match `app.config.js` → `android.package` (currently `com.pocketstubs.app`).
-- `sha256_cert_fingerprints` MUST be populated for Android App Links to verify. It is currently empty — Android App Links will silently fail to verify until this is filled in.
+- `sha256_cert_fingerprints` is **intentionally left empty** for now. See below.
 
-### How to populate `sha256_cert_fingerprints`
+### Why `sha256_cert_fingerprints` is empty (intentional defer)
+
+The Android app is currently distributed on the **Internal Testing** track only (`track: "internal"` in `eas.json`) — there are **zero public Android users**. With the array empty, Android App Links will silently fail to verify, which means tapping an `https://pocketstubs.com/...` link on an Android device will open Chrome instead of the app. That is acceptable today because no public Android user can hit that path.
+
+This is **not** a pre-merge TODO. We are deliberately shipping with an empty array until the Android app graduates to a public Play Store track. The structural correctness of `assetlinks.json` (correct `package_name`, valid JSON, correct `Content-Type`) is what this PR fixes; populating the fingerprints is a follow-up that gates the **next public Play release**, not this PR.
+
+Follow-up issue tracking the populate-before-public-release work: [link to follow-up issue].
+
+### How to populate `sha256_cert_fingerprints` (when the time comes)
+
+Before the next public Play Store release, the fingerprints MUST be populated or Android App Links will be broken for real users.
 
 You need **both** the upload key fingerprint and the app signing key fingerprint (Google Play re-signs uploads with the app signing key, so both must be trusted).
 
