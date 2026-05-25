@@ -217,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const emailRedirectTo =
       Platform.OS === 'web'
         ? typeof window !== 'undefined'
-          ? `${window.location.origin}/auth/email-confirmed`
+          ? `${window.location.origin}/email-confirmed`
           : undefined
         : 'pocketstubs://email-confirmed';
     const { data, error } = await supabase.auth.signUp({
