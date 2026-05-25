@@ -142,7 +142,27 @@
       <li><strong>Supabase:</strong> Authentication and database storage</li>
       <li><strong>TMDB:</strong> Movie information and images (no personal data shared)</li>
       <li><strong>Apple/Google Sign-In:</strong> Optional authentication providers</li>
+      <li><strong>Meta (Instagram / Facebook):</strong> Used by our internal social media tool to publish posts and manage public comments on the @pocketstubs Instagram Business account. See the dedicated section below.</li>
     </ul>
+
+    <h2>Instagram Business Data</h2>
+    <p>PocketStubs operates an internal admin tool ("PocketStubs Social") that connects to our own Instagram Business account (@pocketstubs) via the Meta Graph API. This tool is used solely by our staff to operate our marketing presence. It does NOT collect data from app users; it only interacts with our own business account and people who publicly interact with our posts.</p>
+    <p><strong>Data we access via the Meta Graph API:</strong></p>
+    <ul>
+      <li>Our own Instagram Business profile information (handle, account ID, profile picture)</li>
+      <li>Media we have published to @pocketstubs (post IDs, image URLs, captions, engagement counts via Instagram Insights)</li>
+      <li>Public comments left on our posts, including the comment text and the commenter's public Instagram username, for the purpose of generating draft replies that a human staff member then reviews before publishing</li>
+    </ul>
+    <p><strong>What we do NOT collect:</strong></p>
+    <ul>
+      <li>Direct messages (DMs)</li>
+      <li>Any information about Instagram users who have not publicly commented on our own posts</li>
+      <li>Email addresses, phone numbers, or other private contact information of Instagram users</li>
+    </ul>
+    <p><strong>Retention:</strong> Inbound comments and their associated usernames are retained for 90 days for engagement analysis and reply drafting, then deleted. Our own published-post metadata is retained indefinitely as part of our marketing history.</p>
+    <p><strong>Sharing:</strong> We do not share Instagram-derived data with any third party. The data is stored only in our private Supabase backend.</p>
+    <p><strong>Replies:</strong> Reply text published to Instagram on our behalf is always reviewed and approved by a human staff member before being sent — no fully automatic replies are published.</p>
+    <p>If you commented on one of our Instagram posts and want your comment and associated username removed from our system, email <a href="mailto:help@pocketstubs.com">help@pocketstubs.com</a> with a link to your comment. We will remove the record within 30 days.</p>
 
     <h2>Your Rights</h2>
     <p>You have the following rights regarding your personal data:</p>
