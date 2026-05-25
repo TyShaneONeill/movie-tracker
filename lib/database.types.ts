@@ -197,6 +197,45 @@ export type Database = {
           },
         ]
       }
+      feature_requests: {
+        Row: {
+          app_version: string | null
+          created_at: string | null
+          description: string
+          id: string
+          platform: string | null
+          screenshot_url: string | null
+          status: string
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          platform?: string | null
+          screenshot_url?: string | null
+          status?: string
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          platform?: string | null
+          screenshot_url?: string | null
+          status?: string
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       first_takes: {
         Row: {
           comment_count: number | null
@@ -2212,6 +2251,28 @@ export type Database = {
       reorder_list_movies: {
         Args: { p_list_id: string; p_ordered_tmdb_ids: number[] }
         Returns: undefined
+      }
+      submit_feature_request: {
+        Args: {
+          p_type: string
+          p_title: string
+          p_description: string
+          p_screenshot_url: string
+          p_app_version: string
+          p_platform: string
+        }
+        Returns: {
+          app_version: string | null
+          created_at: string | null
+          description: string
+          id: string
+          platform: string | null
+          screenshot_url: string | null
+          status: string
+          title: string
+          type: string
+          user_id: string | null
+        }
       }
       sync_profile_tier: { Args: { p_user_id: string }; Returns: undefined }
       sync_tv_show_progress: {
