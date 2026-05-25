@@ -297,7 +297,7 @@ function FeedbackForm({ colors, userId, effectiveTheme }: FeedbackFormProps) {
                     placeholderTextColor={colors.textTertiary}
                     value={title}
                     onChangeText={setTitle}
-                    maxLength={TITLE_MAX + 50}
+                    maxLength={TITLE_MAX}
                     accessibilityLabel="Title"
                   />
                 </View>
@@ -334,7 +334,7 @@ function FeedbackForm({ colors, userId, effectiveTheme }: FeedbackFormProps) {
                     multiline
                     numberOfLines={6}
                     textAlignVertical="top"
-                    maxLength={DESCRIPTION_MAX + 100}
+                    maxLength={DESCRIPTION_MAX}
                     accessibilityLabel="Description"
                   />
                 </View>
@@ -643,7 +643,7 @@ interface SubmissionRowProps {
 }
 
 function SubmissionRow({ row, colors, isFirst, isLast }: SubmissionRowProps) {
-  const typeLabel = row.type === 'feature_request' ? 'Feature' : 'Feedback';
+  const typeLabel = row.type === 'feature_request' ? 'Feature request' : 'General feedback';
   const relative = useMemo(
     () => (row.created_at ? formatRelativeTime(row.created_at) : ''),
     [row.created_at],
