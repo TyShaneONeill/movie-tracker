@@ -1,0 +1,2 @@
+[functions.feedback-confirmation-email]
+verify_jwt = true
