@@ -58,10 +58,26 @@ export default {
       // pocketstubs://email-confirmed, pocketstubs://reset-password). iOS
       // handles this via CFBundleURLTypes above; Android needs an explicit
       // VIEW intent filter for the custom scheme.
+      //
+      // The second filter enables Android App Links for https://pocketstubs.com.
+      // `autoVerify: true` triggers Android's install-time check against
+      // /.well-known/assetlinks.json on the host. iOS handles the https case
+      // via `associatedDomains` above.
       intentFilters: [
         {
           action: "VIEW",
           data: [{ scheme: "pocketstubs" }],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: "https",
+              host: "pocketstubs.com",
+            },
+          ],
           category: ["BROWSABLE", "DEFAULT"],
         },
       ],

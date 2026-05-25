@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appID": "K32CLCJV45.com.cinetrak.app",
+        "appID": "K32CLCJV45.com.pocketstubs.app",
         "paths": [
           "/reset-password",
           "/reset-password/*",
