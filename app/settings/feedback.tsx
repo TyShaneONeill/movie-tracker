@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +21,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
 import { hapticImpact } from '@/lib/haptics';
+import { analytics } from '@/lib/analytics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ContentContainer } from '@/components/content-container';
@@ -146,6 +147,13 @@ function FeedbackForm({ colors, userId, effectiveTheme }: FeedbackFormProps) {
   const submitMutation = useSubmitFeedback();
   const { data: mySubmissions, isLoading: isLoadingSubmissions } = useMyFeedback();
 
+  // Screen-view event — fires once on mount. Tracked only for the form path
+  // (signed-in users); the GuestGate is rendered separately and intentionally
+  // does not log a view event.
+  useEffect(() => {
+    analytics.track('feedback:screen_viewed');
+  }, []);
+
   const titleTrimmedLen = title.trim().length;
   const descriptionTrimmedLen = description.trim().length;
   const isFormValid =
@@ -209,9 +217,26 @@ function FeedbackForm({ colors, userId, effectiveTheme }: FeedbackFormProps) {
         appVersion,
         platform,
       });
+      analytics.track('feedback:submitted', {
+        type,
+        has_screenshot: !!screenshotPath,
+        title_length: title.trim().length,
+        description_length: description.trim().length,
+      });
       setSubmittedRow({ title: row.title });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong.';
+      // Map known RPC errors to a stable code dimension. The rate-limit error
+      // is raised with a specific copy in submit_feature_request (see migration
+      // 20260524234228_create_feature_requests). Anything else is bucketed
+      // under 'unknown' so we can still spot regressions in PostHog.
+      const errorCode = /5 submissions in 24 hours/i.test(message)
+        ? 'rate_limit'
+        : 'unknown';
+      analytics.track('feedback:submit_failed', {
+        type,
+        error_code: errorCode,
+      });
       Toast.show({
         type: 'error',
         text1: "Couldn't send feedback",
