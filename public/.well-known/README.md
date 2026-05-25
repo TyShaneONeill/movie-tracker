@@ -22,7 +22,7 @@ The Android app is currently distributed on the **Internal Testing** track only 
 
 This is **not** a pre-merge TODO. We are deliberately shipping with an empty array until the Android app graduates to a public Play Store track. The structural correctness of `assetlinks.json` (correct `package_name`, valid JSON, correct `Content-Type`) is what this PR fixes; populating the fingerprints is a follow-up that gates the **next public Play release**, not this PR.
 
-Follow-up issue tracking the populate-before-public-release work: [link to follow-up issue].
+Follow-up issue tracking the populate-before-public-release work: [#487](https://github.com/TyShaneONeill/movie-tracker/issues/487).
 
 ### How to populate `sha256_cert_fingerprints` (when the time comes)
 
