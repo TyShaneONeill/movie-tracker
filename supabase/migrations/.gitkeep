@@ -1,0 +1,3 @@
+# Placeholder so the migrations directory is tracked even when empty.
+# After the baseline migration is generated via `supabase db pull --linked`,
+# this file can stay or be removed — Supabase ignores non-`.sql` files here.
