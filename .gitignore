@@ -52,3 +52,10 @@ e2e/.auth/
 
 # Generated movie pages (built at deploy time)
 public/movie/
+
+# Supabase CLI local state (not gitignored upstream by the Supabase CLI scaffold)
+supabase/.temp/
+supabase/.branches/
+
+# Local git worktrees
+.worktrees/
