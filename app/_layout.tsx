@@ -132,15 +132,19 @@ function useProtectedRoute() {
     };
   }, []);
 
-  // Replay a cold-start content deep link once the root navigator is mounted.
-  // Auth deep links don't need this — their routing path runs through the
-  // pendingPasswordReset ref + the navigationState-gated effect below.
+  // Replay a cold-start content deep link once the root navigator is mounted
+  // AND auth/onboarding/guest state has hydrated. The protected-route effect
+  // below schedules a router.replace via requestAnimationFrame on the same
+  // navigationState.key tick — pushing earlier means the replace clobbers our
+  // deep-link target. Waiting for hydration lets the guard settle first, and
+  // the extra RAF defer ensures our push is the last navigation on this frame.
   useEffect(() => {
-    if (!navigationState?.key || !pendingInitialUrl.current) return;
+    if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) return;
+    if (!pendingInitialUrl.current) return;
     const url = pendingInitialUrl.current;
     pendingInitialUrl.current = null;
-    handleContentDeepLink(url);
-  }, [navigationState?.key]);
+    requestAnimationFrame(() => handleContentDeepLink(url));
+  }, [navigationState?.key, authLoading, onboardingLoading, guestLoading]);
 
   useEffect(() => {
     if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) {
@@ -153,6 +157,11 @@ function useProtectedRoute() {
     // Defer navigation to next frame to ensure all routes are mounted
     // requestAnimationFrame is more reliable than setTimeout(0) on Android
     const performNavigation = (route: string) => {
+      // No-op if we're already inside the target route group. Without this
+      // guard, segments-driven re-runs could ping-pong RAF replaces and
+      // exhaust the Hermes heap.
+      const targetGroup = route.match(/^\/\(([^)]+)\)/)?.[1];
+      if (targetGroup && segments[0] === `(${targetGroup})`) return;
       requestAnimationFrame(() => {
         router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
       });
