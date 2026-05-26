@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   type ReactNode,
@@ -52,16 +53,17 @@ export function GuestProvider({ children }: { children: ReactNode }) {
     loadGuestState();
   }, []);
 
-  // Listen for auth state changes - exit guest mode when user logs in
+  // Read isGuest through a ref inside the auth-listener callback so the effect
+  // below can keep an empty dep array. Including `isGuest` in the deps
+  // re-subscribed Supabase on every guest-state flip; Supabase synchronously
+  // re-emits INITIAL_SESSION on each new subscription, which calls
+  // exitGuestMode → setIsGuest → re-subscribe → … until Hermes OOMs.
+  // Repro: PocketStubs-2026-05-26-152834.ips (expo::EventEmitter::removeListener
+  // frame in the Hades OOM stack, triggered by a deep-link push during
+  // early-lifecycle hydration).
+  const isGuestRef = useRef(isGuest);
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user && isGuest) {
-        // User logged in while in guest mode, exit guest mode
-        await exitGuestMode();
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    isGuestRef.current = isGuest;
   }, [isGuest]);
 
   const enterGuestMode = useCallback(async () => {
@@ -90,6 +92,24 @@ export function GuestProvider({ children }: { children: ReactNode }) {
       setIsGuest(false);
     }
   }, []);
+
+  // Listen for auth state changes - exit guest mode when user logs in.
+  // Declared AFTER exitGuestMode so the useCallback ref is defined when the
+  // effect runs. Critically uses isGuestRef (not isGuest) so the dep array
+  // can be [exitGuestMode] instead of [isGuest] — see the OOM note above.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Skip the synchronous INITIAL_SESSION re-emit so re-subscribes never
+      // re-enter exitGuestMode.
+      if (event === 'INITIAL_SESSION') return;
+      if (session?.user && isGuestRef.current) {
+        // User logged in while in guest mode, exit guest mode
+        await exitGuestMode();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [exitGuestMode]);
 
   return (
     <GuestContext.Provider
