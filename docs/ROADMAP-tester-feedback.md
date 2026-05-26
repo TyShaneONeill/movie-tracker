@@ -96,7 +96,7 @@ as a single small PR. Subsequent PRDs each get their own branch off
 | 3   | Draft - needs library choice (copilot vs custom) |
 | 4   | Draft |
 | 5   | Draft - needs Supabase schema review |
-| 6   | Draft - blocked on web deep-link target |
+| 6   | Sprint 1 complete - ready for Sprint 2 (mobile) |
 
 ---
 

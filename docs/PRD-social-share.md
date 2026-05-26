@@ -253,13 +253,26 @@ visitors).
 
 ## Implementation Phases
 
-### Sprint 1: Spike
-- [ ] Confirm web host for `pocketstubs.com` (in-flight investigation
-      — tracked, not blocking this PRD).
-- [ ] Pick rendering library (PRD-recommended `react-native-view-shot`
-      — keep unless spike surfaces a blocker).
-- [ ] Lock deep-link URL scheme + iOS Associated Domains / Android
-      App Links entitlements.
+### Sprint 1: Spike — COMPLETE (2026-05-26)
+- [x] Confirm web host for `pocketstubs.com` — **this repo**
+      (movie-tracker), deployed to Vercel. Apex + www both connected to
+      Production environment; do not reintroduce an apex→www
+      redirect — it breaks Universal Links / App Links because Apple's
+      CDN and Android's verifier do not follow cross-host redirects
+      when fetching `.well-known/` association files.
+- [x] Rendering library — `react-native-view-shot@4.0.3` and
+      `expo-sharing@~14.0.8` are already in `package.json`.
+      `@shopify/react-native-skia@2.2.12` is also installed and
+      available as a fallback if view-shot output quality regresses on
+      Android.
+- [x] Deep-link URL scheme + iOS Associated Domains + Android App
+      Links entitlements — wired in `app.config.js:13,26,66-83` (#486).
+      `.well-known/apple-app-site-association` and
+      `.well-known/assetlinks.json` now serve `200` directly from the
+      apex, and `vercel.json` pins the AASA `Content-Type` to
+      `application/json` (the file is extensionless, so Vercel's
+      MIME inference would otherwise emit `application/octet-stream`).
+      Verified live with `swcutil dl -d pocketstubs.com`.
 
 ### Sprint 2: Mobile
 - [ ] Build the four card templates (Review, First Take, Movie, TV)
@@ -288,5 +301,5 @@ visitors).
 
 ---
 
-*Last Updated: 2026-05-25*
-*Status: v1 scope locked — ready for Sprint 1 spike*
+*Last Updated: 2026-05-26*
+*Status: Sprint 1 complete — ready for Sprint 2 (mobile)*
