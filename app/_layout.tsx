@@ -66,6 +66,10 @@ function useProtectedRoute() {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
+  // Holds an initial deep-link URL captured before the root navigator mounted.
+  // router.push() is a no-op until navigationState.key exists, so on cold start
+  // we stash the URL here and replay it in the effect below.
+  const pendingInitialUrl = useRef<string | null>(null);
 
   // Listen for deep links and PASSWORD_RECOVERY auth events
   useEffect(() => {
@@ -95,9 +99,17 @@ function useProtectedRoute() {
       }
     };
 
-    // Check if app was opened via deep link
+    // Check if app was opened via deep link. On cold start the root navigator
+    // is not yet mounted, so router.push() inside handleContentDeepLink would
+    // silently no-op. Stash the URL and let the navigationState effect below
+    // replay it once the nav tree is ready.
     Linking.getInitialURL().then((url) => {
-      if (url) handleUrl({ url });
+      if (!url) return;
+      if (navigationState?.key) {
+        handleUrl({ url });
+      } else {
+        pendingInitialUrl.current = url;
+      }
     });
 
     // Listen for deep links while app is open
@@ -119,6 +131,16 @@ function useProtectedRoute() {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Replay a cold-start content deep link once the root navigator is mounted.
+  // Auth deep links don't need this — their routing path runs through the
+  // pendingPasswordReset ref + the navigationState-gated effect below.
+  useEffect(() => {
+    if (!navigationState?.key || !pendingInitialUrl.current) return;
+    const url = pendingInitialUrl.current;
+    pendingInitialUrl.current = null;
+    handleContentDeepLink(url);
+  }, [navigationState?.key]);
 
   useEffect(() => {
     if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) {
