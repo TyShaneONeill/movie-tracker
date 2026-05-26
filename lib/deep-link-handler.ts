@@ -142,8 +142,8 @@ export async function handleAuthDeepLink(url: string): Promise<string | null> {
  * universal-link form (`https://pocketstubs.com/movie/123`,
  * `https://www.pocketstubs.com/movie/123`).
  *
- * PRD-6 vertical slice: only `/movie/{id}` is wired up in this PR. The other
- * surfaces (`/tv`, `/review`, `/firsttake`) are routed in subsequent PRs —
+ * PRD-6 vertical slice: `/movie/{id}` and `/tv/{id}` are wired up. The remaining
+ * surfaces (`/review`, `/firsttake`) are routed in subsequent PRs —
  * see docs/PRD-social-share.md.
  *
  * Returns the matched content type + id, or null if the URL doesn't match a
@@ -214,8 +214,10 @@ export function handleContentDeepLink(url: string): boolean {
       case 'movie':
         router.push(`/movie/${match.id}` as never);
         return true;
-      // TODO(PRD-6): wire up tv / review / firsttake in subsequent PRs.
       case 'tv':
+        router.push(`/tv/${match.id}` as never);
+        return true;
+      // TODO(PRD-6): wire up review / firsttake in subsequent PRs.
       case 'review':
       case 'firsttake':
         return false;
