@@ -29,6 +29,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import ViewShot from 'react-native-view-shot';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as Localization from 'expo-localization';
 import Toast from 'react-native-toast-message';
@@ -63,7 +64,8 @@ import { CommunityReviews } from '@/components/movie-detail/community-reviews';
 import { useTheme } from '@/lib/theme-context';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { addMovieToList, createList } from '@/lib/list-service';
-import { shareTitle } from '@/lib/share-service';
+import { shareMovieDiscovery } from '@/lib/share-service';
+import { DiscoveryMovieCard } from '@/components/share/discovery-movie-card';
 import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
 import type { MovieStatus } from '@/lib/database.types';
@@ -169,6 +171,10 @@ export default function MovieDetailScreen() {
     ? new Date(movie.release_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'an upcoming date';
 
+  // ViewShot ref for the off-screen discovery card we capture on share.
+  const viewShotRef = useRef<ViewShot>(null);
+  const [isSharing, setIsSharing] = useState(false);
+
   // Track movie detail view
   const hasTrackedView = useRef(false);
   useEffect(() => {
@@ -233,12 +239,15 @@ export default function MovieDetailScreen() {
 
 
   const handleShare = async () => {
-    if (!movie) return;
+    if (!movie || isSharing) return;
+    setIsSharing(true);
     try {
-      await shareTitle(movie.id, 'movie', movie.title);
+      await shareMovieDiscovery(viewShotRef, movie.id, movie.title);
       analytics.track('movie:share', { tmdb_id: movie.id });
     } catch {
-      // user cancelled
+      // user cancelled or share unavailable — silent
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -741,16 +750,21 @@ export default function MovieDetailScreen() {
             </Pressable>
             <Pressable
               onPress={handleShare}
+              disabled={isSharing}
               style={({ pressed }) => [
                 dynamicStyles.actionItem,
                 pressed && dynamicStyles.actionItemPressed,
               ]}
             >
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                <Polyline points="16 6 12 2 8 6" />
-                <Line x1={12} y1={2} x2={12} y2={15} />
-              </Svg>
+              {isSharing ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <Polyline points="16 6 12 2 8 6" />
+                  <Line x1={12} y1={2} x2={12} y2={15} />
+                </Svg>
+              )}
               <Text style={dynamicStyles.actionLabel}>Share</Text>
             </Pressable>
           </View>
@@ -962,6 +976,24 @@ export default function MovieDetailScreen() {
         onConfirm={confirmation?.onConfirm ?? (() => {})}
         destructive={confirmation?.destructive}
       />
+
+      {/* Off-screen discovery share card — captured by react-native-view-shot
+          when the user taps Share. Native only; web uses navigator.share. */}
+      {Platform.OS !== 'web' && (
+        <ViewShot
+          ref={viewShotRef}
+          options={{ format: 'png', quality: 1 }}
+          style={dynamicStyles.offScreen}
+        >
+          <DiscoveryMovieCard
+            movieTitle={movie.title}
+            posterPath={movie.poster_path}
+            releaseYear={movieYear !== 'N/A' ? movieYear : undefined}
+            tagline={movie.tagline || undefined}
+            shareUrl={`pocketstubs.com/movie/${movie.id}`}
+          />
+        </ViewShot>
+      )}
     </View>
   );
 }
@@ -1338,5 +1370,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   errorBackButtonText: {
     ...Typography.button.primary,
     color: Colors.dark.text, // Always white on tint button for contrast
+  },
+
+  // Off-screen ViewShot container for share-card capture.
+  // Mirrors app/review/[id].tsx — left/top -9999 so the card mounts and
+  // lays out (so view-shot can capture it) but is never visible to the user.
+  offScreen: {
+    position: 'absolute',
+    left: -9999,
+    top: -9999,
   },
 });

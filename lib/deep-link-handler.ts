@@ -1,4 +1,5 @@
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import { supabase } from './supabase';
 import { captureException } from './sentry';
 
@@ -132,5 +133,98 @@ export async function handleAuthDeepLink(url: string): Promise<string | null> {
       url,
     });
     return null;
+  }
+}
+
+/**
+ * Parse a deep-link or universal-link URL and extract a known content route.
+ * Supports both the custom scheme (`pocketstubs://movie/123`) and the
+ * universal-link form (`https://pocketstubs.com/movie/123`,
+ * `https://www.pocketstubs.com/movie/123`).
+ *
+ * PRD-6 vertical slice: only `/movie/{id}` is wired up in this PR. The other
+ * surfaces (`/tv`, `/review`, `/firsttake`) are routed in subsequent PRs —
+ * see docs/PRD-social-share.md.
+ *
+ * Returns the matched content type + id, or null if the URL doesn't match a
+ * supported content route.
+ */
+type ContentRoute =
+  | { type: 'movie'; id: string }
+  | { type: 'tv'; id: string }
+  | { type: 'review'; id: string }
+  | { type: 'firsttake'; id: string };
+
+function parseContentUrl(url: string): ContentRoute | null {
+  let pathname: string;
+
+  try {
+    // Custom scheme: pocketstubs://movie/123
+    if (url.startsWith('pocketstubs://')) {
+      pathname = '/' + url.slice('pocketstubs://'.length);
+    } else {
+      // Universal link: https://[www.]pocketstubs.com/movie/123
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase();
+      if (host !== 'pocketstubs.com' && host !== 'www.pocketstubs.com') {
+        return null;
+      }
+      pathname = parsed.pathname;
+    }
+  } catch {
+    return null;
+  }
+
+  // Strip leading slash and any trailing query/hash
+  const cleaned = pathname.replace(/^\/+/, '').split('?')[0].split('#')[0];
+  const segments = cleaned.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+
+  const [type, rawId] = segments;
+  // IDs come from TMDB (numeric) or Supabase (uuid). Restrict to safe charset.
+  if (!/^[A-Za-z0-9_-]+$/.test(rawId)) return null;
+
+  switch (type) {
+    case 'movie':
+      return { type: 'movie', id: rawId };
+    case 'tv':
+      return { type: 'tv', id: rawId };
+    case 'review':
+      return { type: 'review', id: rawId };
+    case 'firsttake':
+      return { type: 'firsttake', id: rawId };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Handle a deep-link URL for content (movie / tv / review / first take).
+ * Returns true if the URL was recognized and routed, false otherwise.
+ *
+ * Runs alongside `handleAuthDeepLink` — auth deep links and content deep
+ * links live in disjoint URL spaces, so calling both is safe.
+ */
+export function handleContentDeepLink(url: string): boolean {
+  try {
+    const match = parseContentUrl(url);
+    if (!match) return false;
+
+    switch (match.type) {
+      case 'movie':
+        router.push(`/movie/${match.id}` as never);
+        return true;
+      // TODO(PRD-6): wire up tv / review / firsttake in subsequent PRs.
+      case 'tv':
+      case 'review':
+      case 'firsttake':
+        return false;
+    }
+  } catch (err) {
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      context: 'content-deep-link-handler',
+      url,
+    });
+    return false;
   }
 }

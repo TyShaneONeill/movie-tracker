@@ -33,7 +33,7 @@ import { useOnboarding, OnboardingProvider } from '@/hooks/use-onboarding';
 import { GuestProvider, useGuest } from '@/lib/guest-context';
 import { Colors } from '@/constants/theme';
 import { toastConfig } from '@/lib/toast-config';
-import { handleAuthDeepLink } from '@/lib/deep-link-handler';
+import { handleAuthDeepLink, handleContentDeepLink } from '@/lib/deep-link-handler';
 import { assertAuthEnv } from '@/lib/auth-env-assert';
 import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
@@ -74,6 +74,11 @@ function useProtectedRoute() {
     // PKCE code exchange (or implicit setSession) for any auth-bearing URL,
     // then returns the path segment so we can route the user appropriately.
     const handleUrl = async (event: { url: string }) => {
+      // Content deep links (pocketstubs://movie/{id}, https://pocketstubs.com/movie/{id})
+      // are routed first. Content and auth links live in disjoint URL spaces, so
+      // running both handlers is safe; whichever recognizes the URL handles it.
+      handleContentDeepLink(event.url);
+
       const path = await handleAuthDeepLink(event.url);
       if (path === 'reset-password') {
         pendingPasswordReset.current = true;
