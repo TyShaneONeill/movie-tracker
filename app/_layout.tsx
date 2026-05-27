@@ -1,3 +1,9 @@
+// TEMPORARY: OOM diagnostic (PR #489). Must run BEFORE any other import so
+// the JSON.stringify monkey-patch is in place before providers initialize.
+// Revert this import + lib/_oom-diagnostic.ts once the cold-start crash
+// root cause is identified.
+import { mark } from '@/lib/_oom-diagnostic';
+
 // Initialize Sentry first (side-effect import)
 import '@/lib/sentry-init';
 
@@ -103,11 +109,15 @@ function useProtectedRoute() {
     // is not yet mounted, so router.push() inside handleContentDeepLink would
     // silently no-op. Stash the URL and let the navigationState effect below
     // replay it once the nav tree is ready.
+    mark('cold:effect-mount');
     Linking.getInitialURL().then((url) => {
+      mark(`cold:getInitialURL-resolved url=${url ? 'yes' : 'null'}`);
       if (!url) return;
       if (navigationState?.key) {
+        mark('cold:nav-already-mounted-handleUrl-direct');
         handleUrl({ url });
       } else {
+        mark('cold:url-stashed');
         pendingInitialUrl.current = url;
       }
     });
@@ -139,11 +149,17 @@ function useProtectedRoute() {
   // deep-link target. Waiting for hydration lets the guard settle first, and
   // the extra RAF defer ensures our push is the last navigation on this frame.
   useEffect(() => {
+    mark(`cold:replay-eval navKey=${!!navigationState?.key} authL=${authLoading} onbL=${onboardingLoading} guestL=${guestLoading} pending=${!!pendingInitialUrl.current}`);
     if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) return;
     if (!pendingInitialUrl.current) return;
     const url = pendingInitialUrl.current;
     pendingInitialUrl.current = null;
-    requestAnimationFrame(() => handleContentDeepLink(url));
+    mark('cold:replay-scheduled-RAF');
+    requestAnimationFrame(() => {
+      mark('cold:RAF-fired-pre-push');
+      handleContentDeepLink(url);
+      mark('cold:RAF-fired-post-push');
+    });
   }, [navigationState?.key, authLoading, onboardingLoading, guestLoading]);
 
   useEffect(() => {
