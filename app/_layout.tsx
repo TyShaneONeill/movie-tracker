@@ -1,9 +1,3 @@
-// TEMPORARY: OOM diagnostic (PR #489). Must run BEFORE any other import so
-// the JSON.stringify monkey-patch is in place before providers initialize.
-// Revert this import + lib/_oom-diagnostic.ts once the cold-start crash
-// root cause is identified.
-import { mark } from '@/lib/_oom-diagnostic';
-
 // Initialize Sentry first (side-effect import)
 import '@/lib/sentry-init';
 
@@ -112,18 +106,13 @@ function useProtectedRoute() {
       }
     };
 
-    // Cold-start deep link: ALWAYS stash. Do not call handleUrl directly here.
-    // navigationState.key becomes truthy as soon as expo-router's internal
-    // NavigationContainer mounts, which is BEFORE our <Stack> renders (we're
-    // still showing <ActivityIndicator> until auth/onboarding/guest hydrate).
-    // Pushing into a missing stack causes expo-router to remount this subtree
-    // in a loop. The replay effect below fires the push once everything is
-    // genuinely ready.
-    mark('cold:effect-mount');
+    // Cold-start deep link: always stash, never push directly. navigationState.key
+    // becomes truthy as soon as expo-router's internal NavigationContainer mounts,
+    // but our <Stack> isn't rendered until auth/onboarding/guest finish hydrating
+    // (RootLayoutNav returns an ActivityIndicator until then). Pushing into the
+    // missing stack thrashes router state and unmount-loops the subtree.
     Linking.getInitialURL().then((url) => {
-      mark(`cold:getInitialURL-resolved url=${url ? 'yes' : 'null'}`);
       if (!url) return;
-      mark('cold:url-stashed');
       pendingInitialUrl.current = url;
       setHasPendingInitialUrl(true);
     });
@@ -155,18 +144,12 @@ function useProtectedRoute() {
   // deep-link target. Waiting for hydration lets the guard settle first, and
   // the extra RAF defer ensures our push is the last navigation on this frame.
   useEffect(() => {
-    mark(`cold:replay-eval navKey=${!!navigationState?.key} authL=${authLoading} onbL=${onboardingLoading} guestL=${guestLoading} pending=${!!pendingInitialUrl.current}`);
     if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) return;
     if (!pendingInitialUrl.current) return;
     const url = pendingInitialUrl.current;
     pendingInitialUrl.current = null;
     setHasPendingInitialUrl(false);
-    mark('cold:replay-scheduled-RAF');
-    requestAnimationFrame(() => {
-      mark('cold:RAF-fired-pre-push');
-      handleContentDeepLink(url);
-      mark('cold:RAF-fired-post-push');
-    });
+    requestAnimationFrame(() => handleContentDeepLink(url));
   }, [navigationState?.key, authLoading, onboardingLoading, guestLoading, hasPendingInitialUrl]);
 
   useEffect(() => {
