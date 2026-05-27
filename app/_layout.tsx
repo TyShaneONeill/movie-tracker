@@ -151,6 +151,14 @@ function useProtectedRoute() {
       return;
     }
 
+    // Don't gate content routes (movie / tv / person / etc). These are
+    // browse-anywhere by design — the screens themselves use useRequireAuth
+    // to gate write actions. Without this, a cold-start deep-link push to
+    // /movie/278 races the guard, which RAF-schedules a router.replace to
+    // /(auth)/signin or /(onboarding) and clobbers the target.
+    const inRouteGroup = segments[0]?.startsWith('(');
+    if (segments[0] && !inRouteGroup) return;
+
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboardingGroup = segments[0] === '(onboarding)';
 
