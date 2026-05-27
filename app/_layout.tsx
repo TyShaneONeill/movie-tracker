@@ -72,10 +72,17 @@ function useProtectedRoute() {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
-  // Holds an initial deep-link URL captured before the root navigator mounted.
-  // router.push() is a no-op until navigationState.key exists, so on cold start
-  // we stash the URL here and replay it in the effect below.
+  // Holds an initial deep-link URL captured before the root <Stack> mounted.
+  // RootLayoutNav renders an <ActivityIndicator> until auth/onboarding/guest
+  // have hydrated, so router.push() before that point fires against a missing
+  // navigator and thrashes expo-router's internal state (see PR #489 — the
+  // resulting unmount/remount loop OOMs Hermes within ~30s). The replay
+  // effect below is the single source of truth for firing the cold-start
+  // push, gated on all loading flags being false.
   const pendingInitialUrl = useRef<string | null>(null);
+  // State (not just a ref) so the replay effect re-runs when getInitialURL
+  // resolves AFTER the loading flags have already settled.
+  const [hasPendingInitialUrl, setHasPendingInitialUrl] = useState(false);
 
   // Listen for deep links and PASSWORD_RECOVERY auth events
   useEffect(() => {
@@ -105,21 +112,20 @@ function useProtectedRoute() {
       }
     };
 
-    // Check if app was opened via deep link. On cold start the root navigator
-    // is not yet mounted, so router.push() inside handleContentDeepLink would
-    // silently no-op. Stash the URL and let the navigationState effect below
-    // replay it once the nav tree is ready.
+    // Cold-start deep link: ALWAYS stash. Do not call handleUrl directly here.
+    // navigationState.key becomes truthy as soon as expo-router's internal
+    // NavigationContainer mounts, which is BEFORE our <Stack> renders (we're
+    // still showing <ActivityIndicator> until auth/onboarding/guest hydrate).
+    // Pushing into a missing stack causes expo-router to remount this subtree
+    // in a loop. The replay effect below fires the push once everything is
+    // genuinely ready.
     mark('cold:effect-mount');
     Linking.getInitialURL().then((url) => {
       mark(`cold:getInitialURL-resolved url=${url ? 'yes' : 'null'}`);
       if (!url) return;
-      if (navigationState?.key) {
-        mark('cold:nav-already-mounted-handleUrl-direct');
-        handleUrl({ url });
-      } else {
-        mark('cold:url-stashed');
-        pendingInitialUrl.current = url;
-      }
+      mark('cold:url-stashed');
+      pendingInitialUrl.current = url;
+      setHasPendingInitialUrl(true);
     });
 
     // Listen for deep links while app is open
@@ -154,13 +160,14 @@ function useProtectedRoute() {
     if (!pendingInitialUrl.current) return;
     const url = pendingInitialUrl.current;
     pendingInitialUrl.current = null;
+    setHasPendingInitialUrl(false);
     mark('cold:replay-scheduled-RAF');
     requestAnimationFrame(() => {
       mark('cold:RAF-fired-pre-push');
       handleContentDeepLink(url);
       mark('cold:RAF-fired-post-push');
     });
-  }, [navigationState?.key, authLoading, onboardingLoading, guestLoading]);
+  }, [navigationState?.key, authLoading, onboardingLoading, guestLoading, hasPendingInitialUrl]);
 
   useEffect(() => {
     if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) {
