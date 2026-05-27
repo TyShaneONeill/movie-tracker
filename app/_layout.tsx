@@ -33,7 +33,7 @@ import { useOnboarding, OnboardingProvider } from '@/hooks/use-onboarding';
 import { GuestProvider, useGuest } from '@/lib/guest-context';
 import { Colors } from '@/constants/theme';
 import { toastConfig } from '@/lib/toast-config';
-import { handleAuthDeepLink } from '@/lib/deep-link-handler';
+import { handleAuthDeepLink, handleContentDeepLink } from '@/lib/deep-link-handler';
 import { assertAuthEnv } from '@/lib/auth-env-assert';
 import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
@@ -66,6 +66,17 @@ function useProtectedRoute() {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
+  // Holds an initial deep-link URL captured before the root <Stack> mounted.
+  // RootLayoutNav renders an <ActivityIndicator> until auth/onboarding/guest
+  // have hydrated, so router.push() before that point fires against a missing
+  // navigator and thrashes expo-router's internal state (see PR #489 — the
+  // resulting unmount/remount loop OOMs Hermes within ~30s). The replay
+  // effect below is the single source of truth for firing the cold-start
+  // push, gated on all loading flags being false.
+  const pendingInitialUrl = useRef<string | null>(null);
+  // State (not just a ref) so the replay effect re-runs when getInitialURL
+  // resolves AFTER the loading flags have already settled.
+  const [hasPendingInitialUrl, setHasPendingInitialUrl] = useState(false);
 
   // Listen for deep links and PASSWORD_RECOVERY auth events
   useEffect(() => {
@@ -74,6 +85,11 @@ function useProtectedRoute() {
     // PKCE code exchange (or implicit setSession) for any auth-bearing URL,
     // then returns the path segment so we can route the user appropriately.
     const handleUrl = async (event: { url: string }) => {
+      // Content deep links (pocketstubs://movie/{id}, https://pocketstubs.com/movie/{id})
+      // are routed first. Content and auth links live in disjoint URL spaces, so
+      // running both handlers is safe; whichever recognizes the URL handles it.
+      handleContentDeepLink(event.url);
+
       const path = await handleAuthDeepLink(event.url);
       if (path === 'reset-password') {
         pendingPasswordReset.current = true;
@@ -90,9 +106,15 @@ function useProtectedRoute() {
       }
     };
 
-    // Check if app was opened via deep link
+    // Cold-start deep link: always stash, never push directly. navigationState.key
+    // becomes truthy as soon as expo-router's internal NavigationContainer mounts,
+    // but our <Stack> isn't rendered until auth/onboarding/guest finish hydrating
+    // (RootLayoutNav returns an ActivityIndicator until then). Pushing into the
+    // missing stack thrashes router state and unmount-loops the subtree.
     Linking.getInitialURL().then((url) => {
-      if (url) handleUrl({ url });
+      if (!url) return;
+      pendingInitialUrl.current = url;
+      setHasPendingInitialUrl(true);
     });
 
     // Listen for deep links while app is open
@@ -115,10 +137,33 @@ function useProtectedRoute() {
     };
   }, []);
 
+  // Replay a cold-start content deep link once the root navigator is mounted
+  // AND auth/onboarding/guest state has hydrated. The protected-route effect
+  // below schedules a router.replace via requestAnimationFrame on the same
+  // navigationState.key tick — pushing earlier means the replace clobbers our
+  // deep-link target. Waiting for hydration lets the guard settle first, and
+  // the extra RAF defer ensures our push is the last navigation on this frame.
+  useEffect(() => {
+    if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) return;
+    if (!pendingInitialUrl.current) return;
+    const url = pendingInitialUrl.current;
+    pendingInitialUrl.current = null;
+    setHasPendingInitialUrl(false);
+    requestAnimationFrame(() => handleContentDeepLink(url));
+  }, [navigationState?.key, authLoading, onboardingLoading, guestLoading, hasPendingInitialUrl]);
+
   useEffect(() => {
     if (!navigationState?.key || authLoading || onboardingLoading || guestLoading) {
       return;
     }
+
+    // Don't gate content routes (movie / tv / person / etc). These are
+    // browse-anywhere by design — the screens themselves use useRequireAuth
+    // to gate write actions. Without this, a cold-start deep-link push to
+    // /movie/278 races the guard, which RAF-schedules a router.replace to
+    // /(auth)/signin or /(onboarding) and clobbers the target.
+    const inRouteGroup = segments[0]?.startsWith('(');
+    if (segments[0] && !inRouteGroup) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboardingGroup = segments[0] === '(onboarding)';
@@ -126,6 +171,11 @@ function useProtectedRoute() {
     // Defer navigation to next frame to ensure all routes are mounted
     // requestAnimationFrame is more reliable than setTimeout(0) on Android
     const performNavigation = (route: string) => {
+      // No-op if we're already inside the target route group. Without this
+      // guard, segments-driven re-runs could ping-pong RAF replaces and
+      // exhaust the Hermes heap.
+      const targetGroup = route.match(/^\/\(([^)]+)\)/)?.[1];
+      if (targetGroup && segments[0] === `(${targetGroup})`) return;
       requestAnimationFrame(() => {
         router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
       });

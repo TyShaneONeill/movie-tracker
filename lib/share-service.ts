@@ -3,13 +3,18 @@ import { Platform, Share } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Clipboard from 'expo-clipboard';
 
-const REVIEW_URL_BASE = 'https://pocketstubs.com/review';
+const WEB_BASE = 'https://pocketstubs.com';
+const REVIEW_URL_BASE = `${WEB_BASE}/review`;
+const MOVIE_URL_BASE = `${WEB_BASE}/movie`;
+const TV_URL_BASE = `${WEB_BASE}/tv`;
 
 /**
- * Capture a ViewShot ref as a temporary PNG file
+ * Capture a ViewShot ref as a temporary PNG file.
+ * Generic helper — used by both review and discovery share flows.
  */
-export async function captureReviewCard(
+export async function captureCard(
   viewShotRef: RefObject<ViewShot | null>
 ): Promise<string> {
   if (!viewShotRef.current?.capture) {
@@ -18,6 +23,15 @@ export async function captureReviewCard(
 
   const uri = await viewShotRef.current.capture();
   return uri;
+}
+
+/**
+ * @deprecated Use captureCard. Kept as an alias to avoid breaking existing call sites.
+ */
+export async function captureReviewCard(
+  viewShotRef: RefObject<ViewShot | null>
+): Promise<string> {
+  return captureCard(viewShotRef);
 }
 
 /**
@@ -103,7 +117,106 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 /**
- * Share a movie or TV show page URL via native share sheet or web share
+ * Internal helper: capture a discovery card and route it through the share sheet,
+ * with the canonical web URL copied to the clipboard so users can paste it
+ * alongside the image (the share sheet only carries one item — see PRD §"Share Flow").
+ *
+ * Both `shareMovieDiscovery` and `shareTvDiscovery` funnel through this — the
+ * only per-surface differences are the URL and the dialog title.
+ */
+async function shareDiscovery(
+  viewShotRef: RefObject<ViewShot | null>,
+  url: string,
+  dialogTitle: string,
+  webShareTitle: string
+): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: webShareTitle,
+          url,
+        });
+        return;
+      } catch {
+        // user cancelled or not supported — fall through to clipboard
+      }
+    }
+    await copyToClipboard(url);
+    return;
+  }
+
+  // Native: copy URL to clipboard first so users can paste alongside the image
+  // (the share sheet only carries one item — see PRD line 182-184).
+  try {
+    await Clipboard.setStringAsync(url);
+  } catch {
+    // Clipboard failures shouldn't block the share itself.
+  }
+
+  const imageUri = await captureCard(viewShotRef);
+
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (!isAvailable) {
+    throw new Error('Sharing is not available on this device');
+  }
+
+  await Sharing.shareAsync(imageUri, {
+    mimeType: 'image/png',
+    dialogTitle,
+  });
+}
+
+/**
+ * Share a movie discovery card: captures the off-screen DiscoveryMovieCard,
+ * copies the URL to the clipboard (so users can paste it alongside the image),
+ * then opens the native share sheet with the PNG.
+ *
+ * Per PRD: discovery cards contain only TMDB poster + title + "On PocketStubs"
+ * tag + the share URL baked into the image. No user data.
+ */
+export async function shareMovieDiscovery(
+  viewShotRef: RefObject<ViewShot | null>,
+  tmdbId: number,
+  title: string
+): Promise<void> {
+  const url = `${MOVIE_URL_BASE}/${tmdbId}`;
+  await shareDiscovery(
+    viewShotRef,
+    url,
+    `Share ${title}`,
+    `${title} on PocketStubs`
+  );
+}
+
+/**
+ * Share a TV show discovery card: captures the off-screen DiscoveryTvCard,
+ * copies the URL to the clipboard, then opens the native share sheet with the PNG.
+ *
+ * Mirrors `shareMovieDiscovery` — the per-surface differences are the URL base
+ * (/tv vs /movie) and the dialog title using `showName`.
+ */
+export async function shareTvDiscovery(
+  viewShotRef: RefObject<ViewShot | null>,
+  tmdbId: number,
+  showName: string
+): Promise<void> {
+  const url = `${TV_URL_BASE}/${tmdbId}`;
+  await shareDiscovery(
+    viewShotRef,
+    url,
+    `Share ${showName}`,
+    `${showName} on PocketStubs`
+  );
+}
+
+/**
+ * Share a movie or TV show page URL via native share sheet or web share.
+ *
+ * @deprecated Use `shareMovieDiscovery` (movies) or `shareTvDiscovery` (TV) for
+ * the PRD-6 discovery share flow with a captured card + clipboard URL. This
+ * URL-only function is retained for future surfaces (Review, First Take) and any
+ * unmigrated callers; new call sites should prefer the discovery variants.
  */
 export async function shareTitle(
   tmdbId: number,

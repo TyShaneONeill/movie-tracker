@@ -38,6 +38,7 @@ import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import ViewShot from 'react-native-view-shot';
 import { Ionicons } from '@expo/vector-icons';
 import GlassBackButton from '@/components/ui/glass-back-button';
 import Svg, { Path, Polyline, Line } from 'react-native-svg';
@@ -65,7 +66,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/lib/theme-context';
 import { refreshSingleShow } from '@/lib/metadata-refresh';
 import { addMovieToList, createList } from '@/lib/list-service';
-import { shareTitle } from '@/lib/share-service';
+import { shareTvDiscovery } from '@/lib/share-service';
+import { DiscoveryTvCard } from '@/components/share/discovery-tv-card';
 import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/lib/tmdb.types';
@@ -330,6 +332,10 @@ export default function TvShowDetailScreen() {
   const backdropUrl = getTMDBImageUrl(show?.backdrop_path ?? null, 'original');
   const posterUrl = getTMDBImageUrl(show?.poster_path ?? null, 'w342');
 
+  // ViewShot ref for the off-screen discovery card we capture on share.
+  const viewShotRef = useRef<ViewShot>(null);
+  const [isSharing, setIsSharing] = useState(false);
+
   // Track TV show detail view
   const hasTrackedView = useRef(false);
   useEffect(() => {
@@ -430,12 +436,15 @@ export default function TvShowDetailScreen() {
   };
 
   const handleShare = async () => {
-    if (!show) return;
+    if (!show || isSharing) return;
+    setIsSharing(true);
     try {
-      await shareTitle(show.id, 'tv_show', show.name);
+      await shareTvDiscovery(viewShotRef, show.id, show.name);
       analytics.track('tv:share', { tmdb_id: show.id });
     } catch {
-      // user cancelled
+      // user cancelled or share unavailable — silent
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -930,16 +939,21 @@ export default function TvShowDetailScreen() {
             </Pressable>
             <Pressable
               onPress={handleShare}
+              disabled={isSharing}
               style={({ pressed }) => [
                 dynamicStyles.actionItem,
                 pressed && dynamicStyles.actionItemPressed,
               ]}
             >
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                <Polyline points="16 6 12 2 8 6" />
-                <Line x1={12} y1={2} x2={12} y2={15} />
-              </Svg>
+              {isSharing ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <Polyline points="16 6 12 2 8 6" />
+                  <Line x1={12} y1={2} x2={12} y2={15} />
+                </Svg>
+              )}
               <Text style={dynamicStyles.actionLabel}>Share</Text>
             </Pressable>
           </View>
@@ -1241,6 +1255,24 @@ export default function TvShowDetailScreen() {
           onClose={() => setWatchedModalVisible(false)}
           onConfirm={handleWatchedConfirm}
         />
+      )}
+
+      {/* Off-screen discovery share card — captured by react-native-view-shot
+          when the user taps Share. Native only; web uses navigator.share. */}
+      {Platform.OS !== 'web' && (
+        <ViewShot
+          ref={viewShotRef}
+          options={{ format: 'png', quality: 1 }}
+          style={dynamicStyles.offScreen}
+        >
+          <DiscoveryTvCard
+            showName={show.name}
+            posterPath={show.poster_path}
+            firstAirYear={startYear !== 'N/A' ? startYear : undefined}
+            tagline={show.tagline || undefined}
+            shareUrl={`pocketstubs.com/tv/${show.id}`}
+          />
+        </ViewShot>
       )}
     </View>
   );
@@ -1758,5 +1790,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   errorBackButtonText: {
     ...Typography.button.primary,
     color: Colors.dark.text, // Always white on tint button for contrast
+  },
+
+  // Off-screen ViewShot container for share-card capture.
+  // Mirrors app/movie/[id]/index.tsx — left/top -9999 so the card mounts and
+  // lays out (so view-shot can capture it) but is never visible to the user.
+  offScreen: {
+    position: 'absolute',
+    left: -9999,
+    top: -9999,
   },
 });
