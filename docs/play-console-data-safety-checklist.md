@@ -113,6 +113,7 @@ We do not request foreground or background location, and we do not derive approx
 | Google AdMob (`react-native-google-mobile-ads` — `lib/ads-context.tsx`, `components/ads/*`) | IDFA (post-ATT consent), device info, ad interactions | Show banners / native / rewarded ads | Yes (advertising ID) | **Yes** |
 | Google Sign-In (`@react-native-google-signin/google-signin` — `lib/auth-context.tsx` line 327) | Google profile (name, email, picture, sub) | OAuth sign-in | Yes | No |
 | Apple Sign-In (`expo-apple-authentication` — `lib/auth-context.tsx` line 277) | Apple ID identity token, name (first sign-in only), relay email | OAuth sign-in | Yes | No |
+| Facebook Sign-In (Supabase OAuth via `expo-web-browser` — `lib/auth-context.tsx` lines 392–430) | Facebook email + basic profile (name, picture) per user authorization | OAuth sign-in. **No native Facebook SDK** — redirect-only flow, so no IDFA/AAID is shared with Meta from this app. | Yes | No |
 | RevenueCat (`react-native-purchases` — `lib/premium-context.tsx` line 179) | App user ID, store transaction IDs, entitlement state | Subscription billing | Yes | No |
 | TMDB API (server-side only — `supabase/functions/*/index.ts`) | None from the user — only `tmdb_id` lookups | Movie/TV metadata | No | No |
 | Google Gemini (`generativelanguage.googleapis.com` — `supabase/functions/scan-ticket/index.ts` line 562) | Base64 ticket photo, processed ephemerally; not persisted at Google | OCR / ticket extraction | Anonymous (no user identifier passed) | No |
@@ -120,7 +121,7 @@ We do not request foreground or background location, and we do not derive approx
 | Expo Notifications / Expo Push (`expo-notifications` — `lib/push-notification-service.ts`) | Expo push token, notification payload at delivery time | Push delivery | Yes (token ↔ user) | No |
 | Expo Tracking Transparency (`expo-tracking-transparency` — `app/_layout.tsx` line 375) | iOS ATT prompt only | Gates AdMob IDFA access | — | — |
 
-Not in the app for 1.4.0 (do NOT list): Facebook SDK (auth-context references it but EXPO does not build it in — see OPEN #3), Mixpanel, Branch, Adjust, Segment, Firebase Analytics, OneSignal.
+Not in the app for 1.4.0 (do NOT list): Mixpanel, Branch, Adjust, Segment, Firebase Analytics, OneSignal. (Note: Facebook IS listed above — it ships via Supabase OAuth redirect, not the native Facebook SDK, which is why no `react-native-fbsdk-next` appears in `package.json`.)
 
 ---
 
@@ -133,7 +134,7 @@ Not in the app for 1.4.0 (do NOT list): Facebook SDK (auth-context references it
 - **Can users request that their data be deleted?** **Yes.** In-app account deletion is wired and reachable:
   - UI: `app/settings/index.tsx` line 356 → `app/settings/delete-account.tsx`
   - Backend: edge function `supabase/functions/delete-account/index.ts`
-  - Out-of-app: email `privacy@cinetrak.app` (per Privacy Policy line 122 — **OPEN #1**: privacy policy still says "cinetrak.app", update to a PocketStubs address before submission).
+  - Out-of-app: email `privacy@pocketstubs.com` (per Privacy Policy — rebranded 2026-05-28 in this PR).
 - **Committed to Play Families Policy?** N/A.
 - **Do users have a way to opt out of data collection?** **Partial — flag this on the form.**
   - Push notifications: Yes — `app/settings/notifications.tsx` (controls `public.notification_preferences`).
@@ -168,10 +169,10 @@ Anything marked "Used for Tracking" on App Store requires the ATT prompt — alr
 
 ## 5. Open Questions for the User
 
-1. **Privacy policy email address.** `docs/PRIVACY_POLICY.md` line 122 still says `privacy@cinetrak.app` and "Last Updated: January 25, 2025". Both need to change before submission. What is the canonical PocketStubs contact address — `privacy@pocketstubs.com`?
-2. **Analytics opt-out.** Should we ship a settings toggle for Sentry + PostHog (then answer "Yes" to the Play opt-out question), or accept "No" on the form? Required either way; pick one.
-3. **Facebook Sign-In.** `lib/auth-context.tsx` lines 396–407 reference a `signInWithFacebook` codepath, but `app.config.js` has no Facebook SDK plugin and Facebook does not appear in `package.json`. Is Facebook auth shipping in 1.4.0? If not, the dead code should be removed and Facebook does NOT belong on the SDK list (current assumption: not shipping).
-4. **AdMob on Android.** `app.config.js` line 133 still uses the AdMob test app ID `ca-app-pub-3940256099942544~3347511713` with a `TODO` comment. The prompt says "iOS only for 1.4.0". Confirm: are we shipping 1.4.0 to Play without AdMob on Android (test ID = no real serving), or is a production Android AdMob ID coming before submission?
+1. ~~**Privacy policy email address.**~~ **RESOLVED 2026-05-28** — Rebranded to PocketStubs, contact email is `privacy@pocketstubs.com`, date stamp refreshed. See `docs/PRIVACY_POLICY.md` in this PR.
+2. **Analytics opt-out.** Settings → Privacy toggles for Sentry + PostHog are being built on this branch (commit pending). Once shipped, answer **"Yes"** to the Play opt-out question. If the toggle build slips, fall back to **"No"**.
+3. ~~**Facebook Sign-In.**~~ **RESOLVED 2026-05-28** — Facebook auth ships in 1.4.0 via Supabase OAuth (in-app browser redirect, not the native Facebook SDK). Code path verified reachable on Android / iOS / Web. Listed in the SDK table above. Requires Supabase dashboard to have Facebook OAuth enabled for project `wliblwulvsrfgqcnbzeh` — **confirm in dashboard before submission**.
+4. **AdMob on Android.** A production Android AdMob app ID is being created via AdMob console's "Add app manually" path (no Play Store listing required). Once issued, swap into `app.config.js` line 133 (replaces the current Google test app ID `ca-app-pub-3940256099942544~3347511713`).
 5. **Gemini data retention.** Google's Gemini API has different retention rules for free vs paid tier; the scan-ticket edge function uses an API key (`GEMINI_API_KEY`, line 717 of `scan-ticket/index.ts`). Is the project on the paid tier with no-retention (so we can answer "data processed ephemerally" for ticket photos)?
 6. **Ticket photo persistence.** Cropped JPEGs of tickets are attached to `theater_visits` rows (`hooks/use-scan-ticket.ts` line 409). Are they uploaded to Supabase Storage as part of the journey/visit save, or kept only on-device? If uploaded, confirm the bucket name so it can be cited here.
 7. **AI ticket extraction disclosure.** Play's "AI" labelling rules (effective 2024) ask you to declare GenAI use. Confirm we will tick the AI feature box on the form for ticket scanning.
@@ -182,5 +183,5 @@ Anything marked "Used for Tracking" on App Store requires the ATT prompt — alr
 ## Summary (for the developer filling the form)
 
 - **Data categories marked YES:** 8 of 14 — Personal info, Financial info (purchase history only), Photos & videos, Files & docs (narrow), App activity, App info & performance, Device/Other IDs, plus the implicit "Other user content" subcategory under App activity.
-- **Third-party SDKs / endpoints enumerated:** 12 — Supabase, Sentry, PostHog, AdMob, Google Sign-In, Apple Sign-In, RevenueCat, TMDB, Gemini, Expo Updates, Expo Notifications/Push, Expo Tracking Transparency.
-- **Open questions flagged:** 8 (see section 5).
+- **Third-party SDKs / endpoints enumerated:** 13 — Supabase, Sentry, PostHog, AdMob, Google Sign-In, Apple Sign-In, Facebook Sign-In (OAuth redirect, no native SDK), RevenueCat, TMDB, Gemini, Expo Updates, Expo Notifications/Push, Expo Tracking Transparency.
+- **Open questions:** 8 originally — #1 (email) and #3 (Facebook) resolved 2026-05-28; #2 (analytics opt-out) being built; #4 (AdMob Android) pending paste of manually-issued AdMob app ID; #5–8 (Gemini retention tier, ticket photo persistence, AI feature box declaration, deletion SLA) still need user input before form submission.
