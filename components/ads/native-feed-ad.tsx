@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, Animated, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Animated, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { useAds } from '@/lib/ads-context';
 import { captureMessage } from '@/lib/sentry';
 import { useTheme } from '@/lib/theme-context';
@@ -8,6 +8,12 @@ import { Colors, Spacing, BorderRadius, FontSizes } from '@/constants/theme';
 // react-native-google-mobile-ads is NOT imported at module level — doing so executes
 // module-level initialization code that crashes on iOS 26.4 beta. Loaded lazily on first render.
 // Web uses native-feed-ad.web.tsx instead (no native ads on web).
+
+const NATIVE_FEED_AD_UNIT_ID = Platform.select({
+  ios: 'ca-app-pub-5311715630678079/6912336439',
+  android: 'ca-app-pub-5311715630678079/5077578184',
+  default: 'ca-app-pub-5311715630678079/6912336439',
+})!;
 
 export function NativeFeedAd() {
   const { adsReady } = useAds();
@@ -45,7 +51,7 @@ export function NativeFeedAd() {
   const { BannerAd, BannerAdSize, TestIds } = adComponents;
   const unitId = __DEV__
     ? TestIds.ADAPTIVE_BANNER
-    : 'ca-app-pub-5311715630678079/6912336439';
+    : NATIVE_FEED_AD_UNIT_ID;
 
   return (
     <View style={styles.container}>

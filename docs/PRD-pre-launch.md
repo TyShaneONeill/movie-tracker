@@ -42,9 +42,9 @@ Grouped by tester-feedback PRD and other PRDs that closed since the January 2025
 ## Pre-submission Checklist (gates 1.4.0)
 
 ### Verified blockers
-- [ ] **AdMob Android app ID is a Google test ID** — current `androidAppId` in `app.config.js:134` is `ca-app-pub-3940256099942544~3347511713` (test). **DEFERRED to 1.5.0**: gate ads to iOS only for 1.4.0. Done = banner / native / rewarded ad components no-op on Android (verify in `components/ads/banner-ad.tsx`, `components/ads/native-feed-ad.tsx`, `hooks/use-rewarded-ad.ts`).
+- [x] **AdMob Android app ID swapped to production** — `app.config.js:134` `androidAppId: ca-app-pub-5311715630678079~2922188131` (issued via AdMob console "Add app manually" path, no Play Store listing required). All six ad unit IDs (3 banners, 1 native, 2 rewarded) are now platform-conditional via `Platform.select` in `components/ads/banner-ad.tsx`, `components/ads/native-feed-ad.tsx`, `hooks/use-rewarded-ad.ts` — required because AdMob rejects iOS unit IDs served to Android requests.
 - [ ] **`assetlinks.json` sha256_cert_fingerprints array is empty** — `public/.well-known/assetlinks.json` ships with `"sha256_cert_fingerprints": []`. Done = array contains the SHA-256 from the EAS production keystore (`eas credentials --platform android` → Production → copy SHA-256), file deployed to `https://pocketstubs.com/.well-known/assetlinks.json`, and Android App Links verifier returns OK.
-- [ ] **Play Console Data Safety form** — separate doc being drafted. Done = form submitted in Play Console matching what the app actually collects (Supabase auth email, profile, ticket photos, PostHog analytics, Sentry crash data, push tokens, AdMob iOS-only ad ID).
+- [ ] **Play Console Data Safety form** — drafted in `docs/play-console-data-safety-checklist.md`. Done = form submitted in Play Console matching what the app actually collects (Supabase auth email, profile, ticket photos, PostHog analytics, Sentry crash data, push tokens, AdMob ad IDs on both iOS + Android, Facebook OAuth).
 - [ ] **Version bump to 1.4.0** — in progress. Done = `app.config.js` `version` + `runtimeVersion` = `1.4.0`, `package.json` `version` = `1.4.0` (no other files need touching; Settings reads from `expo-constants`).
 - [ ] **`eas.json` Android track is `internal`** — intentional for first submission. Done after smoke test = manually promote 1.4.0 to production in Play Console (or change `track` to `production` for the next submission).
 
@@ -67,7 +67,7 @@ Grouped by tester-feedback PRD and other PRDs that closed since the January 2025
 ### Infrastructure & runtime
 - [x] Sentry configured — `@sentry/react-native/expo` plugin in `app.config.js:96`.
 - [x] PostHog analytics — `posthog-react-native` in `package.json`.
-- [x] AdMob iOS configured with production app ID — `app.config.js:135` `iosAppId: ca-app-pub-5311715630678079~5445543222`.
+- [x] AdMob iOS + Android configured with production app IDs — `app.config.js:134-135` (iOS `~5445543222`, Android `~2922188131`).
 - [x] `expo-tracking-transparency` — `app.config.js:118`.
 - [x] AASA served from `pocketstubs.com` with `application/json` MIME — verified live with `swcutil dl -d pocketstubs.com` per PRD-social-share Sprint 1.
 - [x] Apple Sign-In + Google Sign-In + Supabase auth wired.
@@ -101,7 +101,6 @@ Grouped by tester-feedback PRD and other PRDs that closed since the January 2025
 
 - **PRD-6 Sprint 3 — Review share + First Take share.** Web fallback pages at `pocketstubs.com/review/{id}` and `pocketstubs.com/firsttake/{id}` + share-to-install attribution. User-authored card template family. Private-content refusal copy.
 - **PRD-6 Sprint 4 — Polish.** Multiple card templates (light/dark, square/story), share-surface telemetry, A/B card variants.
-- **Android AdMob.** Production app ID from `console.admob.com`; replace test ID in `app.config.js:134`; un-gate ads on Android.
 - **Ticket stub sharing (v2 of PRD-6).** Blocked on friend-confirmation UX + direct-send privacy model — see PRD-social-share "Deferred to v2".
 - **Reviews engagement (later phases of PRD-reviews).** Likes, comments, replies.
 - **Notification preferences backend polish, data export, Letterboxd/Trakt integrations** — historically tracked in the old PRD; still deferred.
