@@ -138,7 +138,18 @@ PocketStubs uses semantic versioning. **Do NOT bump the version with every PR.**
 **When bumping a version** (only when explicitly instructed):
 1. Update `version` in `app.config.js`
 2. Update `version` in `package.json` to match
-3. The settings screen reads the version dynamically from `expo-constants` — no other files need changing
+3. Bump `ios.buildNumber` in `app.config.js` (App Store rejects duplicate build numbers within a version train)
+4. Bump `android.versionCode` in `app.config.js` (Play Store rejects duplicate version codes)
+5. Bump `runtimeVersion` in `app.config.js` to match the new `version` — OTAs only serve to matching native shells, so a new native release needs a new runtimeVersion
+6. The settings screen reads the version dynamically from `expo-constants` — no other JS files need changing
+
+**Native directory trap (1.4.0 release gotcha):** `/ios` and `/android` are gitignored, but `npm run ios` / `npm run android` / `expo prebuild` generate them locally as a side effect. When EAS Build compresses your project for upload, it sees those local prebuilt dirs and **switches to bare workflow**, silently ignoring version fields in `app.config.js` in favor of `ios/<Project>/Info.plist` (`CFBundleShortVersionString`, `CFBundleVersion`) and `android/app/build.gradle` (`versionName`, `versionCode`). Watch for this warning in EAS output:
+
+```
+Specified value for "ios.bundleIdentifier" in app.config.js is ignored because an ios directory was detected in the project.
+```
+
+If you see it, your build's version numbers are coming from stale native files, not from `app.config.js`. Fix: `rm -rf ios/ android/ && git restore ios/sentry.properties` before rebuilding, so EAS prebuilds fresh from `app.config.js` in the cloud.
 
 ## Database / Supabase
 
