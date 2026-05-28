@@ -14,7 +14,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import Toast from 'react-native-toast-message';
 import { supabase } from './supabase';
 import { queryClient } from './query-client';
-import { setSentryUser, captureException } from './sentry';
+import { setSentryUser, captureException, captureMessage } from './sentry';
 import { analytics } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push-notification-service';
 import type { Session, User } from '@supabase/supabase-js';
@@ -416,17 +416,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
-    if (result.type === 'success' && result.url) {
-      const url = new URL(result.url);
-      const code = url.searchParams.get('code');
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) throw exchangeError;
-        analytics.track('auth:sign_in', { method: 'facebook' });
-      }
-    } else if (result.type === 'cancel' || result.type === 'dismiss') {
+    if (result.type === 'cancel' || result.type === 'dismiss') {
       throw new Error('Facebook Sign-In was cancelled');
     }
+
+    if (result.type !== 'success' || !result.url) {
+      captureMessage('Facebook OAuth returned unexpected result type', {
+        result_type: result.type,
+      });
+      throw new Error(`Facebook Sign-In returned unexpected state: ${result.type}`);
+    }
+
+    // Supabase OAuth returns either `?code=` (PKCE flow) or `#access_token=`
+    // (implicit flow), depending on the supabase-js client's flowType and the
+    // server's response_type. iOS broke silently in 1.3.x because we only
+    // checked query params; now we handle both. Mirrors the parsing in
+    // lib/deep-link-handler.ts.
+    const queryIndex = result.url.indexOf('?');
+    const hashIndex = result.url.indexOf('#');
+    let code: string | null = null;
+    let accessToken: string | null = null;
+    let refreshToken: string | null = null;
+
+    if (queryIndex !== -1) {
+      const search = new URLSearchParams(result.url.substring(queryIndex + 1).split('#')[0]);
+      code = search.get('code');
+    }
+    if (hashIndex !== -1) {
+      const hash = new URLSearchParams(result.url.substring(hashIndex + 1));
+      if (!code) code = hash.get('code');
+      accessToken = hash.get('access_token');
+      refreshToken = hash.get('refresh_token');
+    }
+
+    if (code) {
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      if (exchangeError) throw exchangeError;
+      analytics.track('auth:sign_in', { method: 'facebook' });
+      return;
+    }
+
+    if (accessToken && refreshToken) {
+      const { error: setError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (setError) throw setError;
+      analytics.track('auth:sign_in', { method: 'facebook' });
+      return;
+    }
+
+    captureMessage('Facebook OAuth callback missing auth credentials', {
+      has_query: queryIndex !== -1,
+      has_hash: hashIndex !== -1,
+    });
+    throw new Error('Facebook Sign-In failed: no auth credentials in callback');
   };
 
   const deleteAccount = async (): Promise<{ error: Error | null }> => {

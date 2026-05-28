@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useAds } from '@/lib/ads-context';
 import { captureMessage } from '@/lib/sentry';
 import { Spacing } from '@/constants/theme';
@@ -11,9 +11,21 @@ import { Spacing } from '@/constants/theme';
 type BannerPlacement = 'home' | 'search' | 'stats';
 
 const BANNER_AD_UNIT_IDS: Record<BannerPlacement, string> = {
-  home: 'ca-app-pub-5311715630678079/6336892416',
-  search: 'ca-app-pub-5311715630678079/4417306087',
-  stats: 'ca-app-pub-5311715630678079/1492488790',
+  home: Platform.select({
+    ios: 'ca-app-pub-5311715630678079/6336892416',
+    android: 'ca-app-pub-5311715630678079/8669642759',
+    default: 'ca-app-pub-5311715630678079/6336892416',
+  })!,
+  search: Platform.select({
+    ios: 'ca-app-pub-5311715630678079/4417306087',
+    android: 'ca-app-pub-5311715630678079/4504378480',
+    default: 'ca-app-pub-5311715630678079/4417306087',
+  })!,
+  stats: Platform.select({
+    ios: 'ca-app-pub-5311715630678079/1492488790',
+    android: 'ca-app-pub-5311715630678079/2642986536',
+    default: 'ca-app-pub-5311715630678079/1492488790',
+  })!,
 };
 
 interface BannerAdProps {

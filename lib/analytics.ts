@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { getAnalyticsEnabled } from './privacy-preferences';
 
 // posthog-react-native is NOT statically imported — doing so runs module-level native
 // initialization code that can crash on iOS 26.4 beta. Loaded lazily inside initAnalytics.
@@ -6,7 +7,11 @@ import { Platform } from 'react-native';
 type EventProperties = Record<string, string | number | boolean | null | undefined>;
 type UserProperties = Record<string, string | number | boolean | null | undefined>;
 
+// `any` is unavoidable here — posthog-js and posthog-react-native expose
+// different (incompatible) types but we abstract over both at runtime.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let posthogClient: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let nativeClient: any | null = null;
 
 /** Initialize the analytics client */
@@ -43,6 +48,47 @@ export async function initAnalytics(apiKey: string, host: string) {
     } catch (error) {
       console.warn('[analytics] Failed to initialize PostHog (native):', error);
     }
+  }
+
+  // Apply the user's previous opt-out choice. PostHog's opt_out_capturing()
+  // (web) / optOut() (RN) is persisted by the SDK, but we still re-apply on
+  // boot in case storage was cleared or the SDK was re-initialized.
+  try {
+    const enabled = await getAnalyticsEnabled();
+    if (!enabled) {
+      applyAnalyticsEnabled(false);
+    }
+  } catch {
+    // Default-on behavior: do nothing.
+  }
+}
+
+/**
+ * Toggle PostHog event capture at runtime.
+ *
+ * Uses PostHog's official opt-out API:
+ *   - Native: `optIn()` / `optOut()`
+ *   - Web:    `opt_in_capturing()` / `opt_out_capturing()`
+ *
+ * In-flight events queued before opt-out are dropped by the SDK — that's the
+ * documented behavior of these APIs.
+ */
+export function applyAnalyticsEnabled(enabled: boolean) {
+  if (!posthogClient) return;
+
+  if (Platform.OS === 'web') {
+    if (enabled) {
+      posthogClient.opt_in_capturing?.();
+    } else {
+      posthogClient.opt_out_capturing?.();
+    }
+    return;
+  }
+
+  if (enabled) {
+    posthogClient.optIn?.();
+  } else {
+    posthogClient.optOut?.();
   }
 }
 

@@ -6,6 +6,7 @@
  */
 
 import * as Sentry from '@sentry/react-native';
+import { getCrashReportsEnabled } from './privacy-preferences';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
@@ -45,6 +46,60 @@ export function initSentry() {
       return event;
     },
   });
+
+  // Apply the user's previous opt-out choice. We read AsyncStorage async, so
+  // there's a tiny window at boot where Sentry is briefly enabled before being
+  // closed — that's acceptable per spec (Sentry.close() flushes in-flight
+  // events but stops new ones).
+  getCrashReportsEnabled()
+    .then((enabled) => {
+      if (!enabled) {
+        applyCrashReportsEnabled(false);
+      }
+    })
+    .catch(() => {
+      // Default-on behavior: do nothing.
+    });
+}
+
+/**
+ * Toggle Sentry event submission at runtime.
+ *
+ * Sentry RN does not expose a public `setEnabled()` API, so we close the
+ * client to stop new submissions (which also flushes pending events) and
+ * re-init when the user opts back in. This is the least-invasive approach.
+ */
+export function applyCrashReportsEnabled(enabled: boolean) {
+  if (!SENTRY_DSN) return;
+
+  const client = Sentry.getClient();
+
+  if (!enabled) {
+    // close() returns a promise that resolves when the queue is drained.
+    // We don't await it — fire-and-forget is fine here.
+    client?.close();
+    return;
+  }
+
+  // Re-enable by re-initializing. Sentry.init() is idempotent; calling it
+  // again replaces the client.
+  if (!client || !client.getOptions().enabled) {
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      environment: __DEV__ ? 'development' : 'production',
+      sampleRate: 1.0,
+      tracesSampleRate: __DEV__ ? 1.0 : 0.2,
+      enableAutoSessionTracking: true,
+      attachStacktrace: true,
+      enabled: !__DEV__,
+      beforeSend(event) {
+        if (event.exception?.values?.[0]?.value?.includes('Network request failed')) {
+          return null;
+        }
+        return event;
+      },
+    });
+  }
 }
 
 /**
