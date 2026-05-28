@@ -4,7 +4,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.pocketstubs.app",
-      "sha256_cert_fingerprints": []
+      "sha256_cert_fingerprints": [
+        "84:81:9F:72:EF:C4:7F:CF:88:D8:7A:C6:2B:1E:E3:70:22:5D:DA:2E:90:DE:FA:8E:BB:1C:BD:7D:D7:4E:B9:B8",
+        "F5:17:05:E2:A4:FA:AB:EB:81:CE:F2:E7:66:4D:22:C2:8F:E3:04:6D:3D:F7:69:CD:8D:03:80:4F:43:79:9E:2B"
+      ]
     }
   }
 ]
