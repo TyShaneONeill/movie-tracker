@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { useAds } from '@/lib/ads-context';
 import { captureMessage } from '@/lib/sentry';
 
 type RewardedAdType = 'scan' | 'ai';
 
 const REWARDED_AD_UNIT_IDS: Record<RewardedAdType, string> = {
-  scan: 'ca-app-pub-5311715630678079/3140612381',
-  ai: 'ca-app-pub-5311715630678079/9584000720',
+  scan: Platform.select({
+    ios: 'ca-app-pub-5311715630678079/3140612381',
+    android: 'ca-app-pub-5311715630678079/6016770702',
+    default: 'ca-app-pub-5311715630678079/3140612381',
+  })!,
+  ai: Platform.select({
+    ios: 'ca-app-pub-5311715630678079/9584000720',
+    android: 'ca-app-pub-5311715630678079/4855732276',
+    default: 'ca-app-pub-5311715630678079/9584000720',
+  })!,
 };
 
 export function useRewardedAd(type: RewardedAdType = 'scan') {

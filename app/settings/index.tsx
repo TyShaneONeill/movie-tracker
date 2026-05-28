@@ -567,6 +567,33 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Privacy Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>PRIVACY</Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsItem,
+              styles.firstItem,
+              styles.lastItem,
+              { backgroundColor: colors.card },
+              pressed && { backgroundColor: colors.backgroundSecondary }
+            ]}
+            onPress={() => { hapticImpact(); router.push('/settings/privacy'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Privacy settings"
+          >
+            <View style={styles.integrationRow}>
+              <Ionicons name="shield-checkmark-outline" size={24} color={colors.text} />
+              <View>
+                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Privacy</Text>
+                <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Crash reports and analytics</Text>
+              </View>
+            </View>
+            <ChevronRightIcon color={colors.textSecondary} />
+          </Pressable>
+        </View>
+
         {/* Legal Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>LEGAL</Text>

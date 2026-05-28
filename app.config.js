@@ -3,12 +3,12 @@ export default {
     owner: "tormaj",
     name: "PocketStubs",
     slug: "pocketstubs",
-    version: "1.3.0",
+    version: "1.4.0",
     orientation: "portrait",
     updates: {
       url: "https://u.expo.dev/d71c1a95-3697-4a03-b485-813c803573f9",
     },
-    runtimeVersion: "1.3.0",
+    runtimeVersion: "1.4.0",
     icon: "./assets/images/icon.png",
     scheme: "pocketstubs",
     userInterfaceStyle: "automatic",
@@ -19,7 +19,7 @@ export default {
         dark: "./assets/images/icon-dark.png",
         tinted: "./assets/images/icon-dark.png",
       },
-      buildNumber: "28",
+      buildNumber: "29",
       supportsTablet: false,
       bundleIdentifier: "com.pocketstubs.app",
       usesAppleSignIn: true,
@@ -42,7 +42,7 @@ export default {
     },
     android: {
       package: "com.pocketstubs.app",
-      versionCode: 51,
+      versionCode: 52,
       adaptiveIcon: {
         backgroundColor: "#000000",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -130,8 +130,7 @@ export default {
       [
         "react-native-google-mobile-ads",
         {
-          // TODO: Replace with production Android AdMob app ID from console.admob.com
-          androidAppId: "ca-app-pub-3940256099942544~3347511713",
+          androidAppId: "ca-app-pub-5311715630678079~2922188131",
           iosAppId: "ca-app-pub-5311715630678079~5445543222",
         },
       ],
