@@ -35,10 +35,11 @@ When you use PocketStubs, we store the content you create:
 
 If you use the ticket scanning feature:
 - A photo of your ticket (processed to extract text; see "AI Processing" below)
+- A cropped version of the ticket image, stored alongside your theater visit so you can review it later in your visit history
 - Information extracted from the ticket: theater name (free-text, not GPS), movie title, showtime
 - Date and time of theater visits
 
-The original ticket photo is sent to our backend for OCR processing and is not retained long-term; only the extracted fields are stored on your account.
+The original full-resolution photo is sent to our backend for OCR processing and is not retained. The cropped image is retained on your account until you delete the theater visit or delete your account.
 
 ### Purchase Information
 
@@ -134,14 +135,17 @@ While we implement safeguards to protect your information, no method of electron
 You can view all of your account data, lists, ratings, First Takes, and theater visits within the app at any time.
 
 ### Delete Your Account
-You can permanently delete your account and all associated data through **Settings → Delete Account**. This action is irreversible and removes:
+You can permanently delete your account and all associated data through **Settings → Delete Account**. This action is irreversible and immediately removes from our active databases:
 - Your profile information
 - All movie and TV lists and tracking data
 - All ratings, reviews, and First Takes
-- Theater visit history
+- Theater visit history, including any uploaded ticket photos
 - Push notification tokens
+- Achievements, follows, and notifications
 
-We delete your personal information within 30 days of an account deletion request. Backups may take an additional 30 days to expire.
+Two narrow exceptions:
+1. Diagnostic data already transmitted to Sentry or PostHog before deletion cannot be retroactively retrieved; it expires under those providers' own retention policies.
+2. Database backups maintained by our backend provider may contain your data for up to 30 days before being purged from backup retention.
 
 ### Opt Out of Analytics and Crash Reporting
 Open **Settings → Privacy** to disable PostHog product analytics and/or Sentry crash reporting independently. This takes effect immediately.
@@ -160,9 +164,9 @@ We plan to offer a one-click data export in a future update. In the meantime, if
 
 ## Data Retention
 
-We retain your personal information for as long as your account is active or as needed to provide you services. If you delete your account, we will delete your personal information within 30 days, except where we are required to retain it for legal purposes.
+We retain your personal information for as long as your account is active or as needed to provide you services. When you delete your account, we immediately remove your personal information from our active databases (see "Delete Your Account" for the full list and exceptions). Database backups may persist for up to 30 days.
 
-Ticket photos sent to Google Gemini for OCR are processed transiently and are not retained after extraction.
+Ticket photos sent to Google Gemini for OCR are processed transiently by Google. A cropped version of the ticket image is stored alongside your theater visit record so you can review it later, and is deleted when you remove that visit or your account.
 
 ## Children's Privacy
 
