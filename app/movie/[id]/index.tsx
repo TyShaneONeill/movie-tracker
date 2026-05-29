@@ -66,6 +66,7 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { addMovieToList, createList } from '@/lib/list-service';
 import { shareMovieDiscovery } from '@/lib/share-service';
 import { DiscoveryMovieCard } from '@/components/share/discovery-movie-card';
+import { GetPocketStubsCTA } from '@/components/share/get-pocketstubs-cta';
 import type { TMDBMovie, TMDBWatchProviders } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
 import type { MovieStatus } from '@/lib/database.types';
@@ -877,6 +878,10 @@ export default function MovieDetailScreen() {
             </>
           )}
         </View>
+
+        {/* Web-only install CTA for share recipients without the app.
+            Native keeps the full action set (watchlist / review / share). */}
+        {Platform.OS === 'web' && <GetPocketStubsCTA utmContent="movie" />}
         </ContentContainer>
       </ScrollView>
 

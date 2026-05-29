@@ -68,6 +68,7 @@ import { refreshSingleShow } from '@/lib/metadata-refresh';
 import { addMovieToList, createList } from '@/lib/list-service';
 import { shareTvDiscovery } from '@/lib/share-service';
 import { DiscoveryTvCard } from '@/components/share/discovery-tv-card';
+import { GetPocketStubsCTA } from '@/components/share/get-pocketstubs-cta';
 import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/lib/tmdb.types';
@@ -1151,6 +1152,10 @@ export default function TvShowDetailScreen() {
             </>
           )}
         </View>
+
+        {/* Web-only install CTA for share recipients without the app.
+            Native keeps the full action set (watchlist / review / share). */}
+        {Platform.OS === 'web' && <GetPocketStubsCTA utmContent="tv" />}
         </ContentContainer>
       </ScrollView>
 
