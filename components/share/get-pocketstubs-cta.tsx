@@ -34,7 +34,7 @@ function withUtm(baseUrl: string, utmContent: string): string {
 interface GetPocketStubsCTAProps {
   /**
    * Value for the `utm_content` param, identifying which share surface drove
-   * the click (e.g. 'review', 'firsttake', 'movie', 'tv'). Defaults to
+   * the click (e.g. 'review', 'first-take', 'movie', 'tv'). Defaults to
    * 'review' since that is the first surface to ship a web fallback.
    */
   utmContent?: string;

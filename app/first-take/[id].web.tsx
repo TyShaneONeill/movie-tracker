@@ -74,7 +74,7 @@ export default function FirstTakeWebFallback() {
         <Text style={styles.unavailableBody}>
           It may have been removed or set to private.
         </Text>
-        <GetPocketStubsCTA utmContent="firsttake" />
+        <GetPocketStubsCTA utmContent="first-take" />
       </Page>
     );
   }
@@ -94,7 +94,7 @@ export default function FirstTakeWebFallback() {
         reviewerAvatar={reviewerProfile?.avatar_url ?? null}
         isRewatch={firstTake.is_rewatch ?? undefined}
       />
-      <GetPocketStubsCTA utmContent="firsttake" />
+      <GetPocketStubsCTA utmContent="first-take" />
     </Page>
   );
 }
