@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 
 interface NetworkContextType {
@@ -16,8 +17,19 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const [isInternetReachable, setIsInternetReachable] = useState<boolean | null>(true);
 
   useEffect(() => {
+    // navigator.onLine (NetInfo's only web signal) is unreliable across
+    // browsers and headless environments — it can report false even with a
+    // working connection, producing a phantom "You're offline" banner on
+    // pages that obviously loaded over the network. Real browsers already
+    // surface their own offline UX, so skip the listener on web entirely
+    // and stay in the optimistic default.
+    if (Platform.OS === 'web') return;
+
     const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOffline(!state.isConnected);
+      // Treat the user as offline only on an explicit `false`. NetInfo emits
+      // `null` for unknown/pending connectivity (cold start before the first
+      // probe resolves); a null should not flash the banner.
+      setIsOffline(state.isConnected === false);
       setIsInternetReachable(state.isInternetReachable);
     });
     return () => unsubscribe();
