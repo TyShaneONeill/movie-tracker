@@ -142,9 +142,10 @@ export async function handleAuthDeepLink(url: string): Promise<string | null> {
  * universal-link form (`https://pocketstubs.com/movie/123`,
  * `https://www.pocketstubs.com/movie/123`).
  *
- * PRD-6 vertical slice: `/movie/{id}`, `/tv/{id}`, and `/review/{id}` are wired
- * up. The remaining surface (`/firsttake`) is routed in a subsequent PR —
- * see docs/PRD-social-share.md.
+ * PRD-6: all four content surfaces are wired — `/movie/{id}`, `/tv/{id}`,
+ * `/review/{id}`, and first takes. First-take links are accepted in both the
+ * canonical `/first-take/{id}` form and the legacy `/firsttake/{id}` alias
+ * (the route itself lives at `/first-take/[id]`). See docs/PRD-social-share.md.
  *
  * Returns the matched content type + id, or null if the URL doesn't match a
  * supported content route.
@@ -191,6 +192,7 @@ function parseContentUrl(url: string): ContentRoute | null {
       return { type: 'tv', id: rawId };
     case 'review':
       return { type: 'review', id: rawId };
+    case 'first-take':
     case 'firsttake':
       return { type: 'firsttake', id: rawId };
     default:
@@ -220,9 +222,9 @@ export function handleContentDeepLink(url: string): boolean {
       case 'review':
         router.push(`/review/${match.id}` as never);
         return true;
-      // TODO(PRD-6): wire up firsttake in a subsequent PR.
       case 'firsttake':
-        return false;
+        router.push(`/first-take/${match.id}` as never);
+        return true;
     }
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {
