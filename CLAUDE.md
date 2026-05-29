@@ -28,12 +28,26 @@ npm test           # Run Jest unit tests (no Doppler needed)
 ⚠️ **Always use these exact commands** — flags matter:
 
 ```bash
-# scan-ticket MUST use --no-verify-jwt (Supabase CLI v2.84.2+ does not apply config.toml)
+# Functions invoked from anonymous / pre-auth contexts MUST use --no-verify-jwt.
+# The caller carries no valid session JWT, so without this flag the Supabase
+# gateway rejects the request and the client sees "Edge Function returned a
+# non-2xx status code". (Supabase CLI v2.84.2+ does not apply config.toml.)
+#
+#   - scan-ticket          (called during onboarding, pre-auth)
+#   - get-tv-show-details  (anonymous web visitors on /tv/{id} share links)
+#   - get-season-episodes  (same public TMDB-passthrough path)
 supabase functions deploy scan-ticket --no-verify-jwt --project-ref wliblwulvsrfgqcnbzeh
+supabase functions deploy get-tv-show-details --no-verify-jwt --project-ref wliblwulvsrfgqcnbzeh
+supabase functions deploy get-season-episodes --no-verify-jwt --project-ref wliblwulvsrfgqcnbzeh
 
 # All other functions (standard JWT verification via Supabase gateway)
 supabase functions deploy <function-name> --project-ref wliblwulvsrfgqcnbzeh
 ```
+
+> Each function's own header comment is the source of truth for its deploy
+> flags — check it before deploying. The list above covers the public
+> TMDB-passthrough functions; cron functions (e.g. `send-*-reminders`) have
+> their own auth model documented in `_shared/cron-auth.ts`.
 
 ## Tech Stack
 
