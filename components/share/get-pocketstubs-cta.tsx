@@ -6,16 +6,13 @@ import { Colors, Spacing, BorderRadius, Fonts, FontSizes } from '@/constants/the
 /**
  * Store / web-app destinations for the "Get PocketStubs" CTA.
  *
- * The Play Store URL is derived from the Android `package` in app.config.js
- * (`com.pocketstubs.app`). The web-app URL is the apex that serves these
- * fallback pages (see docs/PRD-social-share.md — this repo IS the web host).
- *
- * TODO(PRD-6): `APP_STORE_URL` points at a name-search URL until the iOS
- * listing is live and we have the numeric Apple app ID. Swap to the canonical
- * `https://apps.apple.com/app/id<APP_ID>` form before announcing the web
- * fallback. Tracked in the Slice 1 PR description.
+ * The App Store URL uses the canonical `id<APP_ID>` form (Apple app ID
+ * 6760832346 — https://apps.apple.com/app/pocketstubs). The Play Store URL is
+ * derived from the Android `package` in app.config.js (`com.pocketstubs.app`).
+ * The web-app URL is the apex that serves these fallback pages (see
+ * docs/PRD-social-share.md — this repo IS the web host).
  */
-const APP_STORE_URL = 'https://apps.apple.com/app/pocketstubs';
+const APP_STORE_URL = 'https://apps.apple.com/app/id6760832346';
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.pocketstubs.app';
 const WEB_APP_URL = 'https://pocketstubs.com';
