@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Keyboard } from 'react-native';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Keyboard, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,10 @@ import type { FirstTake } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
 import { ContentContainer } from '@/components/content-container';
+import ViewShot from 'react-native-view-shot';
+import { ShareableFirstTakeCard } from '@/components/share/shareable-first-take-card';
+import { captureCard, shareFirstTake, shareFirstTakeUrl } from '@/lib/share-service';
+import { analytics } from '@/lib/analytics';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -45,7 +49,44 @@ export default function FirstTakeDetailScreen() {
   });
 
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const viewShotRef = useRef<ViewShot>(null);
+
+  // Reviewer profile for the share card
+  const { data: reviewerProfile } = useQuery({
+    queryKey: ['profile', firstTake?.user_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, username, avatar_url')
+        .eq('id', firstTake!.user_id)
+        .single();
+      return data;
+    },
+    enabled: !!firstTake,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleShare = useCallback(async () => {
+    if (!firstTake || isSharing) return;
+    setIsSharing(true);
+    try {
+      if (Platform.OS === 'web') {
+        await shareFirstTakeUrl(firstTake.id, firstTake.movie_title);
+      } else {
+        const imageUri = await captureCard(viewShotRef);
+        await shareFirstTake(firstTake.id, imageUri, firstTake.movie_title);
+      }
+      analytics.track('social:share', { content_type: 'first_take', tmdb_id: firstTake.tmdb_id });
+    } catch (err: any) {
+      if (err.message !== 'User cancelled') {
+        Alert.alert('Share failed', err.message || 'Could not share First Take');
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  }, [firstTake, isSharing]);
 
   const isOwn = !!user && !!firstTake && firstTake.user_id === user.id;
   const needsFollowCheck =
@@ -172,7 +213,17 @@ export default function FirstTakeDetailScreen() {
               <Ionicons name="chevron-back" size={28} color={colors.text} />
             </Pressable>
             <Text style={styles.topBarTitle}>First Take</Text>
-            <View style={{ width: 28 }} />
+            {firstTake.visibility === 'public' ? (
+              <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
+                {isSharing ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Ionicons name="share-outline" size={24} color={colors.text} />
+                )}
+              </Pressable>
+            ) : (
+              <View style={{ width: 28 }} />
+            )}
           </View>
 
           <ScrollView
@@ -267,6 +318,26 @@ export default function FirstTakeDetailScreen() {
             </ContentContainer>
           </ScrollView>
         </View>
+
+        {/* Off-screen share card for capture (native only, public only) */}
+        {Platform.OS !== 'web' && firstTake.visibility === 'public' && (
+          <ViewShot
+            ref={viewShotRef}
+            options={{ format: 'png', quality: 1 }}
+            style={styles.offScreen}
+          >
+            <ShareableFirstTakeCard
+              movieTitle={firstTake.movie_title}
+              posterPath={firstTake.poster_path}
+              rating={firstTake.rating}
+              reactionEmoji={firstTake.reaction_emoji}
+              quoteText={firstTake.quote_text}
+              reviewerName={reviewerProfile?.full_name || reviewerProfile?.username || 'PocketStubs User'}
+              reviewerAvatar={reviewerProfile?.avatar_url ?? null}
+              isRewatch={firstTake.is_rewatch ?? undefined}
+            />
+          </ViewShot>
+        )}
       </SafeAreaView>
     </>
   );
@@ -426,6 +497,11 @@ function createStyles(colors: typeof Colors.dark) {
     engagementMetaText: {
       ...Typography.body.sm,
       color: colors.textTertiary,
+    },
+    offScreen: {
+      position: 'absolute',
+      left: -9999,
+      top: -9999,
     },
   });
 }

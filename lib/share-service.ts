@@ -7,6 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 
 const WEB_BASE = 'https://pocketstubs.com';
 const REVIEW_URL_BASE = `${WEB_BASE}/review`;
+const FIRSTTAKE_URL_BASE = `${WEB_BASE}/first-take`;
 const MOVIE_URL_BASE = `${WEB_BASE}/movie`;
 const TV_URL_BASE = `${WEB_BASE}/tv`;
 
@@ -107,6 +108,81 @@ export async function shareReviewUrl(
   await Sharing.shareAsync(tempPath, {
     mimeType: 'text/plain',
     dialogTitle: `Share review of ${movieTitle}`,
+  });
+}
+
+/**
+ * Share a first take with image + URL via native share sheet.
+ * Mirrors `shareReview` — the per-surface differences are the URL base
+ * (/first-take vs /review) and the dialog/share-title copy.
+ */
+export async function shareFirstTake(
+  firstTakeId: string,
+  imageUri: string,
+  movieTitle: string
+): Promise<void> {
+  const firstTakeUrl = `${FIRSTTAKE_URL_BASE}/${firstTakeId}`;
+
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `First Take on ${movieTitle} on PocketStubs`,
+          url: firstTakeUrl,
+        });
+      } catch {
+        await copyToClipboard(firstTakeUrl);
+      }
+    } else {
+      await copyToClipboard(firstTakeUrl);
+    }
+    return;
+  }
+
+  // Native: share the image file via expo-sharing
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (!isAvailable) {
+    throw new Error('Sharing is not available on this device');
+  }
+
+  await Sharing.shareAsync(imageUri, {
+    mimeType: 'image/png',
+    dialogTitle: `Share First Take on ${movieTitle}`,
+  });
+}
+
+/**
+ * Share just the first take URL (no image capture needed).
+ * Web counterpart of `shareFirstTake`; mirrors `shareReviewUrl`.
+ */
+export async function shareFirstTakeUrl(
+  firstTakeId: string,
+  movieTitle: string
+): Promise<void> {
+  const firstTakeUrl = `${FIRSTTAKE_URL_BASE}/${firstTakeId}`;
+
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `First Take on ${movieTitle} on PocketStubs`,
+          url: firstTakeUrl,
+        });
+        return;
+      } catch {
+        // Fall through to clipboard
+      }
+    }
+    await copyToClipboard(firstTakeUrl);
+    return;
+  }
+
+  // Native: write the URL to a temp file and share it as text
+  const tempPath = `${FileSystem.cacheDirectory}first-take-share.txt`;
+  await FileSystem.writeAsStringAsync(tempPath, `Check out this First Take on PocketStubs: ${firstTakeUrl}`);
+  await Sharing.shareAsync(tempPath, {
+    mimeType: 'text/plain',
+    dialogTitle: `Share First Take on ${movieTitle}`,
   });
 }
 
