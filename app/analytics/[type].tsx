@@ -81,7 +81,7 @@ function UpgradePaywall({ colors }: { colors: typeof Colors.dark }) {
       <View style={[styles.tierBadge, { backgroundColor: colors.gold + '15' }]}>
         <Ionicons name="star" size={14} color={colors.gold} />
         <Text style={[Typography.body.sm, { color: colors.gold, fontWeight: '600' }]}>
-          Included in CineTrak+
+          Included in PocketStubs+
         </Text>
       </View>
       <Pressable

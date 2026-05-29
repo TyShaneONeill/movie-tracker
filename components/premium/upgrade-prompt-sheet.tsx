@@ -32,7 +32,7 @@ interface UpgradePromptSheetProps {
 }
 
 /**
- * UpgradePromptSheet - bottom sheet promoting CineTrak+ upgrade.
+ * UpgradePromptSheet - bottom sheet promoting PocketStubs+ upgrade.
  *
  * @example
  * <UpgradePromptSheet
