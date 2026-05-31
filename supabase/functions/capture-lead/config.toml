@@ -1,0 +1,4 @@
+# Public landing-page lead capture — invoked from the browser (public/welcome.html)
+# with no Supabase key. verify_jwt = false lets the gateway accept unauthenticated
+# calls; the function validates input and inserts via the service role internally.
+verify_jwt = false
