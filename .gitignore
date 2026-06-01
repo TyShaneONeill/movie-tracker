@@ -59,3 +59,4 @@ supabase/.branches/
 
 # Local git worktrees
 .worktrees/
+.superpowers/
