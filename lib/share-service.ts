@@ -324,3 +324,49 @@ export async function shareTitle(
     // user cancelled — not an error
   }
 }
+
+const RECAP_URL = `${WEB_BASE}/year`;
+
+/**
+ * Share the Year-at-the-Movies recap card.
+ * Web: navigator.share (title + recap URL), clipboard fallback.
+ * Native: capture the poster ViewShot → PNG, copy the URL to clipboard so it can
+ * be pasted alongside the image, then open the native share sheet. Mirrors
+ * `shareDiscovery` — the only differences are the URL and the dialog title.
+ */
+export async function shareRecap(
+  viewShotRef: RefObject<ViewShot | null>,
+  year: number
+): Promise<void> {
+  const title = `My ${year} at the movies — PocketStubs`;
+
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title, url: RECAP_URL });
+        return;
+      } catch {
+        // user cancelled / unsupported — fall through to clipboard
+      }
+    }
+    await copyToClipboard(RECAP_URL);
+    return;
+  }
+
+  try {
+    await Clipboard.setStringAsync(RECAP_URL);
+  } catch {
+    // clipboard failures shouldn't block the share
+  }
+
+  const imageUri = await captureCard(viewShotRef);
+
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (!isAvailable) {
+    throw new Error('Sharing is not available on this device');
+  }
+  await Sharing.shareAsync(imageUri, {
+    mimeType: 'image/png',
+    dialogTitle: title,
+  });
+}
