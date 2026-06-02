@@ -330,6 +330,41 @@
                 padding: 60px 20px;
             }
         }
+
+        /* Email capture */
+        .email-capture { padding-top: 40px; }
+        .capture-card {
+            max-width: 560px;
+            margin: 0 auto;
+            text-align: center;
+            background: #18181b;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px 32px;
+        }
+        .capture-card h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .capture-sub { color: #a1a1aa; font-size: 1rem; margin-bottom: 1.5rem; }
+        .capture-form { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .capture-input {
+            flex: 1;
+            min-width: 220px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: #09090b;
+            color: #fafafa;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        .capture-input:focus { outline: none; border-color: #e11d48; }
+        .capture-form .btn { cursor: pointer; border: none; font-family: inherit; }
+        .capture-form .btn[disabled] { opacity: 0.6; cursor: default; transform: none; }
+        .capture-micro { color: #52525b; font-size: 0.8rem; margin-top: 1rem; }
+        .capture-msg { font-size: 0.9rem; margin-top: 1rem; min-height: 1.2em; }
+        .capture-msg.success { color: #4ade80; }
+        .capture-msg.error { color: #f87171; }
+        .hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
     </style>
 </head>
 <body>
@@ -398,6 +433,23 @@
         </div>
     </section>
 
+    <!-- Email capture -->
+    <section class="section email-capture" id="keep-your-seat">
+        <div class="capture-card">
+            <h2>Not on iOS yet? Keep your seat.</h2>
+            <p class="capture-sub">Drop your email and we'll send you one thing: a heads-up the moment PocketStubs lands on your platform — plus first access when journey-art seasons drop. No newsletter churn, no noise.</p>
+            <form class="capture-form" id="leadForm" novalidate>
+                <!-- honeypot: hidden from humans; bots that fill it are silently dropped -->
+                <input type="text" name="company" id="lead-company" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+                <label for="lead-email" class="sr-only">Email address</label>
+                <input type="email" name="email" id="lead-email" class="capture-input" placeholder="you@email.com" autocomplete="email" required>
+                <button type="submit" class="btn btn-primary" id="lead-submit">Save my seat</button>
+            </form>
+            <p class="capture-micro">One email when it matters. Unsubscribe in a tap.</p>
+            <p class="capture-msg" id="lead-msg" role="status" aria-live="polite"></p>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-links">
@@ -408,5 +460,63 @@
         </div>
         <p>&copy; 2026 PocketStubs. All rights reserved.</p>
     </footer>
+
+    <!-- Email capture handler: posts to the public email_leads table (insert-only RLS) -->
+    <script>
+    (function () {
+        // Posts to the capture-lead edge function (verify_jwt=false), which validates and
+        // inserts server-side via the service role. No Supabase key is embedded in this page.
+        var CAPTURE_ENDPOINT = 'https://wliblwulvsrfgqcnbzeh.supabase.co/functions/v1/capture-lead';
+        var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+        var form = document.getElementById('leadForm');
+        if (!form) return;
+        var emailInput = document.getElementById('lead-email');
+        var honeypot = document.getElementById('lead-company');
+        var submitBtn = document.getElementById('lead-submit');
+        var msg = document.getElementById('lead-msg');
+
+        function show(text, kind) {
+            msg.textContent = text;
+            msg.className = 'capture-msg ' + kind;
+        }
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            // Honeypot filled => bot. Pretend success, send nothing.
+            if (honeypot && honeypot.value) { show("You're on the list — we'll be in touch.", 'success'); form.reset(); return; }
+
+            var email = (emailInput.value || '').trim().toLowerCase();
+            if (!EMAIL_RE.test(email) || email.length > 254) {
+                show('Please enter a valid email address.', 'error');
+                return;
+            }
+
+            var prevLabel = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving…';
+
+            fetch(CAPTURE_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, source: 'web_welcome' })
+            }).then(function (res) {
+                // Function returns 200 for both new and duplicate captures.
+                if (res.ok) {
+                    show("You're on the list — we'll be in touch.", 'success');
+                    form.reset();
+                } else {
+                    show('Something went wrong. Please try again.', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = prevLabel;
+                }
+            }).catch(function () {
+                show('Network error. Please try again.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = prevLabel;
+            });
+        });
+    })();
+    </script>
 </body>
 </html>
