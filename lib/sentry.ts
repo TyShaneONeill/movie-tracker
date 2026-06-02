@@ -10,6 +10,43 @@ import { getCrashReportsEnabled } from './privacy-preferences';
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
+/**
+ * True when an event is a benign aborted in-flight request. These appear when the
+ * page navigates/re-renders and cancels Supabase fetches (e.g. right after signup) —
+ * no user impact, just noise. Covers all observed shapes: a raw DOMException, an Error
+ * named AbortError, and a serialized Supabase error wrapper whose details/message
+ * carries the abort text. See the vault Sentry triage (2026-05-30).
+ */
+function isAbortError(err: unknown, event: Sentry.Event): boolean {
+  const e = err as
+    | { name?: string; code?: number; message?: string; details?: string }
+    | null
+    | undefined;
+  if (e?.name === 'AbortError' || e?.code === 20) return true;
+  const haystack = [
+    e?.message,
+    e?.details,
+    (event?.extra?.__serialized__ as { message?: string } | undefined)?.message,
+    event?.exception?.values?.[0]?.value,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return /signal is aborted|aborted without reason|AbortError/i.test(haystack);
+}
+
+/** Shared Sentry noise filter used by every init path. Returns true to drop the event. */
+function shouldDropEvent(event: Sentry.Event, hint?: { originalException?: unknown }): boolean {
+  // Expected offline/network errors.
+  if (event.exception?.values?.[0]?.value?.includes('Network request failed')) {
+    return true;
+  }
+  // Benign aborted in-flight fetches (navigation cancels requests).
+  if (isAbortError(hint?.originalException, event)) {
+    return true;
+  }
+  return false;
+}
+
 export function initSentry() {
   if (!SENTRY_DSN) {
     if (__DEV__) {
@@ -37,13 +74,9 @@ export function initSentry() {
     // Don't send events in development
     enabled: !__DEV__,
 
-    // Filter out noisy errors
-    beforeSend(event) {
-      // Filter out network errors that are expected (e.g., offline state)
-      if (event.exception?.values?.[0]?.value?.includes('Network request failed')) {
-        return null;
-      }
-      return event;
+    // Drop benign noise (offline network errors, aborted in-flight fetches).
+    beforeSend(event, hint) {
+      return shouldDropEvent(event, hint) ? null : event;
     },
   });
 
@@ -92,11 +125,8 @@ export function applyCrashReportsEnabled(enabled: boolean) {
       enableAutoSessionTracking: true,
       attachStacktrace: true,
       enabled: !__DEV__,
-      beforeSend(event) {
-        if (event.exception?.values?.[0]?.value?.includes('Network request failed')) {
-          return null;
-        }
-        return event;
+      beforeSend(event, hint) {
+        return shouldDropEvent(event, hint) ? null : event;
       },
     });
   }

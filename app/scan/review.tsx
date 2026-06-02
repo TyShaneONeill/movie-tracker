@@ -36,7 +36,7 @@ import { supabase } from '@/lib/supabase';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { JourneyUpdate, TicketScanInsert } from '@/lib/database.types';
 import * as FileSystem from 'expo-file-system/legacy';
-import { captureException } from '@/lib/sentry';
+import { captureException, Sentry } from '@/lib/sentry';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { ContentContainer } from '@/components/content-container';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
@@ -396,9 +396,32 @@ export default function TicketReviewScreen() {
                   journey_id: journeyId,
                   barcode_data: ticket.barcodeData,
                 };
-                await (supabase as any).from('ticket_scans').insert(scanRecord);
-              } catch {
-                // Non-blocking — barcode persistence is best-effort
+                const { error: barcodeError } = await (supabase as any)
+                  .from('ticket_scans')
+                  .insert(scanRecord);
+                if (barcodeError) {
+                  // Non-blocking, best-effort. Breadcrumb only (no Sentry event) so a
+                  // regression is observable in the trail without adding error noise.
+                  Sentry.addBreadcrumb({
+                    category: 'scan',
+                    level: 'debug',
+                    message: 'ticket_scans barcode insert returned an error',
+                    data: { code: barcodeError.code, message: barcodeError.message },
+                  });
+                }
+              } catch (barcodeException) {
+                // Non-blocking — barcode persistence is best-effort.
+                Sentry.addBreadcrumb({
+                  category: 'scan',
+                  level: 'debug',
+                  message: 'ticket_scans barcode insert threw',
+                  data: {
+                    message:
+                      barcodeException instanceof Error
+                        ? barcodeException.message
+                        : String(barcodeException),
+                  },
+                });
               }
             }
 
