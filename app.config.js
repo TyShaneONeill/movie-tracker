@@ -111,7 +111,11 @@ export default {
           backgroundColor: "#FFFFFF",
           dark: {
             image: "./assets/images/splash-icon-dark.png",
-            backgroundColor: "#000000",
+            // Match the splash icon's baked background (#09090b) AND the app's
+            // dark theme background (Colors.dark.background, Zinc 950). Pure
+            // #000000 here left a visible seam: the icon's #09090b square sat on
+            // a black fill, and the splash flashed against the app on mount.
+            backgroundColor: "#09090b",
           },
         },
       ],
