@@ -34,6 +34,7 @@ import { GuestProvider, useGuest } from '@/lib/guest-context';
 import { Colors } from '@/constants/theme';
 import { toastConfig } from '@/lib/toast-config';
 import { handleAuthDeepLink, handleContentDeepLink } from '@/lib/deep-link-handler';
+import { captureException } from '@/lib/sentry';
 import { assertAuthEnv } from '@/lib/auth-env-assert';
 import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
@@ -170,14 +171,34 @@ function useProtectedRoute() {
 
     // Defer navigation to next frame to ensure all routes are mounted
     // requestAnimationFrame is more reliable than setTimeout(0) on Android
-    const performNavigation = (route: string) => {
+    const performNavigation = (route: string, attempt = 0) => {
       // No-op if we're already inside the target route group. Without this
       // guard, segments-driven re-runs could ping-pong RAF replaces and
       // exhaust the Hermes heap.
       const targetGroup = route.match(/^\/\(([^)]+)\)/)?.[1];
       if (targetGroup && segments[0] === `(${targetGroup})`) return;
       requestAnimationFrame(() => {
-        router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
+        // navigationState.key being truthy gates this effect, but it's necessary
+        // not sufficient: there's a cold-start window where the root nav has a
+        // key while the container's isReady() is still false. On a low-end
+        // device the navigator may not have finished mounting by the time this
+        // single RAF fires, so router.replace -> assertIsReady() throws a fatal
+        // "navigate before mounting the Root Layout" error (Sentry 2K / #510).
+        // Tolerate it: re-schedule for the next frame (bounded), turning a crash
+        // into a one-frame-late navigation. Report only if it never becomes ready.
+        try {
+          router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
+        } catch (e) {
+          if (attempt < 10) {
+            performNavigation(route, attempt + 1);
+          } else {
+            captureException(e instanceof Error ? e : new Error(String(e)), {
+              context: 'performNavigation:navigatorNotReady',
+              route,
+              attempts: attempt + 1,
+            });
+          }
+        }
       });
     };
 
