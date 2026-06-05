@@ -3,7 +3,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { sleep } from '../_shared/delay.ts';
-import { checkDailyAiSpend, logAiCost, buildSpendLimitResponse, AI_COST_ESTIMATES } from '../_shared/cost-tracking.ts';
+import { checkDailyAiSpend, logAiCost, buildSpendLimitResponse, estimateAiCost } from '../_shared/cost-tracking.ts';
+
+// Gemini model for ticket extraction. Env-overridable so we can swap models
+// without a redeploy (e.g. when Google retires one — gemini-2.0-flash was
+// shut down 2026-06-01). Default is a stable multimodal model that supports
+// vision + responseSchema structured output.
+const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL')?.trim() || 'gemini-2.5-flash';
 
 // ============================================================================
 // Types
@@ -559,7 +565,7 @@ async function extractWithGemini(
   let response: Response;
   try {
     response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -862,8 +868,8 @@ Deno.serve(async (req: Request) => {
       supabaseClient,
       user.id,
       'scan_ticket',
-      'gemini-2.0-flash',
-      AI_COST_ESTIMATES['gemini-2.0-flash'],
+      GEMINI_MODEL,
+      estimateAiCost(GEMINI_MODEL),
     );
 
     // Process each extracted ticket with cache-first lookups and rate-limited TMDB calls
