@@ -29,6 +29,8 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
+import { useRequireAuth } from '@/hooks/use-require-auth';
+import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { useTasteProfile } from '@/hooks/use-taste-profile';
 import { addMovieToLibrary, removeMovieFromLibrary } from '@/lib/movie-service';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
@@ -55,6 +57,7 @@ export default function ReleaseCalendarScreen() {
 
   // Auth & query client
   const { user } = useAuth();
+  const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
   const queryClient = useQueryClient();
 
   // Filter state (hydration, persistence, and helpers extracted to hook)
@@ -173,9 +176,13 @@ export default function ReleaseCalendarScreen() {
 
   // Toggle watchlist for a release
   const handleToggleWatchlist = useCallback((tmdbId: number) => {
-    const isOnWatchlist = watchlistIds?.has(tmdbId) ?? false;
-    watchlistMutation.mutate({ tmdbId, isOnWatchlist });
-  }, [watchlistIds, watchlistMutation]);
+    // Gate for guests like the detail screens do — without this, a logged-out
+    // tap fires the mutation which throws 'Not authenticated' with no prompt.
+    requireAuth(() => {
+      const isOnWatchlist = watchlistIds?.has(tmdbId) ?? false;
+      watchlistMutation.mutate({ tmdbId, isOnWatchlist });
+    }, 'Sign in to manage your watchlist');
+  }, [requireAuth, watchlistIds, watchlistMutation]);
 
   // True when watchlistOnly is on but the user has zero watchlist items
   const watchlistOnlyEmpty = watchlistOnly && (watchlistIds?.size ?? 0) === 0;
@@ -328,6 +335,12 @@ export default function ReleaseCalendarScreen() {
           </View>
         </>
       )}
+
+      <LoginPromptModal
+        visible={isLoginPromptVisible}
+        onClose={hideLoginPrompt}
+        message={loginPromptMessage}
+      />
     </SafeAreaView>
   );
 }

@@ -572,7 +572,7 @@ export default function MovieDetailScreen() {
     <View style={dynamicStyles.container}>
       <ScrollView
         style={dynamicStyles.scrollView}
-        contentContainerStyle={dynamicStyles.scrollContent}
+        contentContainerStyle={[dynamicStyles.scrollContent, { paddingBottom: Spacing.xxl + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Banner */}
