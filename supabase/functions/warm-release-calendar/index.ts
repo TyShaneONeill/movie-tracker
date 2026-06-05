@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { requireServiceRole } from '../_shared/cron-auth.ts';
 import { selectBestTrailer, type TMDBVideosResponse } from '../_shared/select-best-trailer.ts';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
@@ -56,6 +57,12 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req) });
   }
+
+  // Cron/admin-only: this function performs heavy TMDB fan-out and writes the
+  // release_calendar with service-role. Gate it to service_role callers (the
+  // pg_cron 'warm-release-calendar-daily' job sends a service_role bearer).
+  const authError = requireServiceRole(req);
+  if (authError) return authError;
 
   const started = Date.now();
 
