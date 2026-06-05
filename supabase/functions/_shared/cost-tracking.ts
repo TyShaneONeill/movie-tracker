@@ -4,9 +4,23 @@ import { getCorsHeaders } from './cors.ts';
 
 /** Estimated cost per AI API call in USD */
 export const AI_COST_ESTIMATES = {
-  'gemini-2.0-flash': 0.005,
+  'gemini-2.0-flash': 0.005, // retired by Google 2026-06-01 — kept for historical rows
+  'gemini-2.5-flash': 0.005,
+  'gemini-2.5-flash-lite': 0.002,
+  'gemini-3.5-flash': 0.02,
   'gpt-image-1.5': 0.08,
 } as const;
+
+/** Fallback per-call estimate when a model isn't in AI_COST_ESTIMATES (e.g. a GEMINI_MODEL override). */
+const DEFAULT_AI_COST_USD = 0.005;
+
+/**
+ * Look up the estimated per-call cost for a model, tolerating models supplied at
+ * runtime (env overrides) that aren't in the static table.
+ */
+export function estimateAiCost(model: string): number {
+  return (AI_COST_ESTIMATES as Record<string, number>)[model] ?? DEFAULT_AI_COST_USD;
+}
 
 /** Platform-wide daily spend limit in USD */
 const DAILY_SPEND_LIMIT_USD = 10.0;
