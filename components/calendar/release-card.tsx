@@ -149,6 +149,8 @@ export function ReleaseCard({
           {onToggleWatchlist && (
             <Pressable
               onPress={() => onToggleWatchlist(release.tmdb_id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${isOnWatchlist ? 'Remove' : 'Add'} ${release.title} ${isOnWatchlist ? 'from' : 'to'} watchlist`}
               hitSlop={8}
               style={[
                 styles.watchlistButton,
