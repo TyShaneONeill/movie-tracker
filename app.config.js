@@ -42,7 +42,8 @@ export default {
     },
     android: {
       package: "com.pocketstubs.app",
-      versionCode: 52,
+      versionCode: 53,
+      googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         backgroundColor: "#000000",
         foregroundImage: "./assets/images/android-icon-foreground.png",
