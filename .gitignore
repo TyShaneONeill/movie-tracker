@@ -59,3 +59,6 @@ supabase/.branches/
 
 # Local git worktrees
 .worktrees/
+
+# Superpowers / agent tooling local state
+.superpowers/
