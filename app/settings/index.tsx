@@ -19,6 +19,7 @@ import { ThemeSelector } from '@/components/settings/theme-selector';
 import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
+import { formatExpiryDate, getDaysLeft } from '@/lib/subscription-format';
 import Constants from 'expo-constants';
 import { acceptAllPendingRequests } from '@/lib/follow-request-service';
 import Toast from 'react-native-toast-message';
@@ -45,69 +46,13 @@ export default function SettingsScreen() {
   const colors = Colors[effectiveTheme];
   const { signOut, user } = useAuth();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
-  const { isPremium, tier, subscription, restorePurchases, manageSubscription, managementUrl, isLoading: isPremiumLoading } = usePremium();
+  const { isPremium, tier, subscription, isLoading: isPremiumLoading } = usePremium();
   const [isExporting, setIsExporting] = useState(false);
-  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
-
-  const handleManageSubscription = async () => {
-    hapticImpact();
-    analytics.track('premium:manage_subscription_clicked', { plan: tier ?? 'plus' });
-    const result = await manageSubscription();
-    if (!result.success && result.error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Could not open',
-        text2: result.error,
-        visibilityTime: 4000,
-      });
-    }
-  };
-
-  const handleRestorePurchases = async () => {
-    hapticImpact();
-    setIsRestoringPurchases(true);
-    try {
-      const result = await restorePurchases();
-      if (result && typeof result === 'object' && 'message' in result) {
-        Toast.show({
-          type: result.restored ? 'success' : 'info',
-          text1: result.restored ? 'Restored!' : 'No subscription found',
-          text2: String(result.message),
-          visibilityTime: 3000,
-        });
-      }
-    } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Restore failed',
-        text2: 'Please try again later.',
-        visibilityTime: 3000,
-      });
-    } finally {
-      setIsRestoringPurchases(false);
-    }
-  };
-
-  /** Format subscription expiry for display */
-  const formatExpiryDate = (date: Date | null): string => {
-    if (!date) return '';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-  };
-
   /** Plan name only — the status line (renews / trial / expires) lives in the subtitle */
   const getSubscriptionLabel = (): string => {
     if (tier === 'dev') return 'Developer';
     if (!isPremium) return 'Free Plan';
     return 'PocketStubs+';
-  };
-
-  /** Whole days remaining until a date (rounded up); 0 if already past */
-  const getDaysLeft = (date: Date | null): number | null => {
-    if (!date) return null;
-    const ms = date.getTime() - Date.now();
-    if (ms <= 0) return 0;
-    return Math.ceil(ms / (1000 * 60 * 60 * 24));
   };
 
   const handlePrivacyToggle = (value: boolean) => {
@@ -378,8 +323,9 @@ export default function SettingsScreen() {
               pressed && { opacity: 0.85 },
             ]}
             onPress={() => {
+              hapticImpact();
               analytics.track('premium:upgrade_view', { source: 'settings' });
-              router.push('/upgrade?source=settings');
+              router.push('/settings/subscription');
             }}
           >
             <View style={styles.subscriptionCardTop}>
@@ -417,51 +363,18 @@ export default function SettingsScreen() {
                   );
                 })()}
               </View>
-              {!isPremium ? (
-                <View style={[styles.upgradeChip, { backgroundColor: colors.gold }]}>
-                  <Text style={styles.upgradeChipText}>Upgrade</Text>
-                  <Ionicons name="arrow-forward" size={12} color="#000" />
-                </View>
-              ) : (
-                <Ionicons name="checkmark-circle" size={22} color={colors.gold} />
-              )}
+              <View style={styles.subscriptionCardRight}>
+                {!isPremium ? (
+                  <View style={[styles.upgradeChip, { backgroundColor: colors.gold }]}>
+                    <Text style={styles.upgradeChipText}>Upgrade</Text>
+                  </View>
+                ) : (
+                  tier !== 'dev' && <Ionicons name="checkmark-circle" size={20} color={colors.gold} />
+                )}
+                <ChevronRightIcon color={colors.textSecondary} />
+              </View>
             </View>
           </Pressable>
-
-          {isPremium && tier !== 'dev' && (managementUrl || Platform.OS === 'ios') && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.settingsItem,
-                styles.firstItem,
-                { backgroundColor: colors.card, borderBottomColor: colors.border },
-                pressed && { backgroundColor: colors.backgroundSecondary }
-              ]}
-              onPress={handleManageSubscription}
-            >
-              <View>
-                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Manage Subscription</Text>
-                <Text style={[Typography.body.xs, { color: colors.textTertiary, marginTop: 1 }]}>Cancel or change your plan</Text>
-              </View>
-              <ChevronRightIcon color={colors.textSecondary} />
-            </Pressable>
-          )}
-
-          {(isPremium && tier !== 'dev' || !isPremium) && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.restoreLink,
-                pressed && { opacity: 0.5 },
-              ]}
-              onPress={handleRestorePurchases}
-              disabled={isRestoringPurchases}
-            >
-              {isRestoringPurchases ? (
-                <ActivityIndicator size="small" color={colors.textTertiary} />
-              ) : (
-                <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>Restore Purchases</Text>
-              )}
-            </Pressable>
-          )}
         </View>
 
         {/* App Preferences Section */}
@@ -779,6 +692,11 @@ const styles = StyleSheet.create({
   },
   subscriptionCardInfo: {
     flex: 1,
+  },
+  subscriptionCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   upgradeChip: {
     flexDirection: 'row',
