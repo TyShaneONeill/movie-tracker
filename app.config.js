@@ -126,8 +126,8 @@ export default {
       [
         "expo-image-picker",
         {
-          photosPermission: "Allow $(PRODUCT_NAME) to access your photos to set a profile picture.",
-          cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to take a profile picture.",
+          photosPermission: "Allow $(PRODUCT_NAME) to access your photos to upload ticket images and set your profile picture.",
+          cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to capture ticket photos and take your profile picture.",
         },
       ],
       "@react-native-community/datetimepicker",
