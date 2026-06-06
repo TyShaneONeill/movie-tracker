@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "681437058458",
+    "project_id": "pocketstubs-fb",
+    "storage_bucket": "pocketstubs-fb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:681437058458:android:808cf7efaf497ac44bd623",
+        "android_client_info": {
+          "package_name": "com.pocketstubs.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJHiw5FjGnAL0ZaX0VFmRMAVJUgIQKUbY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

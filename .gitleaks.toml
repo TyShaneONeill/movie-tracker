@@ -24,6 +24,9 @@ paths = [
   '''^docs/credential-audit-post-rebrand\.md$''',
   '''^Projects/CineTrak/Security/''',
   '''^\.gitleaks\.toml$''',
+  # google-services.json holds Android client identifiers (the API key is restricted
+  # by package + SHA and ships inside the APK) — intentionally committed, not a secret.
+  '''^google-services\.json$''',
 ]
 regexes = [
   '''placeholder''',
