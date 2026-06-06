@@ -32,14 +32,42 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
       try {
         // Dynamic require prevents react-native-google-mobile-ads module-level code
         // (NativeEventEmitter, listener registration) from running at startup.
-        let mobileAds: (() => { initialize: () => Promise<any> }) | null = null;
+        let ads: any = null;
         try {
-          const ads = require('react-native-google-mobile-ads');
-          mobileAds = ads.default;
+          ads = require('react-native-google-mobile-ads');
         } catch {
           return; // Native module not available (e.g., Expo Go)
         }
+        const mobileAds: (() => { initialize: () => Promise<any> }) | null = ads?.default ?? null;
+        const AdsConsent = ads?.AdsConsent ?? null;
         if (!mobileAds) return;
+
+        // UMP/GDPR consent (Google CMP). Required before serving personalized ads in
+        // the EEA/UK/Switzerland. gatherConsent() pulls the latest consent info and
+        // shows the AdMob-configured consent form when the user's region requires it;
+        // for non-regulated regions it resolves immediately with canRequestAds=true.
+        // A consent failure must NOT block the app — we fall back to the readable
+        // consent state and only request ads when allowed (GDPR-safe default: no ads
+        // until consent is known).
+        if (AdsConsent) {
+          try {
+            await AdsConsent.gatherConsent();
+          } catch (consentError) {
+            captureException(consentError instanceof Error ? consentError : new Error(String(consentError)), {
+              context: 'admob_consent_gather',
+            });
+          }
+
+          let canRequestAds = false;
+          try {
+            const info = await AdsConsent.getConsentInfo();
+            canRequestAds = !!info?.canRequestAds;
+          } catch {
+            canRequestAds = false;
+          }
+          if (!canRequestAds) return; // Don't initialize/serve ads without consent
+        }
+
         await mobileAds().initialize();
         setAdsInitialized(true);
       } catch (error) {
