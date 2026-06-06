@@ -9,6 +9,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useUserStats, type GenreStats } from '@/hooks/use-user-stats';
 import { useAuth } from '@/hooks/use-auth';
+import { useRecapVisible } from '@/hooks/use-recap-visible';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { ContentContainer } from '@/components/content-container';
@@ -29,6 +30,8 @@ export default function AnalyticsScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
+  const recapVisible = useRecapVisible();
+  const latestCompletedYear = (new Date().getFullYear() - 1).toString();
   const { data: stats, isLoading, error, refetch } = useUserStats();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -150,6 +153,22 @@ export default function AnalyticsScreen() {
         <View style={styles.header}>
           <Text style={[Typography.display.h4, { color: colors.text }]}>Analytics</Text>
         </View>
+
+        {recapVisible && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.recapCard,
+              { transform: [{ scale: pressed ? 0.98 : 1 }] },
+            ]}
+            onPress={() => router.push(`/recap/${latestCompletedYear}`)}
+          >
+            <Text style={styles.recapEmoji}>🎟️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.recapTitle}>Your Year at the Movies</Text>
+              <Text style={styles.recapSub}>See your {latestCompletedYear} recap →</Text>
+            </View>
+          </Pressable>
+        )}
 
         {/* Summary Stats Row 1 */}
         <View style={styles.statsRow}>
@@ -516,4 +535,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     flexShrink: 0,
   },
+  recapCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: '#C41E3A',
+  },
+  recapEmoji: { fontSize: 28 },
+  recapTitle: { color: '#F5EBD9', fontWeight: '800', fontSize: 16 },
+  recapSub: { color: '#C41E3A', fontSize: 12, marginTop: 2 },
 });

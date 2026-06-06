@@ -2226,6 +2226,10 @@ export type Database = {
           month_label: string
         }[]
       }
+      get_user_year_recap: {
+        Args: { p_year: number; p_timezone?: string };
+        Returns: Json;
+      };
       get_user_stats_summary: {
         Args: { p_user_id: string }
         Returns: {
