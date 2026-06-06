@@ -95,15 +95,19 @@ export default function SettingsScreen() {
     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
   };
 
+  /** Plan name only — the status line (renews / trial / expires) lives in the subtitle */
   const getSubscriptionLabel = (): string => {
     if (tier === 'dev') return 'Developer';
     if (!isPremium) return 'Free Plan';
-    if (!subscription) return 'PocketStubs+';
-    const expiryStr = subscription.expiresAt ? formatExpiryDate(subscription.expiresAt) : '';
-    if (subscription.willRenew) {
-      return expiryStr ? `PocketStubs+ — Renews ${expiryStr}` : 'PocketStubs+';
-    }
-    return expiryStr ? `PocketStubs+ — Expires ${expiryStr}` : 'PocketStubs+ (Not renewing)';
+    return 'PocketStubs+';
+  };
+
+  /** Whole days remaining until a date (rounded up); 0 if already past */
+  const getDaysLeft = (date: Date | null): number | null => {
+    if (!date) return null;
+    const ms = date.getTime() - Date.now();
+    if (ms <= 0) return 0;
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
   };
 
   const handlePrivacyToggle = (value: boolean) => {
@@ -391,11 +395,27 @@ export default function SettingsScreen() {
                     Unlock all features with PocketStubs+
                   </Text>
                 )}
-                {isPremium && tier !== 'dev' && subscription?.expiresAt && (
-                  <Text style={[Typography.body.xs, { color: colors.textSecondary, marginTop: 1 }]}>
-                    {subscription.willRenew ? 'Renews' : 'Expires'} {formatExpiryDate(subscription.expiresAt)}
-                  </Text>
-                )}
+                {isPremium && tier !== 'dev' && subscription?.expiresAt && (() => {
+                  const dateStr = formatExpiryDate(subscription.expiresAt);
+                  if (subscription.isTrialActive) {
+                    const daysLeft = getDaysLeft(subscription.expiresAt);
+                    return (
+                      <>
+                        <Text style={[Typography.body.xs, { color: colors.gold, marginTop: 1, fontWeight: '600' }]}>
+                          Free trial · {daysLeft === 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}
+                        </Text>
+                        <Text style={[Typography.body.xs, { color: colors.textTertiary, marginTop: 1 }]}>
+                          First charge {dateStr}
+                        </Text>
+                      </>
+                    );
+                  }
+                  return (
+                    <Text style={[Typography.body.xs, { color: colors.textSecondary, marginTop: 1 }]}>
+                      {subscription.willRenew ? 'Renews' : 'Expires'} {dateStr}
+                    </Text>
+                  );
+                })()}
               </View>
               {!isPremium ? (
                 <View style={[styles.upgradeChip, { backgroundColor: colors.gold }]}>
@@ -408,7 +428,7 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
 
-          {isPremium && tier !== 'dev' && managementUrl && (
+          {isPremium && tier !== 'dev' && (managementUrl || Platform.OS === 'ios') && (
             <Pressable
               style={({ pressed }) => [
                 styles.settingsItem,
@@ -420,6 +440,7 @@ export default function SettingsScreen() {
             >
               <View>
                 <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Manage Subscription</Text>
+                <Text style={[Typography.body.xs, { color: colors.textTertiary, marginTop: 1 }]}>Cancel or change your plan</Text>
               </View>
               <ChevronRightIcon color={colors.textSecondary} />
             </Pressable>

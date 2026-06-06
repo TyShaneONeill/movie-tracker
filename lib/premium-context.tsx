@@ -255,11 +255,30 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
 
   /** Open the platform-appropriate subscription management UI */
   const manageSubscription = useCallback(async (): Promise<ManageSubscriptionResult> => {
-    if (!managementUrl) {
-      return { success: false, error: 'Subscription management is not available right now.' };
-    }
-
     try {
+      // iOS: present Apple's manage/cancel sheet as an in-app modal (iOS 13+) so the
+      // user can cancel without leaving the app for Settings. Falls back to the
+      // managementUrl deep link if the native sheet can't be presented.
+      if (Platform.OS === 'ios') {
+        try {
+          const { default: Purchases } = await import('react-native-purchases');
+          await Purchases.showManageSubscriptions();
+          return { success: true };
+        } catch (sheetError) {
+          if (!managementUrl) {
+            captureException(sheetError instanceof Error ? sheetError : new Error(String(sheetError)), {
+              context: 'premium-manage-subscription-ios-sheet',
+            });
+            return { success: false, error: 'Could not open subscription management. Please try again.' };
+          }
+          // else: fall through to the managementUrl deep link below
+        }
+      }
+
+      if (!managementUrl) {
+        return { success: false, error: 'Subscription management is not available right now.' };
+      }
+
       if (Platform.OS === 'web') {
         const opened = window.open(managementUrl, '_blank', 'noopener,noreferrer');
         if (!opened) {
