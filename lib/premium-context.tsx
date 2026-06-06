@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useAds } from '@/lib/ads-context';
 import { fetchSubscriptionStatus } from '@/lib/premium-service';
 import { isFeatureAvailable } from '@/lib/premium-features';
+import { deriveIntroFromPackages } from '@/lib/premium-intro';
 import { captureException } from '@/lib/sentry';
 import type { PremiumTier, PremiumFeatureKey } from '@/lib/premium-features';
 import { isNativeAvailable } from '@/lib/native-purchases';
@@ -28,6 +29,8 @@ interface PremiumContextType {
   isLoading: boolean;
   /** Current subscription info from RevenueCat (null if free or unavailable) */
   subscription: SubscriptionInfo | null;
+  /** Real introductory-offer info for the current offering (null until loaded / on web) */
+  introOffer: IntroOfferInfo | null;
   /** Platform-appropriate management URL: Apple/Play deep link on native, Stripe portal on web */
   managementUrl: string | null;
   /** Check if a specific feature is unlocked for the current tier */
@@ -47,6 +50,15 @@ export interface SubscriptionInfo {
   expiresAt: Date | null;
   isTrialActive: boolean;
   willRenew: boolean;
+}
+
+export interface IntroOfferInfo {
+  /** True when the offering's products carry a free-trial introductory offer (price === 0) */
+  isFreeTrial: boolean;
+  /** Trial length in days, derived from the intro offer's period (null if none) */
+  trialDays: number | null;
+  /** Whether THIS user is eligible for the intro offer (false only when known-ineligible) */
+  isEligible: boolean;
 }
 
 export interface PurchaseResult {
@@ -70,6 +82,7 @@ const PremiumContext = createContext<PremiumContextType>({
   isPremium: false,
   isLoading: true,
   subscription: null,
+  introOffer: null,
   managementUrl: null,
   checkFeature: () => false,
   purchasePackage: async () => ({ success: false, error: 'Not initialized' }),
@@ -84,6 +97,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const [tier, setTier] = useState<PremiumTier>('free');
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [introOffer, setIntroOffer] = useState<IntroOfferInfo | null>(null);
   const [managementUrl, setManagementUrl] = useState<string | null>(null);
   const [purchasesInstance, setPurchasesInstance] = useState<any>(null);
   const [isNativeInitialized, setIsNativeInitialized] = useState(false);
@@ -171,7 +185,16 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   /** Initialize react-native-purchases (iOS / Android) */
   const initRevenueCatNative = async (userId: string) => {
     const apiKey = getNativeApiKey();
-    if (!apiKey) return;
+    if (!apiKey) {
+      // Surface this loudly — a silent return here is exactly what produces the
+      // downstream "Purchases Not Initialized" error. EXPO_PUBLIC_* vars are inlined
+      // by Metro at build time, so a missing key usually means the bundle was built
+      // without Doppler (e.g. `npx expo run:ios` instead of `doppler run -- ...`).
+      const msg = `RevenueCat ${Platform.OS} API key missing at build time — purchases are disabled (EXPO_PUBLIC_REVENUECAT_${Platform.OS === 'ios' ? 'IOS' : 'ANDROID'}_API_KEY not inlined). Rebuild with Doppler.`;
+      console.warn(`[PremiumProvider] ${msg}`);
+      captureException(new Error(msg), { context: 'premium-revenuecat-missing-key' });
+      return;
+    }
 
     try {
       // Dynamic import prevents react-native-purchases module-level code
@@ -188,6 +211,28 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       const offerings = await Purchases.getOfferings();
       const packages = offerings?.current?.availablePackages ?? [];
       setAvailablePackages(packages);
+
+      // Derive the REAL intro offer so the paywall never advertises a trial that
+      // doesn't exist or that this user isn't eligible for. Free trial = price 0.
+      const intro = deriveIntroFromPackages(packages);
+      let isEligible = true; // optimistic default: only hide on KNOWN ineligibility
+      if (intro.isFreeTrial && Platform.OS === 'ios') {
+        try {
+          // iOS returns real eligibility; Android always returns UNKNOWN, so we leave
+          // it optimistic there (the Play purchase sheet is the source of truth).
+          const productIds = packages.map((p: any) => p?.product?.identifier).filter(Boolean);
+          if (productIds.length > 0) {
+            const elig = await Purchases.checkTrialOrIntroductoryPriceEligibility(productIds);
+            const statuses = Object.values(elig).map((e: any) => e?.status);
+            // INTRO_ELIGIBILITY_STATUS: 1 = INELIGIBLE. Hide only when every known status is ineligible.
+            const allIneligible = statuses.length > 0 && statuses.every((s) => s === 1);
+            isEligible = !allIneligible;
+          }
+        } catch {
+          // Eligibility check failed — stay optimistic (show the trial) rather than hide a real one.
+        }
+      }
+      setIntroOffer({ ...intro, isEligible });
     } catch (error) {
       console.warn('[PremiumProvider] RevenueCat native init failed:', error);
       captureException(error instanceof Error ? error : new Error(String(error)), {
@@ -407,13 +452,14 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       isPremium,
       isLoading,
       subscription,
+      introOffer,
       managementUrl,
       checkFeature,
       purchasePackage,
       restorePurchases,
       manageSubscription,
     }),
-    [tier, isPremium, isLoading, subscription, managementUrl, checkFeature, purchasePackage, restorePurchases, manageSubscription]
+    [tier, isPremium, isLoading, subscription, introOffer, managementUrl, checkFeature, purchasePackage, restorePurchases, manageSubscription]
   );
 
   return (
