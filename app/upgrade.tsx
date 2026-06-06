@@ -67,8 +67,15 @@ export default function UpgradeScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { isPremium, purchasePackage, restorePurchases } = usePremium();
+  const { isPremium, purchasePackage, restorePurchases, introOffer } = usePremium();
   const { source } = useLocalSearchParams<{ source?: string }>();
+
+  // Only advertise a free trial when one REALLY exists for this user. Native: gated on
+  // the real intro offer + eligibility. Web (introOffer null): keep the trial copy, since
+  // web billing handles trials separately. This prevents promising a trial to
+  // ineligible/returning users who would be charged immediately.
+  const showTrial = introOffer ? (introOffer.isFreeTrial && introOffer.isEligible) : Platform.OS === 'web';
+  const trialDays = introOffer?.trialDays ?? 7;
 
   const [selectedPlan, setSelectedPlan] = useState<PlanPeriod>('yearly');
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -98,7 +105,7 @@ export default function UpgradeScreen() {
       const result = await purchasePackage(packageId);
 
       if (result && typeof result === 'object' && 'success' in result && result.success) {
-        analytics.track('premium:subscribe', { plan: selectedPlan, trial: false });
+        analytics.track('premium:subscribe', { plan: selectedPlan, trial: showTrial });
         setShowSuccess(true);
         setTimeout(() => {
           setShowSuccess(false);
@@ -122,7 +129,7 @@ export default function UpgradeScreen() {
     } finally {
       setIsPurchasing(false);
     }
-  }, [selectedPlan, purchasePackage, handleBack]);
+  }, [selectedPlan, purchasePackage, handleBack, showTrial]);
 
   const handleRestore = useCallback(async () => {
     hapticImpact();
@@ -307,13 +314,15 @@ export default function UpgradeScreen() {
           </View>
         </View>
 
-        {/* Trial info */}
-        <View style={styles.trialBanner}>
-          <Ionicons name="time-outline" size={18} color={colors.gold} />
-          <Text style={styles.trialBannerText}>
-            Start with a 7-day free trial. Cancel anytime.
-          </Text>
-        </View>
+        {/* Trial info — only shown when a free trial actually applies for this user */}
+        {showTrial && (
+          <View style={styles.trialBanner}>
+            <Ionicons name="time-outline" size={18} color={colors.gold} />
+            <Text style={styles.trialBannerText}>
+              Start with a {trialDays}-day free trial. Cancel anytime.
+            </Text>
+          </View>
+        )}
 
         {/* Purchase CTA */}
         <Pressable
@@ -328,7 +337,7 @@ export default function UpgradeScreen() {
             <ActivityIndicator size="small" color="#000" />
           ) : (
             <Text style={styles.purchaseButtonText}>
-              Start 7-Day Free Trial
+              {showTrial ? `Start ${trialDays}-Day Free Trial` : 'Subscribe'}
             </Text>
           )}
         </Pressable>
