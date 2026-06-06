@@ -367,15 +367,11 @@ export default function ScannerScreen() {
 
   const handleGallerySelect = useCallback(async () => {
     try {
-      // Request media library permission
-      if (Platform.OS !== 'web') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          return;
-        }
-      }
-
-      // Launch image picker
+      // No media-library permission needed: launchImageLibraryAsync uses the
+      // out-of-process PHPicker (iOS) / Android Photo Picker, which return only the
+      // selected asset. Requesting permission here just surfaced a needless
+      // "full access" prompt (with misleading profile-picture copy) and could block
+      // the flow entirely if the user denied it.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
