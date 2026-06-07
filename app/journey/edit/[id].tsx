@@ -43,6 +43,7 @@ import { FriendPickerModal } from '@/components/social/friend-picker-modal';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 import { ContentContainer } from '@/components/content-container';
+import { SignedPhoto } from '@/components/journey/signed-photo';
 import { pickImage } from '@/lib/image-utils';
 import { usePremium } from '@/lib/premium-context';
 import { captureException } from '@/lib/sentry';
@@ -446,8 +447,9 @@ export default function EditJourneyScreen() {
                 {/* Journey photos */}
                 {localPhotos.map((photoUrl) => (
                   <View key={photoUrl} style={styles.photoTile}>
-                    <Image
-                      source={{ uri: photoUrl }}
+                    <SignedPhoto
+                      expoImage
+                      uri={photoUrl}
                       style={styles.photoTileImage}
                       contentFit="cover"
                       transition={200}
