@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
 export type ReportTargetType = 'user' | 'review' | 'comment' | 'first_take';
@@ -39,32 +38,10 @@ export async function reportContent(
     throw new Error(error.message || 'Failed to submit report');
   }
 
-  const webhookUrl = process.env.EXPO_PUBLIC_DISCORD_MODERATION_WEBHOOK;
-  if (webhookUrl) {
-    if (Platform.OS === 'web') {
-      const embed = {
-        embeds: [{
-          title: '🚨 New Report Submitted',
-          color: 0xe11d48,
-          fields: [
-            { name: 'Type', value: targetType, inline: true },
-            { name: 'Reason', value: reason, inline: true },
-            { name: 'Target ID', value: targetId, inline: false },
-            { name: 'Description', value: description || 'No additional details', inline: false },
-          ],
-          footer: { text: 'PocketStubs Moderation' },
-          timestamp: new Date().toISOString(),
-        }],
-      };
-      fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(embed),
-      }).catch(() => {});
-    } else {
-      console.log('[Report] Discord webhook skipped on native (CORS). Report submitted:', { targetType, targetId, reason });
-    }
-  }
+  // Discord moderation notification is sent server-side by the AFTER INSERT
+  // trigger on `reports` → notify-report Edge Function (migration
+  // 20260607203757). The webhook secret stays off the client entirely, and the
+  // alert now fires for every platform (the old client-side POST only ran on web).
 }
 
 /**
