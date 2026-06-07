@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { enforceRateLimit } from '../_shared/rate-limit.ts';
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
@@ -48,8 +49,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // No rate limit here — ad watch time is a natural limiter, and
-    // generate-journey-art has its own 10/day cap that gates actual usage.
+    // Cap how many ad credits can be earned per day. Without this, any authenticated
+    // caller can loop this endpoint to mint unlimited rewarded_ad_credits — each one
+    // redeemable in generate-journey-art for an AI image generation (real Gemini/OpenAI
+    // cost), which has NO independent daily cap of its own. Fail-closed: if the limiter
+    // is unavailable we deny rather than risk unbounded spend. (dev tier bypasses inside
+    // check_rate_limit.) 10/day comfortably covers legitimate rewarded-ad watching.
+    const rateLimitResponse = await enforceRateLimit(
+      user.id,
+      'grant_ad_reward',
+      10,
+      86400,
+      req,
+      { failClosed: true },
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Increment rewarded_ad_credits for the user
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
