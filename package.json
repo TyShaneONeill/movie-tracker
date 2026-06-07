@@ -1,7 +1,7 @@
 {
   "name": "pocketstubs",
   "main": "expo-router/entry",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "scripts": {
     "start": "doppler run -- expo start",
     "reset-project": "node ./scripts/reset-project.js",
