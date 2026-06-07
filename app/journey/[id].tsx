@@ -17,7 +17,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   Platform,
   Pressable,
   ActivityIndicator,
@@ -42,6 +41,8 @@ import { useAuth } from '@/lib/auth-context';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
+import { SignedPhoto } from '@/components/journey/signed-photo';
+import { resolveJourneyPhotoUrl } from '@/lib/ticket-photo-url';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import { analytics } from '@/lib/analytics';
@@ -177,7 +178,10 @@ export default function JourneyCardScreen() {
   // isPosterSlot=true only for index 0 (the TMDB poster), which may be overridden by the AI poster in the modal.
   const handlePosterTap = useCallback((photoUri: string, isPosterSlot: boolean) => {
     hapticImpact(ImpactFeedbackStyle.Medium);
-    setInspectedPhotoUrl(photoUri);
+    // Sign ticket-photo URLs so the full-screen viewer loads from the private bucket.
+    // Clear first so the modal shows nothing (vs. a stale photo) until the signed URL resolves.
+    setInspectedPhotoUrl('');
+    void resolveJourneyPhotoUrl(photoUri).then(setInspectedPhotoUrl);
     setInspectingPosterSlot(isPosterSlot);
     setIsPosterModalVisible(true);
   }, []);
@@ -277,8 +281,8 @@ export default function JourneyCardScreen() {
                       ]}
                       android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
                     >
-                      <Image
-                        source={{ uri: photoUri }}
+                      <SignedPhoto
+                        uri={photoUri}
                         style={StyleSheet.absoluteFill}
                         resizeMode={isTicketPhoto ? 'contain' : 'cover'}
                       />
@@ -334,8 +338,8 @@ export default function JourneyCardScreen() {
               ]}
               android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
             >
-              <Image
-                source={{ uri: heroPhotos[0] || undefined }}
+              <SignedPhoto
+                uri={heroPhotos[0] || ''}
                 style={styles.heroImage}
                 resizeMode="cover"
               />

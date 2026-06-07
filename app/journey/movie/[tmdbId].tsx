@@ -15,7 +15,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -42,6 +41,8 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import { TicketFlipCard } from '@/components/journey/ticket-flip-card';
 import { PerforatedEdge } from '@/components/ui/perforated-edge';
+import { SignedPhoto } from '@/components/journey/signed-photo';
+import { resolveJourneyPhotoUrl } from '@/lib/ticket-photo-url';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
@@ -270,8 +271,8 @@ function JourneyTicket({
                   onPress={() => onPosterTap(photoUri, index === 0)}
                   style={[{ width: ticketWidth, height: '100%' as any }, isTicketPhoto && { backgroundColor: '#0a0a0a' }]}
                 >
-                  <Image
-                    source={{ uri: photoUri }}
+                  <SignedPhoto
+                    uri={photoUri}
                     style={StyleSheet.absoluteFill}
                     resizeMode={isTicketPhoto ? 'contain' : 'cover'}
                   />
@@ -281,8 +282,8 @@ function JourneyTicket({
           </ScrollView>
         ) : (
           <>
-            <Image
-              source={{ uri: heroPhotos[0] || undefined }}
+            <SignedPhoto
+              uri={heroPhotos[0] || ''}
               style={styles.heroImage}
               resizeMode="cover"
             />
@@ -493,7 +494,10 @@ export default function JourneyCarouselScreen() {
   // Handle poster tap for inspection modal
   const handlePosterTap = useCallback((journey: UserMovie, photoUri: string, isPosterSlot: boolean) => {
     setSelectedPosterJourney(journey);
-    setInspectedPhotoUrl(photoUri);
+    // Sign ticket-photo URLs so the full-screen viewer loads from the private bucket.
+    // Clear first so the modal shows nothing (vs. a stale photo) until the signed URL resolves.
+    setInspectedPhotoUrl('');
+    void resolveJourneyPhotoUrl(photoUri).then(setInspectedPhotoUrl);
     setInspectingPosterSlot(isPosterSlot);
     setIsPosterModalVisible(true);
     hapticImpact(ImpactFeedbackStyle.Medium);
