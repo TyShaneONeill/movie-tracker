@@ -1,14 +1,13 @@
 /**
  * Notification preferences service — wraps the notification_preferences table.
  *
- * Semantics: returns `null` when no row exists (no preference set yet) so the
- * UI layer can apply its own default (e.g. OFF until explicitly enabled).
+ * Semantics (OPT-OUT): returns `null` when no row exists (no preference set
+ * yet). The delivery side (`send-push-notification` edge function) sends to a
+ * user unless they have an explicit `enabled=false` row, so absence means
+ * "enabled". The UI layer therefore defaults absent → ON (see
+ * `use-notification-preferences`) so the toggle honestly reflects delivery.
  * Toggling OFF persists enabled=false; toggling ON upserts enabled=true (so
  * the row exists and can be re-toggled cleanly).
- *
- * Note: the delivery side (`send-push-notification` edge function) currently
- * still treats absent rows as "enabled" — see PR-level out-of-scope notes for
- * the planned follow-up to reconcile UI default with delivery default.
  */
 
 import { supabase } from './supabase';
