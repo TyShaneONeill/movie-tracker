@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { useAuth } from './use-auth';
 import {
   registerForPushNotifications,
@@ -73,6 +73,18 @@ export function usePushNotifications(): UsePushNotificationsResult {
     if (!isAvailable) return;
     getPermissionStatus().then(setPermissionStatus);
   }, [isAvailable, user?.id]);
+
+  // Re-check permission status whenever the app returns to the foreground —
+  // the user may have flipped it in the OS settings (e.g. via "Open Settings").
+  useEffect(() => {
+    if (!isAvailable) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        getPermissionStatus().then(setPermissionStatus);
+      }
+    });
+    return () => sub.remove();
+  }, [isAvailable]);
 
   // Refresh token on app launch if already granted
   useEffect(() => {
