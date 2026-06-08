@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -19,6 +20,23 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { hapticImpact } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
 import type { NotificationFeature } from '@/lib/notification-preferences-service';
+
+/**
+ * Open the OS-level settings page for the app so the user can change the
+ * notification permission. `app-settings:` is iOS-only; on Android the RN
+ * built-in `Linking.openSettings()` is required (mirrors `scanner.tsx`).
+ */
+async function openOSSettings() {
+  try {
+    if (Platform.OS === 'ios') {
+      await Linking.openURL('app-settings:');
+    } else {
+      await Linking.openSettings();
+    }
+  } catch {
+    // Best-effort; the OS may decline to open settings.
+  }
+}
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -87,16 +105,14 @@ export default function NotificationsSettingsScreen() {
   const handleMasterToggle = async (next: boolean) => {
     hapticImpact();
     if (permissionStatus === 'undetermined') {
-      // Tap from undetermined: ask iOS for permission. The hook will refresh
+      // Tap from undetermined: ask the OS for permission. The hook will refresh
       // permissionStatus automatically; the toggle value re-derives.
       await requestPermission();
       return;
     }
-    // Tap from granted or denied: we can't change iOS perm from the app, only
-    // direct the user to iOS Settings.
-    Linking.openURL('app-settings:').catch(() => {
-      // Best-effort; iOS may decline if the URL can't be opened.
-    });
+    // Tap from granted or denied: we can't change the OS permission from the
+    // app, only direct the user to the device's Settings.
+    void openOSSettings();
   };
 
   const masterValue = permissionStatus === 'granted';
@@ -171,12 +187,14 @@ export default function NotificationsSettingsScreen() {
             <Text
               style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center' }]}
             >
-              Notifications are off in iOS Settings.
+              {Platform.OS === 'ios'
+                ? 'Notifications are off in iOS Settings.'
+                : 'Notifications are off in your device settings.'}
             </Text>
             <Pressable
               onPress={() => {
                 hapticImpact();
-                Linking.openURL('app-settings:').catch(() => {});
+                void openOSSettings();
               }}
               hitSlop={10}
               style={styles.openSettingsLink}

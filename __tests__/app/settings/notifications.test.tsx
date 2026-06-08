@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import NotificationsSettingsScreen from '@/app/settings/notifications';
 import * as prefService from '@/lib/notification-preferences-service';
@@ -26,6 +26,9 @@ const setPrefMock = prefService.setNotificationPreference as jest.Mock;
 const usePushMock = pushHook.usePushNotifications as jest.Mock;
 const trackSpy = jest.spyOn(analyticsModule.analytics, 'track');
 const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+const openSettingsSpy = jest
+  .spyOn(Linking, 'openSettings')
+  .mockResolvedValue(undefined);
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const [client] = React.useState(
@@ -165,10 +168,49 @@ describe('NotificationsSettingsScreen — denied permission', () => {
     await findByText(/open settings/i);
   }, 15000);
 
-  it('tapping Open Settings link calls Linking.openURL with app-settings:', async () => {
+  it('tapping Open Settings link calls Linking.openURL with app-settings: (iOS)', async () => {
     const { findByText } = render(<NotificationsSettingsScreen />, { wrapper });
     const link = await findByText(/open settings/i);
     fireEvent.press(link);
     await waitFor(() => expect(openURLSpy).toHaveBeenCalledWith('app-settings:'));
   });
+});
+
+describe('NotificationsSettingsScreen — Android platform', () => {
+  let originalOS: typeof Platform.OS;
+  beforeAll(() => {
+    originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+  });
+  afterAll(() => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+  });
+
+  it('granted: tapping master toggle opens device settings via openSettings, not app-settings:', async () => {
+    usePushMock.mockReturnValue({
+      permissionStatus: 'granted',
+      requestPermission: jest.fn(),
+      isAvailable: true,
+    });
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const master = await findByLabelText('Push Notifications', {}, { timeout: 8000 });
+    fireEvent(master, 'valueChange', false);
+    await waitFor(() => expect(openSettingsSpy).toHaveBeenCalledTimes(1));
+    expect(openURLSpy).not.toHaveBeenCalledWith('app-settings:');
+  }, 15000);
+
+  it('denied: shows device-settings copy (not "iOS Settings") and Open Settings calls openSettings', async () => {
+    usePushMock.mockReturnValue({
+      permissionStatus: 'denied',
+      requestPermission: jest.fn(),
+      isAvailable: true,
+    });
+    const { findByText, queryByText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const link = await findByText(/open settings/i, {}, { timeout: 8000 });
+    expect(queryByText(/iOS Settings/i)).toBeNull();
+    await findByText(/your device settings/i);
+    fireEvent.press(link);
+    await waitFor(() => expect(openSettingsSpy).toHaveBeenCalledTimes(1));
+    expect(openURLSpy).not.toHaveBeenCalledWith('app-settings:');
+  }, 15000);
 });
