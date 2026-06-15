@@ -19,7 +19,12 @@ interface GenerateArtResponse {
   imageUrl?: string;
   rarity?: 'common' | 'holographic';
   error?: string;
+  /** Server-assigned failure category (model_error, copyright, timeout, ...) */
+  reason?: string;
 }
+
+/** Error carrying the server's failure `reason` so onError can tag analytics. */
+type GenerationError = Error & { reason?: string };
 
 async function generateJourneyArt(
   request: GenerateArtRequest,
@@ -70,13 +75,17 @@ async function generateJourneyArt(
       throw new Error('ai_generation_limit');
     }
 
-    throw new Error(
+    const e: GenerationError = new Error(
       errorBody?.error || error.message || 'Failed to generate art'
     );
+    e.reason = errorBody?.reason;
+    throw e;
   }
 
   if (!data?.success) {
-    throw new Error(data?.error || 'Failed to generate art');
+    const e: GenerationError = new Error(data?.error || 'Failed to generate art');
+    e.reason = data?.reason;
+    throw e;
   }
 
   return data;
@@ -150,7 +159,12 @@ export function useGenerateArt() {
       queryClient.invalidateQueries({ queryKey: ['ad-credits'] });
     },
     onError: (error: Error, variables) => {
-      analytics.track('generate:art:fail', { journey_id: variables.journeyId, error: error.message });
+      // Tag the failure category so PostHog can break failures down by reason
+      // (model_error, copyright, timeout, ...) — same taxonomy as the Discord alert.
+      const reason =
+        (error as GenerationError).reason ??
+        (error.message === 'ai_generation_limit' ? 'out_of_generations' : 'client_error');
+      analytics.track('generate:art:fail', { journey_id: variables.journeyId, error: error.message, reason });
       // Any failure can change server-side gating (the free trial flipping to
       // used, or a credit having been consumed). Re-sync so the UI never gets
       // stuck showing "Generate AI Art" while the server reports out-of-
