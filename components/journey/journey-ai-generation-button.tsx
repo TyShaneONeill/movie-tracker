@@ -70,6 +70,24 @@ export function JourneyAIGenerationButton({
     }
   }, [showAd, grantCredit, reloadAd]);
 
+  // Tapping the Watch-Ad button before an ad has loaded used to do nothing
+  // (disabled "Loading ad..."), which reads as "there's no way to earn a
+  // generation." Instead, retry the ad load and tell the user, so they always
+  // have a path forward (or can fall back to the upgrade nudge below).
+  const handleWatchAdPress = useCallback(async () => {
+    if (!adLoaded) {
+      hapticImpact();
+      reloadAd();
+      Toast.show({
+        type: 'info',
+        text1: 'Ad not ready yet',
+        text2: 'Give it a few seconds, then tap again.',
+      });
+      return;
+    }
+    await handleWatchAd();
+  }, [adLoaded, reloadAd, handleWatchAd]);
+
   const handleGenerateArt = useCallback(async () => {
     hapticImpact();
     try {
@@ -95,14 +113,18 @@ export function JourneyAIGenerationButton({
         <>
           <Pressable
             style={[styles.generateArtButton, !adLoaded && styles.generateArtButtonDisabled]}
-            onPress={handleWatchAd}
-            disabled={!adLoaded || isGranting}
+            onPress={handleWatchAdPress}
+            disabled={isGranting}
           >
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth={2}>
               <Path d="M15 10l4.553-2.277A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
             </Svg>
             <Text style={styles.generateArtButtonText}>
-              {!adLoaded ? 'Loading ad...' : 'Watch Ad for 1 Generation'}
+              {isGranting
+                ? 'Granting credit...'
+                : !adLoaded
+                  ? 'Ad not ready — tap to retry'
+                  : 'Watch Ad for 1 Generation'}
             </Text>
           </Pressable>
 

@@ -247,5 +247,36 @@ describe('useGenerateArt', () => {
         })
       );
     });
+
+    it('re-syncs gating caches on a generic failure (prevents stale-cache limbo)', async () => {
+      mockTrialAndCredits(1, 1);
+
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'Internal server error' },
+      });
+
+      const { queryClient, wrapper } = createTestHarness();
+      const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+      const { result } = renderHook(() => useGenerateArt(), { wrapper });
+
+      await act(async () => {
+        try {
+          await result.current.generateArt({
+            journeyId: 'j1',
+            movieTitle: 'Test',
+            genres: ['Action'],
+            posterUrl: 'https://image.tmdb.org/t/p/test.jpg',
+          });
+        } catch {
+          // expected
+        }
+      });
+
+      // The UI must re-fetch true gating state after ANY failure, so it can't
+      // get stuck showing "Generate" while the server is out of generations.
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-trial-used'] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ad-credits'] });
+    });
   });
 });

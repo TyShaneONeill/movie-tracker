@@ -294,6 +294,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Tracks whether a watched-ad credit should be consumed. Consumption happens
+    // ONLY after a fully successful generation (see below), never up-front.
+    let shouldConsumeAdCredit = false;
+    let adCreditsBeforeConsumption = 0;
+
     // --- Free-tier generation limit ---
     const { data: profile } = await supabaseAdmin
       .from('profiles')
@@ -325,12 +330,15 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Consume one ad credit if the free trial is already used
+      // Reserve-on-success: do NOT consume the ad credit here. Decrementing
+      // before the (~60s, failure-prone) OpenAI call permanently burned the
+      // credit on ANY failure, stranding free users at 0 credits with nothing
+      // generated (the "limbo" bug). Mirror the free trial, which is only logged
+      // on full success below — flag it now, decrement after the generation
+      // actually succeeds.
       if (usageCount >= 1 && adCredits > 0) {
-        await supabaseAdmin
-          .from('profiles')
-          .update({ rewarded_ad_credits: adCredits - 1 })
-          .eq('id', user.id);
+        shouldConsumeAdCredit = true;
+        adCreditsBeforeConsumption = adCredits;
       }
     }
     // --- End free-tier limit ---
@@ -434,6 +442,15 @@ Deno.serve(async (req: Request) => {
       'gpt-image-1.5',
       AI_COST_ESTIMATES['gpt-image-1.5'] * apiCalls,
     );
+
+    // Generation fully succeeded — now consume the reserved ad credit. (A failed
+    // generation reaches none of this, so the credit is never lost.)
+    if (shouldConsumeAdCredit) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({ rewarded_ad_credits: Math.max(0, adCreditsBeforeConsumption - 1) })
+        .eq('id', user.id);
+    }
 
     const response: GenerateArtResponse = {
       success: true,
