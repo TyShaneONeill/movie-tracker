@@ -17,6 +17,9 @@
     "e2e:headed": "doppler run -- npx playwright test --headed",
     "e2e:report": "npx playwright show-report",
     "generate:movies": "doppler run -- node scripts/generate-movie-pages.js",
+    "verify:ios-bundle": "bash scripts/verify-ios-jsbundle.sh",
+    "submit:ios": "bash scripts/submit-ios.sh",
+    "eas-build-on-success": "bash scripts/verify-ios-jsbundle.sh",
     "prepare": "husky"
   },
   "dependencies": {
