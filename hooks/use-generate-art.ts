@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { MUTATION_KEYS } from '@/lib/query-client';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import { analytics } from '@/lib/analytics';
+import { captureException } from '@/lib/sentry';
 
 interface GenerateArtRequest {
   journeyId: string;
@@ -166,6 +167,14 @@ export function useGenerateArt() {
         });
         return;
       }
+      // Genuine generation failure (not the expected out-of-generations case
+      // above) — report to Sentry so failure spikes are visible and alertable.
+      // The edge function only console.errors, so this is the feature's
+      // server-error visibility.
+      captureException(error, {
+        context: 'generate-journey-art',
+        journeyId: variables.journeyId,
+      });
       // Generic error toast
       Toast.show({
         type: 'error',
