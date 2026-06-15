@@ -29,6 +29,10 @@ jest.mock('@/lib/analytics', () => ({
   analytics: { track: jest.fn() },
 }));
 
+jest.mock('@/lib/sentry', () => ({
+  captureException: jest.fn(),
+}));
+
 jest.mock('react-native-toast-message', () => ({
   __esModule: true,
   default: { show: jest.fn() },
@@ -277,6 +281,46 @@ describe('useGenerateArt', () => {
       // get stuck showing "Generate" while the server is out of generations.
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-trial-used'] });
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ad-credits'] });
+    });
+
+    it('reports genuine failures to Sentry (for alerting), but not the expected out-of-generations case', async () => {
+      const { captureException } = require('@/lib/sentry');
+
+      // 1) Generic failure → captured.
+      mockTrialAndCredits(1, 1);
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'Internal server error' },
+      });
+      const h1 = createTestHarness();
+      const { result: r1 } = renderHook(() => useGenerateArt(), { wrapper: h1.wrapper });
+      await act(async () => {
+        try {
+          await r1.current.generateArt({ journeyId: 'j1', movieTitle: 'T', genres: [], posterUrl: 'https://image.tmdb.org/t/p/x.jpg' });
+        } catch { /* expected */ }
+      });
+      expect(captureException).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({ context: 'generate-journey-art' })
+      );
+
+      // 2) Expected out-of-generations (ai_generation_limit) → NOT captured.
+      (captureException as jest.Mock).mockClear();
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: null,
+        error: {
+          message: 'non-2xx',
+          context: { json: jest.fn().mockResolvedValue({ error: 'ai_generation_limit' }) },
+        },
+      });
+      const h2 = createTestHarness();
+      const { result: r2 } = renderHook(() => useGenerateArt(), { wrapper: h2.wrapper });
+      await act(async () => {
+        try {
+          await r2.current.generateArt({ journeyId: 'j2', movieTitle: 'T', genres: [], posterUrl: 'https://image.tmdb.org/t/p/x.jpg' });
+        } catch { /* expected */ }
+      });
+      expect(captureException).not.toHaveBeenCalled();
     });
   });
 });
