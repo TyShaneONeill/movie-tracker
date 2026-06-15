@@ -201,6 +201,10 @@ Deno.serve(async (req: Request) => {
   // catch block can report which user/movie failed.
   let alertMovieTitle: string | undefined;
   let alertUserId: string | undefined;
+  // What the user had at stake — surfaced in failure alerts so we can confirm a
+  // failure consumed NOTHING (reserve-on-success), and catch a regression if it
+  // ever did.
+  let alertCreditNote: string | undefined;
 
   try {
     // Only allow POST requests
@@ -315,6 +319,9 @@ Deno.serve(async (req: Request) => {
       .single();
 
     const tier = profile?.account_tier || 'free';
+    if (tier !== 'free') {
+      alertCreditNote = `${tier} tier — unlimited, no credit at stake`;
+    }
 
     if (tier === 'free') {
       // function_name uses underscores to match existing logAiCost value
@@ -347,6 +354,10 @@ Deno.serve(async (req: Request) => {
       if (usageCount >= 1 && adCredits > 0) {
         shouldConsumeAdCredit = true;
         adCreditsBeforeConsumption = adCredits;
+        alertCreditNote = `ad credit preserved on failure (${adCredits} available)`;
+      } else {
+        // First free generation — the free trial is the thing at stake.
+        alertCreditNote = 'free trial preserved on failure';
       }
     }
     // --- End free-tier limit ---
@@ -381,6 +392,7 @@ Deno.serve(async (req: Request) => {
         movieTitle,
         userId: user.id,
         detail: 'Daily AI spend cap reached',
+        creditNote: alertCreditNote,
       });
       return buildSpendLimitResponse(req, spendCheck);
     }
@@ -447,6 +459,7 @@ Deno.serve(async (req: Request) => {
         movieTitle,
         userId: user.id,
         detail: updateError.message,
+        creditNote: alertCreditNote,
       });
       return new Response(
         JSON.stringify({ error: 'Failed to save generated art. Please try again.', reason: 'save_error' }),
@@ -496,6 +509,7 @@ Deno.serve(async (req: Request) => {
       movieTitle: alertMovieTitle,
       userId: alertUserId,
       detail: error instanceof Error ? error.message : String(error),
+      creditNote: alertCreditNote,
     });
 
     if (isSafety) {

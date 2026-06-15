@@ -30,6 +30,8 @@ export interface AiFailureAlert {
   movieTitle?: string;
   userId?: string;
   detail?: string;
+  /** What the user had at stake — confirms a failure consumed nothing. */
+  creditNote?: string;
 }
 
 export async function reportAiGenerationFailure(args: AiFailureAlert): Promise<void> {
@@ -54,6 +56,7 @@ export async function reportAiGenerationFailure(args: AiFailureAlert): Promise<v
               { name: 'Severity', value: args.severity, inline: true },
               // Short user prefix only — enough to correlate, not full PII.
               { name: 'User', value: args.userId ? args.userId.slice(0, 8) : '—', inline: true },
+              { name: 'Credit', value: `✓ ${args.creditNote || 'not consumed'}`, inline: true },
               { name: 'Detail', value: (args.detail || '—').slice(0, 800) },
             ],
             footer: { text: 'generate-journey-art' },
