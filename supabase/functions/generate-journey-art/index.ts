@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { enforceRateLimit } from '../_shared/rate-limit.ts';
 import { checkDailyAiSpend, logAiCost, buildSpendLimitResponse, AI_COST_ESTIMATES } from '../_shared/cost-tracking.ts';
+import { reportAiGenerationFailure, categorizeGenerationFailure } from '../_shared/ai-failure-alert.ts';
 
 // Allowed domains for poster URLs (SSRF protection)
 const ALLOWED_POSTER_DOMAINS = [
@@ -196,6 +197,11 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
+  // Context for failure alerts — populated once auth + body are available so the
+  // catch block can report which user/movie failed.
+  let alertMovieTitle: string | undefined;
+  let alertUserId: string | undefined;
+
   try {
     // Only allow POST requests
     if (req.method !== 'POST') {
@@ -237,6 +243,7 @@ Deno.serve(async (req: Request) => {
         { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
+    alertUserId = user.id;
 
     // Parse request body
     let body: GenerateArtRequest;
@@ -249,6 +256,7 @@ Deno.serve(async (req: Request) => {
       );
     }
     const { journeyId, movieTitle, genres, posterUrl } = body;
+    alertMovieTitle = movieTitle;
 
     if (!journeyId || !movieTitle) {
       return new Response(
@@ -367,6 +375,13 @@ Deno.serve(async (req: Request) => {
     // Check daily AI spend limit before calling OpenAI
     const spendCheck = await checkDailyAiSpend(supabaseAdmin);
     if (!spendCheck.allowed) {
+      await reportAiGenerationFailure({
+        reason: 'spend_limit',
+        severity: 'warn',
+        movieTitle,
+        userId: user.id,
+        detail: 'Daily AI spend cap reached',
+      });
       return buildSpendLimitResponse(req, spendCheck);
     }
 
@@ -426,8 +441,15 @@ Deno.serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Failed to update journey:', updateError);
+      await reportAiGenerationFailure({
+        reason: 'save_error',
+        severity: 'warn',
+        movieTitle,
+        userId: user.id,
+        detail: updateError.message,
+      });
       return new Response(
-        JSON.stringify({ error: 'Failed to save generated art. Please try again.' }),
+        JSON.stringify({ error: 'Failed to save generated art. Please try again.', reason: 'save_error' }),
         { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
@@ -466,11 +488,22 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Error generating journey art:', error);
 
-    if (error instanceof SafetyRejectionError) {
+    const isSafety = error instanceof SafetyRejectionError;
+    const { reason, severity } = categorizeGenerationFailure(error, isSafety);
+    await reportAiGenerationFailure({
+      reason,
+      severity,
+      movieTitle: alertMovieTitle,
+      userId: alertUserId,
+      detail: error instanceof Error ? error.message : String(error),
+    });
+
+    if (isSafety) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: error.message
+          error: (error as Error).message,
+          reason,
         }),
         { status: 422, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
@@ -479,7 +512,8 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Internal server error'
+        error: 'Internal server error',
+        reason,
       }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
