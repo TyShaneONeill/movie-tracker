@@ -150,6 +150,12 @@ export function useGenerateArt() {
     },
     onError: (error: Error, variables) => {
       analytics.track('generate:art:fail', { journey_id: variables.journeyId, error: error.message });
+      // Any failure can change server-side gating (the free trial flipping to
+      // used, or a credit having been consumed). Re-sync so the UI never gets
+      // stuck showing "Generate AI Art" while the server reports out-of-
+      // generations — the disagreement that left users in limbo.
+      queryClient.invalidateQueries({ queryKey: ['ai-trial-used'] });
+      queryClient.invalidateQueries({ queryKey: ['ad-credits'] });
       if (error.message === 'ai_generation_limit') {
         queryClient.setQueryData(['ai-trial-used', user?.id], { used: true });
         queryClient.setQueryData(['ad-credits', user?.id], 0);
