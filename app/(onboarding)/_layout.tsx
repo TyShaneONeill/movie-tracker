@@ -19,6 +19,7 @@ export default function OnboardingLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="profile-setup" />
+      <Stack.Screen name="v2" options={{ gestureEnabled: false }} />
     </Stack>
   );
 }
