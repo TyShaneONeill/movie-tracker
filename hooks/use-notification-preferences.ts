@@ -23,7 +23,11 @@ export function useNotificationPreference(feature: NotificationFeature) {
   });
 
   return {
-    enabled: query.data ?? false,
+    // Opt-out default: when no row exists the user has NOT opted out, and the
+    // delivery side (send-push-notification) sends to them. Default ON so the
+    // toggle honestly reflects that reminders are active. See
+    // notification-preferences-service for the full semantics.
+    enabled: query.data ?? true,
     isLoading: query.isLoading,
     setEnabled: mutation.mutate,
     isUpdating: mutation.isPending,

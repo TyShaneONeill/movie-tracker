@@ -46,6 +46,16 @@ describe('useNotificationPreference', () => {
     await waitFor(() => expect(result.current.enabled).toBe(false));
   });
 
+  it('defaults to enabled=true when no row exists (opt-out — matches delivery)', async () => {
+    getMock.mockResolvedValue(null);
+    const { result } = renderHook(
+      () => useNotificationPreference('release_reminders'),
+      { wrapper }
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.enabled).toBe(true);
+  });
+
   it('setEnabled invokes the service and refreshes the query', async () => {
     getMock.mockResolvedValue(true);
     setMock.mockResolvedValue(undefined);

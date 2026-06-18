@@ -90,13 +90,15 @@ describe('NotificationsSettingsScreen — granted permission', () => {
     });
   });
 
-  it('renders both per-feature toggles defaulting OFF when no DB rows exist', async () => {
+  it('renders both per-feature toggles defaulting ON when no DB rows exist (opt-out)', async () => {
     getPrefMock.mockResolvedValue(null);
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
     const release = await findByLabelText('Release reminders', {}, { timeout: 8000 });
     const tv = await findByLabelText('TV episode reminders');
-    expect(release.props.accessibilityState.checked).toBe(false);
-    expect(tv.props.accessibilityState.checked).toBe(false);
+    // Delivery sends unless an explicit enabled=false row exists, so the UI
+    // shows ON when no row exists — honestly reflecting that reminders are active.
+    expect(release.props.accessibilityState.checked).toBe(true);
+    expect(tv.props.accessibilityState.checked).toBe(true);
   }, 15000);
 
   it('toggling release_reminders ON calls setNotificationPreference and fires analytics', async () => {
