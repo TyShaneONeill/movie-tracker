@@ -42,12 +42,28 @@ fi
 echo "▶ Linking Supabase CLI to STAGING ($STAGING_REF)…"
 supabase link --project-ref "$STAGING_REF"
 
+# The baseline migration (20260525063629_remote_schema.sql) is a prod schema
+# snapshot whose webhook triggers reference supabase_functions.http_request and
+# hardcode the PROD functions URL. On a fresh project that schema doesn't exist
+# (it's created by enabling Database Webhooks), so db push fails. We install an
+# INERT stub instead: the triggers get created but do nothing — staging never
+# calls prod functions. Guarded so it never clobbers a real http_request.
+echo "▶ Installing inert supabase_functions.http_request stub (staging isolation)…"
+supabase db query --linked "create schema if not exists supabase_functions; do \$\$ begin if not exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='supabase_functions' and p.proname='http_request') then create function supabase_functions.http_request() returns trigger language plpgsql as \$f\$ begin return null; end; \$f\$; end if; end \$\$;"
+
 echo "▶ Applying migrations to staging…"
-supabase db push
+echo "y" | supabase db push
 
 echo "▶ Deploying all edge functions to staging…"
 # `functions deploy` with no name deploys every function in supabase/functions
 # (honoring per-function verify_jwt from config.toml).
+# NOTE: some edge functions are NOT in source control and live only on prod
+# (known: discover-movies, get-movie-lists, get-movie-details, search-movies).
+# Pull them from prod before deploying so staging has them:
+#   for fn in discover-movies get-movie-lists get-movie-details search-movies; do
+#     supabase functions download "$fn" --project-ref wliblwulvsrfgqcnbzeh
+#   done
+# (Better fix: commit these to supabase/functions/ — see the risk note.)
 supabase functions deploy --project-ref "$STAGING_REF"
 
 echo "▶ Syncing staging secrets (Doppler stg → Supabase)…"
