@@ -8,8 +8,17 @@ const POLL_INTERVAL_MS = 250;
 
 export type OnboardingVariant = 'v1' | 'v2';
 
+// Local/dev override that short-circuits PostHog entirely. Metro only inlines
+// LITERAL `process.env.EXPO_PUBLIC_*` access, so this must be read literally at
+// module load (a dynamic lookup would silently be undefined in a prod bundle).
+const ENV_OVERRIDE = process.env.EXPO_PUBLIC_ONBOARDING_V2_OVERRIDE;
+
 /**
  * Resolves which onboarding flow a user should see.
+ *
+ * Resolution order:
+ *   1. `EXPO_PUBLIC_ONBOARDING_V2_OVERRIDE` ('true' | 'false') — dev/QA override.
+ *   2. The `onboarding_v2` PostHog flag.
  *
  * PostHog loads feature flags asynchronously, so on first mount the flag value
  * is often `undefined` (not yet loaded). We briefly poll until the flag
@@ -20,9 +29,13 @@ export type OnboardingVariant = 'v1' | 'v2';
 export function useOnboardingVariant(): { variant: OnboardingVariant; resolving: boolean } {
   const initial = analytics.getFeatureFlag(ONBOARDING_V2_FLAG);
   const [value, setValue] = useState<string | boolean | undefined>(initial);
-  const [resolving, setResolving] = useState<boolean>(initial === undefined);
+  // When an override is set we never poll PostHog, so we're never "resolving".
+  const [resolving, setResolving] = useState<boolean>(
+    ENV_OVERRIDE === undefined && initial === undefined
+  );
 
   useEffect(() => {
+    if (ENV_OVERRIDE !== undefined) return; // override wins; skip PostHog polling
     if (!resolving) return;
 
     let cancelled = false;
@@ -47,6 +60,9 @@ export function useOnboardingVariant(): { variant: OnboardingVariant; resolving:
       clearInterval(interval);
     };
   }, [resolving]);
+
+  if (ENV_OVERRIDE === 'true') return { variant: 'v2', resolving: false };
+  if (ENV_OVERRIDE === 'false') return { variant: 'v1', resolving: false };
 
   const enabled = value === true || (typeof value === 'string' && value !== 'false');
   return { variant: enabled ? 'v2' : 'v1', resolving };
