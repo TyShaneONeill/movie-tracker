@@ -59,6 +59,9 @@ export function ProfileStep({ onNext }: StepProps) {
             size={104}
             isLoading={isUploading}
             onImageSelected={handleImageSelected}
+            initial={data.name}
+            hideCameraBadge
+            dashedEmptyRing
           />
           <ThemedText style={[styles.caption, { color: colors.textTertiary }]}>
             Tap your photo to add one

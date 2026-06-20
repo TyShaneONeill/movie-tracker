@@ -1,7 +1,7 @@
 import { View, StyleSheet, InteractionManager } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +10,7 @@ import { Typography } from '@/constants/typography';
 import { CTAButton } from '@/components/onboarding/v2/shared/cta-button';
 import { StubCard } from '@/components/onboarding/v2/shared/stub-card';
 import { MONO_FONT } from '@/components/onboarding/v2/shared/mono';
+import { useReducedMotion } from '@/components/onboarding/v2/shared/use-reduced-motion';
 import { useOnboardingV2 } from '@/components/onboarding/v2/onboarding-v2-context';
 import { useTour } from '@/lib/onboarding/tour-context';
 import type { StepProps } from '@/components/onboarding/v2/types';
@@ -29,6 +30,11 @@ export function SuccessStep(_props: StepProps) {
   const insets = useSafeAreaInsets();
   const { data, commit, isSubmitting } = useOnboardingV2();
   const { startTourIfNotCompleted } = useTour();
+  const reduceMotion = useReducedMotion();
+  // The "welcome stub" prints in: a springy drop from above. Reduced motion → fade.
+  const stubEntering = reduceMotion
+    ? FadeIn.duration(250)
+    : FadeInDown.springify().damping(13).mass(0.9).stiffness(120);
 
   const count = data.watchlist.length;
   const dynamicLine =
@@ -49,7 +55,7 @@ export function SuccessStep(_props: StepProps) {
   return (
     <View style={styles.container}>
       <View style={styles.stubWrap}>
-        <Animated.View entering={FadeInDown.duration(500)}>
+        <Animated.View entering={stubEntering}>
           <StubCard
             topHeight={180}
             top={

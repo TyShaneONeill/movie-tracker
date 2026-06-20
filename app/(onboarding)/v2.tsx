@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 import { Colors, Spacing } from '@/constants/theme';
 import { analytics } from '@/lib/analytics';
 import { OnboardingV2Provider } from '@/components/onboarding/v2/onboarding-v2-context';
 import type { StepProps } from '@/components/onboarding/v2/types';
 import { ProgressBar } from '@/components/onboarding/v2/shared/progress-bar';
+import { useReducedMotion } from '@/components/onboarding/v2/shared/use-reduced-motion';
 import { WelcomeStep } from '@/components/onboarding/v2/steps/welcome-step';
 import { GenresStep } from '@/components/onboarding/v2/steps/genres-step';
 import { ErasStep } from '@/components/onboarding/v2/steps/eras-step';
@@ -31,6 +32,21 @@ function OnboardingV2Flow() {
   const stepKey: StepKey = STEPS[index];
   const goNext = useCallback(() => setIndex((i) => Math.min(i + 1, STEPS.length - 1)), []);
   const goBack = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), []);
+
+  // Transition: forward = fade-up (~380ms), back = plain fade; reduced-motion =
+  // opacity-only. `direction` reads prevIndex BEFORE the post-render effect
+  // updates it, so it reflects the transition currently happening.
+  const reduceMotion = useReducedMotion();
+  const prevIndex = useRef(index);
+  const goingForward = index >= prevIndex.current;
+  useEffect(() => {
+    prevIndex.current = index;
+  }, [index]);
+  const entering = reduceMotion
+    ? FadeIn.duration(200)
+    : goingForward
+      ? FadeInUp.duration(380)
+      : FadeIn.duration(260);
 
   // Per-step analytics so we can see drop-off points (variant-tagged).
   useEffect(() => {
@@ -76,7 +92,7 @@ function OnboardingV2Flow() {
         </View>
       )}
 
-      <Animated.View key={index} entering={FadeIn.duration(380)} style={styles.stepBody}>
+      <Animated.View key={index} entering={entering} style={styles.stepBody}>
         {renderStep()}
       </Animated.View>
     </View>
