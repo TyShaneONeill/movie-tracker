@@ -51,7 +51,14 @@ export function ErasStep({ onNext }: StepProps) {
                   {era.films.join(' · ')}
                 </ThemedText>
               </View>
-              {selected && <Ionicons name="checkmark-circle" size={20} color={colors.tint} />}
+              <View
+                style={[
+                  styles.ring,
+                  { borderColor: selected ? colors.tint : colors.border, backgroundColor: selected ? colors.tint : 'transparent' },
+                ]}
+              >
+                {selected && <Ionicons name="checkmark" size={12} color="#fff" />}
+              </View>
             </Pressable>
           );
         })}
@@ -72,7 +79,14 @@ export function ErasStep({ onNext }: StepProps) {
           >
             No era in particular — I watch across all of them
           </ThemedText>
-          {data.eraAgnostic && <Ionicons name="checkmark-circle" size={20} color={colors.tint} />}
+          <View
+            style={[
+              styles.ring,
+              { borderColor: data.eraAgnostic ? colors.tint : colors.border, backgroundColor: data.eraAgnostic ? colors.tint : 'transparent' },
+            ]}
+          >
+            {data.eraAgnostic && <Ionicons name="checkmark" size={12} color="#fff" />}
+          </View>
         </Pressable>
       </View>
     </StepLayout>
@@ -84,19 +98,20 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
+    gap: Spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
   },
   decade: {
     fontFamily: Fonts.outfit.extrabold,
-    fontSize: 32,
-    lineHeight: 40,
+    fontSize: 28,
+    lineHeight: 34,
     letterSpacing: -1,
-    width: 72,
+    width: 60,
   },
-  rowBody: { flex: 1, gap: 3 },
+  rowBody: { flex: 1, gap: 2 },
   movement: {
     fontFamily: MONO_FONT,
     fontSize: 10,
@@ -104,12 +119,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   films: { ...Typography.body.xs },
+  ring: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   optOut: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: Spacing.sm,
-    padding: Spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderStyle: 'dashed',
