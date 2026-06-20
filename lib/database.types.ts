@@ -651,6 +651,8 @@ export type Database = {
       profiles: {
         Row: {
           account_tier: string
+          avatar_config: Json | null
+          avatar_type: string
           avatar_url: string | null
           bio: string | null
           calendar_default_filters: Json | null
@@ -677,6 +679,8 @@ export type Database = {
         }
         Insert: {
           account_tier?: string
+          avatar_config?: Json | null
+          avatar_type?: string
           avatar_url?: string | null
           bio?: string | null
           calendar_default_filters?: Json | null
@@ -703,6 +707,8 @@ export type Database = {
         }
         Update: {
           account_tier?: string
+          avatar_config?: Json | null
+          avatar_type?: string
           avatar_url?: string | null
           bio?: string | null
           calendar_default_filters?: Json | null

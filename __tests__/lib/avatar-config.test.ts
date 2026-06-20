@@ -2,6 +2,7 @@ import {
   avatarSvg,
   avatarCacheKey,
   randomConfig,
+  seededConfigFromId,
   SKIN_TONES,
   HAIR_STYLES,
   HAIR_COLORS,
@@ -54,6 +55,22 @@ describe('avatar-config', () => {
     it('distinguishes auto (no config) from customized', () => {
       expect(avatarCacheKey('seed')).toContain('auto');
       expect(avatarCacheKey('seed', { eyes: EYES[0].id })).not.toContain('auto');
+    });
+  });
+
+  describe('seededConfigFromId', () => {
+    it('is deterministic per id and returns valid catalog ids', () => {
+      const a = seededConfigFromId('user-xyz');
+      const b = seededConfigFromId('user-xyz');
+      expect(a).toEqual(b);
+      expect(SKIN_TONES.map((o) => o.id)).toContain(a.skinColor);
+      expect(HAIR_STYLES.map((o) => o.id)).toContain(a.top);
+      expect(BACKGROUNDS.map((o) => o.id)).toContain(a.backgroundColor);
+    });
+
+    it('varies across ids', () => {
+      const ids = ['a', 'b', 'c', 'd', 'e'].map((s) => JSON.stringify(seededConfigFromId(s)));
+      expect(new Set(ids).size).toBeGreaterThan(1);
     });
   });
 

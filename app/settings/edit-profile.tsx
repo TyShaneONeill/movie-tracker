@@ -223,6 +223,18 @@ export default function EditProfileScreen() {
             <Text style={[styles.changePhotoText, { color: colors.tint }]}>
               Tap to change photo
             </Text>
+            <Pressable
+              onPress={() => router.push('/settings/edit-avatar')}
+              style={({ pressed }) => [
+                styles.customizeAvatarButton,
+                { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Ionicons name="color-palette-outline" size={16} color={colors.text} />
+              <Text style={[styles.customizeAvatarText, { color: colors.text }]}>
+                Customize avatar
+              </Text>
+            </Pressable>
           </View>
 
           {/* Form Fields */}
@@ -390,6 +402,20 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     fontSize: 14,
     fontWeight: '500',
+  },
+  customizeAvatarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  customizeAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   formSection: {
     paddingHorizontal: Spacing.lg,

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { View, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { AvatarBuilder } from '@/components/avatar-builder/avatar-builder';
 
 import { ThemedText } from '@/components/themed-text';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
@@ -21,6 +23,7 @@ export function ProfileStep({ onNext }: StepProps) {
   const { user } = useAuth();
   const { data, update } = useOnboardingV2();
   const [isUploading, setIsUploading] = useState(false);
+  const [showBuilder, setShowBuilder] = useState(false);
 
   const usernameValidation = useUsernameValidation(data.handle, user?.id);
   const nameValid = data.name.trim().length > 0;
@@ -69,7 +72,25 @@ export function ProfileStep({ onNext }: StepProps) {
               Tap your photo to add one
             </ThemedText>
           </View>
+          <Pressable
+            onPress={() => setShowBuilder(true)}
+            style={({ pressed }) => [styles.customizeBtn, { borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Ionicons name="color-palette-outline" size={14} color={colors.tint} />
+            <ThemedText style={[styles.customizeLabel, { color: colors.tint }]}>
+              Or customize an avatar
+            </ThemedText>
+          </Pressable>
         </View>
+
+        <Modal
+          visible={showBuilder}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setShowBuilder(false)}
+        >
+          <AvatarBuilder forceDark onDone={() => setShowBuilder(false)} />
+        </Modal>
 
         {/* Name */}
         <View style={styles.field}>
@@ -188,6 +209,17 @@ const styles = StyleSheet.create({
   avatarSection: { alignItems: 'center', marginBottom: Spacing.sm, gap: 6 },
   captionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   caption: { ...Typography.body.sm },
+  customizeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  customizeLabel: { ...Typography.body.sm, fontWeight: '600' },
   field: { marginBottom: Spacing.sm },
   label: { ...Typography.body.smMedium, marginBottom: 4 },
   input: { height: 46, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, fontSize: 16 },

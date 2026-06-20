@@ -152,30 +152,62 @@ export const AVATAR_CATEGORIES = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// Rendering
+// Seeding & rendering
 // ---------------------------------------------------------------------------
+
+/** Deterministic 32-bit hash of a string (FNV-ish). */
+function hashString(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Build a deterministic AvatarConfig from a seed (user id). Every account gets a
+ * stable, varied avatar drawn from our curated catalogs — and because it's a
+ * real AvatarConfig, the builder opens from exactly what the user already sees.
+ */
+export function seededConfigFromId(seed: string): AvatarConfig {
+  const s = seed || 'pocketstubs';
+  const at = <T extends { id: string }>(arr: T[], salt: string) =>
+    arr[hashString(s + salt) % arr.length].id;
+  return {
+    skinColor: at(SKIN_TONES, 'skin'),
+    top: at(HAIR_STYLES, 'hair'),
+    hairColor: at(HAIR_COLORS, 'haircolor'),
+    clothing: at(CLOTHING, 'clothing'),
+    clothesColor: at(CLOTHES_COLORS, 'shirt'),
+    eyes: at(EYES, 'eyes'),
+    backgroundColor: at(BACKGROUNDS, 'bg'),
+  };
+}
 
 /**
  * Generate an avatar SVG string.
  * - `seed` makes "auto" avatars deterministic & varied (use the user id).
- * - `config` overrides individual traits once a user customizes (Phase 2).
+ * - `config` overrides traits once a user customizes; when omitted, a
+ *   deterministic config is derived from the seed (so auto == builder start).
  * Output is plain SVG suitable for react-native-svg's <SvgXml>.
  */
 export function avatarSvg(seed: string, config?: AvatarConfig | null, size = 96): string {
+  const cfg = config ?? seededConfigFromId(seed);
   const single = (v?: string) => (v ? [v] : undefined);
   return createAvatar(avataaars, {
     seed: seed || 'pocketstubs',
     size,
     radius: 50, // circular disc, Duolingo-style
-    backgroundColor: single(config?.backgroundColor) ?? [...BACKGROUNDS.map((b) => b.id)],
-    skinColor: single(config?.skinColor),
+    backgroundColor: single(cfg.backgroundColor) ?? [...BACKGROUNDS.map((b) => b.id)],
+    skinColor: single(cfg.skinColor),
     // top/clothing/eyes are typed as strict literal unions by DiceBear; our
     // catalog ids are guaranteed valid, so cast the validated strings through.
-    top: single(config?.top) as any,
-    hairColor: single(config?.hairColor),
-    clothing: single(config?.clothing) as any,
-    clothesColor: single(config?.clothesColor),
-    eyes: single(config?.eyes) as any,
+    top: single(cfg.top) as any,
+    hairColor: single(cfg.hairColor),
+    clothing: single(cfg.clothing) as any,
+    clothesColor: single(cfg.clothesColor),
+    eyes: single(cfg.eyes) as any,
   }).toString();
 }
 

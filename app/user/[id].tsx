@@ -31,6 +31,7 @@ import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { Avatar } from '@/components/ui/avatar';
+import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useWatchlistSocial } from '@/hooks/use-watchlist-social';
 import { useFollow } from '@/hooks/use-follow';
@@ -547,6 +548,8 @@ export default function UserProfileScreen() {
           avatarUrl={profile.avatar_url}
           updatedAt={profile.updated_at}
           name={profile.full_name || profile.username}
+          avatarType={profile.avatar_type as AvatarType | undefined}
+          config={profile.avatar_config as AvatarConfig | null}
           borderColor={colors.tint}
           borderWidth={3}
         />

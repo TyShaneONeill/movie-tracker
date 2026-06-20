@@ -45,6 +45,7 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserTvShows } from '@/hooks/use-user-tv-shows';
 import { ProfileIdentitySkeleton, ProfileStatNumberSkeleton } from '@/components/profile-header-skeleton';
 import { Avatar } from '@/components/ui/avatar';
+import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie, UserTvShow } from '@/lib/database.types';
 
@@ -634,6 +635,8 @@ export default function ProfileScreen() {
                     avatarUrl={profile?.avatar_url}
                     updatedAt={profile?.updated_at}
                     name={profile?.full_name || profile?.username}
+                    avatarType={profile?.avatar_type as AvatarType | undefined}
+                    config={profile?.avatar_config as AvatarConfig | null}
                     borderColor={colors.tint}
                     borderWidth={3}
                     style={{ marginBottom: Spacing.sm }}
