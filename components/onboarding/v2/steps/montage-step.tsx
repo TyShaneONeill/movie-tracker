@@ -223,7 +223,7 @@ function StatsBeat() {
 
       <View style={styles.splitBar}>
         {GENRE_SPLIT.map((g, i) => (
-          <View key={i} style={{ flex: g.pct, backgroundColor: g.color }} />
+          <View key={i} style={[styles.splitSeg, { flex: g.pct, backgroundColor: g.color }]} />
         ))}
       </View>
       <View style={styles.legend}>
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   /* Stats */
   statsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
   statsEyebrow: { fontFamily: MONO_FONT, fontSize: 10, color: C.textTertiary, letterSpacing: 1.5 },
-  statsBig: { fontFamily: Fonts.outfit.extrabold, fontSize: 30, color: C.text, marginTop: 2 },
+  statsBig: { fontFamily: Fonts.outfit.extrabold, fontSize: 30, lineHeight: 38, color: C.text, marginTop: 2 },
   statsBigUnit: { fontFamily: Fonts.outfit.bold, fontSize: 16, color: C.tint },
   yoyPill: { backgroundColor: 'rgba(16,185,129,0.14)', borderRadius: BorderRadius.full, paddingHorizontal: 10, paddingVertical: 4 },
   yoyTxt: { fontFamily: MONO_FONT, fontSize: 11, color: '#10b981' },
@@ -364,9 +364,10 @@ const styles = StyleSheet.create({
   barCol: { flex: 1, height: '100%', justifyContent: 'flex-end', position: 'relative' },
   ghostBar: { position: 'absolute', left: 2, right: -2, bottom: 0, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.07)' },
   curBar: { width: '100%', borderRadius: 2, backgroundColor: C.tint, minHeight: 3 },
-  monthRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  monthRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   monthLabel: { flex: 1, textAlign: 'center', fontFamily: MONO_FONT, fontSize: 9, color: C.textTertiary },
-  splitBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', marginTop: Spacing.md },
+  splitBar: { flexDirection: 'row', height: 8, gap: 3, marginTop: Spacing.sm },
+  splitSeg: { borderRadius: 3 },
   legend: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 7, height: 7, borderRadius: 3.5 },
