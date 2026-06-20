@@ -143,17 +143,11 @@ export function ProfilePicturePicker({
           {hasImage ? (
             <Image
               source={{ uri: displayUrl }}
-              style={[
-                styles.avatar,
-                { width: size, height: size, borderRadius: size / 2 },
-              ]}
+              style={[styles.avatar, StyleSheet.absoluteFillObject, { borderRadius: size / 2 }]}
             />
           ) : trimmedInitial ? (
             <View
-              style={[
-                styles.placeholder,
-                { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.tint },
-              ]}
+              style={[styles.placeholder, StyleSheet.absoluteFillObject, { borderRadius: size / 2, backgroundColor: colors.tint }]}
             >
               <Text style={{ color: '#fff', fontSize: size * 0.4, fontWeight: '700' }}>
                 {trimmedInitial}
@@ -161,10 +155,7 @@ export function ProfilePicturePicker({
             </View>
           ) : (
             <View
-              style={[
-                styles.placeholder,
-                { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.backgroundSecondary },
-              ]}
+              style={[styles.placeholder, StyleSheet.absoluteFillObject, { borderRadius: size / 2, backgroundColor: colors.backgroundSecondary }]}
             >
               <Ionicons name="person" size={size * 0.5} color={colors.textTertiary} />
             </View>

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useAuth } from '@/hooks/use-auth';
 import { useUsernameValidation } from '@/hooks/use-username-validation';
@@ -63,9 +63,12 @@ export function ProfileStep({ onNext }: StepProps) {
             hideCameraBadge
             dashedEmptyRing
           />
-          <ThemedText style={[styles.caption, { color: colors.textTertiary }]}>
-            Tap your photo to add one
-          </ThemedText>
+          <View style={styles.captionRow}>
+            <Ionicons name="camera" size={13} color={colors.tint} />
+            <ThemedText style={[styles.caption, { color: colors.textTertiary }]}>
+              Tap your photo to add one
+            </ThemedText>
+          </View>
         </View>
 
         {/* Name */}
@@ -157,11 +160,23 @@ export function ProfileStep({ onNext }: StepProps) {
         </View>
 
         {/* Letterboxd nudge */}
-        <View style={[styles.nudge, { borderColor: colors.border }]}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.textTertiary} />
-          <ThemedText style={[styles.nudgeText, { color: colors.textTertiary }]}>
-            Coming from Letterboxd? Find it later under Settings → Account → Import.
-          </ThemedText>
+        <View style={[styles.lbCard, { backgroundColor: 'rgba(64,188,244,0.05)', borderColor: 'rgba(64,188,244,0.2)' }]}>
+          <View style={styles.lbIcon}>
+            <View style={[styles.lbDot, { backgroundColor: '#ff8000' }]} />
+            <View style={[styles.lbDot, { backgroundColor: '#00e054' }]} />
+            <View style={[styles.lbDot, { backgroundColor: '#40bcf4' }]} />
+          </View>
+          <View style={styles.flex}>
+            <ThemedText style={[styles.lbTitle, { color: colors.text }]}>Coming from Letterboxd?</ThemedText>
+            <ThemedText style={[styles.lbBody, { color: colors.textTertiary }]}>
+              Bring your watchlist and diary in. Find it later under{' '}
+              <ThemedText style={[styles.lbBody, styles.lbPath, { color: colors.text }]}>Settings</ThemedText>
+              {' → '}
+              <ThemedText style={[styles.lbBody, styles.lbPath, { color: colors.text }]}>Account</ThemedText>
+              {' → '}
+              <ThemedText style={[styles.lbBody, styles.lbPath, { color: colors.text }]}>Import</ThemedText>.
+            </ThemedText>
+          </View>
         </View>
       </StepLayout>
     </KeyboardAvoidingView>
@@ -170,9 +185,10 @@ export function ProfileStep({ onNext }: StepProps) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  avatarSection: { alignItems: 'center', marginBottom: Spacing.lg, gap: Spacing.sm },
+  avatarSection: { alignItems: 'center', marginBottom: Spacing.md, gap: Spacing.sm },
+  captionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   caption: { ...Typography.body.sm },
-  field: { marginBottom: Spacing.lg },
+  field: { marginBottom: Spacing.md },
   label: { ...Typography.body.smMedium, marginBottom: Spacing.xs },
   input: { height: 52, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, fontSize: 16 },
   usernameWrap: { flexDirection: 'row', alignItems: 'center', height: 52, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, gap: 4 },
@@ -192,6 +208,10 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   swatch: { width: 10, height: 10, borderRadius: 3 },
   legendText: { ...Typography.body.xs },
-  nudge: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start', padding: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1, borderStyle: 'dashed' },
-  nudgeText: { ...Typography.body.xs, flex: 1, lineHeight: 18 },
+  lbCard: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center', padding: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1 },
+  lbIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#0e1620', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  lbDot: { width: 8, height: 8, borderRadius: 4 },
+  lbTitle: { ...Typography.body.baseMedium, fontWeight: '700', marginBottom: 2 },
+  lbBody: { ...Typography.body.xs, lineHeight: 17 },
+  lbPath: { fontFamily: Fonts.inter.semibold },
 });
