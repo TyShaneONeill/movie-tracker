@@ -175,6 +175,42 @@ If you see it, your build's version numbers are coming from stale native files, 
 
 See [`docs/supabase-migration-workflow.md`](docs/supabase-migration-workflow.md) for the full workflow and history.
 
+## Environments — Dev/Staging/Prod Parity (REQUIRED)
+
+We are **live on iOS, Android, and web.** As of June 2026 there is a dedicated
+**staging** environment so we never test against prod data again. The standing
+rule: **develop and validate on staging first; touch prod only once a change is
+tested and you're comfortable to merge.** Keep the two environments as similar
+as possible, and when feasible validate on both.
+
+| Doppler config | Supabase project | EAS env | Use |
+|---|---|---|---|
+| `prd` | `wliblwulvsrfgqcnbzeh` (cinetrak) | production | live apps — **only after staging-validated** |
+| `stg` | `scleidoemjpkbxrpyqyv` (pocketstubs-staging) | preview | day-to-day dev, QA, agent testing |
+| `dev` | local supabase | development | fast local iteration |
+
+**Rules of engagement:**
+- **Default to staging.** Point builds/scripts at `stg` while developing. Promote to `prd` only when validated.
+- **Migrations:** apply to **staging first** (`supabase db push` linked to staging), verify behavior, *then* prod. Schema changes still must be committed `.sql` files (see Database section).
+- **Edge functions:** deploy to staging and test before prod. Keep parity — if you add/change a function, it must exist on both.
+- **Keep staging in sync with prod:** when migrations or functions land on `main`, refresh staging with `scripts/setup-staging.sh` so parity doesn't drift.
+- **Validate on both when possible** before calling a change done — especially anything touching auth, RLS, migrations, or edge functions.
+
+**Pointing a local build at staging** (e.g. for device/agent QA):
+- Custom native modules (`WidgetBridgeModule`) mean **Expo Go does not work** — you must use a **dev-client** build (`npx expo start --dev-client`, or `npx expo run:ios` to build one).
+- Supply staging env via `.env.local` written from Doppler `stg`
+  (`doppler secrets download --no-file --format env --config stg | grep '^EXPO_PUBLIC_' > .env.local`),
+  or run under `doppler run --config stg -- …`. Note `lib/supabase.ts` reads
+  `Constants.expoConfig.extra` (set from `EXPO_PUBLIC_*` in `app.config.js`) with
+  a `process.env` fallback — a baked standalone build will ignore `.env.local`.
+- Staging QA user: `qa@pocketstubs.app` (password in Doppler `stg` → `QA_TEST_PASSWORD`).
+- Provisioning + full runbook: see the vault note `Projects/PocketStubs/Process/Staging Environment Setup`.
+
+**Known parity gaps to fix (do not assume staging == prod yet):**
+- Some edge functions exist **only on prod, not in source** (e.g. `discover-movies`, `get-movie-lists`, `get-movie-details`, `search-movies`) — audit and commit them.
+- The baseline migration (`20260525063629_remote_schema.sql`) is a prod schema snapshot with **hardcoded prod functions URLs** in webhook triggers; staging stubs them inert.
+- Staging's RevenueCat/Stripe/PostHog still use prod values — swap to sandbox/staging before testing billing or analytics there.
+
 ## Ad Network Architecture
 
 - **AdMob** (`react-native-google-mobile-ads`) — iOS + Android apps only. Supports banner, native, rewarded ads.
@@ -186,5 +222,6 @@ See [`docs/supabase-migration-workflow.md`](docs/supabase-migration-workflow.md)
 ## Key Resources
 
 - **PRD**: `docs/PRD-pre-launch.md` - Pre-launch checklist and requirements
-- **Supabase Project**: `wliblwulvsrfgqcnbzeh`
+- **Supabase Project (prod)**: `wliblwulvsrfgqcnbzeh` (cinetrak)
+- **Supabase Project (staging)**: `scleidoemjpkbxrpyqyv` (pocketstubs-staging) — see Environments section
 - **GitHub Repo**: https://github.com/TyShaneONeill/movie-tracker
