@@ -171,9 +171,9 @@ export function ProfileStep({ onNext }: StepProps) {
             <ThemedText style={[styles.lbBody, { color: colors.textTertiary }]}>
               Bring your watchlist and diary in. Find it later under{' '}
               <ThemedText style={[styles.lbBody, styles.lbPath, { color: colors.text }]}>Settings</ThemedText>
-              {' → '}
+              <ThemedText style={[styles.lbBody, { color: colors.text }]}> → </ThemedText>
               <ThemedText style={[styles.lbBody, styles.lbPath, { color: colors.text }]}>Account</ThemedText>
-              {' → '}
+              <ThemedText style={[styles.lbBody, { color: colors.text }]}> → </ThemedText>
               <ThemedText style={[styles.lbBody, styles.lbPath, { color: colors.text }]}>Import</ThemedText>.
             </ThemedText>
           </View>
