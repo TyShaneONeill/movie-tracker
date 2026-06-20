@@ -35,21 +35,21 @@ interface Beat {
 const BEATS: Beat[] = [
   {
     key: 'scan',
-    ms: 4200,
+    ms: 6500,
     eyebrow: 'AT THE THEATER',
     title: ['Snap your ticket.', 'We do the rest.'],
     body: 'Optical recognition pulls the movie, theater, format, seat, and date. One photo, one stub, logged.',
   },
   {
     key: 'feed',
-    ms: 5200,
+    ms: 7800,
     eyebrow: 'AFTER THE CREDITS',
     title: ['Capture', 'first takes.'],
     body: 'Your raw, unfiltered reaction the moment the credits roll — then watch it land in the feed.',
   },
   {
     key: 'stats',
-    ms: 4500,
+    ms: 7000,
     eyebrow: "AT YEAR'S END",
     title: ['Watch your', 'year fill in.'],
     body: 'Genre splits, monthly cadence, theater visits — your taste, visualized at a glance.',
