@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 import { Colors, Spacing } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
 import { analytics } from '@/lib/analytics';
 import { OnboardingV2Provider } from '@/components/onboarding/v2/onboarding-v2-context';
 import type { StepProps } from '@/components/onboarding/v2/types';
@@ -56,6 +57,9 @@ function OnboardingV2Flow() {
   // index 1..6 are the numbered steps (genres..profile).
   const isNumbered = index >= 1 && index <= NUMBERED_TOTAL;
   const showBack = index > 0 && index < STEPS.length - 1;
+  // Skip on the optional middle screens (eras/where/montage/watchlist) — not on
+  // Genres (hard 3-min) or Profile (identity required).
+  const isSkippable = index >= 2 && index <= 5;
 
   const stepProps: StepProps = { onNext: goNext, onBack: goBack };
 
@@ -88,7 +92,13 @@ function OnboardingV2Flow() {
               <ProgressBar current={index} total={NUMBERED_TOTAL} />
             </View>
           )}
-          <View style={styles.backButton} />
+          {isSkippable ? (
+            <Pressable onPress={goNext} hitSlop={12} style={styles.skipButton}>
+              <ThemedText style={[styles.skipText, { color: colors.textTertiary }]}>Skip</ThemedText>
+            </Pressable>
+          ) : (
+            <View style={styles.backButton} />
+          )}
         </View>
       )}
 
@@ -129,6 +139,16 @@ const styles = StyleSheet.create({
   },
   progressWrap: {
     flex: 1,
+  },
+  skipButton: {
+    minWidth: 32,
+    height: 32,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  skipText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   stepBody: {
     flex: 1,

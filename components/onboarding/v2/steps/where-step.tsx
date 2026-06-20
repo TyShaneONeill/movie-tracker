@@ -1,5 +1,6 @@
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -49,9 +50,20 @@ export function WhereStep({ onNext }: StepProps) {
               ]}
             >
               <View style={styles.cardHeader}>
-                <View style={[styles.iconCircle, { backgroundColor: selected ? colors.tint : colors.backgroundSecondary }]}>
-                  <Ionicons name={opt.icon} size={22} color={selected ? '#fff' : colors.textSecondary} />
-                </View>
+                {selected ? (
+                  <LinearGradient
+                    colors={[colors.tint, colors.accentHover]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.iconTile}
+                  >
+                    <Ionicons name={opt.icon} size={24} color="#fff" />
+                  </LinearGradient>
+                ) : (
+                  <View style={[styles.iconTile, { backgroundColor: colors.backgroundSecondary }]}>
+                    <Ionicons name={opt.icon} size={24} color={colors.textSecondary} />
+                  </View>
+                )}
                 <View style={styles.cardText}>
                   <ThemedText style={[styles.cardTitle, { color: colors.text }]}>{opt.title}</ThemedText>
                   <ThemedText style={[styles.cardSub, { color: colors.textTertiary }]}>{opt.sub}</ThemedText>
@@ -78,9 +90,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  iconCircle: { width: 44, height: 44, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center' },
+  iconTile: { width: 56, height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   cardText: { flex: 1, gap: 2 },
   cardTitle: { ...Typography.body.lg },
   cardSub: { ...Typography.body.sm },
-  tagline: { ...Typography.body.smMedium, paddingLeft: 44 + Spacing.md },
+  tagline: { ...Typography.body.smMedium, paddingLeft: 56 + Spacing.md },
 });

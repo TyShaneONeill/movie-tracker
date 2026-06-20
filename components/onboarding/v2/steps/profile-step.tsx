@@ -56,7 +56,7 @@ export function ProfileStep({ onNext }: StepProps) {
         <View style={styles.avatarSection}>
           <ProfilePicturePicker
             avatarUrl={data.avatarUrl}
-            size={104}
+            size={96}
             isLoading={isUploading}
             onImageSelected={handleImageSelected}
             initial={data.name}
@@ -142,6 +142,18 @@ export function ProfileStep({ onNext }: StepProps) {
               </ThemedText>
             </View>
           </View>
+
+          {/* Legend — kills the Name-vs-Username confusion */}
+          <View style={[styles.legend, { borderTopColor: colors.border }]}>
+            <View style={styles.legendItem}>
+              <View style={[styles.swatch, { backgroundColor: colors.text }]} />
+              <ThemedText style={[styles.legendText, { color: colors.textTertiary }]}>= your name</ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.swatch, { backgroundColor: colors.tint }]} />
+              <ThemedText style={[styles.legendText, { color: colors.textTertiary }]}>= your @handle</ThemedText>
+            </View>
+          </View>
         </View>
 
         {/* Letterboxd nudge */}
@@ -176,6 +188,10 @@ const styles = StyleSheet.create({
   previewName: { ...Typography.body.baseMedium },
   previewHandle: { ...Typography.body.sm },
   previewComment: { ...Typography.body.sm, marginTop: 2 },
+  legend: { flexDirection: 'row', gap: Spacing.lg, borderTopWidth: 1, paddingTop: Spacing.sm },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  swatch: { width: 10, height: 10, borderRadius: 3 },
+  legendText: { ...Typography.body.xs },
   nudge: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start', padding: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1, borderStyle: 'dashed' },
   nudgeText: { ...Typography.body.xs, flex: 1, lineHeight: 18 },
 });

@@ -2,7 +2,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { StepLayout } from '@/components/onboarding/v2/shared/step-layout';
 import { CTAButton } from '@/components/onboarding/v2/shared/cta-button';
@@ -41,8 +41,10 @@ export function ErasStep({ onNext }: StepProps) {
                 {era.label}
               </ThemedText>
               <View style={styles.rowBody}>
-                <ThemedText style={[styles.movement, { color: colors.text }]}>{era.movement}</ThemedText>
-                <ThemedText style={[styles.films, { color: colors.textTertiary }]} numberOfLines={1}>
+                <ThemedText style={[styles.movement, { color: selected ? colors.tint : colors.textTertiary }]}>
+                  {era.movement}
+                </ThemedText>
+                <ThemedText style={[styles.films, { color: colors.textSecondary }]} numberOfLines={1}>
                   {era.films.join(' · ')}
                 </ThemedText>
               </View>
@@ -85,12 +87,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   decade: {
-    fontFamily: MONO_FONT,
-    fontSize: 18,
-    width: 44,
+    fontFamily: Fonts.outfit.extrabold,
+    fontSize: 32,
+    letterSpacing: -1,
+    width: 64,
   },
-  rowBody: { flex: 1, gap: 2 },
-  movement: { ...Typography.body.baseMedium },
+  rowBody: { flex: 1, gap: 3 },
+  movement: {
+    fontFamily: MONO_FONT,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
   films: { ...Typography.body.xs },
   optOut: {
     flexDirection: 'row',
