@@ -59,6 +59,16 @@ export function ProfilePicturePicker({
   const hasImage = !!displayUrl;
   const trimmedInitial = initial?.trim().charAt(0).toUpperCase();
 
+  // Ring: the dashed ring shows ONLY in the pure-empty state (no photo, no
+  // name). With a name (initial) or photo there's no ring — a clean circle.
+  // In dashed-ring (onboarding) mode we force dark-appropriate colors so the
+  // avatar reads correctly on the always-dark onboarding regardless of the
+  // system theme.
+  const isEmpty = !hasImage && !trimmedInitial;
+  const showDashedRing = dashedEmptyRing && isEmpty;
+  const borderWidth = dashedEmptyRing ? (isEmpty ? 2 : 0) : 3;
+  const ringColor = dashedEmptyRing ? 'rgba(255,255,255,0.22)' : colors.tint;
+
   const handleConfirm = async () => {
     if (!pendingImage) return;
     const image = pendingImage;
@@ -135,8 +145,9 @@ export function ProfilePicturePicker({
               width: size,
               height: size,
               borderRadius: size / 2,
-              borderColor: colors.tint,
-              borderStyle: !hasImage && dashedEmptyRing ? 'dashed' : 'solid',
+              borderWidth,
+              borderColor: ringColor,
+              borderStyle: showDashedRing ? 'dashed' : 'solid',
             },
           ]}
         >
@@ -153,6 +164,9 @@ export function ProfilePicturePicker({
                 {trimmedInitial}
               </Text>
             </View>
+          ) : dashedEmptyRing ? (
+            // Onboarding empty state: transparent center + gray silhouette inside the dashed ring.
+            <Ionicons name="person" size={size * 0.42} color="rgba(255,255,255,0.4)" />
           ) : (
             <View
               style={[styles.placeholder, StyleSheet.absoluteFillObject, { borderRadius: size / 2, backgroundColor: colors.backgroundSecondary }]}
@@ -239,7 +253,8 @@ export function ProfilePicturePicker({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     backgroundColor: '#333',
