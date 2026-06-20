@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, LayoutAnimation, UIManager, Platform } from 'react-native';
-import { Image } from 'expo-image';
+import { Avatar } from '@/components/ui/avatar';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMovieReviews } from '@/hooks/use-movie-reviews';
@@ -160,20 +160,12 @@ function ReviewCard({
     <View style={styles.card} accessible accessibilityLabel={`Review by ${displayName}`}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          {review.reviewer.avatarUrl ? (
-            <Image
-              source={{ uri: review.reviewer.avatarUrl }}
-              style={styles.avatar}
-              contentFit="cover"
-              transition={200}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitial}>
-                {displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <Avatar
+            size={AVATAR_SIZE}
+            userId={review.userId}
+            avatarUrl={review.reviewer.avatarUrl}
+            name={displayName}
+          />
           <View style={styles.headerText}>
             <Text style={styles.displayName} numberOfLines={1}>
               {displayName}

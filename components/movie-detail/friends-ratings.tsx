@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native';
-import { Image } from 'expo-image';
+import { Avatar } from '@/components/ui/avatar';
 import { useFriendsRatings } from '@/hooks/use-friends-ratings';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -145,20 +145,12 @@ export function FriendsRatings({ tmdbId }: FriendsRatingsProps) {
               accessibilityLabel={`${displayName}${friend.rating !== null ? `, rated ${friend.rating} out of 10` : ''}`}
             >
               <View style={styles.avatarContainer}>
-                {friend.reviewer.avatarUrl ? (
-                  <Image
-                    source={{ uri: friend.reviewer.avatarUrl }}
-                    style={styles.avatar}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarInitial}>
-                      {displayName.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
+                <Avatar
+                  size={AVATAR_SIZE}
+                  userId={friend.userId}
+                  avatarUrl={friend.reviewer.avatarUrl}
+                  name={displayName}
+                />
                 {friend.rating !== null && ratingColor && (
                   <View style={[styles.ratingBadge, { backgroundColor: ratingColor }]}>
                     <Text style={styles.ratingText}>{friend.rating}</Text>

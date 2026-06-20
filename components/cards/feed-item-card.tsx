@@ -15,6 +15,7 @@ import {
   Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { Avatar } from '@/components/ui/avatar';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
@@ -275,11 +276,12 @@ export function FeedItemCard({
             { opacity: pressed && onUserPress ? 0.7 : 1 },
           ]}
         >
-          <Image
-            source={{ uri: userAvatarUrl }}
+          <Avatar
+            size={24}
+            userId={userId}
+            avatarUrl={userAvatarUrl}
+            name={displayName}
             style={styles.avatar}
-            contentFit="cover"
-            transition={200}
           />
           <Text
             style={[

@@ -11,7 +11,7 @@ import {
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
+import { Avatar } from '@/components/ui/avatar';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
@@ -31,9 +31,6 @@ import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection
 import { ReportModal } from '@/components/moderation/report-modal';
 import { analytics } from '@/lib/analytics';
 import type { ReportTargetType } from '@/lib/report-service';
-
-// Default avatar for users without one
-const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=default';
 
 const FEED_FILTERS: { value: FeedFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -153,11 +150,12 @@ function AuthenticatedFeed() {
                   { opacity: pressed ? 0.7 : 1 },
                 ]}
               >
-                <Image
-                  source={{ uri: feed.userAvatarUrl ?? DEFAULT_AVATAR }}
+                <Avatar
+                  size={24}
+                  userId={feed.userId}
+                  avatarUrl={feed.userAvatarUrl}
+                  name={feed.userDisplayName}
                   style={styles.commentAvatar}
-                  contentFit="cover"
-                  transition={200}
                 />
                 <Text style={[styles.commentUserName, { color: colors.text }]}>
                   {feed.userDisplayName}
@@ -198,7 +196,7 @@ function AuthenticatedFeed() {
       return (
         <FeedItemCard
           userName={feed.userDisplayName ?? 'Anonymous'}
-          userAvatarUrl={feed.userAvatarUrl ?? DEFAULT_AVATAR}
+          userAvatarUrl={feed.userAvatarUrl ?? ''}
           timestamp={formatRelativeTime(feed.createdAt ?? '')}
           movieTitle={feed.movieTitle}
           moviePosterUrl={getTMDBImageUrl(feed.posterPath, 'w185') ?? ''}

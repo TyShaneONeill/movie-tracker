@@ -11,15 +11,14 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
+import { Avatar } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
-import { buildAvatarUrl } from '@/lib/avatar-service';
 
 interface FriendPickerModalProps {
   visible: boolean;
@@ -141,9 +140,6 @@ export function FriendPickerModal({
           {!isLoading && hasFriends && filteredFriends.length > 0 && (
             <ScrollView style={styles.friendsList} showsVerticalScrollIndicator={false}>
               {filteredFriends.map((profile) => {
-                const avatarUrl = buildAvatarUrl(profile.avatar_url, profile.updated_at);
-                const initial = (profile.full_name || profile.username || '?')[0].toUpperCase();
-
                 return (
                   <Pressable
                     key={profile.id}
@@ -153,26 +149,13 @@ export function FriendPickerModal({
                     ]}
                     onPress={() => handleSelectFriend(profile)}
                   >
-                    {avatarUrl ? (
-                      <Image
-                        source={{ uri: avatarUrl }}
-                        style={styles.avatar}
-                        contentFit="cover"
-                        transition={200}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.avatar,
-                          styles.avatarPlaceholder,
-                          { backgroundColor: colors.border },
-                        ]}
-                      >
-                        <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>
-                          {initial}
-                        </Text>
-                      </View>
-                    )}
+                    <Avatar
+                      size={40}
+                      userId={profile.id}
+                      avatarUrl={profile.avatar_url}
+                      updatedAt={profile.updated_at}
+                      name={profile.full_name || profile.username}
+                    />
 
                     <View style={styles.nameColumn}>
                       <Text
