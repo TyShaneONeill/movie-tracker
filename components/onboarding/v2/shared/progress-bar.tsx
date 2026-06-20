@@ -4,7 +4,9 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -25,7 +27,10 @@ export function ProgressBar({ current, total }: ProgressBarProps) {
   const progress = useSharedValue(current / total);
 
   useEffect(() => {
-    progress.value = withTiming(current / total, { duration: 380 });
+    progress.value = withTiming(current / total, {
+      duration: 500,
+      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+    });
   }, [current, total, progress]);
 
   const fillStyle = useAnimatedStyle(() => ({
@@ -41,10 +46,15 @@ export function ProgressBar({ current, total }: ProgressBarProps) {
           STEP {pad(current)} / {pad(total)}
         </ThemedText>
       </View>
-      <View style={[styles.track, { backgroundColor: colors.card }]}>
-        <Animated.View
-          style={[styles.fill, { backgroundColor: colors.tint }, fillStyle]}
-        />
+      <View style={styles.track}>
+        <Animated.View style={[styles.fill, fillStyle]}>
+          <LinearGradient
+            colors={[colors.tint, colors.accentHover]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
       </View>
     </View>
   );
@@ -61,15 +71,17 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: MONO_FONT,
     fontSize: 11,
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   track: {
     height: 3,
     borderRadius: 2,
     overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   fill: {
     height: 3,
     borderRadius: 2,
+    overflow: 'hidden',
   },
 });

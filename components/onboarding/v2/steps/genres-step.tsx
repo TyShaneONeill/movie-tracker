@@ -37,22 +37,27 @@ export function GenresStep({ onNext }: StepProps) {
               style={[
                 styles.chip,
                 {
-                  backgroundColor: selected ? `${colors.tint}22` : colors.card,
-                  borderColor: selected ? colors.tint : colors.border,
+                  backgroundColor: selected ? `${genre.color}22` : 'rgba(255,255,255,0.04)',
+                  borderColor: selected ? genre.color : colors.border,
+                  transform: [{ scale: selected ? 1.02 : 1 }],
                 },
               ]}
             >
               <Ionicons
                 name={genre.icon}
                 size={16}
-                color={selected ? colors.tint : colors.textSecondary}
+                color={selected ? genre.color : colors.textSecondary}
               />
               <ThemedText
                 style={[styles.chipLabel, { color: selected ? colors.text : colors.textSecondary }]}
               >
                 {genre.label}
               </ThemedText>
-              {selected && <Ionicons name="checkmark" size={16} color={colors.tint} />}
+              {selected && (
+                <View style={[styles.checkBadge, { backgroundColor: genre.color }]}>
+                  <Ionicons name="checkmark" size={11} color="#fff" />
+                </View>
+              )}
             </Pressable>
           );
         })}
@@ -82,6 +87,13 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     ...Typography.body.smMedium,
+  },
+  checkBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   counter: {
     ...Typography.body.smMedium,

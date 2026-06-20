@@ -11,8 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
-import { Typography } from '@/constants/typography';
+import { Colors, Spacing, Fonts } from '@/constants/theme';
 import { CTAButton } from '@/components/onboarding/v2/shared/cta-button';
 import { StubCard } from '@/components/onboarding/v2/shared/stub-card';
 import { MONO_FONT } from '@/components/onboarding/v2/shared/mono';
@@ -24,7 +23,7 @@ function SpinningReel() {
 
   useEffect(() => {
     rotation.value = withRepeat(
-      withTiming(360, { duration: 9000, easing: Easing.linear }),
+      withTiming(360, { duration: 12000, easing: Easing.linear }),
       -1,
       false
     );
@@ -34,7 +33,7 @@ function SpinningReel() {
 
   return (
     <Animated.View style={style}>
-      <Ionicons name="film-outline" size={40} color={colors.tint} />
+      <Ionicons name="aperture-outline" size={30} color={colors.textTertiary} />
     </Animated.View>
   );
 }
@@ -42,7 +41,7 @@ function SpinningReel() {
 function formatToday(): string {
   const d = new Date();
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  return `${months[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')} ${d.getFullYear()}`;
+  return `${months[d.getMonth()]} ${d.getDate()} · ${String(d.getFullYear()).slice(-2)}`;
 }
 
 function MetaItem({ label, value }: { label: string; value: string }) {
@@ -58,27 +57,46 @@ function MetaItem({ label, value }: { label: string; value: string }) {
 export function WelcomeStep({ onNext }: StepProps) {
   const colors = Colors.dark;
   const insets = useSafeAreaInsets();
-  // Cosmetic generated stub number (not persisted).
-  const [stubNo] = useState(() => String(Math.floor(10000 + Math.random() * 89999)));
+  // Cosmetic generated stub number (not persisted) — NNNN-L format.
+  const [stubNo] = useState(() => {
+    const n = Math.floor(1000 + Math.random() * 8999);
+    const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    return `${n}-${letter}`;
+  });
 
   return (
     <View style={styles.container}>
       <View style={styles.stubWrap}>
         <StubCard
-          topHeight={260}
+          radius={22}
+          topHeight={360}
           top={
             <View style={styles.top}>
-              <ThemedText style={[styles.eyebrow, { color: colors.tint }]}>POCKETSTUBS</ThemedText>
-              <SpinningReel />
+              <View style={styles.brandRow}>
+                <ThemedText style={[styles.brand, { color: colors.tint }]}>POCKETSTUBS</ThemedText>
+                <SpinningReel />
+              </View>
               <View style={styles.hero}>
-                <ThemedText style={[styles.heroLine, { color: colors.text }]}>WELCOME TO THE</ThemedText>
-                <ThemedText style={[styles.heroShow, { color: colors.tint }]}>show.</ThemedText>
+                <ThemedText style={[styles.heroEyebrow, { color: colors.textTertiary }]}>
+                  WELCOME TO THE
+                </ThemedText>
+                <ThemedText style={[styles.heroShow, { color: colors.text }]}>
+                  <ThemedText style={[styles.heroShow, styles.heroShowWord, { color: colors.tint }]}>
+                    show
+                  </ThemedText>
+                  .
+                </ThemedText>
               </View>
             </View>
           }
           bottom={
             <View>
-              <ThemedText style={[styles.tonight, { color: colors.text }]}>Tonight.</ThemedText>
+              <ThemedText style={[styles.tonight, { color: colors.text }]}>
+                <ThemedText style={[styles.tonight, styles.tonightWord, { color: colors.tint }]}>
+                  Tonight
+                </ThemedText>
+                .
+              </ThemedText>
               <View style={styles.metaRow}>
                 <MetaItem label="NO." value={stubNo} />
                 <MetaItem label="DATE" value={formatToday()} />
@@ -99,15 +117,18 @@ export function WelcomeStep({ onNext }: StepProps) {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },
   stubWrap: { flex: 1, justifyContent: 'center' },
-  top: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, padding: Spacing.lg },
-  eyebrow: { fontFamily: MONO_FONT, fontSize: 12, letterSpacing: 4 },
-  hero: { alignItems: 'center' },
-  heroLine: { ...Typography.display.h2, letterSpacing: 1 },
-  heroShow: { ...Typography.display.h1, fontStyle: 'italic' },
-  tonight: { ...Typography.display.h3, fontStyle: 'italic', marginBottom: Spacing.md },
+  top: { flex: 1, justifyContent: 'space-between', padding: Spacing.lg },
+  brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  brand: { fontFamily: MONO_FONT, fontSize: 10, letterSpacing: 2.5 },
+  hero: {},
+  heroEyebrow: { fontFamily: MONO_FONT, fontSize: 11, letterSpacing: 1.8, marginBottom: 4 },
+  heroShow: { fontFamily: Fonts.outfit.extrabold, fontSize: 82, lineHeight: 76, letterSpacing: -3 },
+  heroShowWord: { fontStyle: 'italic' },
+  tonight: { fontFamily: Fonts.outfit.extrabold, fontSize: 28, letterSpacing: -0.8, marginBottom: Spacing.md },
+  tonightWord: { fontStyle: 'italic' },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between' },
   metaItem: { gap: 2 },
-  metaLabel: { fontFamily: MONO_FONT, fontSize: 10, letterSpacing: 2 },
-  metaValue: { fontFamily: MONO_FONT, fontSize: 13 },
+  metaLabel: { fontFamily: MONO_FONT, fontSize: 9, letterSpacing: 2 },
+  metaValue: { fontFamily: MONO_FONT, fontSize: 11 },
   footer: { paddingTop: Spacing.md },
 });

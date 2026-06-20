@@ -5,7 +5,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { CTAButton } from '@/components/onboarding/v2/shared/cta-button';
 import { StubCard } from '@/components/onboarding/v2/shared/stub-card';
@@ -15,12 +15,14 @@ import { useOnboardingV2 } from '@/components/onboarding/v2/onboarding-v2-contex
 import { useTour } from '@/lib/onboarding/tour-context';
 import type { StepProps } from '@/components/onboarding/v2/types';
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function MetaCol({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
   const colors = Colors.dark;
   return (
-    <View style={styles.metaRow}>
+    <View style={styles.metaCol}>
       <ThemedText style={[styles.metaLabel, { color: colors.textTertiary }]}>{label}</ThemedText>
-      <ThemedText style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>{value}</ThemedText>
+      <ThemedText style={[styles.metaValue, { color: valueColor ?? colors.text }]} numberOfLines={1}>
+        {value}
+      </ThemedText>
     </View>
   );
 }
@@ -57,22 +59,23 @@ export function SuccessStep(_props: StepProps) {
       <View style={styles.stubWrap}>
         <Animated.View entering={stubEntering}>
           <StubCard
-            topHeight={180}
+            radius={20}
+            topHeight={230}
             top={
               <View style={styles.top}>
                 <ThemedText style={[styles.eyebrow, { color: colors.tint }]}>ADMIT ONE</ThemedText>
                 <ThemedText style={[styles.welcome, { color: colors.text }]}>
-                  Welcome, <ThemedText style={[styles.welcomeName, { color: colors.tint }]}>{data.name.trim() || 'friend'}</ThemedText>.
+                  Welcome, <ThemedText style={[styles.welcome, styles.welcomeName, { color: colors.tint }]}>{data.name.trim() || 'friend'}</ThemedText>.
                 </ThemedText>
                 <ThemedText style={[styles.dynamic, { color: colors.textSecondary }]}>{dynamicLine}</ThemedText>
               </View>
             }
             bottom={
               <View style={styles.meta}>
-                <MetaRow label="NAME" value={`${data.name.trim() || '—'}  @${data.handle || '—'}`} />
-                <MetaRow label="GENRES" value={String(data.genres.length)} />
-                <MetaRow label="WATCHLIST" value={String(count)} />
-                <MetaRow label="STATUS" value="ACTIVE" />
+                <MetaCol label="NAME" value={`@${data.handle || '—'}`} />
+                <MetaCol label="GENRES" value={String(data.genres.length)} />
+                <MetaCol label="WATCHLIST" value={String(count)} />
+                <MetaCol label="STATUS" value="ACTIVE" valueColor={colors.tint} />
               </View>
             }
           />
@@ -90,13 +93,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },
   stubWrap: { flex: 1, justifyContent: 'center' },
   top: { flex: 1, justifyContent: 'center', gap: Spacing.sm, padding: Spacing.lg },
-  eyebrow: { fontFamily: MONO_FONT, fontSize: 11, letterSpacing: 3 },
-  welcome: { ...Typography.display.h2 },
-  welcomeName: { ...Typography.display.h2, fontStyle: 'italic' },
+  eyebrow: { fontFamily: MONO_FONT, fontSize: 11, letterSpacing: 2 },
+  welcome: { fontFamily: Fonts.outfit.extrabold, fontSize: 32, lineHeight: 34, letterSpacing: -0.6 },
+  welcomeName: {},
   dynamic: { ...Typography.body.lgRegular },
-  meta: { gap: Spacing.sm },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.md },
-  metaLabel: { fontFamily: MONO_FONT, fontSize: 10, letterSpacing: 2 },
-  metaValue: { fontFamily: MONO_FONT, fontSize: 13, flexShrink: 1, textAlign: 'right' },
+  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.sm },
+  metaCol: { gap: 3, flexShrink: 1 },
+  metaLabel: { fontFamily: MONO_FONT, fontSize: 9, letterSpacing: 1.5 },
+  metaValue: { fontFamily: MONO_FONT, fontSize: 12 },
   footer: { paddingTop: Spacing.md },
 });
