@@ -21,6 +21,8 @@ import { Image } from 'expo-image';
 import { SvgXml } from 'react-native-svg';
 
 import { buildAvatarUrl } from '@/lib/avatar-service';
+import { analytics } from '@/lib/analytics';
+import { ONBOARDING_V2_FLAG } from '@/hooks/use-onboarding-variant';
 import {
   avatarSvg,
   avatarCacheKey,
@@ -30,6 +32,17 @@ import {
 } from '@/lib/avatar-config';
 
 const GEN_SIZE = 128; // canonical render size; SvgXml scales to the requested size
+
+// The avatar feature ships in lockstep with onboarding v2 — gated behind the
+// same flag (with the same dev/QA env override). When off, avatars fall back to
+// photo-or-initial and no vector avatars render. Read literally so Metro can
+// inline the env var in production bundles.
+const ENV_V2_OVERRIDE = process.env.EXPO_PUBLIC_ONBOARDING_V2_OVERRIDE;
+function avatarsEnabled(): boolean {
+  if (ENV_V2_OVERRIDE === 'true') return true;
+  if (ENV_V2_OVERRIDE === 'false') return false;
+  return analytics.isFeatureEnabled(ONBOARDING_V2_FLAG);
+}
 
 export interface AvatarProps {
   size: number;
@@ -68,13 +81,22 @@ export function Avatar({
 }: AvatarProps) {
   const seed = userId || name || 'pocketstubs';
   const photoUrl = buildAvatarUrl(avatarUrl, updatedAt);
+  const enabled = avatarsEnabled();
 
-  // Resolve mode. Explicit avatarType wins; otherwise infer (legacy-compatible).
+  // Resolve mode. When the feature is gated off (onboarding_v2 not enabled),
+  // never render a vector avatar — fall back to photo-or-initial.
   let mode: 'photo' | 'initial' | 'vector';
-  if (avatarType === 'photo') mode = photoUrl ? 'photo' : 'vector';
-  else if (avatarType === 'initial') mode = 'initial';
-  else if (avatarType === 'preset' || avatarType === 'auto') mode = 'vector';
-  else mode = photoUrl ? 'photo' : 'vector';
+  if (!enabled) {
+    mode = photoUrl ? 'photo' : 'initial';
+  } else if (avatarType === 'photo') {
+    mode = photoUrl ? 'photo' : 'vector';
+  } else if (avatarType === 'initial') {
+    mode = 'initial';
+  } else if (avatarType === 'preset' || avatarType === 'auto') {
+    mode = 'vector';
+  } else {
+    mode = photoUrl ? 'photo' : 'vector';
+  }
 
   const svg = useMemo(
     () => (mode === 'vector' ? avatarSvg(seed, config, GEN_SIZE) : null),

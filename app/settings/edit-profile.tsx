@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { useProfile } from '@/hooks/use-profile';
 import { useUsernameValidation } from '@/hooks/use-username-validation';
+import { useOnboardingVariant } from '@/hooks/use-onboarding-variant';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
@@ -83,6 +84,8 @@ export default function EditProfileScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { profile, isLoading, updateAvatar, isUpdatingAvatar, updateProfile } = useProfile();
+  const { variant: onboardingVariant } = useOnboardingVariant();
+  const avatarsEnabled = onboardingVariant === 'v2';
 
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -223,18 +226,20 @@ export default function EditProfileScreen() {
             <Text style={[styles.changePhotoText, { color: colors.tint }]}>
               Tap to change photo
             </Text>
-            <Pressable
-              onPress={() => router.push('/settings/edit-avatar')}
-              style={({ pressed }) => [
-                styles.customizeAvatarButton,
-                { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Ionicons name="color-palette-outline" size={16} color={colors.text} />
-              <Text style={[styles.customizeAvatarText, { color: colors.text }]}>
-                Customize avatar
-              </Text>
-            </Pressable>
+            {avatarsEnabled && (
+              <Pressable
+                onPress={() => router.push('/settings/edit-avatar')}
+                style={({ pressed }) => [
+                  styles.customizeAvatarButton,
+                  { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Ionicons name="color-palette-outline" size={16} color={colors.text} />
+                <Text style={[styles.customizeAvatarText, { color: colors.text }]}>
+                  Customize avatar
+                </Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Form Fields */}
