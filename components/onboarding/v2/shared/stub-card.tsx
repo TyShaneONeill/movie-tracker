@@ -1,35 +1,51 @@
 import { type ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 
-import { Colors, BorderRadius, Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 
 interface StubCardProps {
   top: ReactNode;
   bottom: ReactNode;
-  /**
-   * Fixed pixel height of the TOP section. Per the ticket-stub rule, the
-   * perforation is anchored a fixed distance from the top edge (NOT a
-   * percentage) so the tear line never slides into the content as the card
-   * grows. PR2 will tune these offsets to the design's 360 / 230 values.
-   */
-  topHeight: number;
+  /** Fixed pixel height of the TOP section (used when topFlex is false). */
+  topHeight?: number;
+  /** When true the card fills its parent and the top half flexes, with the
+   * perforation pinned just above a content-sized bottom stub (the tall
+   * Welcome look). When false the top is a fixed `topHeight` (Success). */
+  topFlex?: boolean;
+  /** Card corner radius (design: 22 Welcome / 20 Success). */
+  radius?: number;
 }
 
+const STUB_BG = '#16161b';
+const DASH_COUNT = 42;
+
 /**
- * Perforated ticket-stub card: a top section of fixed height, a dashed tear
- * line with side notches, and a bottom stub. Always dark.
+ * Perforated ticket-stub card: a top section, a dashed tear line with side
+ * notches that read as torn-out cutouts (filled with the screen bg), and a
+ * bottom stub. Flat (no glow) so the notches blend into the page like the mock.
  */
-export function StubCard({ top, bottom, topHeight }: StubCardProps) {
+export function StubCard({ top, bottom, topHeight = 230, topFlex = false, radius = 22 }: StubCardProps) {
   const colors = Colors.dark;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-      <View style={{ height: topHeight }}>{top}</View>
+    <View
+      style={[
+        styles.card,
+        topFlex && styles.cardFill,
+        { borderRadius: radius, backgroundColor: STUB_BG },
+      ]}
+    >
+      <View style={topFlex ? styles.topFlex : { height: topHeight }}>{top}</View>
 
-      {/* Tear line + notches pinned to the fixed top offset */}
+      {/* Tear line: bg-colored side notches + a row of real dash segments
+          (a single-side dashed border doesn't render on iOS). */}
       <View style={styles.perforation}>
         <View style={[styles.notch, styles.notchLeft, { backgroundColor: colors.background }]} />
-        <View style={[styles.dashed, { borderTopColor: colors.border }]} />
+        <View style={styles.dashRow} pointerEvents="none">
+          {Array.from({ length: DASH_COUNT }).map((_, i) => (
+            <View key={i} style={styles.dash} />
+          ))}
+        </View>
         <View style={[styles.notch, styles.notchRight, { backgroundColor: colors.background }]} />
       </View>
 
@@ -42,19 +58,32 @@ const NOTCH = 20;
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
     overflow: 'hidden',
     width: '100%',
+  },
+  cardFill: {
+    flex: 1,
+  },
+  topFlex: {
+    flex: 1,
   },
   perforation: {
     height: 0,
     justifyContent: 'center',
   },
-  dashed: {
-    marginHorizontal: NOTCH / 2,
-    borderTopWidth: 2,
-    borderStyle: 'dashed',
+  dashRow: {
+    position: 'absolute',
+    left: NOTCH / 2 + 4,
+    right: NOTCH / 2 + 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dash: {
+    width: 4,
+    height: 1.5,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   notch: {
     position: 'absolute',
@@ -70,6 +99,8 @@ const styles = StyleSheet.create({
     right: -NOTCH / 2,
   },
   bottom: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.lg,
   },
 });

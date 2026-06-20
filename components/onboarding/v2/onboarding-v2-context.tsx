@@ -166,6 +166,11 @@ export function OnboardingV2Provider({ children }: { children: ReactNode }) {
       await queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       invalidateUserMovieQueries(queryClient);
 
+      // 6. Clear collected state so a later re-entry (e.g. via resetOnboarding)
+      //    never resumes with stale in-memory selections if this provider
+      //    instance wasn't unmounted between sessions.
+      if (onboardingPersisted) setData(EMPTY);
+
       return onboardingPersisted;
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), {

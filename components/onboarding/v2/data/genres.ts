@@ -14,21 +14,23 @@ export interface OnboardingGenre {
   label: string;
   tmdbId: number | null;
   icon: keyof typeof Ionicons.glyphMap;
+  /** Per-genre accent (design): a selected chip tints to its own color, not uniform rose. */
+  color: string;
 }
 
 export const ONBOARDING_GENRES: readonly OnboardingGenre[] = [
-  { slug: 'sci-fi', label: 'Sci-Fi', tmdbId: 878, icon: 'planet' },
-  { slug: 'drama', label: 'Drama', tmdbId: 18, icon: 'film' },
-  { slug: 'horror', label: 'Horror', tmdbId: 27, icon: 'skull' },
-  { slug: 'comedy', label: 'Comedy', tmdbId: 35, icon: 'happy' },
-  { slug: 'action', label: 'Action', tmdbId: 28, icon: 'flame' },
-  { slug: 'thriller', label: 'Thriller', tmdbId: 53, icon: 'eye' },
-  { slug: 'romance', label: 'Romance', tmdbId: 10749, icon: 'heart' },
-  { slug: 'animation', label: 'Animation', tmdbId: 16, icon: 'color-wand' },
-  { slug: 'documentary', label: 'Documentary', tmdbId: 99, icon: 'videocam' },
-  { slug: 'fantasy', label: 'Fantasy', tmdbId: 14, icon: 'sparkles' },
-  { slug: 'crime', label: 'Crime', tmdbId: 80, icon: 'finger-print' },
-  { slug: 'indie', label: 'Indie', tmdbId: null, icon: 'leaf' },
+  { slug: 'sci-fi', label: 'Sci-Fi', tmdbId: 878, icon: 'planet', color: '#60a5fa' },
+  { slug: 'drama', label: 'Drama', tmdbId: 18, icon: 'film', color: '#a78bfa' },
+  { slug: 'horror', label: 'Horror', tmdbId: 27, icon: 'skull', color: '#ef4444' },
+  { slug: 'comedy', label: 'Comedy', tmdbId: 35, icon: 'happy', color: '#fbbf24' },
+  { slug: 'action', label: 'Action', tmdbId: 28, icon: 'flame', color: '#f97316' },
+  { slug: 'thriller', label: 'Thriller', tmdbId: 53, icon: 'eye', color: '#dc2626' },
+  { slug: 'romance', label: 'Romance', tmdbId: 10749, icon: 'heart', color: '#ec4899' },
+  { slug: 'animation', label: 'Animation', tmdbId: 16, icon: 'color-wand', color: '#10b981' },
+  { slug: 'documentary', label: 'Documentary', tmdbId: 99, icon: 'videocam', color: '#94a3b8' },
+  { slug: 'fantasy', label: 'Fantasy', tmdbId: 14, icon: 'sparkles', color: '#8b5cf6' },
+  { slug: 'crime', label: 'Crime', tmdbId: 80, icon: 'finger-print', color: '#64748b' },
+  { slug: 'indie', label: 'Indie', tmdbId: null, icon: 'leaf', color: '#06b6d4' },
 ] as const;
 
 export const MIN_GENRES = 3;

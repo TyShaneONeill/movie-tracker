@@ -1,14 +1,10 @@
-import { Platform } from 'react-native';
-
 /**
- * Monospace font for ticket-stub / metadata microcopy.
+ * Monospace font for ticket-stub / metadata microcopy (JetBrains Mono).
  *
- * The design calls for JetBrains Mono. PR1 substitutes the platform system
- * monospace to avoid bundling a new font; PR2 can wire up
- * expo-google-fonts/jetbrains-mono and swap this single constant.
+ * Loaded app-wide via useFonts in app/_layout.tsx. With expo-google-fonts each
+ * weight is its own family — `MONO_FONT` is the default (medium); use
+ * `MONO_FONT_BOLD` where more emphasis is needed.
  */
-export const MONO_FONT = Platform.select({
-  ios: 'Menlo',
-  android: 'monospace',
-  default: 'monospace',
-}) as string;
+export const MONO_FONT = 'JetBrainsMono_500Medium';
+export const MONO_FONT_REGULAR = 'JetBrainsMono_400Regular';
+export const MONO_FONT_BOLD = 'JetBrainsMono_700Bold';

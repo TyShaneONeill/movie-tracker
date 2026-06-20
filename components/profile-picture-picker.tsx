@@ -28,9 +28,13 @@ interface ProfilePicturePickerProps {
   isLoading?: boolean;
   /** Callback when an image is selected */
   onImageSelected: (imageUri: string, mimeType?: string) => Promise<void>;
+  /** When there's no photo, show this letter (e.g. the user's name initial) instead of a silhouette. */
+  initial?: string;
+  /** Hide the camera badge overlay (it covers the photo) — pair with a caption affordance instead. */
+  hideCameraBadge?: boolean;
+  /** Use a dashed ring while there's no photo (signals "tap to add"). */
+  dashedEmptyRing?: boolean;
 }
-
-const DEFAULT_AVATAR_PLACEHOLDER = 'https://i.pravatar.cc/300';
 
 export function ProfilePicturePicker({
   avatarUrl,
@@ -38,6 +42,9 @@ export function ProfilePicturePicker({
   size = 120,
   isLoading = false,
   onImageSelected,
+  initial,
+  hideCameraBadge = false,
+  dashedEmptyRing = false,
 }: ProfilePicturePickerProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -46,8 +53,21 @@ export function ProfilePicturePicker({
   const [pendingImage, setPendingImage] = useState<ImagePickerResult | null>(null);
 
   const loading = isLoading || localLoading;
-  // Priority: local preview (just selected) > prop preview > remote URL > placeholder
-  const displayUrl = localPreview || previewUri || avatarUrl || DEFAULT_AVATAR_PLACEHOLDER;
+  // Priority: local preview (just selected) > prop preview > remote URL.
+  // No fake stock-photo placeholder — fall back to an initial-letter or silhouette.
+  const displayUrl = localPreview || previewUri || avatarUrl || null;
+  const hasImage = !!displayUrl;
+  const trimmedInitial = initial?.trim().charAt(0).toUpperCase();
+
+  // Ring: the dashed ring shows ONLY in the pure-empty state (no photo, no
+  // name). With a name (initial) or photo there's no ring — a clean circle.
+  // In dashed-ring (onboarding) mode we force dark-appropriate colors so the
+  // avatar reads correctly on the always-dark onboarding regardless of the
+  // system theme.
+  const isEmpty = !hasImage && !trimmedInitial;
+  const showDashedRing = dashedEmptyRing && isEmpty;
+  const borderWidth = dashedEmptyRing ? (isEmpty ? 2 : 0) : 3;
+  const ringColor = dashedEmptyRing ? 'rgba(255,255,255,0.22)' : colors.tint;
 
   const handleConfirm = async () => {
     if (!pendingImage) return;
@@ -125,21 +145,35 @@ export function ProfilePicturePicker({
               width: size,
               height: size,
               borderRadius: size / 2,
-              borderColor: colors.tint,
+              borderWidth,
+              borderColor: ringColor,
+              borderStyle: showDashedRing ? 'dashed' : 'solid',
             },
           ]}
         >
-          <Image
-            source={{ uri: displayUrl }}
-            style={[
-              styles.avatar,
-              {
-                width: size,
-                height: size,
-                borderRadius: size / 2,
-              },
-            ]}
-          />
+          {hasImage ? (
+            <Image
+              source={{ uri: displayUrl }}
+              style={[styles.avatar, StyleSheet.absoluteFillObject, { borderRadius: size / 2 }]}
+            />
+          ) : trimmedInitial ? (
+            <View
+              style={[styles.placeholder, StyleSheet.absoluteFillObject, { borderRadius: size / 2, backgroundColor: colors.tint }]}
+            >
+              <Text style={{ color: '#fff', fontSize: size * 0.4, fontWeight: '700' }}>
+                {trimmedInitial}
+              </Text>
+            </View>
+          ) : dashedEmptyRing ? (
+            // Onboarding empty state: transparent center + gray silhouette inside the dashed ring.
+            <Ionicons name="person" size={size * 0.42} color="rgba(255,255,255,0.4)" />
+          ) : (
+            <View
+              style={[styles.placeholder, StyleSheet.absoluteFillObject, { borderRadius: size / 2, backgroundColor: colors.backgroundSecondary }]}
+            >
+              <Ionicons name="person" size={size * 0.5} color={colors.textTertiary} />
+            </View>
+          )}
 
           {loading && (
             <View
@@ -154,7 +188,7 @@ export function ProfilePicturePicker({
             </View>
           )}
 
-          {!loading && (
+          {!loading && !hideCameraBadge && (
             <View
               style={[
                 styles.cameraButton,
@@ -219,10 +253,15 @@ export function ProfilePicturePicker({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     backgroundColor: '#333',
+  },
+  placeholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
