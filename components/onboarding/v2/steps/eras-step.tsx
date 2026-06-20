@@ -37,7 +37,10 @@ export function ErasStep({ onNext }: StepProps) {
                 },
               ]}
             >
-              <ThemedText style={[styles.decade, { color: selected ? colors.tint : colors.text }]}>
+              <ThemedText
+                style={[styles.decade, { color: selected ? colors.tint : colors.text }]}
+                numberOfLines={1}
+              >
                 {era.label}
               </ThemedText>
               <View style={styles.rowBody}>
@@ -89,8 +92,9 @@ const styles = StyleSheet.create({
   decade: {
     fontFamily: Fonts.outfit.extrabold,
     fontSize: 32,
+    lineHeight: 40,
     letterSpacing: -1,
-    width: 64,
+    width: 72,
   },
   rowBody: { flex: 1, gap: 3 },
   movement: {

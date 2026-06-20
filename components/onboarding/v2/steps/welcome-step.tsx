@@ -23,7 +23,7 @@ function SpinningReel() {
 
   useEffect(() => {
     rotation.value = withRepeat(
-      withTiming(360, { duration: 12000, easing: Easing.linear }),
+      withTiming(360, { duration: 7000, easing: Easing.linear }),
       -1,
       false
     );
@@ -69,7 +69,7 @@ export function WelcomeStep({ onNext }: StepProps) {
       <View style={styles.stubWrap}>
         <StubCard
           radius={22}
-          topHeight={360}
+          topFlex
           top={
             <View style={styles.top}>
               <View style={styles.brandRow}>
@@ -80,23 +80,23 @@ export function WelcomeStep({ onNext }: StepProps) {
                 <ThemedText style={[styles.heroEyebrow, { color: colors.textTertiary }]}>
                   WELCOME TO THE
                 </ThemedText>
-                <ThemedText style={[styles.heroShow, { color: colors.text }]}>
-                  <ThemedText style={[styles.heroShow, styles.heroShowWord, { color: colors.tint }]}>
+                <View style={styles.heroLine}>
+                  <ThemedText style={[styles.heroShow, styles.italicWord, { color: colors.tint }]}>
                     show
                   </ThemedText>
-                  .
-                </ThemedText>
+                  <ThemedText style={[styles.heroShow, { color: colors.text }]}>.</ThemedText>
+                </View>
               </View>
             </View>
           }
           bottom={
             <View>
-              <ThemedText style={[styles.tonight, { color: colors.text }]}>
-                <ThemedText style={[styles.tonight, styles.tonightWord, { color: colors.tint }]}>
+              <View style={styles.tonightLine}>
+                <ThemedText style={[styles.tonight, styles.italicWord, { color: colors.tint }]}>
                   Tonight
                 </ThemedText>
-                .
-              </ThemedText>
+                <ThemedText style={[styles.tonight, { color: colors.text }]}>.</ThemedText>
+              </View>
               <View style={styles.metaRow}>
                 <MetaItem label="NO." value={stubNo} />
                 <MetaItem label="DATE" value={formatToday()} />
@@ -115,17 +115,18 @@ export function WelcomeStep({ onNext }: StepProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },
-  stubWrap: { flex: 1, justifyContent: 'center' },
+  container: { flex: 1, paddingHorizontal: Spacing.lg },
+  stubWrap: { flex: 1, paddingTop: 64, paddingBottom: Spacing.lg },
   top: { flex: 1, justifyContent: 'space-between', padding: Spacing.lg },
   brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brand: { fontFamily: MONO_FONT, fontSize: 10, letterSpacing: 2.5 },
   hero: {},
   heroEyebrow: { fontFamily: MONO_FONT, fontSize: 11, letterSpacing: 1.8, marginBottom: 4 },
-  heroShow: { fontFamily: Fonts.outfit.extrabold, fontSize: 82, lineHeight: 76, letterSpacing: -3 },
-  heroShowWord: { fontStyle: 'italic' },
-  tonight: { fontFamily: Fonts.outfit.extrabold, fontSize: 28, letterSpacing: -0.8, marginBottom: Spacing.md },
-  tonightWord: { fontStyle: 'italic' },
+  heroLine: { flexDirection: 'row', alignItems: 'flex-end' },
+  heroShow: { fontFamily: Fonts.outfit.extrabold, fontSize: 82, lineHeight: 78, letterSpacing: -3 },
+  italicWord: { transform: [{ skewX: '-11deg' }] },
+  tonightLine: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: Spacing.md },
+  tonight: { fontFamily: Fonts.outfit.extrabold, fontSize: 28, lineHeight: 32, letterSpacing: -0.8 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between' },
   metaItem: { gap: 2 },
   metaLabel: { fontFamily: MONO_FONT, fontSize: 9, letterSpacing: 2 },
