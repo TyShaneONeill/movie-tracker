@@ -104,56 +104,57 @@ export function Avatar({
     [mode, avatarCacheKey(seed, config, GEN_SIZE)],
   );
 
-  const container: StyleProp<ViewStyle> = [
-    {
-      width: size,
-      height: size,
-      borderRadius: size / 2,
-      overflow: 'hidden',
-      backgroundColor: 'transparent',
-    },
-    borderWidth > 0 && borderColor ? { borderWidth, borderColor } : null,
-    style,
-  ];
-
   const a11y = {
     accessible: true,
     accessibilityRole: 'image' as const,
     accessibilityLabel: name ? `${name}'s avatar` : 'User avatar',
   };
 
+  // Render content full-bleed inside a circular clip. The border is drawn as a
+  // separate overlay ring so it never insets/offsets the content — otherwise an
+  // RN border pushes the avatar down-and-right inside the ring (off-center).
+  let content: React.ReactNode = null;
   if (mode === 'photo' && photoUrl) {
-    return (
+    content = (
       <Image
-        {...a11y}
         source={{ uri: photoUrl }}
-        style={container as StyleProp<ImageStyle>}
+        style={styles.fill as StyleProp<ImageStyle>}
         contentFit="cover"
         transition={200}
       />
     );
-  }
-
-  if (mode === 'initial') {
+  } else if (mode === 'initial') {
     const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
     const bg = config?.backgroundColor ?? pickBackground(seed);
-    return (
-      <View {...a11y} style={[container, styles.center, { backgroundColor: `#${bg}` }]}>
+    content = (
+      <View style={[styles.fill, styles.center, { backgroundColor: `#${bg}` }]}>
         <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
       </View>
     );
+  } else if (svg) {
+    content = <SvgXml xml={svg} width={size} height={size} />;
   }
 
   return (
-    <View {...a11y} style={container}>
-      {svg ? <SvgXml xml={svg} width={size} height={size} /> : null}
+    <View {...a11y} style={[{ width: size, height: size }, style]}>
+      <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }}>
+        {content}
+      </View>
+      {borderWidth > 0 && borderColor ? (
+        <View
+          pointerEvents="none"
+          style={[styles.ring, { borderRadius: size / 2, borderWidth, borderColor }]}
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { width: '100%', height: '100%' },
   center: { justifyContent: 'center', alignItems: 'center' },
   initial: { color: '#18181b', fontWeight: '700' },
+  ring: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 });
 
 export default Avatar;

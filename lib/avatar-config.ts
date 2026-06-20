@@ -33,6 +33,7 @@ export interface AvatarConfig {
   clothing?: string;
   clothesColor?: string;
   eyes?: string;
+  mouth?: string;
   backgroundColor?: string;
 }
 
@@ -129,6 +130,17 @@ export const EYES: AvatarOption[] = [
   { id: 'closed', label: 'Closed' },
 ];
 
+export const MOUTHS: AvatarOption[] = [
+  { id: 'smile', label: 'Smile' },
+  { id: 'default', label: 'Neutral' },
+  { id: 'twinkle', label: 'Grin' },
+  { id: 'tongue', label: 'Tongue' },
+  { id: 'serious', label: 'Serious' },
+  { id: 'grimace', label: 'Grimace' },
+  { id: 'eating', label: 'Eating' },
+  { id: 'sad', label: 'Sad' },
+];
+
 export const BACKGROUNDS: ColorOption[] = [
   { id: 'b6e3f4', label: 'Sky' },
   { id: 'c0aede', label: 'Lavender' },
@@ -148,6 +160,7 @@ export const AVATAR_CATEGORIES = [
   { key: 'clothing', label: 'Outfit', kind: 'style', options: CLOTHING },
   { key: 'clothesColor', label: 'Shirt color', kind: 'color', options: CLOTHES_COLORS },
   { key: 'eyes', label: 'Eyes', kind: 'style', options: EYES },
+  { key: 'mouth', label: 'Mouth', kind: 'style', options: MOUTHS },
   { key: 'backgroundColor', label: 'Background', kind: 'color', options: BACKGROUNDS },
 ] as const;
 
@@ -181,6 +194,7 @@ export function seededConfigFromId(seed: string): AvatarConfig {
     clothing: at(CLOTHING, 'clothing'),
     clothesColor: at(CLOTHES_COLORS, 'shirt'),
     eyes: at(EYES, 'eyes'),
+    mouth: at(MOUTHS, 'mouth'),
     backgroundColor: at(BACKGROUNDS, 'bg'),
   };
 }
@@ -208,6 +222,7 @@ export function avatarSvg(seed: string, config?: AvatarConfig | null, size = 96)
     clothing: single(cfg.clothing) as any,
     clothesColor: single(cfg.clothesColor),
     eyes: single(cfg.eyes) as any,
+    mouth: single(cfg.mouth) as any,
   }).toString();
 }
 
@@ -226,6 +241,7 @@ export function randomConfig(): AvatarConfig {
     clothing: pick(CLOTHING),
     clothesColor: pick(CLOTHES_COLORS),
     eyes: pick(EYES),
+    mouth: pick(MOUTHS),
     backgroundColor: pick(BACKGROUNDS),
   };
 }
