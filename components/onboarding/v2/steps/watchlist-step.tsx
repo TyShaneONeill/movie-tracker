@@ -1,6 +1,7 @@
 import { View, StyleSheet, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -80,9 +81,12 @@ export function WatchlistStep({ onNext }: StepProps) {
                 </View>
 
                 {selected && (
-                  <View style={[styles.onListStrip, { backgroundColor: colors.tint }]}>
+                  <LinearGradient
+                    colors={['transparent', 'rgba(225,29,72,0.55)', colors.tint]}
+                    style={styles.onListStrip}
+                  >
                     <ThemedText style={styles.onListText}>ON LIST</ThemedText>
-                  </View>
+                  </LinearGradient>
                 )}
               </Pressable>
             );
@@ -121,8 +125,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingVertical: 3,
+    height: 40,
+    justifyContent: 'flex-end',
     alignItems: 'center',
+    paddingBottom: 6,
   },
-  onListText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
+  onListText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 1.5 },
 });
