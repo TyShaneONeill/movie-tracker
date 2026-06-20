@@ -56,7 +56,7 @@ export function ProfileStep({ onNext }: StepProps) {
         <View style={styles.avatarSection}>
           <ProfilePicturePicker
             avatarUrl={data.avatarUrl}
-            size={96}
+            size={76}
             isLoading={isUploading}
             onImageSelected={handleImageSelected}
             initial={data.name}
@@ -185,31 +185,31 @@ export function ProfileStep({ onNext }: StepProps) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  avatarSection: { alignItems: 'center', marginBottom: Spacing.md, gap: Spacing.sm },
+  avatarSection: { alignItems: 'center', marginBottom: Spacing.sm, gap: 6 },
   captionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   caption: { ...Typography.body.sm },
-  field: { marginBottom: Spacing.md },
-  label: { ...Typography.body.smMedium, marginBottom: Spacing.xs },
-  input: { height: 52, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, fontSize: 16 },
-  usernameWrap: { flexDirection: 'row', alignItems: 'center', height: 52, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, gap: 4 },
+  field: { marginBottom: Spacing.sm },
+  label: { ...Typography.body.smMedium, marginBottom: 4 },
+  input: { height: 46, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, fontSize: 16 },
+  usernameWrap: { flexDirection: 'row', alignItems: 'center', height: 46, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, gap: 4 },
   at: { fontSize: 16 },
   usernameInput: { flex: 1, fontSize: 16 },
   hint: { ...Typography.body.xs, marginTop: Spacing.xs },
-  preview: { borderWidth: 1, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.md, gap: Spacing.sm },
+  preview: { borderWidth: 1, borderRadius: BorderRadius.md, padding: Spacing.sm, marginBottom: Spacing.sm, gap: Spacing.xs },
   previewLabel: { fontFamily: MONO_FONT, fontSize: 10, letterSpacing: 2 },
   previewRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
-  previewAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  previewInitial: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  previewAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  previewInitial: { color: '#fff', fontSize: 15, fontWeight: '700' },
   previewNameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
   previewName: { ...Typography.body.baseMedium },
   previewHandle: { ...Typography.body.sm },
   previewComment: { ...Typography.body.sm, marginTop: 2 },
-  legend: { flexDirection: 'row', gap: Spacing.lg, borderTopWidth: 1, paddingTop: Spacing.sm },
+  legend: { flexDirection: 'row', gap: Spacing.lg, borderTopWidth: 1, paddingTop: 6 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   swatch: { width: 10, height: 10, borderRadius: 3 },
   legendText: { ...Typography.body.xs },
-  lbCard: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center', padding: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1 },
-  lbIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#0e1620', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  lbCard: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center', padding: Spacing.sm, borderRadius: BorderRadius.md, borderWidth: 1 },
+  lbIcon: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#0e1620', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
   lbDot: { width: 8, height: 8, borderRadius: 4 },
   lbTitle: { ...Typography.body.baseMedium, fontWeight: '700', marginBottom: 2 },
   lbBody: { ...Typography.body.xs, lineHeight: 17 },

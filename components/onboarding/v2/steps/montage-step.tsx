@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -71,12 +70,6 @@ function ScanBeat() {
       <View style={[styles.corner, styles.cornerTR]} />
       <View style={[styles.corner, styles.cornerBL]} />
       <View style={[styles.corner, styles.cornerBR]} />
-      <Animated.View style={[styles.sweep, sweep]} />
-
-      <Animated.View entering={FadeIn.delay(400).duration(500)} style={styles.detectedPill}>
-        <View style={styles.detectedDot} />
-        <ThemedText style={styles.detectedText}>DETECTED · 98% match</ThemedText>
-      </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(250).duration(600)} style={styles.paperTicket}>
         <ThemedText style={styles.paperHead}>AMC THEATRES</ThemedText>
@@ -87,15 +80,20 @@ function ScanBeat() {
         <ThemedText style={styles.paperFoot}>03/15/26 · #71820493</ThemedText>
       </Animated.View>
 
+      {/* sweep beam in FRONT of the ticket */}
+      <Animated.View style={[styles.sweep, sweep]} pointerEvents="none" />
+
       <Animated.View entering={FadeInUp.delay(900).duration(600)} style={styles.detailCard}>
+        {/* DETECTED pill lives on the card, popping in just after it appears */}
+        <Animated.View entering={FadeIn.delay(1300).duration(400)} style={styles.detectedPill}>
+          <View style={styles.detectedDot} />
+          <ThemedText style={styles.detectedText}>96% match</ThemedText>
+        </Animated.View>
         <LinearGradient colors={[C.tint, C.accentHover]} style={styles.detailPoster} />
         <View style={styles.detailText}>
           <ThemedText style={styles.detailTitle}>Dune: Part Two</ThemedText>
           <ThemedText style={styles.detailMeta}>AMC EMPIRE 25 · IMAX</ThemedText>
           <ThemedText style={styles.detailMeta}>MAR 15 · 7:20 PM · ROW J-12</ThemedText>
-        </View>
-        <View style={styles.detailCheck}>
-          <Ionicons name="checkmark" size={14} color="#fff" />
         </View>
       </Animated.View>
     </View>
@@ -313,12 +311,12 @@ const styles = StyleSheet.create({
   cornerBR: { bottom: 14, right: 14, borderBottomWidth: 3, borderRightWidth: 3 },
   sweep: { position: 'absolute', left: '6%', right: '6%', height: 2, backgroundColor: C.tint },
   detectedPill: {
-    position: 'absolute', top: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(16,185,129,0.14)', borderColor: '#10b981', borderWidth: 1,
-    borderRadius: BorderRadius.full, paddingHorizontal: 10, paddingVertical: 5,
+    position: 'absolute', top: 9, right: 10, zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#10241c', borderColor: '#10b981', borderWidth: 1,
+    borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 3,
   },
-  detectedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' },
-  detectedText: { fontFamily: MONO_FONT, fontSize: 10, color: '#10b981', letterSpacing: 0.5 },
+  detectedDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#10b981' },
+  detectedText: { fontFamily: MONO_FONT, fontSize: 9, color: '#10b981', letterSpacing: 0.5 },
   paperTicket: {
     position: 'absolute', right: 18, top: '30%', width: '64%',
     backgroundColor: '#d9d5cb', borderRadius: 6, padding: 12, transform: [{ rotate: '3deg' }],
@@ -329,14 +327,13 @@ const styles = StyleSheet.create({
   paperDivider: { borderTopWidth: 1, borderColor: 'rgba(0,0,0,0.18)', borderStyle: 'dashed', marginVertical: 6 },
   paperFoot: { fontFamily: MONO_FONT, fontSize: 9, color: '#666' },
   detailCard: {
-    position: 'absolute', left: 14, right: 14, bottom: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: C.card, borderRadius: BorderRadius.md, padding: 12,
+    position: 'absolute', left: 24, right: 24, bottom: 20, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.card, borderRadius: BorderRadius.md, padding: 10,
   },
-  detailPoster: { width: 38, height: 54, borderRadius: 5 },
+  detailPoster: { width: 30, height: 44, borderRadius: 4 },
   detailText: { flex: 1, gap: 2 },
-  detailTitle: { fontFamily: Fonts.outfit.bold, fontSize: 15, color: C.text },
-  detailMeta: { fontFamily: MONO_FONT, fontSize: 10, color: C.textSecondary },
-  detailCheck: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.tint, alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { fontFamily: Fonts.outfit.bold, fontSize: 13, color: C.text },
+  detailMeta: { fontFamily: MONO_FONT, fontSize: 9, color: C.textSecondary },
 
   /* Feed */
   feedCard: { backgroundColor: C.card, borderRadius: BorderRadius.md, padding: 12, marginBottom: Spacing.sm },
