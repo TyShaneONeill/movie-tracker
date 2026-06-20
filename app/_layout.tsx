@@ -261,6 +261,11 @@ function useAnalyticsIdentity() {
         is_premium: isPremium,
         premium_tier: tier,
       });
+      // Re-evaluate feature flags for the now-identified person. Property-targeted
+      // flags (e.g. onboarding_v2 matched by email) are loaded for the anonymous
+      // user before identify resolves; without this reload a brand-new signup can
+      // evaluate the flag as off and miss the v2 gate. See useOnboardingVariant.
+      analytics.reloadFeatureFlags();
     } else {
       analytics.reset();
     }
