@@ -22,11 +22,16 @@ const serviceKey =
 
 const args = process.argv.slice(2);
 const getArg = (n) => {
-  const hit = args.find((a) => a === `--${n}` || a.startsWith(`--${n}=`));
-  if (!hit) return undefined;
-  return hit.includes('=') ? hit.split('=').slice(1).join('=') : true;
+  const i = args.findIndex((a) => a === `--${n}` || a.startsWith(`--${n}=`));
+  if (i === -1) return undefined;
+  const a = args[i];
+  if (a.includes('=')) return a.split('=').slice(1).join('='); // --name=value
+  const next = args[i + 1];
+  if (next && !next.startsWith('--')) return next; // --name value
+  return true; // bare flag
 };
-const realEmail = getArg('email') || process.env.REAL_USER_EMAIL;
+const rawEmail = getArg('email');
+const realEmail = typeof rawEmail === 'string' ? rawEmail : process.env.REAL_USER_EMAIL;
 const resetOnboarding = !!getArg('reset-onboarding');
 const TEST_PASSWORD = 'TestPass123!';
 
