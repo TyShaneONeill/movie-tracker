@@ -19,6 +19,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, type ViewStyle, type ImageStyle, type StyleProp } from 'react-native';
 import { Image } from 'expo-image';
 import { SvgXml } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { analytics } from '@/lib/analytics';
@@ -33,6 +34,11 @@ import {
 } from '@/lib/avatar-config';
 
 const GEN_SIZE = 128; // canonical render size; SvgXml scales to the requested size
+
+// Legacy gray "person" placeholder — the final fallback when a user has no
+// photo, no saved avatar, and no name to derive an initial from.
+const DEFAULT_BG = '#e4e4e7';
+const DEFAULT_ICON = '#9ca3af';
 
 // The avatar feature ships in lockstep with onboarding v2 — gated behind the
 // same flag (with the same dev/QA env override). When off, avatars fall back to
@@ -92,19 +98,19 @@ export function Avatar({
   const effType = avatarType ?? override?.avatarType;
   const effConfig = config ?? override?.avatarConfig ?? null;
 
-  // Resolve mode. When the feature is gated off (onboarding_v2 not enabled),
-  // never render a vector avatar — fall back to photo-or-initial.
+  // Resolution follows the product fallback chain:
+  //   saved photo / legacy photo → saved vector avatar (preset) → initial letter
+  //   → gray default image (no name).
+  // Auto-assign is OFF: an uncustomized user shows their initial letter, NOT a
+  // generated avatar. A vector avatar only renders once explicitly saved
+  // (avatar_type 'preset'). A saved 'initial' choice wins over a stale photo.
   let mode: 'photo' | 'initial' | 'vector';
-  if (!enabled) {
-    mode = photoUrl ? 'photo' : 'initial';
-  } else if (effType === 'photo') {
-    mode = photoUrl ? 'photo' : 'vector';
-  } else if (effType === 'initial') {
-    mode = 'initial';
-  } else if (effType === 'preset' || effType === 'auto') {
+  if (enabled && effType === 'preset') {
     mode = 'vector';
+  } else if (photoUrl && effType !== 'initial') {
+    mode = 'photo';
   } else {
-    mode = photoUrl ? 'photo' : 'vector';
+    mode = 'initial';
   }
 
   const svg = useMemo(
@@ -133,13 +139,23 @@ export function Avatar({
       />
     );
   } else if (mode === 'initial') {
-    const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
-    const bg = effConfig?.backgroundColor ?? pickBackground(seed);
-    content = (
-      <View style={[styles.fill, styles.center, { backgroundColor: `#${bg}` }]}>
-        <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
-      </View>
-    );
+    const trimmed = (name ?? '').trim();
+    const initial = trimmed ? trimmed[0].toUpperCase() : null;
+    if (initial) {
+      const bg = effConfig?.backgroundColor ?? pickBackground(seed);
+      content = (
+        <View style={[styles.fill, styles.center, { backgroundColor: `#${bg}` }]}>
+          <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
+        </View>
+      );
+    } else {
+      // Final fallback: legacy gray "person" placeholder when there's no name.
+      content = (
+        <View style={[styles.fill, styles.center, { backgroundColor: DEFAULT_BG }]}>
+          <Ionicons name="person" size={size * 0.5} color={DEFAULT_ICON} />
+        </View>
+      );
+    }
   } else if (svg) {
     content = <SvgXml xml={svg} width={size} height={size} />;
   }

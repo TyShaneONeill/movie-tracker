@@ -26,6 +26,8 @@ import { useOnboardingVariant } from '@/hooks/use-onboarding-variant';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
+import { Avatar } from '@/components/ui/avatar';
+import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 import { captureException } from '@/lib/sentry';
 import { ContentContainer } from '@/components/content-container';
 
@@ -215,30 +217,49 @@ export default function EditProfileScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ContentContainer>
-          {/* Profile Picture */}
+          {/* Profile Picture / Avatar */}
           <View style={styles.avatarSection}>
-            <ProfilePicturePicker
-              avatarUrl={profile?.avatar_url}
-              size={120}
-              isLoading={isUpdatingAvatar}
-              onImageSelected={handleImageSelected}
-            />
-            <Text style={[styles.changePhotoText, { color: colors.tint }]}>
-              Tap to change photo
-            </Text>
-            {avatarsEnabled && (
-              <Pressable
-                onPress={() => router.push('/settings/edit-avatar')}
-                style={({ pressed }) => [
-                  styles.customizeAvatarButton,
-                  { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <Ionicons name="color-palette-outline" size={16} color={colors.text} />
-                <Text style={[styles.customizeAvatarText, { color: colors.text }]}>
-                  Customize avatar
+            {avatarsEnabled ? (
+              <>
+                <Pressable
+                  onPress={() => router.push('/settings/edit-avatar')}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                >
+                  <Avatar
+                    size={120}
+                    userId={profile?.id}
+                    avatarUrl={profile?.avatar_url}
+                    updatedAt={profile?.updated_at}
+                    name={profile?.full_name || profile?.username}
+                    avatarType={profile?.avatar_type as AvatarType | undefined}
+                    config={profile?.avatar_config as AvatarConfig | null}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push('/settings/edit-avatar')}
+                  style={({ pressed }) => [
+                    styles.customizeAvatarButton,
+                    { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  <Ionicons name="color-palette-outline" size={16} color={colors.text} />
+                  <Text style={[styles.customizeAvatarText, { color: colors.text }]}>
+                    Customize avatar
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <ProfilePicturePicker
+                  avatarUrl={profile?.avatar_url}
+                  size={120}
+                  isLoading={isUpdatingAvatar}
+                  onImageSelected={handleImageSelected}
+                />
+                <Text style={[styles.changePhotoText, { color: colors.tint }]}>
+                  Tap to change photo
                 </Text>
-              </Pressable>
+              </>
             )}
           </View>
 
