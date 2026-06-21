@@ -11,7 +11,6 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
-  Image,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +25,7 @@ import { useFollowing } from '@/hooks/use-following';
 import { useAuth } from '@/hooks/use-auth';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import { FollowButton } from '@/components/social/FollowButton';
-import { buildAvatarUrl } from '@/lib/avatar-service';
+import { Avatar } from '@/components/ui/avatar';
 import type { Profile } from '@/lib/database.types';
 import { ContentContainer } from '@/components/content-container';
 
@@ -77,19 +76,13 @@ export default function FollowingScreen() {
       >
         <View style={[styles.userRow, { backgroundColor: colors.card }]}>
           {/* Avatar */}
-          {user.avatar_url ? (
-            <Image source={{ uri: buildAvatarUrl(user.avatar_url, user.updated_at)! }} style={styles.avatar} />
-          ) : (
-            <View
-              style={[
-                styles.avatar,
-                styles.avatarPlaceholder,
-                { backgroundColor: colors.backgroundSecondary },
-              ]}
-            >
-              <Ionicons name="person" size={24} color={colors.textSecondary} />
-            </View>
-          )}
+          <Avatar
+            size={48}
+            userId={user.id}
+            avatarUrl={user.avatar_url}
+            updatedAt={user.updated_at}
+            name={user.full_name || user.username}
+          />
 
           {/* User Info */}
           <View style={styles.userInfo}>

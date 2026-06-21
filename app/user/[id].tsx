@@ -30,7 +30,8 @@ import { FollowButton } from '@/components/social/FollowButton';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { buildAvatarUrl } from '@/lib/avatar-service';
+import { Avatar } from '@/components/ui/avatar';
+import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { useWatchlistSocial } from '@/hooks/use-watchlist-social';
 import { useFollow } from '@/hooks/use-follow';
@@ -480,19 +481,12 @@ export default function UserProfileScreen() {
               {comments.map((comment) => (
                 <View key={comment.id} style={styles.commentItem}>
                   <View style={styles.commentHeader}>
-                    {comment.profiles?.avatar_url ? (
-                      <Image
-                        source={{ uri: buildAvatarUrl(comment.profiles.avatar_url, '')! }}
-                        style={styles.commentAvatar}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <View style={[styles.commentAvatar, styles.commentAvatarPlaceholder, { backgroundColor: colors.card }]}>
-                        <Text style={[styles.commentAvatarInitial, { color: colors.textSecondary }]}>
-                          {(comment.profiles?.full_name || comment.profiles?.username || '?')[0].toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
+                    <Avatar
+                      size={28}
+                      userId={comment.user_id}
+                      avatarUrl={comment.profiles?.avatar_url}
+                      name={comment.profiles?.full_name || comment.profiles?.username}
+                    />
                     <View style={styles.commentMeta}>
                       <Text style={[styles.commentAuthor, { color: colors.text }]}>
                         {comment.profiles?.full_name || comment.profiles?.username || 'Anonymous'}
@@ -548,25 +542,17 @@ export default function UserProfileScreen() {
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         {/* Avatar */}
-        {profile.avatar_url ? (
-          <Image
-            source={{ uri: buildAvatarUrl(profile.avatar_url, profile.updated_at)! }}
-            style={[styles.avatar, { borderColor: colors.tint }]}
-            contentFit="cover"
-          />
-        ) : (
-          <View
-            style={[
-              styles.avatar,
-              styles.avatarPlaceholder,
-              { backgroundColor: colors.card, borderColor: colors.tint },
-            ]}
-          >
-            <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>
-              {(profile.full_name || profile.username || '?')[0].toUpperCase()}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          size={100}
+          userId={profile.id}
+          avatarUrl={profile.avatar_url}
+          updatedAt={profile.updated_at}
+          name={profile.full_name || profile.username}
+          avatarType={profile.avatar_type as AvatarType | undefined}
+          config={profile.avatar_config as AvatarConfig | null}
+          borderColor={colors.tint}
+          borderWidth={3}
+        />
 
         {/* Name */}
         <Text style={[styles.name, { color: colors.text }]}>

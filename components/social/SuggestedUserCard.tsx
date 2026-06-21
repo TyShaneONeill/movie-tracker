@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { FollowButton } from '@/components/social/FollowButton';
-import { buildAvatarUrl } from '@/lib/avatar-service';
+import { Avatar } from '@/components/ui/avatar';
 import type { SuggestedUser } from '@/lib/suggested-users-service';
 
 interface SuggestedUserCardProps {
@@ -18,30 +17,18 @@ export function SuggestedUserCard({ user }: SuggestedUserCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
-  const avatarSource = buildAvatarUrl(user.avatarUrl)
-    ? { uri: buildAvatarUrl(user.avatarUrl)! }
-    : undefined;
-
   return (
     <Pressable
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={() => router.push(`/user/${user.id}`)}
     >
       <View style={styles.avatarContainer}>
-        {avatarSource ? (
-          <Image
-            source={avatarSource}
-            style={styles.avatar}
-            contentFit="cover"
-            transition={200}
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
-            <Text style={[styles.avatarInitial, { color: colors.textSecondary }]}>
-              {(user.fullName || user.username || '?')[0].toUpperCase()}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          size={56}
+          userId={user.id}
+          avatarUrl={user.avatarUrl}
+          name={user.fullName || user.username}
+        />
       </View>
 
       <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>

@@ -16,6 +16,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="subscription" />
       <Stack.Screen name="edit-profile" />
+      <Stack.Screen name="edit-avatar" />
       <Stack.Screen name="change-password" />
       <Stack.Screen name="delete-account" />
       <Stack.Screen name="blocked-users" />

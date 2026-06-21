@@ -18,8 +18,8 @@ import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import type { ReviewItem, ReviewSortMode } from '@/lib/review-service';
 import { LikeButton } from '@/components/like-button';
 import { LikedByIndicator } from '@/components/liked-by-indicator';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { Avatar } from '@/components/ui/avatar';
 import { ContentContainer } from '@/components/content-container';
 
 const AVATAR_SIZE = 36;
@@ -76,20 +76,12 @@ function ReviewCard({
     <View style={styles.card} accessible accessibilityLabel={`Review by ${displayName}`}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          {review.reviewer.avatarUrl ? (
-            <Image
-              source={{ uri: review.reviewer.avatarUrl }}
-              style={styles.avatar}
-              contentFit="cover"
-              transition={200}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitial}>
-                {displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <Avatar
+            size={AVATAR_SIZE}
+            userId={review.userId}
+            avatarUrl={review.reviewer.avatarUrl}
+            name={displayName}
+          />
           <View style={styles.headerText}>
             <Text style={styles.displayName} numberOfLines={1}>
               {displayName}

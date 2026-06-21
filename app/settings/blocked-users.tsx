@@ -11,13 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useBlockedUsersWithProfiles } from '@/hooks/use-blocked-users-with-profiles';
-import { buildAvatarUrl } from '@/lib/avatar-service';
+import { Avatar } from '@/components/ui/avatar';
 import { Ionicons } from '@expo/vector-icons';
 import type { Profile } from '@/lib/database.types';
 import { ContentContainer } from '@/components/content-container';
@@ -62,19 +61,13 @@ export default function BlockedUsersScreen() {
     const displayName = profile.full_name || profile.username || 'Unknown User';
     return (
       <View style={styles.userRow}>
-        {profile.avatar_url ? (
-          <Image
-            source={{ uri: buildAvatarUrl(profile.avatar_url, profile.updated_at)! }}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarInitial}>
-              {displayName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          size={44}
+          userId={profile.id}
+          avatarUrl={profile.avatar_url}
+          updatedAt={profile.updated_at}
+          name={displayName}
+        />
         <View style={styles.userInfo}>
           <Text style={styles.displayName} numberOfLines={1}>
             {displayName}

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { StyleSheet, View, Text, Pressable, Image, RefreshControl, ListRenderItemInfo, useWindowDimensions, Platform } from 'react-native';
+import { StyleSheet, View, Text, Pressable, RefreshControl, ListRenderItemInfo, useWindowDimensions, Platform } from 'react-native';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,
@@ -44,7 +44,8 @@ import { useNotifications } from '@/hooks/use-notifications';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserTvShows } from '@/hooks/use-user-tv-shows';
 import { ProfileIdentitySkeleton, ProfileStatNumberSkeleton } from '@/components/profile-header-skeleton';
-import { buildAvatarUrl } from '@/lib/avatar-service';
+import { Avatar } from '@/components/ui/avatar';
+import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { UserMovie, GroupedUserMovie, UserTvShow } from '@/lib/database.types';
 
@@ -622,29 +623,22 @@ export default function ProfileScreen() {
 
     // Profile identity (avatar + name + bio) — skeleton while loading, never fake placeholder data
     const showProfileSkeleton = isProfileLoading && !profile;
-    const avatarUri = buildAvatarUrl(profile?.avatar_url, profile?.updated_at);
     const renderProfileIdentity = () => {
         if (showProfileSkeleton) {
             return <ProfileIdentitySkeleton shimmerColor={colors.backgroundSecondary} />;
         }
         return (
             <>
-                {avatarUri ? (
-                    <Image
-                        source={{ uri: avatarUri }}
-                        style={[styles.avatar, { borderColor: colors.tint }]}
-                    />
-                ) : (
-                    <View
-                        style={[
-                            styles.avatar,
-                            styles.avatarFallback,
-                            { borderColor: colors.tint, backgroundColor: colors.backgroundSecondary },
-                        ]}
-                    >
-                        <Ionicons name="person" size={44} color={colors.textSecondary} />
-                    </View>
-                )}
+                <Avatar
+                    size={80}
+                    userId={user?.id ?? profile?.id}
+                    avatarUrl={profile?.avatar_url}
+                    updatedAt={profile?.updated_at}
+                    name={profile?.full_name || profile?.username}
+                    avatarType={profile?.avatar_type as AvatarType | undefined}
+                    config={profile?.avatar_config as AvatarConfig | null}
+                    style={{ marginBottom: Spacing.sm }}
+                />
                 {profile?.full_name ? (
                     <ThemedText style={[styles.username, { color: colors.text }]}>
                         {profile.full_name}

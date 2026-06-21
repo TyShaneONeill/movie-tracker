@@ -8,6 +8,7 @@ import {
 } from '@/lib/avatar-service';
 import { captureException } from '@/lib/sentry';
 import type { Database, Profile } from '@/lib/database.types';
+import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 
 /**
  * Fetch a user's profile from Supabase
@@ -248,6 +249,43 @@ export function useProfile() {
     },
   });
 
+  // Avatar selection mutation — switch avatar type and/or save a vector config.
+  // Used by the avatar builder (preset / initial modes and type switches).
+  const updateAvatarSelectionMutation = useMutation({
+    mutationFn: async (selection: {
+      avatarType: AvatarType;
+      avatarConfig?: AvatarConfig | null;
+    }) => {
+      if (!user) throw new Error('User not authenticated');
+
+      const updateData: Database['public']['Tables']['profiles']['Update'] = {
+        avatar_type: selection.avatarType,
+        avatar_config: (selection.avatarConfig ?? null) as Database['public']['Tables']['profiles']['Update']['avatar_config'],
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await (supabase
+        .from('profiles') as any)
+        .update(updateData)
+        .eq('id', user.id)
+        .select()
+        .single() as { data: Profile | null; error: any };
+
+      if (error) {
+        captureException(error instanceof Error ? error : new Error(String(error)), { context: 'update-avatar-selection' });
+        throw error;
+      }
+
+      return data as Profile;
+    },
+    onSuccess: (updatedProfile) => {
+      queryClient.setQueryData(['profile', user?.id], updatedProfile);
+      // Refresh the app-wide customized-avatar lookup so feed/comments/lists
+      // pick up this change everywhere, not just on the profile screen.
+      queryClient.invalidateQueries({ queryKey: ['avatar-overrides'] });
+    },
+  });
+
   // Delete avatar mutation
   const deleteAvatarMutation = useMutation({
     mutationFn: async () => {
@@ -303,6 +341,10 @@ export function useProfile() {
     updateAvatar: updateAvatarMutation.mutateAsync,
     isUpdatingAvatar: updateAvatarMutation.isPending,
     updateAvatarError: updateAvatarMutation.error,
+
+    updateAvatarSelection: updateAvatarSelectionMutation.mutateAsync,
+    isUpdatingAvatarSelection: updateAvatarSelectionMutation.isPending,
+    updateAvatarSelectionError: updateAvatarSelectionMutation.error,
 
     deleteAvatar: deleteAvatarMutation.mutateAsync,
     isDeletingAvatar: deleteAvatarMutation.isPending,

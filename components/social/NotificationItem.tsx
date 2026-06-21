@@ -15,13 +15,12 @@ import {
   StyleSheet,
   View,
   Pressable,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
-import { buildAvatarUrl } from '@/lib/avatar-service';
+import { Avatar } from '@/components/ui/avatar';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -197,22 +196,12 @@ export function NotificationItem({
 
         {/* Actor Avatar */}
         <View style={styles.avatarContainer}>
-          {actorProfile?.avatar_url ? (
-            <Image
-              source={{ uri: buildAvatarUrl(actorProfile.avatar_url)! }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View
-              style={[
-                styles.avatar,
-                styles.avatarPlaceholder,
-                { backgroundColor: colors.backgroundSecondary },
-              ]}
-            >
-              <Ionicons name="person" size={20} color={colors.textSecondary} />
-            </View>
-          )}
+          <Avatar
+            size={40}
+            userId={actorProfile?.id}
+            avatarUrl={actorProfile?.avatar_url}
+            name={actorProfile?.full_name || actorProfile?.username}
+          />
         </View>
 
         {/* Content */}

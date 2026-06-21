@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { buildAvatarUrl } from '@/lib/avatar-service';
+import { Avatar } from '@/components/ui/avatar';
 import { formatRelativeTime } from '@/lib/utils';
 import type { CommentItem as CommentItemType } from '@/lib/comment-service';
 
@@ -35,9 +34,6 @@ export function CommentItem({
 
   const isOwnComment = currentUserId === comment.commenter.userId;
   const displayName = comment.commenter.fullName || comment.commenter.username || 'Anonymous';
-  const avatarUri = comment.commenter.avatarUrl
-    ? buildAvatarUrl(comment.commenter.avatarUrl)
-    : null;
 
   const handleLongPress = () => {
     if (comment.isHidden) return;
@@ -75,18 +71,12 @@ export function CommentItem({
     <Pressable onLongPress={handleLongPress} style={[styles.container, isReply && styles.reply]}>
       {/* Avatar */}
       <View style={styles.avatarContainer}>
-        {avatarUri ? (
-          <Image
-            source={{ uri: avatarUri }}
-            style={[styles.avatar, isReply && styles.avatarSmall]}
-            contentFit="cover"
-            transition={200}
-          />
-        ) : (
-          <View style={[styles.avatar, isReply && styles.avatarSmall, styles.avatarPlaceholder]}>
-            <Ionicons name="person" size={isReply ? 12 : 14} color={colors.textTertiary} />
-          </View>
-        )}
+        <Avatar
+          size={isReply ? 24 : 32}
+          userId={comment.commenter.userId}
+          avatarUrl={comment.commenter.avatarUrl}
+          name={displayName}
+        />
       </View>
 
       {/* Content */}
