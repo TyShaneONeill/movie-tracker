@@ -52,6 +52,65 @@ function readEnv(key: EnvKey): string | undefined {
   return undefined;
 }
 
+// --- Secret-leak guard -----------------------------------------------------
+// EXPO_PUBLIC_* values are inlined into the shipped client bundle. A Supabase
+// service-role / secret key in any of them bypasses ALL RLS for anyone who
+// extracts it — a critical leak. (Caught a staging mix-up where the anon var
+// held the service_role key.) Detect and scream.
+
+function jwtRole(token: string): string | null {
+  const part = token.split('.')[1];
+  if (!part) return null;
+  const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+  const g = globalThis as { atob?: (s: string) => string };
+  let json: string | null = null;
+  try {
+    if (typeof g.atob === 'function') json = g.atob(b64);
+  } catch {
+    return null;
+  }
+  if (!json) return null;
+  try {
+    const obj = JSON.parse(json) as { role?: unknown };
+    return typeof obj.role === 'string' ? obj.role : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True if a value is a Supabase service-role / secret key (never safe in EXPO_PUBLIC_). */
+export function isServiceRoleKey(value?: string | null): boolean {
+  if (!value) return false;
+  if (value.startsWith('sb_secret_')) return true; // new-style secret key
+  if (value.startsWith('eyJ')) return jwtRole(value) === 'service_role'; // legacy JWT
+  return false;
+}
+
+/**
+ * Refuse to silently ship a service-role/secret key in a client-public env var.
+ * Reports to console + Sentry always; throws in __DEV__ so it's caught before
+ * a build is ever cut.
+ */
+export function assertNoSecretInPublicEnv(): EnvKey[] {
+  const offenders = (Object.keys(ENV_VALUES) as EnvKey[]).filter((k) =>
+    isServiceRoleKey(ENV_VALUES[k]),
+  );
+  if (offenders.length === 0) return offenders;
+
+  const banner = `[auth-env] SERVICE-ROLE/SECRET key found in client-public env var(s): ${offenders.join(', ')}. EXPO_PUBLIC_* ships in the client bundle and bypasses RLS — rotate the key and store the secret under a non-EXPO_PUBLIC_ name.`;
+  // eslint-disable-next-line no-console
+  console.error('\n========================================\n' + banner + '\n========================================\n');
+  try {
+    captureMessage(banner, { offenders, severity: 'critical' });
+  } catch {
+    // Sentry may not be initialized yet — the console banner is loud enough.
+  }
+  if (__DEV__) {
+    throw new Error(banner);
+  }
+  return offenders;
+}
+
 function requiredEnvForPlatform(): EnvKey[] {
   if (Platform.OS === 'ios') {
     return [
@@ -78,6 +137,9 @@ function requiredEnvForPlatform(): EnvKey[] {
  * Returns the list of missing keys (empty if all present).
  */
 export function assertAuthEnv(): EnvKey[] {
+  // Guard against a service-role/secret key leaking into a client-public var.
+  assertNoSecretInPublicEnv();
+
   const required = requiredEnvForPlatform();
   const missing = required.filter((k) => !readEnv(k));
   if (missing.length === 0) return missing;
