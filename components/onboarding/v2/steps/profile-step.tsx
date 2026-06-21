@@ -5,12 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AvatarBuilder } from '@/components/avatar-builder/avatar-builder';
+import { Avatar } from '@/components/ui/avatar';
+import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 
 import { ThemedText } from '@/components/themed-text';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useAuth } from '@/hooks/use-auth';
+import { useProfile } from '@/hooks/use-profile';
 import { useUsernameValidation } from '@/hooks/use-username-validation';
 import { uploadAvatar, updateProfileAvatarUrl } from '@/lib/avatar-service';
 import { captureException } from '@/lib/sentry';
@@ -24,15 +27,22 @@ export function ProfileStep({ onNext }: StepProps) {
   const colors = Colors.dark;
   const { user } = useAuth();
   const { data, update } = useOnboardingV2();
+  const { profile } = useProfile();
   const [isUploading, setIsUploading] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
+
+  // Once a real avatar is saved (vector/initial via the builder, or a photo),
+  // mirror it here via <Avatar> (photo > avatar > initial > default). Until then,
+  // keep the team's dashed-ring photo picker for the empty state.
+  const savedAvatar =
+    profile?.avatar_type === 'preset' ||
+    profile?.avatar_type === 'initial' ||
+    profile?.avatar_type === 'photo';
 
   const usernameValidation = useUsernameValidation(data.handle, user?.id);
   const nameValid = data.name.trim().length > 0;
   const usernameValid = usernameValidation.status === 'available';
   const canContinue = nameValid && usernameValid && !isUploading;
-
-  const initial = data.name.trim().charAt(0).toUpperCase();
 
   const handleImageSelected = async (imageUri: string, mimeType?: string) => {
     if (!user) return;
@@ -59,28 +69,47 @@ export function ProfileStep({ onNext }: StepProps) {
       >
         {/* Avatar */}
         <View style={styles.avatarSection}>
-          <ProfilePicturePicker
-            avatarUrl={data.avatarUrl}
-            size={76}
-            isLoading={isUploading}
-            onImageSelected={handleImageSelected}
-            initial={data.name}
-            hideCameraBadge
-            dashedEmptyRing
-          />
-          <View style={styles.captionRow}>
-            <Ionicons name="camera" size={13} color={colors.tint} />
-            <ThemedText style={[styles.caption, { color: colors.textTertiary }]}>
-              Tap your photo to add one
-            </ThemedText>
-          </View>
+          {savedAvatar ? (
+            <Pressable
+              onPress={() => setShowBuilder(true)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+            >
+              <Avatar
+                size={76}
+                userId={user?.id}
+                avatarUrl={profile?.avatar_url}
+                updatedAt={profile?.updated_at}
+                avatarType={profile?.avatar_type as AvatarType | undefined}
+                config={profile?.avatar_config as AvatarConfig | null}
+                name={data.name}
+              />
+            </Pressable>
+          ) : (
+            <ProfilePicturePicker
+              avatarUrl={data.avatarUrl}
+              size={76}
+              isLoading={isUploading}
+              onImageSelected={handleImageSelected}
+              initial={data.name}
+              hideCameraBadge
+              dashedEmptyRing
+            />
+          )}
+          {!savedAvatar && (
+            <View style={styles.captionRow}>
+              <Ionicons name="camera" size={13} color={colors.tint} />
+              <ThemedText style={[styles.caption, { color: colors.textTertiary }]}>
+                Tap your photo to add one
+              </ThemedText>
+            </View>
+          )}
           <Pressable
             onPress={() => setShowBuilder(true)}
             style={({ pressed }) => [styles.customizeBtn, { borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
           >
             <Ionicons name="color-palette-outline" size={14} color={colors.tint} />
             <ThemedText style={[styles.customizeLabel, { color: colors.tint }]}>
-              Or customize an avatar
+              {savedAvatar ? 'Edit avatar' : 'Or customize an avatar'}
             </ThemedText>
           </Pressable>
         </View>
@@ -156,9 +185,15 @@ export function ProfileStep({ onNext }: StepProps) {
         <View style={[styles.preview, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
           <ThemedText style={[styles.previewLabel, { color: colors.textTertiary }]}>HOW YOU&apos;LL APPEAR</ThemedText>
           <View style={styles.previewRow}>
-            <View style={[styles.previewAvatar, { backgroundColor: colors.tint }]}>
-              <ThemedText style={styles.previewInitial}>{initial || '?'}</ThemedText>
-            </View>
+            <Avatar
+              size={34}
+              userId={user?.id}
+              avatarUrl={profile?.avatar_url}
+              updatedAt={profile?.updated_at}
+              avatarType={profile?.avatar_type as AvatarType | undefined}
+              config={profile?.avatar_config as AvatarConfig | null}
+              name={data.name}
+            />
             <View style={styles.flex}>
               <View style={styles.previewNameRow}>
                 <ThemedText style={[styles.previewName, { color: colors.text }]}>
