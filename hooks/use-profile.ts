@@ -280,6 +280,9 @@ export function useProfile() {
     },
     onSuccess: (updatedProfile) => {
       queryClient.setQueryData(['profile', user?.id], updatedProfile);
+      // Refresh the app-wide customized-avatar lookup so feed/comments/lists
+      // pick up this change everywhere, not just on the profile screen.
+      queryClient.invalidateQueries({ queryKey: ['avatar-overrides'] });
     },
   });
 

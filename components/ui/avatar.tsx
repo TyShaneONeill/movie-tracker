@@ -23,6 +23,7 @@ import { SvgXml } from 'react-native-svg';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { analytics } from '@/lib/analytics';
 import { ONBOARDING_V2_FLAG } from '@/hooks/use-onboarding-variant';
+import { useAvatarOverrides } from '@/hooks/use-avatar-overrides';
 import {
   avatarSvg,
   avatarCacheKey,
@@ -83,25 +84,33 @@ export function Avatar({
   const photoUrl = buildAvatarUrl(avatarUrl, updatedAt);
   const enabled = avatarsEnabled();
 
+  // When this site didn't pass an explicit type/config (feed, comments, social
+  // lists, reviews…), fall back to the centralized customization lookup so a
+  // user's customized avatar shows everywhere — not just on their profile.
+  const { data: overrides } = useAvatarOverrides(enabled);
+  const override = enabled && !avatarType && userId ? overrides?.[userId] : undefined;
+  const effType = avatarType ?? override?.avatarType;
+  const effConfig = config ?? override?.avatarConfig ?? null;
+
   // Resolve mode. When the feature is gated off (onboarding_v2 not enabled),
   // never render a vector avatar — fall back to photo-or-initial.
   let mode: 'photo' | 'initial' | 'vector';
   if (!enabled) {
     mode = photoUrl ? 'photo' : 'initial';
-  } else if (avatarType === 'photo') {
+  } else if (effType === 'photo') {
     mode = photoUrl ? 'photo' : 'vector';
-  } else if (avatarType === 'initial') {
+  } else if (effType === 'initial') {
     mode = 'initial';
-  } else if (avatarType === 'preset' || avatarType === 'auto') {
+  } else if (effType === 'preset' || effType === 'auto') {
     mode = 'vector';
   } else {
     mode = photoUrl ? 'photo' : 'vector';
   }
 
   const svg = useMemo(
-    () => (mode === 'vector' ? avatarSvg(seed, config, GEN_SIZE) : null),
+    () => (mode === 'vector' ? avatarSvg(seed, effConfig, GEN_SIZE) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mode, avatarCacheKey(seed, config, GEN_SIZE)],
+    [mode, avatarCacheKey(seed, effConfig, GEN_SIZE)],
   );
 
   const a11y = {
@@ -125,7 +134,7 @@ export function Avatar({
     );
   } else if (mode === 'initial') {
     const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
-    const bg = config?.backgroundColor ?? pickBackground(seed);
+    const bg = effConfig?.backgroundColor ?? pickBackground(seed);
     content = (
       <View style={[styles.fill, styles.center, { backgroundColor: `#${bg}` }]}>
         <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
