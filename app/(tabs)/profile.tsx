@@ -637,8 +637,6 @@ export default function ProfileScreen() {
                     name={profile?.full_name || profile?.username}
                     avatarType={profile?.avatar_type as AvatarType | undefined}
                     config={profile?.avatar_config as AvatarConfig | null}
-                    borderColor={colors.tint}
-                    borderWidth={3}
                     style={{ marginBottom: Spacing.sm }}
                 />
                 {profile?.full_name ? (
