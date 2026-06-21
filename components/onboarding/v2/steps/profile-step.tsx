@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { View, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 import { AvatarBuilder } from '@/components/avatar-builder/avatar-builder';
 
 import { ThemedText } from '@/components/themed-text';
@@ -89,7 +91,12 @@ export function ProfileStep({ onNext }: StepProps) {
           presentationStyle="fullScreen"
           onRequestClose={() => setShowBuilder(false)}
         >
-          <AvatarBuilder forceDark onDone={() => setShowBuilder(false)} />
+          {/* The modal is a separate native window — safe-area insets don't reach
+              it from the main window, so give it its own provider or the header
+              collides with the status bar / notch. */}
+          <SafeAreaProvider>
+            <AvatarBuilder forceDark onDone={() => setShowBuilder(false)} />
+          </SafeAreaProvider>
         </Modal>
 
         {/* Name */}
