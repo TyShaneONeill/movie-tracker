@@ -33,6 +33,7 @@ export interface AvatarConfig {
   clothing?: string;
   clothesColor?: string;
   eyes?: string;
+  eyebrows?: string;
   mouth?: string;
   backgroundColor?: string;
 }
@@ -130,6 +131,17 @@ export const EYES: AvatarOption[] = [
   { id: 'closed', label: 'Closed' },
 ];
 
+export const EYEBROWS: AvatarOption[] = [
+  { id: 'default', label: 'Default' },
+  { id: 'raisedExcited', label: 'Raised' },
+  { id: 'flatNatural', label: 'Flat' },
+  { id: 'angry', label: 'Angry' },
+  { id: 'sadConcerned', label: 'Worried' },
+  { id: 'frownNatural', label: 'Frown' },
+  { id: 'upDown', label: 'Skeptical' },
+  { id: 'unibrowNatural', label: 'Unibrow' },
+];
+
 export const MOUTHS: AvatarOption[] = [
   { id: 'smile', label: 'Smile' },
   { id: 'default', label: 'Neutral' },
@@ -160,6 +172,7 @@ export const AVATAR_CATEGORIES = [
   { key: 'clothing', label: 'Outfit', kind: 'style', options: CLOTHING },
   { key: 'clothesColor', label: 'Shirt color', kind: 'color', options: CLOTHES_COLORS },
   { key: 'eyes', label: 'Eyes', kind: 'style', options: EYES },
+  { key: 'eyebrows', label: 'Brows', kind: 'style', options: EYEBROWS },
   { key: 'mouth', label: 'Mouth', kind: 'style', options: MOUTHS },
   { key: 'backgroundColor', label: 'Background', kind: 'color', options: BACKGROUNDS },
 ] as const;
@@ -194,6 +207,7 @@ export function seededConfigFromId(seed: string): AvatarConfig {
     clothing: at(CLOTHING, 'clothing'),
     clothesColor: at(CLOTHES_COLORS, 'shirt'),
     eyes: at(EYES, 'eyes'),
+    eyebrows: at(EYEBROWS, 'eyebrows'),
     mouth: at(MOUTHS, 'mouth'),
     backgroundColor: at(BACKGROUNDS, 'bg'),
   };
@@ -222,6 +236,7 @@ export function avatarSvg(seed: string, config?: AvatarConfig | null, size = 96)
     clothing: single(cfg.clothing) as any,
     clothesColor: single(cfg.clothesColor),
     eyes: single(cfg.eyes) as any,
+    eyebrows: single(cfg.eyebrows) as any,
     mouth: single(cfg.mouth) as any,
   }).toString();
 }
@@ -241,6 +256,7 @@ export function randomConfig(): AvatarConfig {
     clothing: pick(CLOTHING),
     clothesColor: pick(CLOTHES_COLORS),
     eyes: pick(EYES),
+    eyebrows: pick(EYEBROWS),
     mouth: pick(MOUTHS),
     backgroundColor: pick(BACKGROUNDS),
   };
