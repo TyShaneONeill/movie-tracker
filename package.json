@@ -20,6 +20,7 @@
     "verify:ios-bundle": "bash scripts/verify-ios-jsbundle.sh",
     "check:public-env": "node scripts/check-public-env.mjs",
     "submit:ios": "bash scripts/submit-ios.sh",
+    "eas-build-pre-install": "node scripts/check-public-env.mjs",
     "eas-build-on-success": "bash scripts/verify-ios-jsbundle.sh",
     "prepare": "husky"
   },

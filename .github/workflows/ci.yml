@@ -46,3 +46,31 @@ jobs:
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
+
+  env-safety:
+    name: Public Env Safety
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: dopplerhq/cli-action@v3
+
+      # Fails the build if a Supabase service-role / secret key is sitting in any
+      # EXPO_PUBLIC_* var (it would ship in the client bundle and bypass RLS).
+      # Each step no-ops until its config-scoped Doppler service token is added
+      # to repo secrets (DOPPLER_TOKEN_STG / DOPPLER_TOKEN_PRD).
+      - name: Check staging public env
+        if: ${{ secrets.DOPPLER_TOKEN_STG != '' }}
+        run: doppler run -- node scripts/check-public-env.mjs
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_STG }}
+
+      - name: Check production public env
+        if: ${{ secrets.DOPPLER_TOKEN_PRD != '' }}
+        run: doppler run -- node scripts/check-public-env.mjs
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_PRD }}
