@@ -58,6 +58,28 @@ describe('avatar-config', () => {
     });
   });
 
+  describe('optional traits (facial hair / glasses)', () => {
+    it('seeds optional traits OFF by default (no surprise mustache/glasses)', () => {
+      const cfg = seededConfigFromId('anybody');
+      expect(cfg.facialHair).toBe('none');
+      expect(cfg.accessories).toBe('none');
+    });
+
+    it('renders facial hair only when set to a real style', () => {
+      const none = avatarSvg('seed', { facialHair: 'none' });
+      const beard = avatarSvg('seed', { facialHair: 'beardMedium' });
+      expect(none).not.toEqual(beard);
+      // turning it back to none matches the no-facial-hair render
+      expect(avatarSvg('seed', { facialHair: 'none' })).toEqual(none);
+    });
+
+    it('renders glasses only when set', () => {
+      const none = avatarSvg('seed', { accessories: 'none' });
+      const specs = avatarSvg('seed', { accessories: 'wayfarers' });
+      expect(none).not.toEqual(specs);
+    });
+  });
+
   describe('seededConfigFromId', () => {
     it('is deterministic per id and returns valid catalog ids', () => {
       const a = seededConfigFromId('user-xyz');
