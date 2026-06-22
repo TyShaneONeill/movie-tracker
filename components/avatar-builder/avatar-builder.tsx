@@ -219,7 +219,7 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollFrame} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Live preview */}
         <View style={styles.previewWrap}>
           <Avatar
@@ -378,6 +378,9 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  // Header + scroll frame share the same centered column cap so Cancel/Save
+  // align with the body on desktop (real Views — maxWidth on a ScrollView's
+  // contentContainerStyle does NOT constrain children on web). No-op on phones.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -385,11 +388,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   headerAction: { fontSize: 16 },
-  // Cap the builder body to a centered column so it doesn't sprawl on desktop /
-  // large-format web (no-op on phones: the cap exceeds their width).
-  scrollContent: { paddingBottom: 100, alignItems: 'center', width: '100%', maxWidth: 480, alignSelf: 'center' },
+  scrollFrame: { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
+  scrollContent: { paddingBottom: 100, alignItems: 'center' },
   previewWrap: { paddingVertical: Spacing.lg, alignItems: 'center' },
   segment: { flexDirection: 'row', borderRadius: BorderRadius.full, padding: 4, marginBottom: Spacing.lg },
   segmentItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: BorderRadius.full },
