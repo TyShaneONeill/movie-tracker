@@ -28,6 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useProfile } from '@/hooks/use-profile';
+import { useWideLayout } from '@/hooks/use-wide-layout';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { Avatar } from '@/components/ui/avatar';
@@ -76,6 +77,7 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
     deleteAvatar,
     isDeletingAvatar,
   } = useProfile();
+  const { isWide } = useWideLayout();
 
   const seed = profile?.id ?? user?.id ?? 'pocketstubs';
   const displayName = profile?.full_name || profile?.username || null;
@@ -128,6 +130,40 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
       });
       Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.');
     }
+  };
+
+  // Category selector: wrap into rows on wide/desktop (all visible, no fiddly
+  // horizontal scroll), keep the compact horizontal swipe on phones.
+  const renderCategoryTabs = () => {
+    const chips = AVATAR_CATEGORIES.map((cat) => {
+      const selected = cat.key === activeCat;
+      return (
+        <Pressable
+          key={cat.key}
+          onPress={() => {
+            hapticSelection();
+            setActiveCat(cat.key as TraitKey);
+          }}
+          style={[styles.catTab, { backgroundColor: selected ? colors.tint : colors.card }]}
+        >
+          <Text style={[styles.catTabLabel, { color: selected ? '#fff' : colors.textSecondary }]}>
+            {cat.label}
+          </Text>
+        </Pressable>
+      );
+    });
+    return isWide ? (
+      <View style={styles.catTabsWrap}>{chips}</View>
+    ) : (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.catTabsScroll}
+        contentContainerStyle={styles.catTabs}
+      >
+        {chips}
+      </ScrollView>
+    );
   };
 
   const handleRemovePhoto = async () => {
@@ -219,7 +255,7 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollFrame} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Live preview */}
         <View style={styles.previewWrap}>
           <Avatar
@@ -256,30 +292,7 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
         {/* AVATAR (preset) builder */}
         {mode === 'preset' && (
           <>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.catTabsScroll}
-              contentContainerStyle={styles.catTabs}
-            >
-              {AVATAR_CATEGORIES.map((cat) => {
-                const selected = cat.key === activeCat;
-                return (
-                  <Pressable
-                    key={cat.key}
-                    onPress={() => {
-                      hapticSelection();
-                      setActiveCat(cat.key as TraitKey);
-                    }}
-                    style={[styles.catTab, { backgroundColor: selected ? colors.tint : colors.card }]}
-                  >
-                    <Text style={[styles.catTabLabel, { color: selected ? '#fff' : colors.textSecondary }]}>
-                      {cat.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            {renderCategoryTabs()}
 
             <View style={styles.optionGrid}>
               {activeCategory.options.map((opt) => {
@@ -378,6 +391,9 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  // Header + scroll frame share the same centered column cap so Cancel/Save
+  // align with the body on desktop (real Views — maxWidth on a ScrollView's
+  // contentContainerStyle does NOT constrain children on web). No-op on phones.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -385,8 +401,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   headerAction: { fontSize: 16 },
+  scrollFrame: { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
   scrollContent: { paddingBottom: 100, alignItems: 'center' },
   previewWrap: { paddingVertical: Spacing.lg, alignItems: 'center' },
   segment: { flexDirection: 'row', borderRadius: BorderRadius.full, padding: 4, marginBottom: Spacing.lg },
@@ -394,6 +414,13 @@ const styles = StyleSheet.create({
   segmentLabel: { fontSize: 14, fontWeight: '600' },
   catTabsScroll: { width: '100%', flexGrow: 0 },
   catTabs: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
+  catTabsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
   catTab: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: BorderRadius.full },
   catTabLabel: { fontSize: 13, fontWeight: '600' },
   optionGrid: {

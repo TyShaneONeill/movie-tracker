@@ -63,6 +63,12 @@ function OnboardingV2Flow() {
 
   const stepProps: StepProps = { onNext: goNext, onBack: goBack };
 
+  // The cinematic ticket-stub screens (welcome / montage / success) read too
+  // heavy at form width on desktop, so cap them to a phone-width column; the
+  // form steps stay at the roomier 560.
+  const isTicketScreen = stepKey === 'welcome' || stepKey === 'montage' || stepKey === 'success';
+  const columnMaxWidth = isTicketScreen ? 400 : 560;
+
   const renderStep = () => {
     switch (stepKey) {
       case 'welcome': return <WelcomeStep {...stepProps} />;
@@ -78,33 +84,38 @@ function OnboardingV2Flow() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      {(showBack || isNumbered) && (
-        <View style={styles.headerRow}>
-          {showBack ? (
-            <Pressable onPress={goBack} hitSlop={12} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
-            </Pressable>
-          ) : (
-            <View style={styles.backButton} />
-          )}
-          {isNumbered && (
-            <View style={styles.progressWrap}>
-              <ProgressBar current={index} total={NUMBERED_TOTAL} />
-            </View>
-          )}
-          {isSkippable ? (
-            <Pressable onPress={goNext} hitSlop={12} style={styles.skipButton}>
-              <ThemedText style={[styles.skipText, { color: colors.textTertiary }]}>Skip</ThemedText>
-            </Pressable>
-          ) : (
-            <View style={styles.backButton} />
-          )}
-        </View>
-      )}
+      {/* One centered column for the whole flow so the header chrome (progress /
+          Skip / back) and every step share a single content width — otherwise on
+          desktop the header spans the full shell while step bodies sit narrower. */}
+      <View style={[styles.column, { maxWidth: columnMaxWidth }]}>
+        {(showBack || isNumbered) && (
+          <View style={styles.headerRow}>
+            {showBack ? (
+              <Pressable onPress={goBack} hitSlop={12} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
+              </Pressable>
+            ) : (
+              <View style={styles.backButton} />
+            )}
+            {isNumbered && (
+              <View style={styles.progressWrap}>
+                <ProgressBar current={index} total={NUMBERED_TOTAL} />
+              </View>
+            )}
+            {isSkippable ? (
+              <Pressable onPress={goNext} hitSlop={12} style={styles.skipButton}>
+                <ThemedText style={[styles.skipText, { color: colors.textTertiary }]}>Skip</ThemedText>
+              </Pressable>
+            ) : (
+              <View style={styles.backButton} />
+            )}
+          </View>
+        )}
 
-      <Animated.View key={index} entering={entering} style={styles.stepBody}>
-        {renderStep()}
-      </Animated.View>
+        <Animated.View key={index} entering={entering} style={styles.stepBody}>
+          {renderStep()}
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -123,6 +134,13 @@ export default function OnboardingV2Screen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  // Centered content column. Caps the onboarding flow on desktop / large web so
+  // the header and every step body align (no-op on phones — exceeds their width).
+  column: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',
