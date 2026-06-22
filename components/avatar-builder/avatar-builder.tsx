@@ -199,8 +199,6 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
             name={displayName}
             avatarType={mode}
             config={config}
-            borderColor={colors.tint}
-            borderWidth={3}
           />
         </View>
 
@@ -231,6 +229,7 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={styles.catTabsScroll}
               contentContainerStyle={styles.catTabs}
             >
               {AVATAR_CATEGORIES.map((cat) => {
@@ -353,6 +352,7 @@ const styles = StyleSheet.create({
   segment: { flexDirection: 'row', borderRadius: BorderRadius.full, padding: 4, marginBottom: Spacing.lg },
   segmentItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: BorderRadius.full },
   segmentLabel: { fontSize: 14, fontWeight: '600' },
+  catTabsScroll: { width: '100%', flexGrow: 0 },
   catTabs: { paddingHorizontal: Spacing.md, gap: Spacing.sm },
   catTab: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: BorderRadius.full },
   catTabLabel: { fontSize: 13, fontWeight: '600' },
