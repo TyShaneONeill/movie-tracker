@@ -6,6 +6,9 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 
+/** Centered-column cap for onboarding on desktop / large web. */
+const ONBOARDING_MAX_WIDTH = 560;
+
 interface StepLayoutProps {
   title: string;
   subtitle?: string;
@@ -64,15 +67,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // ONBOARDING_MAX_WIDTH caps the body to a centered column on desktop / large
+  // web so fields and cards don't stretch edge-to-edge (no-op on phones).
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xl,
+    width: '100%',
+    maxWidth: ONBOARDING_MAX_WIDTH,
+    alignSelf: 'center',
   },
   flexBody: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
+    width: '100%',
+    maxWidth: ONBOARDING_MAX_WIDTH,
+    alignSelf: 'center',
   },
   header: {
     marginBottom: Spacing.lg,
@@ -87,5 +98,8 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
+    width: '100%',
+    maxWidth: ONBOARDING_MAX_WIDTH,
+    alignSelf: 'center',
   },
 });

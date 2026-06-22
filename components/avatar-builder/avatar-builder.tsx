@@ -387,7 +387,9 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
   },
   headerAction: { fontSize: 16 },
-  scrollContent: { paddingBottom: 100, alignItems: 'center' },
+  // Cap the builder body to a centered column so it doesn't sprawl on desktop /
+  // large-format web (no-op on phones: the cap exceeds their width).
+  scrollContent: { paddingBottom: 100, alignItems: 'center', width: '100%', maxWidth: 480, alignSelf: 'center' },
   previewWrap: { paddingVertical: Spacing.lg, alignItems: 'center' },
   segment: { flexDirection: 'row', borderRadius: BorderRadius.full, padding: 4, marginBottom: Spacing.lg },
   segmentItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: BorderRadius.full },
