@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -66,7 +67,15 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
   const { effectiveTheme } = useTheme();
   const colors = forceDark ? Colors.dark : Colors[effectiveTheme];
   const { user } = useAuth();
-  const { profile, isLoading, updateAvatar, isUpdatingAvatar, updateAvatarSelection } = useProfile();
+  const {
+    profile,
+    isLoading,
+    updateAvatar,
+    isUpdatingAvatar,
+    updateAvatarSelection,
+    deleteAvatar,
+    isDeletingAvatar,
+  } = useProfile();
 
   const seed = profile?.id ?? user?.id ?? 'pocketstubs';
   const displayName = profile?.full_name || profile?.username || null;
@@ -118,6 +127,27 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
         context: 'avatar-builder-photo-upload',
       });
       Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.');
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    hapticImpact();
+    try {
+      await deleteAvatar(); // removes the file + clears profiles.avatar_url
+      // Fall back per the chain: saved avatar if one exists, otherwise initial.
+      const hasConfig = !!profile?.avatar_config;
+      await updateAvatarSelection({
+        avatarType: hasConfig ? 'preset' : 'auto',
+        avatarConfig: hasConfig ? (profile?.avatar_config as AvatarConfig) : null,
+      });
+      setMode(hasConfig ? 'preset' : 'initial');
+      hapticNotification(NotificationFeedbackType.Success);
+      Toast.show({ type: 'success', text1: 'Photo removed', visibilityTime: 1500 });
+    } catch (error) {
+      captureException(error instanceof Error ? error : new Error(String(error)), {
+        context: 'avatar-builder-remove-photo',
+      });
+      Alert.alert('Could not remove photo', 'Please try again.');
     }
   };
 
@@ -303,6 +333,16 @@ export function AvatarBuilder({ onDone, forceDark = false }: AvatarBuilderProps)
             <Text style={[styles.hint, { color: colors.textSecondary }]}>
               Tap to upload a photo, then Save to use it.
             </Text>
+            {profile?.avatar_url ? (
+              <Pressable
+                onPress={handleRemovePhoto}
+                disabled={isDeletingAvatar}
+                style={({ pressed }) => [styles.removeBtn, { opacity: pressed || isDeletingAvatar ? 0.5 : 1 }]}
+              >
+                <Ionicons name="trash-outline" size={15} color={colors.error} />
+                <Text style={[styles.removeLabel, { color: colors.error }]}>Remove photo</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
 
@@ -375,5 +415,7 @@ const styles = StyleSheet.create({
   },
   randomizeLabel: { fontSize: 15, fontWeight: '600' },
   modeBody: { alignItems: 'center', gap: Spacing.md, paddingTop: Spacing.sm },
+  removeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
+  removeLabel: { fontSize: 14, fontWeight: '600' },
   hint: { fontSize: 13, textAlign: 'center', paddingHorizontal: Spacing.xl },
 });

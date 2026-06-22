@@ -35,8 +35,15 @@ export interface AvatarConfig {
   eyes?: string;
   eyebrows?: string;
   mouth?: string;
+  facialHair?: string; // 'none' or a facial-hair style id
+  facialHairColor?: string;
+  accessories?: string; // 'none' or a glasses style id
+  accessoriesColor?: string;
   backgroundColor?: string;
 }
+
+/** Sentinel for optional traits the user can turn off (facial hair, glasses). */
+export const NONE = 'none';
 
 export interface AvatarOption {
   id: string;
@@ -153,6 +160,36 @@ export const MOUTHS: AvatarOption[] = [
   { id: 'sad', label: 'Sad' },
 ];
 
+export const FACIAL_HAIR: AvatarOption[] = [
+  { id: NONE, label: 'None' },
+  { id: 'beardLight', label: 'Stubble' },
+  { id: 'beardMedium', label: 'Beard' },
+  { id: 'beardMajestic', label: 'Full beard' },
+  { id: 'moustacheFancy', label: 'Moustache' },
+  { id: 'moustacheMagnum', label: 'Handlebar' },
+];
+
+export const ACCESSORIES: AvatarOption[] = [
+  { id: NONE, label: 'None' },
+  { id: 'round', label: 'Round' },
+  { id: 'wayfarers', label: 'Wayfarers' },
+  { id: 'prescription01', label: 'Specs' },
+  { id: 'prescription02', label: 'Specs 2' },
+  { id: 'sunglasses', label: 'Sunglasses' },
+  { id: 'eyepatch', label: 'Eyepatch' },
+];
+
+export const ACCESSORIES_COLORS: ColorOption[] = [
+  { id: '262e33', label: 'Black' },
+  { id: '3c4f5c', label: 'Slate' },
+  { id: '929598', label: 'Gray' },
+  { id: '65c9ff', label: 'Sky' },
+  { id: '5199e4', label: 'Blue' },
+  { id: 'ff488e', label: 'Pink' },
+  { id: 'ff5c5c', label: 'Red' },
+  { id: 'ffffff', label: 'White' },
+];
+
 export const BACKGROUNDS: ColorOption[] = [
   { id: 'b6e3f4', label: 'Sky' },
   { id: 'c0aede', label: 'Lavender' },
@@ -174,6 +211,10 @@ export const AVATAR_CATEGORIES = [
   { key: 'eyes', label: 'Eyes', kind: 'style', options: EYES },
   { key: 'eyebrows', label: 'Brows', kind: 'style', options: EYEBROWS },
   { key: 'mouth', label: 'Mouth', kind: 'style', options: MOUTHS },
+  { key: 'facialHair', label: 'Facial hair', kind: 'style', options: FACIAL_HAIR },
+  { key: 'facialHairColor', label: 'Beard color', kind: 'color', options: HAIR_COLORS },
+  { key: 'accessories', label: 'Glasses', kind: 'style', options: ACCESSORIES },
+  { key: 'accessoriesColor', label: 'Glasses color', kind: 'color', options: ACCESSORIES_COLORS },
   { key: 'backgroundColor', label: 'Background', kind: 'color', options: BACKGROUNDS },
 ] as const;
 
@@ -209,6 +250,12 @@ export function seededConfigFromId(seed: string): AvatarConfig {
     eyes: at(EYES, 'eyes'),
     eyebrows: at(EYEBROWS, 'eyebrows'),
     mouth: at(MOUTHS, 'mouth'),
+    // Optional traits default OFF so seeded avatars never get a surprise
+    // mustache/glasses; colors still seeded for when the user turns them on.
+    facialHair: NONE,
+    facialHairColor: at(HAIR_COLORS, 'fhcolor'),
+    accessories: NONE,
+    accessoriesColor: at(ACCESSORIES_COLORS, 'acccolor'),
     backgroundColor: at(BACKGROUNDS, 'bg'),
   };
 }
@@ -223,15 +270,14 @@ export function seededConfigFromId(seed: string): AvatarConfig {
 export function avatarSvg(seed: string, config?: AvatarConfig | null, size = 96): string {
   const cfg = config ?? seededConfigFromId(seed);
   const single = (v?: string) => (v ? [v] : undefined);
+  // Facial hair + glasses are opt-in: render only when set to a real style,
+  // and force the probability so DiceBear never adds/removes them by chance.
+  const facialHair = cfg.facialHair && cfg.facialHair !== NONE ? cfg.facialHair : null;
+  const accessories = cfg.accessories && cfg.accessories !== NONE ? cfg.accessories : null;
   return createAvatar(avataaars, {
     seed: seed || 'pocketstubs',
     size,
     radius: 50, // circular disc, Duolingo-style
-    // We don't expose facial hair / accessories yet, and DiceBear adds them at
-    // ~10% per seed — which produced unremovable mustaches/glasses. Disable until
-    // they're real customization categories.
-    facialHairProbability: 0,
-    accessoriesProbability: 0,
     backgroundColor: single(cfg.backgroundColor) ?? [...BACKGROUNDS.map((b) => b.id)],
     skinColor: single(cfg.skinColor),
     // top/clothing/eyes are typed as strict literal unions by DiceBear; our
@@ -243,6 +289,12 @@ export function avatarSvg(seed: string, config?: AvatarConfig | null, size = 96)
     eyes: single(cfg.eyes) as any,
     eyebrows: single(cfg.eyebrows) as any,
     mouth: single(cfg.mouth) as any,
+    facialHair: facialHair ? ([facialHair] as any) : undefined,
+    facialHairProbability: facialHair ? 100 : 0,
+    facialHairColor: single(cfg.facialHairColor),
+    accessories: accessories ? ([accessories] as any) : undefined,
+    accessoriesProbability: accessories ? 100 : 0,
+    accessoriesColor: single(cfg.accessoriesColor),
   }).toString();
 }
 
@@ -263,6 +315,10 @@ export function randomConfig(): AvatarConfig {
     eyes: pick(EYES),
     eyebrows: pick(EYEBROWS),
     mouth: pick(MOUTHS),
+    facialHair: pick(FACIAL_HAIR),
+    facialHairColor: pick(HAIR_COLORS),
+    accessories: pick(ACCESSORIES),
+    accessoriesColor: pick(ACCESSORIES_COLORS),
     backgroundColor: pick(BACKGROUNDS),
   };
 }
