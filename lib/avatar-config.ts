@@ -227,6 +227,11 @@ export function avatarSvg(seed: string, config?: AvatarConfig | null, size = 96)
     seed: seed || 'pocketstubs',
     size,
     radius: 50, // circular disc, Duolingo-style
+    // We don't expose facial hair / accessories yet, and DiceBear adds them at
+    // ~10% per seed — which produced unremovable mustaches/glasses. Disable until
+    // they're real customization categories.
+    facialHairProbability: 0,
+    accessoriesProbability: 0,
     backgroundColor: single(cfg.backgroundColor) ?? [...BACKGROUNDS.map((b) => b.id)],
     skinColor: single(cfg.skinColor),
     // top/clothing/eyes are typed as strict literal unions by DiceBear; our
