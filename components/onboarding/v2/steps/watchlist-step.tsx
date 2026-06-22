@@ -17,6 +17,8 @@ import type { StepProps } from '@/components/onboarding/v2/types';
 
 const COLS = 3;
 const GAP = Spacing.sm;
+// Matches the onboarding centered-column cap in app/(onboarding)/v2.tsx.
+const ONBOARDING_COLUMN = 560;
 
 export function WatchlistStep({ onNext }: StepProps) {
   const colors = Colors.dark;
@@ -24,7 +26,9 @@ export function WatchlistStep({ onNext }: StepProps) {
   const { data, toggleWatchlist } = useOnboardingV2();
   const { data: movies, isLoading, isError } = useOnboardingMovies(data.genres);
 
-  const itemWidth = (Math.min(width, 720) - Spacing.lg * 2 - GAP * (COLS - 1)) / COLS;
+  // Size posters to the onboarding content column (560 on desktop) so 3 fit per
+  // row instead of two oversized ones. StepLayout pads Spacing.lg each side.
+  const itemWidth = (Math.min(width, ONBOARDING_COLUMN) - Spacing.lg * 2 - GAP * (COLS - 1)) / COLS;
   const count = data.watchlist.length;
   const canContinue = count >= 1;
 
