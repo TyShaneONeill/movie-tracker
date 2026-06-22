@@ -63,6 +63,12 @@ function OnboardingV2Flow() {
 
   const stepProps: StepProps = { onNext: goNext, onBack: goBack };
 
+  // The cinematic ticket-stub screens (welcome / montage / success) read too
+  // heavy at form width on desktop, so cap them to a phone-width column; the
+  // form steps stay at the roomier 560.
+  const isTicketScreen = stepKey === 'welcome' || stepKey === 'montage' || stepKey === 'success';
+  const columnMaxWidth = isTicketScreen ? 400 : 560;
+
   const renderStep = () => {
     switch (stepKey) {
       case 'welcome': return <WelcomeStep {...stepProps} />;
@@ -81,7 +87,7 @@ function OnboardingV2Flow() {
       {/* One centered column for the whole flow so the header chrome (progress /
           Skip / back) and every step share a single content width — otherwise on
           desktop the header spans the full shell while step bodies sit narrower. */}
-      <View style={styles.column}>
+      <View style={[styles.column, { maxWidth: columnMaxWidth }]}>
         {(showBack || isNumbered) && (
           <View style={styles.headerRow}>
             {showBack ? (
@@ -134,7 +140,6 @@ const styles = StyleSheet.create({
   column: {
     flex: 1,
     width: '100%',
-    maxWidth: 560,
     alignSelf: 'center',
   },
   headerRow: {
