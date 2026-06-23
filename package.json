@@ -19,6 +19,7 @@
     "generate:movies": "doppler run -- node scripts/generate-movie-pages.js",
     "verify:ios-bundle": "bash scripts/verify-ios-jsbundle.sh",
     "check:public-env": "node scripts/check-public-env.mjs",
+    "preflight": "bash scripts/preflight-build.sh",
     "submit:ios": "bash scripts/submit-ios.sh",
     "eas-build-pre-install": "node scripts/check-public-env.mjs",
     "eas-build-on-success": "bash scripts/verify-ios-jsbundle.sh",
