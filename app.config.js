@@ -3,7 +3,7 @@ export default {
     owner: "tormaj",
     name: "PocketStubs",
     slug: "pocketstubs",
-    version: "1.4.1",
+    version: "1.5.0",
     orientation: "portrait",
     updates: {
       url: "https://u.expo.dev/d71c1a95-3697-4a03-b485-813c803573f9",
@@ -19,7 +19,7 @@ export default {
         dark: "./assets/images/icon-dark.png",
         tinted: "./assets/images/icon-dark.png",
       },
-      buildNumber: "30",
+      buildNumber: "32",
       supportsTablet: false,
       bundleIdentifier: "com.pocketstubs.app",
       usesAppleSignIn: true,
@@ -42,7 +42,7 @@ export default {
     },
     android: {
       package: "com.pocketstubs.app",
-      versionCode: 54,
+      versionCode: 55,
       googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         backgroundColor: "#000000",
