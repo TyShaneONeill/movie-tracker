@@ -28,7 +28,16 @@ export function WatchlistStep({ onNext }: StepProps) {
 
   // Size posters to the onboarding content column (560 on desktop) so 3 fit per
   // row instead of two oversized ones. StepLayout pads Spacing.lg each side.
-  const itemWidth = (Math.min(width, ONBOARDING_COLUMN) - Spacing.lg * 2 - GAP * (COLS - 1)) / COLS;
+  // Math.floor is load-bearing: without it, 3*itemWidth + 2*GAP equals the
+  // container width EXACTLY (zero slack). On native (pixelRatio 3) the thirds
+  // land on clean pixels, but on web/RN-web sub-pixel rounding of the fractional
+  // widths + CSS `gap` pushes the row a hair over the container at some viewport
+  // widths (e.g. iPhone Pro Max in mobile Chrome) and the 3rd poster wraps,
+  // collapsing the grid to 2 columns. Flooring leaves a few px of slack so three
+  // always fit.
+  const itemWidth = Math.floor(
+    (Math.min(width, ONBOARDING_COLUMN) - Spacing.lg * 2 - GAP * (COLS - 1)) / COLS,
+  );
   const count = data.watchlist.length;
   const canContinue = count >= 1;
 
