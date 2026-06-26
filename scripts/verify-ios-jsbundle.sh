@@ -46,9 +46,50 @@ check_ipa() {
   local ipa="$1"
   [ -f "$ipa" ] || fail "ipa not found: $ipa"
   local tmp; tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
-  unzip -q "$ipa" 'Payload/*' -d "$tmp" || fail "could not unzip $ipa"
+  # Explicit cleanup (no RETURN trap — it leaks under `set -u` when this fn is
+  # composed inside another, e.g. worker_check). On the `fail`/undersized path
+  # check_app_dir exits the process, so the leaked tmpdir is harmless.
+  unzip -q "$ipa" 'Payload/*' -d "$tmp" || { rm -rf "$tmp"; fail "could not unzip $ipa"; }
   check_app_dir "$tmp/Payload"
+  local rc=$?
+  rm -rf "$tmp"
+  return "$rc"
+}
+
+# Worker-mode (eas-build-on-success) check. The exported .app/.ipa does NOT live
+# under the source ios/ dir on the worker — Xcode emits it into a build-products /
+# DerivedData path that varies. So this is BEST-EFFORT:
+#   • found .ipa or *.app/main.jsbundle, healthy size  → PASS
+#   • found, but undersized                            → FAIL (the real brick)
+#   • not locatable anywhere under the working dir     → WARN, do NOT fail
+# Bricking a healthy build's status here (as happened on 1.5.0/32 — this hook's
+# maiden worker run) blocks `eas submit`, which is its own release-stopping bug.
+# The AUTHORITATIVE gate is the post-build .ipa check (Mode 2/3):
+#   npm run verify:ios-bundle -- --build-id <id>
+worker_check() {
+  local root="${EAS_BUILD_WORKINGDIR:-.}"
+  local ipa bundle sz
+
+  ipa="$(find "$root" -name '*.ipa' -type f -print -quit 2>/dev/null || true)"
+  if [ -n "$ipa" ]; then
+    echo "found built .ipa: ${ipa#"$root"/}"
+    check_ipa "$ipa"   # validates size; hard-fails on missing/undersized bundle
+    return 0
+  fi
+
+  bundle="$(find "$root" -path '*.app/main.jsbundle' -type f -print -quit 2>/dev/null || true)"
+  if [ -n "$bundle" ]; then
+    sz="$(size_of "$bundle")"
+    echo "✓ main.jsbundle: ${bundle#"$root"/} (${sz} bytes)"
+    [ "$sz" -ge "$FLOOR_BYTES" ] || fail "main.jsbundle is ${sz} bytes (< ${FLOOR_BYTES} floor) — suspiciously small/empty (App Store brick)."
+    echo "✅ iOS jsbundle gate PASSED (floor ${FLOOR_BYTES} bytes)."
+    return 0
+  fi
+
+  echo "⚠️  iOS jsbundle gate: no .ipa or *.app/main.jsbundle found under '${root}'." >&2
+  echo "⚠️  Build artifact not materialized where the worker can see it — NOT failing the build." >&2
+  echo "⚠️  Run the authoritative check post-build:  npm run verify:ios-bundle -- --build-id <this build id>" >&2
+  return 0
 }
 
 # --- Mode 1: EAS build worker (eas-build-on-success hook) -------------------
@@ -57,8 +98,8 @@ if [ "${EAS_BUILD:-}" = "true" ] || [ -n "${EAS_BUILD_WORKINGDIR:-}" ]; then
     echo "↷ ${EAS_BUILD_PLATFORM:-non-ios} build — iOS jsbundle gate not applicable."
     exit 0
   fi
-  echo "iOS jsbundle gate (eas-build-on-success): inspecting built .app…"
-  check_app_dir "${EAS_BUILD_WORKINGDIR:-.}/ios"
+  echo "iOS jsbundle gate (eas-build-on-success): locating built artifact…"
+  worker_check
   exit 0
 fi
 
