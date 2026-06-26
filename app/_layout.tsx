@@ -53,6 +53,8 @@ import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { TourProvider } from '@/lib/onboarding/tour-context';
 import { TourOverlay } from '@/components/coachmark/tour-overlay';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
+import { isInternalEmail } from '@/lib/internal-accounts';
+import { useSessionTracking, useScreenTracking } from '@/hooks/use-analytics-lifecycle';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useWidgetSync } from '@/hooks/use-widget-sync';
 import { useAuthTokenSync } from '@/hooks/use-auth-token-sync';
@@ -265,6 +267,9 @@ function useAnalyticsIdentity() {
         created_at: user.created_at,
         is_premium: isPremium,
         premium_tier: tier,
+        // Tags founder/test accounts so metrics (Discord digest, dashboards)
+        // can exclude them via person.properties.is_internal. See Phase 3.
+        is_internal: isInternalEmail(user.email),
       });
       // Re-evaluate feature flags for the now-identified person. Property-targeted
       // flags (e.g. onboarding_v2 matched by email) are loaded for the anonymous
@@ -285,6 +290,8 @@ function RootLayoutNav() {
   const { setBg } = useContext(RootBackgroundContext);
   useProtectedRoute();
   useAnalyticsIdentity();
+  useSessionTracking();
+  useScreenTracking();
   usePushNotifications();
   useWidgetSync();
   useAuthTokenSync();
