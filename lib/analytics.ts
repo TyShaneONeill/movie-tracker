@@ -108,6 +108,20 @@ export const analytics = {
     posthogClient?.capture(event, properties);
   },
 
+  /**
+   * Capture a screen view. Native only — web auto-captures `$pageview`, and
+   * posthog-react-native's auto screen-capture is inert under expo-router, so
+   * we fire `$screen` manually (see useScreenTracking).
+   */
+  screen(name: string, properties?: EventProperties) {
+    if (Platform.OS === 'web') return;
+    if (typeof posthogClient?.screen === 'function') {
+      posthogClient.screen(name, properties);
+    } else {
+      posthogClient?.capture('$screen', { $screen_name: name, ...properties });
+    }
+  },
+
   /** Identify a user after sign-in */
   identify(userId: string, properties?: UserProperties) {
     posthogClient?.identify(userId, properties);
