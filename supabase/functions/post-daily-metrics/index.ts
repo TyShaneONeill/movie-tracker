@@ -13,6 +13,23 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const POSTHOG_BASE = "https://app.posthog.com";
 
+// "Engaged active user" = a distinct person who took a REAL in-app action in the
+// window. This deliberately excludes the two signals that inflate a naive
+// count(DISTINCT person_id): the native SDK's `Application Opened` (fires on
+// background/widget/push wakes) and anonymous `$pageview` traffic to the SEO
+// movie pages. Cross-platform (web + mobile). See vault PRD "Analytics
+// Instrumentation Fix (MAU + Discord)".
+const ENGAGED_EVENTS = [
+  "nav:tab_switch", "movie:view", "tv:view", "feed:view", "feed:item_tap",
+  "movie:search", "movie:watchlist_add", "movie:rate", "review:create",
+  "first_take:create", "journey:view", "scan:attempt", "scan:success",
+  "social:follow", "social:like", "social:comment",
+  "onboarding:step", "onboarding:complete", "premium:upgrade_view", "premium:subscribe",
+];
+
+// Internal/test accounts excluded from the engaged metric (founder + E2E).
+const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g"];
+
 interface HogQLResult {
   results?: Array<Array<number>>;
 }
@@ -87,9 +104,17 @@ Deno.serve(async (req: Request) => {
     const query = (hogql: string) =>
       queryPostHog(POSTHOG_PROJECT_ID, POSTHOG_PERSONAL_API_KEY, hogql, controller.signal);
 
+    const engagedEventList = ENGAGED_EVENTS.map((e) => `'${e}'`).join(",");
+    const internalEmailList = INTERNAL_EMAILS.map((e) => `'${e}'`).join(",");
+    // person.properties.email is NULL for anonymous users — keep those, drop the named internal accounts.
+    const notInternal =
+      `(person.properties.email IS NULL OR person.properties.email NOT IN (${internalEmailList}))`;
+
     const [
       signups,
-      dau,
+      engaged,
+      appOpens,
+      webVisitors,
       moviesAdded,
       tvUpdates,
       scanAttempts,
@@ -103,8 +128,16 @@ Deno.serve(async (req: Request) => {
       query(
         "SELECT count() FROM events WHERE event = 'auth:sign_up' AND timestamp >= now() - toIntervalDay(1)",
       ),
+      // Engaged active users (the real metric).
       query(
-        "SELECT count(DISTINCT person_id) FROM events WHERE timestamp >= now() - toIntervalDay(1)",
+        `SELECT count(DISTINCT person_id) FROM events WHERE timestamp >= now() - toIntervalDay(1) AND event IN (${engagedEventList}) AND ${notInternal}`,
+      ),
+      // Context signals (broad, intentionally unfiltered) so the digest stays honest:
+      query(
+        "SELECT count(DISTINCT person_id) FROM events WHERE event = 'Application Opened' AND timestamp >= now() - toIntervalDay(1)",
+      ),
+      query(
+        "SELECT count(DISTINCT person_id) FROM events WHERE event = '$pageview' AND timestamp >= now() - toIntervalDay(1)",
       ),
       query(
         "SELECT count() FROM events WHERE event = 'movie:watchlist_add' AND timestamp >= now() - toIntervalDay(1)",
@@ -149,8 +182,11 @@ Deno.serve(async (req: Request) => {
       color: 0xE11D48,
       fields: [
         { name: "👤 Signups", value: String(signups), inline: true },
-        { name: "📱 Active Users", value: String(dau), inline: true },
+        { name: "🎟️ Active (engaged)", value: String(engaged), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
+        { name: "🔓 App opens", value: String(appOpens), inline: true },
+        { name: "🌐 Web visitors", value: String(webVisitors), inline: true },
+        { name: "​", value: "​", inline: true },
         { name: "🎬 Movies Added", value: String(moviesAdded), inline: true },
         { name: "📺 TV Updates", value: String(tvUpdates), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
@@ -172,7 +208,7 @@ Deno.serve(async (req: Request) => {
         { name: "📝 First Takes", value: String(firstTakes), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
       ],
-      footer: { text: "PocketStubs · PostHog" },
+      footer: { text: "PocketStubs · PostHog · Active = engaged in-app actions (excl. internal)" },
       timestamp: new Date().toISOString(),
     };
 
@@ -195,7 +231,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(
-      `[post-daily-metrics] Digest posted — signups=${signups} dau=${dau} moviesAdded=${moviesAdded} tvUpdates=${tvUpdates} scans=${scanAttempts}/${scanSuccess} ai=${aiGenerations} upgrades=${upgrades} paywallHits=${paywallHits} follows=${follows} firstTakes=${firstTakes}`,
+      `[post-daily-metrics] Digest posted — signups=${signups} engaged=${engaged} appOpens=${appOpens} webVisitors=${webVisitors} moviesAdded=${moviesAdded} tvUpdates=${tvUpdates} scans=${scanAttempts}/${scanSuccess} ai=${aiGenerations} upgrades=${upgrades} paywallHits=${paywallHits} follows=${follows} firstTakes=${firstTakes}`,
     );
 
     return new Response(JSON.stringify({ ok: true }), {
