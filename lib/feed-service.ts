@@ -16,7 +16,12 @@ import {
 } from '@/hooks/use-activity-feed';
 
 export const PAGE_SIZE = 20;
-export const AD_INTERVAL = 25;
+// Feed ad cadence (community section): first ad after AD_FIRST_SLOT activities,
+// then one every AD_INTERVAL. Previously AD_INTERVAL=25 with the first ad only
+// at item 25 — real (short) feeds never reached it, so the Feed showed ZERO ads.
+// Lowered for the banner-ad audit (2026-06-27): first ad at item 3, then every 5.
+export const AD_FIRST_SLOT = 3;
+export const AD_INTERVAL = 5;
 
 export interface BuildFeedListParams {
   followingItems: ActivityFeedItem[];
@@ -303,7 +308,12 @@ export function buildFeedList(params: BuildFeedListParams): FeedListItem[] {
 
   let counter = 0;
   for (const item of filteredCommunity) {
-    if (adsEnabled && counter > 0 && counter % AD_INTERVAL === 0) {
+    // First ad after AD_FIRST_SLOT activities, then one every AD_INTERVAL.
+    if (
+      adsEnabled &&
+      counter >= AD_FIRST_SLOT &&
+      (counter - AD_FIRST_SLOT) % AD_INTERVAL === 0
+    ) {
       result.push({ type: 'ad', id: 'ad-community-' + counter });
     }
     result.push({ type: 'activity', data: item });
