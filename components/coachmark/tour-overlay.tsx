@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import {
-  Modal,
   View,
   Pressable,
   StyleSheet,
@@ -77,7 +76,13 @@ export function TourOverlay() {
   const isLast = currentStepIndex === totalSteps - 1;
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent>
+    // Rendered IN-WINDOW (not a <Modal>). On Android a Modal is a separate window
+    // whose origin differs from the main window where TourTarget calls
+    // measureInWindow; under edge-to-edge that offset (~status-bar height) pushed
+    // every spotlight off its target. An in-window absolute overlay shares the
+    // exact coordinate space of the measurements, so the cutout lands correctly.
+    // High zIndex/elevation keeps it above the navigator and the floating tab bar.
+    <View style={[StyleSheet.absoluteFill, styles.overlayRoot]}>
       <View style={StyleSheet.absoluteFill}>
         {/* Dim layer with optional spotlight cutout via SVG mask. */}
         {spotlight ? (
@@ -197,11 +202,17 @@ export function TourOverlay() {
           </View>
         )}
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Sits above the navigator + floating tab bar in the same window as the
+  // measured targets (replaces the old separate-window <Modal>).
+  overlayRoot: {
+    zIndex: 9999,
+    elevation: 9999,
+  },
   fallbackDim: {
     backgroundColor: 'rgba(0,0,0,0.78)',
   },
