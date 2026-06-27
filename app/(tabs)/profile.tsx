@@ -40,6 +40,7 @@ import { useFirstTakes } from '@/hooks/use-first-takes';
 import { useUserReviews, type ReviewSortOption, type ReviewMediaFilter } from '@/hooks/use-user-reviews';
 import { useProfile } from '@/hooks/use-profile';
 import { usePopcorn } from '@/hooks/use-popcorn';
+import { POPCORN_ENABLED } from '@/constants/popcorn-types';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserTvShows } from '@/hooks/use-user-tv-shows';
@@ -701,6 +702,7 @@ export default function ProfileScreen() {
                             Following
                         </ThemedText>
                     </Pressable>
+                    {POPCORN_ENABLED && (<>
                     <View style={[styles.followStatDivider, { backgroundColor: colors.border }]} />
                     <Pressable
                         onPress={() => router.push('/(tabs)/popcorn')}
@@ -718,6 +720,7 @@ export default function ProfileScreen() {
                             Bag
                         </ThemedText>
                     </Pressable>
+                    </>)}
                 </View>
                 {/* Achievements Row */}
                 {renderAchievementsRow()}
@@ -1136,6 +1139,7 @@ export default function ProfileScreen() {
                                     Following
                                 </ThemedText>
                             </Pressable>
+                            {POPCORN_ENABLED && (<>
                             <View style={[styles.followStatDivider, { backgroundColor: colors.border }]} />
                             <Pressable
                                 onPress={() => router.push('/(tabs)/popcorn')}
@@ -1153,6 +1157,7 @@ export default function ProfileScreen() {
                                     Bag
                                 </ThemedText>
                             </Pressable>
+                            </>)}
                         </View>
                         {/* Achievements Row */}
                         {renderAchievementsRow()}

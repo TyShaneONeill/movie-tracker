@@ -1,3 +1,9 @@
+// Master kill-switch for the Popcorn feature. When false, all user-facing
+// Popcorn UI is hidden (the bottom tab was already hidden in #372; this also
+// hides the Profile "🍿 Bag" badges) and earning is short-circuited (no
+// earn-popcorn edge-function calls). Flip to true to re-enable. JS-only / OTA-able.
+export const POPCORN_ENABLED: boolean = false;
+
 export const POPCORN_ACTION_TYPES = {
   follow:       { label: 'Follow',       color: '#4CAF50', threshold: 1  },
   like:         { label: 'Like',         color: '#FFC107', threshold: 50 },

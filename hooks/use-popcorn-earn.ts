@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
-import type { PopcornActionType } from '@/constants/popcorn-types';
+import { POPCORN_ENABLED, type PopcornActionType } from '@/constants/popcorn-types';
 
 export function usePopcornEarn() {
   const { user } = useAuth();
@@ -13,6 +13,7 @@ export function usePopcornEarn() {
     actionType: PopcornActionType,
     referenceId?: string
   ) => {
+    if (!POPCORN_ENABLED) return; // feature disabled — skip the earn-popcorn call entirely
     if (!user) return;
     try {
       const result = await supabase.functions.invoke('earn-popcorn', {
