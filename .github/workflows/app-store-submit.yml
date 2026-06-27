@@ -17,10 +17,18 @@ jobs:
   build-and-submit:
     name: Build & Submit to App Store
     runs-on: ubuntu-latest
+    # Needs write access to push the release tag after a successful submit.
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Full history + tags so the version-bump gate can read prior
+          # ios-*/android-* tags and the post-submit step can push a new one.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -43,8 +51,45 @@ jobs:
       - name: Run tests
         run: npm test -- --ci --forceExit
 
+      # Fail BEFORE the (slow, costly) build if app.config.js isn't bumped past
+      # the last submitted build for this platform. Self-bootstrapping on first run.
+      - name: Version bump gate
+        run: |
+          set -euo pipefail
+          P='${{ inputs.platform }}'
+          if [ "$P" = "all" ]; then
+            bash scripts/verify-version-bump.sh ios
+            bash scripts/verify-version-bump.sh android
+          else
+            bash scripts/verify-version-bump.sh "$P"
+          fi
+
       - name: Build production
         run: eas build --profile production --platform ${{ inputs.platform }} --non-interactive
 
       - name: Submit to store
         run: eas submit --profile production --platform ${{ inputs.platform }} --non-interactive --latest
+
+      # Record the release as a git tag (ios-<buildNumber> / android-<versionCode>)
+      # so the next run's gate has a reference. Only reached if submit succeeded.
+      - name: Tag submitted release
+        run: |
+          set -euo pipefail
+          P='${{ inputs.platform }}'
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          VERSION="$(grep -m1 -E 'version:' app.config.js | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+          tag_for() {
+            local plat="$1" key num tag
+            if [ "$plat" = "ios" ]; then key='buildNumber'; else key='versionCode'; fi
+            num="$(grep -m1 -E "${key}:" app.config.js | grep -oE '[0-9]+' | head -1)"
+            tag="${plat}-${num}"
+            if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+              echo "tag ${tag} already exists — skipping"
+            else
+              git tag -a "${tag}" -m "v${VERSION} (${key} ${num}) submitted via app-store-submit.yml"
+              echo "tagged ${tag}"
+            fi
+          }
+          if [ "$P" = "all" ]; then tag_for ios; tag_for android; else tag_for "$P"; fi
+          git push origin --tags
