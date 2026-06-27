@@ -46,6 +46,15 @@ export function NativeFeedAd() {
     }
   }, [loaded, fadeAnim]);
 
+  // Safety net: if neither onAdLoaded nor onAdFailedToLoad fires within the
+  // timeout (a stuck/hanging request — e.g. a unit that isn't serving yet),
+  // hide the slot instead of leaving a perpetual empty 250px loading box.
+  useEffect(() => {
+    if (loaded || failed) return;
+    const t = setTimeout(() => setFailed(true), 6000);
+    return () => clearTimeout(t);
+  }, [loaded, failed]);
+
   if (!adsReady || !adComponents || failed) return null;
 
   const { BannerAd, BannerAdSize, TestIds } = adComponents;
