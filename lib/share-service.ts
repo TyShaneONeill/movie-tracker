@@ -193,15 +193,18 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 /**
- * Internal helper: capture a discovery card and route it through the share sheet,
- * with the canonical web URL copied to the clipboard so users can paste it
- * alongside the image (the share sheet only carries one item — see PRD §"Share Flow").
+ * Internal helper: open the share sheet with a caption + the canonical universal
+ * link so recipients can get back to the app (the link deep-links into the app
+ * if installed, else lands on the web page with App Store / Play CTAs). Web uses
+ * navigator.share when available, else copies the link.
  *
  * Both `shareMovieDiscovery` and `shareTvDiscovery` funnel through this — the
  * only per-surface differences are the URL and the dialog title.
  */
 async function shareDiscovery(
-  viewShotRef: RefObject<ViewShot | null>,
+  // Kept for the follow-up that re-adds the card image alongside the link via
+  // react-native-share. Unused for now — the native share is caption + link.
+  _viewShotRef: RefObject<ViewShot | null>,
   url: string,
   dialogTitle: string,
   webShareTitle: string
@@ -222,25 +225,19 @@ async function shareDiscovery(
     return;
   }
 
-  // Native: copy URL to clipboard first so users can paste alongside the image
-  // (the share sheet only carries one item — see PRD line 182-184).
-  try {
-    await Clipboard.setStringAsync(url);
-  } catch {
-    // Clipboard failures shouldn't block the share itself.
-  }
-
-  const imageUri = await captureCard(viewShotRef);
-
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (!isAvailable) {
-    throw new Error('Sharing is not available on this device');
-  }
-
-  await Sharing.shareAsync(imageUri, {
-    mimeType: 'image/png',
-    dialogTitle,
-  });
+  // Native: send a caption + the canonical universal link so recipients can get
+  // back to the app — the link opens the app if installed (applinks / Android
+  // intent filters), else the web page with App Store / Play CTAs. expo-sharing's
+  // shareAsync is file-only and can't carry text or a link, which is why the old
+  // share was a bare PNG. The discovery card IMAGE will be re-added alongside the
+  // link via react-native-share in a later native build (incremental improvement).
+  const caption = `Check out ${webShareTitle} 🎟️`;
+  await Share.share(
+    Platform.OS === 'ios'
+      ? { message: caption, url } // iOS carries message text + url as separate items
+      : { message: `${caption}\n${url}` }, // Android Share only honors `message`
+    { dialogTitle },
+  );
 }
 
 /**
