@@ -9,10 +9,13 @@ import { Colors, Spacing, BorderRadius, FontSizes } from '@/constants/theme';
 // module-level initialization code that crashes on iOS 26.4 beta. Loaded lazily on first render.
 // Web uses native-feed-ad.web.tsx instead (no native ads on web).
 
+// "Banner - Feed" AdMob units (Banner format). The old units (…6912336439 iOS /
+// …5077578184 Android) were "Native advanced" format and could not serve this
+// component's BannerAd request, so the Feed ad hung on a perpetual spinner.
 const NATIVE_FEED_AD_UNIT_ID = Platform.select({
-  ios: 'ca-app-pub-5311715630678079/6912336439',
-  android: 'ca-app-pub-5311715630678079/5077578184',
-  default: 'ca-app-pub-5311715630678079/6912336439',
+  ios: 'ca-app-pub-5311715630678079/6627383448',
+  android: 'ca-app-pub-5311715630678079/7940465110',
+  default: 'ca-app-pub-5311715630678079/6627383448',
 })!;
 
 export function NativeFeedAd() {
