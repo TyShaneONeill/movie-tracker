@@ -47,8 +47,15 @@ export function TourTarget({ id, children, style, insideTopSafeArea = false }: T
   const ref = useRef<View>(null);
   const cancelPollRef = useRef<(() => void) | null>(null);
 
-  // See `insideTopSafeArea` prop docs for the reason this offset exists.
-  const yOffset = insideTopSafeArea && Platform.OS === 'ios' ? insets.top : 0;
+  // The tour overlay renders in full-window space (status bar at y=0), but
+  // measureInWindow's origin differs by platform:
+  //  - iOS: only views inside a native SafeAreaView are offset (the
+  //    safeAreaLayoutGuide inset is invisible to RN) → add insets.top for those.
+  //  - Android (edge-to-edge): measureInWindow is content-relative — its origin
+  //    sits BELOW the status bar — for ALL views, so every target reads
+  //    insets.top too high. Verified on a Pixel 8 (insets.top≈50): home-search
+  //    measured y=16 (icon ~66), tabs measured y=789 (bar ~839). Add it globally.
+  const yOffset = Platform.OS === 'ios' ? (insideTopSafeArea ? insets.top : 0) : insets.top;
 
   const startMeasurePoll = useCallback(() => {
     cancelPollRef.current?.();
