@@ -8,7 +8,7 @@ import { Spacing } from '@/constants/theme';
 // module-level initialization code that crashes on iOS 26.4 beta. Loaded lazily on first render.
 // Web uses banner-ad.web.tsx instead (no native ads on web).
 
-type BannerPlacement = 'home' | 'search' | 'stats';
+type BannerPlacement = 'home' | 'search' | 'stats' | 'profile';
 
 const BANNER_AD_UNIT_IDS: Record<BannerPlacement, string> = {
   home: Platform.select({
@@ -22,6 +22,13 @@ const BANNER_AD_UNIT_IDS: Record<BannerPlacement, string> = {
     default: 'ca-app-pub-5311715630678079/4417306087',
   })!,
   stats: Platform.select({
+    ios: 'ca-app-pub-5311715630678079/1492488790',
+    android: 'ca-app-pub-5311715630678079/2642986536',
+    default: 'ca-app-pub-5311715630678079/1492488790',
+  })!,
+  // TODO: create a dedicated AdMob unit for 'profile' (reusing 'stats' for now —
+  // functional, but the two placements share reporting until split out).
+  profile: Platform.select({
     ios: 'ca-app-pub-5311715630678079/1492488790',
     android: 'ca-app-pub-5311715630678079/2642986536',
     default: 'ca-app-pub-5311715630678079/1492488790',
