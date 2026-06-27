@@ -16,6 +16,12 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ContentContainer } from '@/components/content-container';
+import { useAds } from '@/lib/ads-context';
+import { BannerAdComponent } from '@/components/ads/banner-ad';
+import {
+  buildProfileCollectionRows,
+  type ProfileCollectionRow,
+} from '@/lib/profile-collection-rows';
 import { MAX_CONTENT_WIDTH } from '@/hooks/use-wide-layout';
 import { useAuth } from '@/hooks/use-auth';
 import { useAchievements } from '@/hooks/use-achievements';
@@ -274,24 +280,51 @@ export default function ProfileScreen() {
         setIsRefreshing(false);
     }, [isWeb, activeTab, refetchProfile, refetchStats, refetch, refetchTvShows, refetchLists, refetchTakes, refetchReviews, refetchAchievements]);
 
-    const renderCollectionItem = useCallback(({ item }: ListRenderItemInfo<GroupedUserMovie>) => {
-        const isAiPoster = item.display_poster === 'ai_generated' && !!item.ai_poster_url;
-        return (
-            <CollectionGridCard
-                posterUrl={
-                    isAiPoster
-                        ? item.ai_poster_url!
-                        : item.poster_path
-                            ? getTMDBImageUrl(item.poster_path, 'w342') ?? ''
-                            : ''
-                }
-                isAiPoster={isAiPoster}
-                journeyCount={item.journeyCount}
-                onPress={() => router.push(`/journey/movie/${item.tmdb_id}`)}
-                style={{ width: cardWidth }}
-            />
-        );
-    }, [cardWidth]);
+    const { adsEnabled } = useAds();
+
+    // Movies collection rows: 3 posters per row with ad rows interleaved per the
+    // cadence (first ad after 9 movies / at the bottom for sparse collections,
+    // then every 12). Pure logic lives in buildProfileCollectionRows.
+    const collectionRows = useMemo(
+        () => buildProfileCollectionRows(groupedMovies ?? [], { adsEnabled }),
+        [groupedMovies, adsEnabled]
+    );
+
+    const renderCollectionRow = useCallback(
+        ({ item: row }: ListRenderItemInfo<ProfileCollectionRow>) => {
+            if (row.type === 'ad') {
+                return (
+                    <View style={styles.collectionAdRow}>
+                        <BannerAdComponent placement="profile" />
+                    </View>
+                );
+            }
+            return (
+                <View style={styles.collectionMovieRow}>
+                    {row.items.map((m) => {
+                        const isAiPoster = m.display_poster === 'ai_generated' && !!m.ai_poster_url;
+                        return (
+                            <CollectionGridCard
+                                key={m.tmdb_id}
+                                posterUrl={
+                                    isAiPoster
+                                        ? m.ai_poster_url!
+                                        : m.poster_path
+                                            ? getTMDBImageUrl(m.poster_path, 'w342') ?? ''
+                                            : ''
+                                }
+                                isAiPoster={isAiPoster}
+                                journeyCount={m.journeyCount}
+                                onPress={() => router.push(`/journey/movie/${m.tmdb_id}`)}
+                                style={{ width: cardWidth }}
+                            />
+                        );
+                    })}
+                </View>
+            );
+        },
+        [cardWidth]
+    );
 
     const renderTvCollectionItem = useCallback(({ item }: ListRenderItemInfo<UserTvShow>) => {
         return (
@@ -1028,16 +1061,14 @@ export default function ProfileScreen() {
                 <ContentContainer style={{ flex: 1 }}>
                 <Animated.FlatList
                     ref={flatListRef}
-                    data={isLoading || isError ? [] : groupedMovies}
-                    renderItem={renderCollectionItem}
-                    keyExtractor={(item) => `${item.tmdb_id}`}
-                    numColumns={COLUMN_COUNT}
+                    data={isLoading || isError ? [] : collectionRows}
+                    renderItem={renderCollectionRow}
+                    keyExtractor={(row) => row.key}
                     ListHeaderComponent={renderCollectionListHeader}
                     ListEmptyComponent={renderCollectionListEmpty}
                     onScroll={scrollHandler}
                     scrollEventThrottle={16}
                     decelerationRate="normal"
-                    columnWrapperStyle={groupedMovies?.length && !isLoading && !isError ? styles.columnWrapper : undefined}
                     contentContainerStyle={styles.scrollContent}
                     removeClippedSubviews={true}
                     maxToRenderPerBatch={10}
@@ -1413,6 +1444,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         gap: GRID_GAP,
         marginTop: GRID_GAP,
+    },
+    collectionMovieRow: {
+        flexDirection: 'row',
+        paddingHorizontal: Spacing.lg,
+        gap: GRID_GAP,
+        marginTop: GRID_GAP,
+    },
+    collectionAdRow: {
+        paddingHorizontal: Spacing.lg,
     },
     // Web collection grid (flex-wrap replaces FlatList numColumns)
     webCollectionGrid: {

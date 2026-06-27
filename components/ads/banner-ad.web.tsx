@@ -3,12 +3,13 @@ import { View, StyleSheet } from 'react-native';
 import { useAds } from '@/lib/ads-context';
 import { Spacing } from '@/constants/theme';
 
-type BannerPlacement = 'home' | 'search' | 'stats';
+type BannerPlacement = 'home' | 'search' | 'stats' | 'profile';
 
 const BANNER_AD_SLOT_IDS: Record<BannerPlacement, string> = {
   home: '1147502346',
   search: '7429839669',
   stats: '3594682229',
+  profile: '3594682229', // TODO: dedicated AdSense slot; reusing 'stats' for now
 };
 
 interface BannerAdProps {
