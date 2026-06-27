@@ -14,6 +14,7 @@ import {
   getFeedLastSeen,
   updateFeedLastSeen,
   AD_INTERVAL,
+  AD_FIRST_SLOT,
 } from '@/lib/feed-service';
 import { mockSupabaseQuery } from '@/__tests__/fixtures';
 
@@ -179,7 +180,7 @@ describe('buildFeedList', () => {
     expect(result.some((item) => item.type === 'caught-up')).toBe(false);
   });
 
-  it('interleaves ads every AD_INTERVAL items in community section only', () => {
+  it('interleaves community ads: first after AD_FIRST_SLOT, then every AD_INTERVAL', () => {
     const communityItems = Array.from({ length: 30 }, (_, i) =>
       makeActivityItem({ id: `c-${i}` })
     );
@@ -193,14 +194,18 @@ describe('buildFeedList', () => {
     });
 
     const adItems = result.filter((item) => item.type === 'ad');
-    expect(adItems).toHaveLength(1);
+    // Ads at counters AD_FIRST_SLOT, +AD_INTERVAL, … while counter < 30.
+    expect(adItems.length).toBe(
+      Math.floor((communityItems.length - 1 - AD_FIRST_SLOT) / AD_INTERVAL) + 1
+    );
 
-    // The ad should appear after 25 community items (at index 25)
-    expect(result[25]).toEqual({ type: 'ad', id: 'ad-community-25' });
-
-    // No ads in the following section (it's empty anyway, but verify structure)
-    const beforeAd = result.slice(0, 25);
-    expect(beforeAd.every((item) => item.type === 'activity')).toBe(true);
+    // First ad appears right after AD_FIRST_SLOT activities (not buried at item 25).
+    expect(result[AD_FIRST_SLOT]).toEqual({
+      type: 'ad',
+      id: 'ad-community-' + AD_FIRST_SLOT,
+    });
+    const beforeFirstAd = result.slice(0, AD_FIRST_SLOT);
+    expect(beforeFirstAd.every((item) => item.type === 'activity')).toBe(true);
   });
 
   it('does not interleave ads when adsEnabled is false', () => {
