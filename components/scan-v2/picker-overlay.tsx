@@ -7,10 +7,16 @@
  *
  * Hosts, by `kind`:
  *  - `movie`  → live movie search (reuses `use-movie-search` +
- *               `TicketMovieSearchResult`, same pattern as ResolveDialog).
+ *               `TicketMovieSearchResult`, same pattern as ResolveDialog). This
+ *               is the ONLY scrollable picker (long/dynamic results).
  *  - `format` / `rated` / `type` → radio lists.
  *  - `time`   → the Time Dial (`TimeWheel`).
  *  - `date`   → a custom month grid built from primitives.
+ *
+ * Single-choice pickers (radio / time / date) render in a plain content-height
+ * View — no inner scroll — so the whole short list is visible at once and the
+ * Time Dial's wheel columns are the only vertical scrollers (a nested same-axis
+ * ScrollView would otherwise swallow their drag on Android).
  *
  * Dark-only: built from `ScanV2Colors`/`ScanV2Accent`; all text via `ScanText`,
  * sizes via `s()`.
@@ -116,15 +122,13 @@ export function PickerOverlay({
           {kind === 'movie' ? (
             <MoviePicker onSelect={onPickMovie} currentId={currentMovie?.id ?? null} />
           ) : (
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingHorizontal: s(16), paddingBottom: s(24) }}
-              showsVerticalScrollIndicator={false}
-            >
+            // Single-choice pickers: content-height, all options visible, no
+            // inner scroll (keeps the Time Dial wheels as the only scrollers).
+            <View style={{ paddingHorizontal: s(16), paddingTop: s(2), paddingBottom: s(24) }}>
               {radioItems && <RadioList items={radioItems} current={currentValue} onPick={onPickValue} />}
               {kind === 'time' && <TimeWheel current={currentValue} onPick={onPickValue} />}
               {kind === 'date' && <DateGrid currentISO={currentValue || ''} onPick={onPickValue} />}
-            </ScrollView>
+            </View>
           )}
         </View>
       </KeyboardAvoidingView>

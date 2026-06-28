@@ -192,8 +192,11 @@ function parsePriceText(text: string): number | null {
  * Fold the edited form (and optional new movie) back into a ProcessedTicket so
  * the flow can re-derive its VM. A movie change clears the block-on-unknown:
  * `tmdbMatch` is replaced at full confidence and processing errors are dropped,
- * which flips a `failed`/`review` ticket to `matched`. When the movie is
- * unchanged the existing match/confidence/status are preserved.
+ * which flips a `failed`/`review` ticket to `matched`. Saving a `review`-status
+ * ticket (one that already has a match, just low-confidence / flagged) is itself
+ * an explicit confirmation, so it is likewise promoted to `matched`. A `failed`
+ * ticket with no match is left untouched so it stays blocked until a movie is
+ * picked.
  */
 export function applyTicketEdits(
   ticket: ProcessedTicket,
@@ -230,6 +233,12 @@ export function applyTicketEdits(
       originalTitle: ticket.movieTitle || '',
     };
     next.tmdbMatch = tmdbMatch;
+    next.processingErrors = [];
+  } else if (ticket.tmdbMatch && deriveStatus(ticket) === 'review') {
+    // Confirm-match: the user opened Edit on a review-status ticket and saved,
+    // which confirms the existing match. Bump to full confidence and clear the
+    // soft processing errors that forced the review so it re-derives as matched.
+    next.tmdbMatch = { ...ticket.tmdbMatch, confidence: 1 };
     next.processingErrors = [];
   }
 

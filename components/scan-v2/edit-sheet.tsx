@@ -15,13 +15,18 @@
  * block-on-unknown (failed/review → matched).
  *
  * Dark-only (built from `ScanV2Colors`/`ScanV2Accent`, never the theme-aware
- * sheet/icon components); text via `ScanText`, sizes via `s()`. Keyboard: the
- * body stays scrollable with the keyboard open, the focused field scrolls above
- * it (iOS `automaticallyAdjustKeyboardInsets`; Android a live keyboard-height
- * spacer), and taps persist (`keyboardShouldPersistTaps="handled"`).
+ * sheet/icon components); text via `ScanText`, sizes via `s()`.
+ *
+ * Keyboard avoidance (both platforms, RN primitives only): the body is a
+ * scrollable ScrollView with a bottom spacer equal to the live keyboard height,
+ * and on `TextInput` focus the focused field is measured (`measureInWindow`) and
+ * scrolled to sit just above the keyboard. Re-runs when the keyboard height
+ * settles (Android raises it after focus). Taps persist
+ * (`keyboardShouldPersistTaps="handled"`) and tapping empty space / dragging
+ * dismisses the keyboard.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Modal,
@@ -30,6 +35,7 @@ import {
   TextInput,
   Platform,
   Keyboard,
+  Dimensions,
   type KeyboardEvent,
 } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
@@ -84,6 +90,43 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
   const [picker, setPicker] = useState<PickerKind | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const kbHeight = useKeyboardHeight();
+
+  // Keyboard avoidance: scroll the focused field above the keyboard.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollY = useRef(0);
+  const focusedInput = useRef<TextInput | null>(null);
+  const kbHeightRef = useRef(0);
+
+  const ensureVisible = useCallback((input: TextInput | null) => {
+    const sv = scrollRef.current;
+    if (!sv || !input) return;
+    // rAF so the measure happens after the keyboard frame / layout settles.
+    requestAnimationFrame(() => {
+      input.measureInWindow((_x, y, _w, h) => {
+        if (kbHeightRef.current <= 0) return;
+        const kbTop = Dimensions.get('window').height - kbHeightRef.current;
+        const overlap = y + h + s(20) - kbTop;
+        if (overlap > 0) {
+          sv.scrollTo({ y: scrollY.current + overlap, animated: true });
+        }
+      });
+    });
+  }, []);
+
+  // When the keyboard height settles (Android raises it after focus), re-run
+  // the scroll-into-view for whatever field is currently focused.
+  useEffect(() => {
+    kbHeightRef.current = kbHeight;
+    if (kbHeight > 0) ensureVisible(focusedInput.current);
+  }, [kbHeight, ensureVisible]);
+
+  const handleInputFocus = useCallback(
+    (input: TextInput | null) => {
+      focusedInput.current = input;
+      ensureVisible(input);
+    },
+    [ensureVisible]
+  );
 
   const set = (key: keyof TicketEditForm, value: string) => setForm((p) => ({ ...p, [key]: value }));
 
@@ -171,9 +214,13 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
           </View>
 
           <ScrollView
+            ref={scrollRef}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+            onScroll={(e) => {
+              scrollY.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
             contentContainerStyle={{ paddingHorizontal: s(16), paddingBottom: s(40) }}
             showsVerticalScrollIndicator={false}
           >
@@ -232,7 +279,7 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
             {/* From your ticket */}
             <SectionCard title="From your ticket">
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: s(12) }}>
-                <EditField label="Theater" value={form.theater} onChangeText={(v) => set('theater', v)} placeholder="Theater name" />
+                <EditField label="Theater" value={form.theater} onChangeText={(v) => set('theater', v)} onInputFocus={handleInputFocus} placeholder="Theater name" />
                 <EditField label="Date" value={formatEditDate(form.dateISO)} onTap={() => setPicker('date')} picker="calendar" placeholder="Pick date" />
                 <EditField label="Time" value={form.time} onTap={() => setPicker('time')} picker="clock" placeholder="Pick time" />
                 <EditField label="Rated" value={form.rated} onTap={() => setPicker('rated')} picker="info" placeholder="—" />
@@ -250,6 +297,7 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
                       value={form[o.key]}
                       onChangeText={o.tap ? undefined : (v) => set(o.key, v)}
                       onTap={o.tap ? () => setPicker(o.tap!) : undefined}
+                      onInputFocus={o.tap ? undefined : handleInputFocus}
                       picker={o.icon}
                       placeholder={o.placeholder}
                     />
@@ -276,9 +324,9 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
             {/* "Also on your ticket — not tracked" — hidden for now */}
             {SHOW_UNTRACKED && <View />}
 
-            {/* keyboard safe-area spacer (Android tracks live keyboard height;
-                iOS uses automaticallyAdjustKeyboardInsets above) */}
-            <View style={{ height: Platform.OS === 'android' ? kbHeight + s(8) : s(8) }} />
+            {/* keyboard safe-area spacer — live keyboard height on both
+                platforms so the focused field can always scroll above it */}
+            <View style={{ height: kbHeight + s(8) }} />
           </ScrollView>
         </View>
 
@@ -341,9 +389,12 @@ interface EditFieldProps {
   picker?: ScanIconName;
   onChangeText?: (v: string) => void;
   onTap?: () => void;
+  /** Called with the field's TextInput on focus (drives keyboard avoidance). */
+  onInputFocus?: (input: TextInput | null) => void;
 }
 
-function EditField({ label, value, placeholder, picker, onChangeText, onTap }: EditFieldProps) {
+function EditField({ label, value, placeholder, picker, onChangeText, onTap, onInputFocus }: EditFieldProps) {
+  const inputRef = useRef<TextInput>(null);
   const boxStyle = {
     minHeight: s(42),
     flexDirection: 'row' as const,
@@ -364,7 +415,12 @@ function EditField({ label, value, placeholder, picker, onChangeText, onTap }: E
       {onTap ? (
         <Pressable onPress={onTap} style={boxStyle}>
           {leadingIcon}
-          <ScanText style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? ScanV2Colors.text : ScanV2Colors.ter }}>
+          <ScanText
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? ScanV2Colors.text : ScanV2Colors.ter }}
+          >
             {value || placeholder}
           </ScanText>
           <Icon name="chevD" size={s(15)} color={ScanV2Colors.ter} />
@@ -373,8 +429,10 @@ function EditField({ label, value, placeholder, picker, onChangeText, onTap }: E
         <View style={boxStyle}>
           {leadingIcon}
           <TextInput
+            ref={inputRef}
             value={value}
             onChangeText={onChangeText}
+            onFocus={() => onInputFocus?.(inputRef.current)}
             placeholder={placeholder}
             placeholderTextColor={ScanV2Colors.ter}
             allowFontScaling={false}
