@@ -5,9 +5,8 @@
  * review / rose failed), poster + title + theater, only-present chips
  * (datetime / seat / format), price + rated badge, and per-status affordance.
  *
- * Scope note: Edit / Confirm-match open the Edit sheet, which is PR 2 — so for
- * matched/review tickets we render the status itself (no edit button), and the
- * only per-card action is "Search manually" on a failed ticket (opens the
+ * Per-status affordance: matched → Edit (pencil, muted); review → Confirm match
+ * (rose) — both open the Edit sheet; failed → Search manually (rose, opens the
  * Resolve dialog). Block-on-unknown is enforced at the screen level.
  */
 
@@ -26,6 +25,7 @@ interface ReviewCardProps {
   ticket: TicketVM;
   onSearch: (id: string) => void;
   onRemove: (id: string) => void;
+  onEdit: (id: string) => void;
 }
 
 function railColor(status: TicketVM['status']): string {
@@ -34,7 +34,7 @@ function railColor(status: TicketVM['status']): string {
   return ScanV2Accent.primary;
 }
 
-export function ReviewCard({ ticket, onSearch, onRemove }: ReviewCardProps) {
+export function ReviewCard({ ticket, onSearch, onRemove, onEdit }: ReviewCardProps) {
   const failed = ticket.status === 'failed';
   const review = ticket.status === 'review';
   const f = ticket.fields;
@@ -136,6 +136,18 @@ export function ReviewCard({ ticket, onSearch, onRemove }: ReviewCardProps) {
               <Pressable onPress={() => onSearch(ticket.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: s(5), padding: s(2) } as ViewStyle}>
                 <Icon name="search" size={s(15)} color={ScanV2Accent.primary} />
                 <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), color: ScanV2Accent.primary }}>Search manually</ScanText>
+              </Pressable>
+            )}
+            {review && (
+              <Pressable onPress={() => onEdit(ticket.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: s(5), padding: s(2) } as ViewStyle}>
+                <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), color: ScanV2Accent.primary }}>Confirm match</ScanText>
+                <Icon name="arrowR" size={s(15)} color={ScanV2Accent.primary} />
+              </Pressable>
+            )}
+            {ticket.status === 'matched' && (
+              <Pressable onPress={() => onEdit(ticket.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: s(5), padding: s(2) } as ViewStyle}>
+                <Icon name="pencil" size={s(15)} color={ScanV2Colors.sec} />
+                <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), color: ScanV2Colors.sec }}>Edit</ScanText>
               </Pressable>
             )}
           </View>

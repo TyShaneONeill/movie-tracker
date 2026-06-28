@@ -46,6 +46,7 @@ interface ScreenCameraProps {
   onUpload: () => void;
   onContinue: () => void;
   onClose: () => void;
+  onEdit: (id: string) => void;
 }
 
 const EMPTY_INSET: FrameInset = { top: 13, right: 9, bottom: 16, left: 9 };
@@ -59,6 +60,7 @@ export function ScreenCamera({
   onUpload,
   onContinue,
   onClose,
+  onEdit,
 }: ScreenCameraProps) {
   const camRef = useRef<CameraView>(null);
   const insets = useSafeAreaInsets();
@@ -184,7 +186,7 @@ export function ScreenCamera({
         }}
         style={{ position: 'absolute', bottom: s(18) + insets.bottom, left: 0, right: 0, zIndex: 5, gap: s(12) }}
       >
-        {captures.length > 0 && <CaptureTray captures={captures} readyCount={readyCount} />}
+        {captures.length > 0 && <CaptureTray captures={captures} readyCount={readyCount} onEdit={onEdit} />}
 
         {captures.length > 0 && (
           <View style={{ paddingHorizontal: s(16) }}>
@@ -314,7 +316,7 @@ function AnalyzingOverlay() {
 // Collector-style capture tray
 // ============================================================================
 
-function CaptureTray({ captures, readyCount }: { captures: TicketVM[]; readyCount: number }) {
+function CaptureTray({ captures, readyCount, onEdit }: { captures: TicketVM[]; readyCount: number; onEdit: (id: string) => void }) {
   return (
     <View
       style={{
@@ -330,16 +332,19 @@ function CaptureTray({ captures, readyCount }: { captures: TicketVM[]; readyCoun
       <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(9,9,11,0.55)' }]} />
 
       {/* header */}
-      <View style={{ paddingHorizontal: s(6), paddingTop: s(3), paddingBottom: s(8) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: s(6), paddingTop: s(3), paddingBottom: s(8) }}>
         <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(11), letterSpacing: 1, color: 'rgba(255,255,255,0.55)' }}>
           {captures.length} CAPTURED
+        </ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(11.5), color: 'rgba(255,255,255,0.45)' }}>
+          Tap a card to edit
         </ScanText>
       </View>
 
       {/* card list */}
       <ScrollView style={{ maxHeight: s(146) }} contentContainerStyle={{ gap: s(7) }} showsVerticalScrollIndicator={false}>
         {captures.map((c) => (
-          <TrayRow key={c.id} ticket={c} />
+          <TrayRow key={c.id} ticket={c} onEdit={onEdit} />
         ))}
       </ScrollView>
 
@@ -352,7 +357,7 @@ function CaptureTray({ captures, readyCount }: { captures: TicketVM[]; readyCoun
   );
 }
 
-function TrayRow({ ticket }: { ticket: TicketVM }) {
+function TrayRow({ ticket, onEdit }: { ticket: TicketVM; onEdit: (id: string) => void }) {
   const failed = ticket.status === 'failed';
   const meta = failed
     ? "Couldn't read — review it"
@@ -361,7 +366,8 @@ function TrayRow({ ticket }: { ticket: TicketVM }) {
   const conf = ticket.confidence;
 
   return (
-    <View
+    <Pressable
+      onPress={() => onEdit(ticket.id)}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -405,6 +411,6 @@ function TrayRow({ ticket }: { ticket: TicketVM }) {
           <ScanText style={{ fontFamily: Fonts.mono.regular, fontSize: s(8.5), letterSpacing: 0.6, color: 'rgba(255,255,255,0.4)', marginTop: s(2) }}>MATCH</ScanText>
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }

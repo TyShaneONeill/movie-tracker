@@ -40,6 +40,7 @@ import { ScreenPermission } from './screen-permission';
 import { ScreenReview } from './screen-review';
 import { ScreenUnable } from './screen-unable';
 import { ResolveDialog } from './resolve-dialog';
+import { EditSheet } from './edit-sheet';
 
 type Stage = 'camera' | 'permission' | 'unable' | 'review';
 
@@ -72,6 +73,7 @@ export function ScanV2Flow() {
   const [showDupNotice, setShowDupNotice] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showResolve, setShowResolve] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Request camera permission once on mount if we can still ask.
   useEffect(() => {
@@ -97,6 +99,17 @@ export function ScanV2Flow() {
   const vms = useMemo(() => items.map(toTicketVM), [items]);
   const failedVms = vms.filter((v) => v.status === 'failed');
   const readyCount = vms.length - failedVms.length;
+
+  const editingItem = editingId ? items.find((i) => i.id === editingId) ?? null : null;
+  const editingVM = editingId ? vms.find((v) => v.id === editingId) ?? null : null;
+
+  const handleSaveEdit = useCallback(
+    (updated: ProcessedTicket) => {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? { ...i, ticket: updated } : i)));
+      setEditingId(null);
+    },
+    [editingId]
+  );
 
   const appendResult = useCallback((result: ProcessedScanResult) => {
     setScansRemaining(result.scansRemaining);
@@ -258,6 +271,7 @@ export function ScanV2Flow() {
           onUpload={handleUpload}
           onContinue={handleContinue}
           onClose={handleClose}
+          onEdit={setEditingId}
         />
       )}
 
@@ -285,6 +299,7 @@ export function ScanV2Flow() {
             onDismissDup={() => setShowDupNotice(false)}
             onSearch={() => setShowResolve(true)}
             onRemove={handleRemove}
+            onEdit={setEditingId}
             onResolve={() => setShowResolve(true)}
             onSave={handleSave}
             onBack={() => setStage('camera')}
@@ -299,6 +314,15 @@ export function ScanV2Flow() {
             onClose={() => setShowResolve(false)}
           />
         </>
+      )}
+
+      {editingItem && editingVM && (
+        <EditSheet
+          vm={editingVM}
+          ticket={editingItem.ticket}
+          onClose={() => setEditingId(null)}
+          onSave={handleSaveEdit}
+        />
       )}
     </View>
   );

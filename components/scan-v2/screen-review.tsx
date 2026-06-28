@@ -28,6 +28,7 @@ interface ScreenReviewProps {
   onDismissDup: () => void;
   onSearch: (id: string) => void;
   onRemove: (id: string) => void;
+  onEdit: (id: string) => void;
   onResolve: () => void;
   onSave: () => void;
   onBack: () => void;
@@ -42,6 +43,7 @@ export function ScreenReview({
   onDismissDup,
   onSearch,
   onRemove,
+  onEdit,
   onResolve,
   onSave,
   onBack,
@@ -93,7 +95,7 @@ export function ScreenReview({
         )}
 
         {tickets.map((t) => (
-          <ReviewCard key={t.id} ticket={t} onSearch={onSearch} onRemove={onRemove} />
+          <ReviewCard key={t.id} ticket={t} onSearch={onSearch} onRemove={onRemove} onEdit={onEdit} />
         ))}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: s(6), marginTop: s(2) }}>

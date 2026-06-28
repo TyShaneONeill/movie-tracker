@@ -8,7 +8,8 @@
  * (`lib/scan-save.ts`) operates on the unchanged source record.
  */
 
-import type { ProcessedTicket } from '@/lib/ticket-processor';
+import type { ProcessedTicket, TMDBMatch } from '@/lib/ticket-processor';
+import type { TMDBMovie } from '@/lib/tmdb.types';
 
 export type TicketStatus = 'matched' | 'review' | 'failed';
 
@@ -130,4 +131,107 @@ export function toTicketVM(item: ScanTicketItem): TicketVM {
   if (ticket.auditorium) fields.auditorium = ticket.auditorium;
 
   return { id: item.id, status, confidence, movie, fields };
+}
+
+// ============================================================================
+// Edit Ticket — form <-> ProcessedTicket mapping (PR 2)
+// ============================================================================
+
+/**
+ * Flat, edit-friendly form shape for the Edit Ticket sheet. Mirrors the
+ * prototype's `fields` bag but keeps the raw editable values (split seat
+ * row/seat, ISO date, raw price text) rather than the display-formatted strings
+ * the read-only VM exposes. The Edit sheet seeds from `seedEditForm`, mutates
+ * this locally, and writes back via `applyTicketEdits`.
+ */
+export interface TicketEditForm {
+  theater: string;
+  /** ISO `YYYY-MM-DD` (or '' when unset) — formatted for display at render. */
+  dateISO: string;
+  /** Showtime label, e.g. `7:30 PM`. */
+  time: string;
+  rated: string;
+  auditorium: string;
+  row: string;
+  seat: string;
+  /** Raw price text as typed, e.g. `$12.00`. */
+  price: string;
+  format: string;
+  type: string;
+}
+
+/** Seed an edit form from the underlying processed ticket. */
+export function seedEditForm(ticket: ProcessedTicket): TicketEditForm {
+  return {
+    theater: ticket.theaterName || ticket.theaterChain || '',
+    dateISO: ticket.date || '',
+    time: ticket.showtime || '',
+    rated: ticket.mpaaRating || '',
+    auditorium: ticket.auditorium || '',
+    row: ticket.seatRow || '',
+    seat: ticket.seatNumber || '',
+    price: ticket.priceAmount != null ? `$${ticket.priceAmount.toFixed(2)}` : '',
+    format: ticket.format || '',
+    type: ticket.ticketType || '',
+  };
+}
+
+/** Render an ISO `YYYY-MM-DD` as the design's `Mon D, YYYY` (or '' when unset). */
+export function formatEditDate(iso: string): string {
+  return formatTicketDate(iso || null) ?? '';
+}
+
+function parsePriceText(text: string): number | null {
+  const cleaned = text.replace(/[^0-9.]/g, '');
+  if (!cleaned) return null;
+  const value = parseFloat(cleaned);
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Fold the edited form (and optional new movie) back into a ProcessedTicket so
+ * the flow can re-derive its VM. A movie change clears the block-on-unknown:
+ * `tmdbMatch` is replaced at full confidence and processing errors are dropped,
+ * which flips a `failed`/`review` ticket to `matched`. When the movie is
+ * unchanged the existing match/confidence/status are preserved.
+ */
+export function applyTicketEdits(
+  ticket: ProcessedTicket,
+  form: TicketEditForm,
+  movie: TMDBMovie | null
+): ProcessedTicket {
+  const theater = form.theater.trim();
+  const next: ProcessedTicket = {
+    ...ticket,
+    theaterName: theater || null,
+    // theaterChain is a separate AI classification (AMC/Regal/…) that this form
+    // does NOT edit — carry it through untouched so editing a ticket never drops
+    // the chain (it's persisted distinctly as user_movies.theater_chain).
+    theaterChain: ticket.theaterChain,
+    showtime: form.time.trim() || null,
+    date: form.dateISO.trim() || null,
+    seatRow: form.row.trim() || null,
+    seatNumber: form.seat.trim() || null,
+    ticketType: form.type.trim() || null,
+    priceAmount: parsePriceText(form.price),
+    priceCurrency: ticket.priceCurrency || 'USD',
+    format: form.format.trim() || null,
+    auditorium: form.auditorium.trim() || null,
+    mpaaRating: form.rated.trim() || null,
+    wasModified: true,
+  };
+
+  const changedMovie = movie != null && movie.id !== ticket.tmdbMatch?.movie.id;
+  if (changedMovie) {
+    const tmdbMatch: TMDBMatch = {
+      movie,
+      confidence: 1,
+      matchedTitle: movie.title,
+      originalTitle: ticket.movieTitle || '',
+    };
+    next.tmdbMatch = tmdbMatch;
+    next.processingErrors = [];
+  }
+
+  return next;
 }
