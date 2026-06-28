@@ -10,6 +10,7 @@
 import React from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
@@ -45,6 +46,7 @@ export function ScreenReview({
   onSave,
   onBack,
 }: ScreenReviewProps) {
+  const insets = useSafeAreaInsets();
   const ready = tickets.filter((t) => t.status !== 'failed');
   const failed = tickets.filter((t) => t.status === 'failed');
   const blocked = failed.length > 0;
@@ -64,7 +66,7 @@ export function ScreenReview({
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: s(4), paddingHorizontal: s(16), paddingBottom: blocked ? s(178) : s(124), gap: s(12) }}
+        contentContainerStyle={{ paddingTop: s(4), paddingHorizontal: s(16), paddingBottom: (blocked ? s(178) : s(124)) + insets.bottom, gap: s(12) }}
         showsVerticalScrollIndicator={false}
       >
         {showDupNotice && duplicatesRemoved > 0 && (
@@ -102,8 +104,8 @@ export function ScreenReview({
         </View>
       </ScrollView>
 
-      {/* sticky CTA */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: s(14), paddingHorizontal: s(16), paddingBottom: s(28), gap: s(10) }}>
+      {/* sticky CTA — clears the home indicator now the tab bar is hidden */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: s(14), paddingHorizontal: s(16), paddingBottom: Math.max(s(28), insets.bottom + s(14)), gap: s(10) }}>
         <LinearGradient
           colors={['transparent', ScanV2Colors.bg]}
           locations={[0, 0.38]}

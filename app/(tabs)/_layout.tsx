@@ -25,6 +25,16 @@ export default function TabLayout() {
         const routes = state.routes;
         const activeRoute = routes[state.index];
 
+        // Full-screen takeovers (Ticket Scan v2) hide the bar by setting
+        // `tabBarStyle: { display: 'none' }` on the active route while focused.
+        // With the flag off no screen sets this, so the bar renders as before.
+        const activeTabBarStyle = activeRoute
+          ? (descriptors[activeRoute.key]?.options.tabBarStyle as unknown as { display?: string } | undefined)
+          : undefined;
+        if (activeTabBarStyle?.display === 'none') {
+          return null;
+        }
+
         const visibleRoutes = routes.filter(r => r.name !== 'popcorn');
         const activeIndex = visibleRoutes.findIndex(r => r.key === activeRoute?.key);
 

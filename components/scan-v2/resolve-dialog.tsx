@@ -125,8 +125,8 @@ export function ResolveDialog({
                         </View>
                       </View>
                       <View style={{ flexDirection: 'row', gap: s(8), marginTop: s(11) }}>
-                        <PillButton icon="search" label="Find movie" onPress={() => setSearchingId(tkt.id)} style={{ flex: 2 }} />
-                        <PillButton kind="ghost" icon="trash" label="Remove" onPress={() => onRemoveTicket(tkt.id)} style={{ flex: 1 }} />
+                        <PillButton nowrap icon="search" label="Find movie" onPress={() => setSearchingId(tkt.id)} style={{ flex: 3, paddingHorizontal: s(12) }} />
+                        <PillButton nowrap kind="ghost" icon="trash" label="Remove" onPress={() => onRemoveTicket(tkt.id)} style={{ flex: 2, paddingHorizontal: s(12) }} />
                       </View>
                     </View>
                   );

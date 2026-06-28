@@ -12,7 +12,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Platform, Linking } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { ParamListBase } from '@react-navigation/native';
 import { useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
@@ -47,6 +49,21 @@ export function ScanV2Flow() {
   const { triggerAchievementCheck } = useAchievementCheck();
   const { scanTicket, isScanning } = useScanTicket();
   const [permission, requestPermission] = useCameraPermissions();
+  const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
+
+  // Full-screen takeover: the v2 flow covers the bottom CTAs and shutter row, so
+  // the parent tab bar must be hidden on every v2 stage (camera/review/unable/
+  // permission) and restored on blur/unmount. Gated on `flowActive` so the guest
+  // sign-in prompt — which still needs tab navigation — keeps the bar. The v1
+  // scanner never mounts this flow, so with the flag off the tab bar is untouched.
+  const flowActive = !!user && !isAuthLoading;
+  useFocusEffect(
+    useCallback(() => {
+      if (!flowActive) return;
+      navigation.setOptions({ tabBarStyle: { display: 'none' } });
+      return () => navigation.setOptions({ tabBarStyle: undefined });
+    }, [navigation, flowActive])
+  );
 
   const [stage, setStage] = useState<Stage>('camera');
   const [items, setItems] = useState<ScanTicketItem[]>([]);

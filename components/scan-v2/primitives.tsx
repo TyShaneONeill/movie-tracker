@@ -262,6 +262,8 @@ interface PillButtonProps {
   iconRight?: ScanIconName;
   full?: boolean;
   disabled?: boolean;
+  /** Keep the icon + label on a single line (for tight side-by-side buttons). */
+  nowrap?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -286,6 +288,7 @@ export function PillButton({
   iconRight,
   full,
   disabled,
+  nowrap,
   style,
 }: PillButtonProps) {
   const c = pillColors(kind);
@@ -298,7 +301,7 @@ export function PillButton({
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          flexWrap: 'wrap',
+          flexWrap: nowrap ? 'nowrap' : 'wrap',
           gap: s(8),
           minHeight: s(34),
           paddingVertical: s(9),
@@ -315,12 +318,14 @@ export function PillButton({
     >
       {icon ? <Icon name={icon} size={s(17)} color={c.fg} /> : null}
       <ScanText
+        numberOfLines={nowrap ? 1 : undefined}
         style={{
           fontFamily: Fonts.inter.semibold,
           fontSize: s(15),
           lineHeight: s(17.25),
           color: c.fg,
           textAlign: 'center',
+          flexShrink: nowrap ? 1 : 0,
         }}
       >
         {label}
@@ -474,8 +479,31 @@ function Corner({ pos }: { pos: 'tl' | 'tr' | 'bl' | 'br' }) {
   return <View style={[base, map[pos], { borderColor: ScanV2Accent.primary }]} />;
 }
 
+// Builds an even-odd fill path: a full-screen rectangle with a rounded-corner
+// rectangular hole punched out. The hole's corner radius matches the bracket
+// radius so the dim surround lines up with the rounded brackets (no square
+// corners). The inside of the hole stays fully clear (camera unobscured).
+function cutoutPath(W: number, H: number, x: number, y: number, w: number, h: number, r: number): string {
+  const outer = `M0 0 H${W} V${H} H0 Z`;
+  const right = x + w;
+  const bottom = y + h;
+  const hole =
+    `M${x + r} ${y}` +
+    `H${right - r}` +
+    `A${r} ${r} 0 0 1 ${right} ${y + r}` +
+    `V${bottom - r}` +
+    `A${r} ${r} 0 0 1 ${right - r} ${bottom}` +
+    `H${x + r}` +
+    `A${r} ${r} 0 0 1 ${x} ${bottom - r}` +
+    `V${y + r}` +
+    `A${r} ${r} 0 0 1 ${x + r} ${y}` +
+    `Z`;
+  return `${outer} ${hole}`;
+}
+
 export function ScanFrame({ sweep = true, inset = { top: 13, right: 9, bottom: 16, left: 9 } }: ScanFrameProps) {
   const sweepAnim = React.useRef(new Animated.Value(0)).current;
+  const [size, setSize] = React.useState({ w: 0, h: 0 });
 
   React.useEffect(() => {
     if (!sweep) return;
@@ -500,9 +528,6 @@ export function ScanFrame({ sweep = true, inset = { top: 13, right: 9, bottom: 1
 
   const pct = (n: number): DimensionValue => `${n}%`;
 
-  // Dim mask around the frame (cutout effect).
-  const dim = StyleSheet.absoluteFillObject;
-
   const frameStyle: ViewStyle = {
     position: 'absolute',
     top: pct(inset.top),
@@ -512,23 +537,34 @@ export function ScanFrame({ sweep = true, inset = { top: 13, right: 9, bottom: 1
     borderRadius: s(12),
   };
 
+  // Geometry of the clear cutout, derived from the measured container so it
+  // exactly tracks the same box the percentage insets describe — and recomputes
+  // when the inset shrinks from the bottom (EMPTY_INSET -> TRAY_INSET as the
+  // capture tray appears). `holeH` is the live inner-frame height the sweep
+  // travels, so the line spans the full frame at every inset.
+  const { w: W, h: H } = size;
+  const holeX = (inset.left / 100) * W;
+  const holeY = (inset.top / 100) * H;
+  const holeW = W - ((inset.left + inset.right) / 100) * W;
+  const holeH = H - ((inset.top + inset.bottom) / 100) * H;
+  const r = Math.max(0, Math.min(s(10), holeW / 2, holeH / 2));
+  const ready = W > 0 && H > 0 && holeW > 0 && holeH > 0;
+
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* dim mask: four rects around the frame cutout */}
-      <View style={[dim, { bottom: undefined, height: pct(inset.top), backgroundColor: DIM }]} />
-      <View style={[dim, { top: undefined, height: pct(inset.bottom), backgroundColor: DIM }]} />
-      <View
-        style={[
-          dim,
-          { top: pct(inset.top), bottom: pct(inset.bottom), right: undefined, width: pct(inset.left), backgroundColor: DIM },
-        ]}
-      />
-      <View
-        style={[
-          dim,
-          { top: pct(inset.top), bottom: pct(inset.bottom), left: undefined, width: pct(inset.right), backgroundColor: DIM },
-        ]}
-      />
+    <View
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setSize((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
+      }}
+    >
+      {/* dim surround with a rounded-corner cutout aligned to the brackets */}
+      {ready ? (
+        <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
+          <Path d={cutoutPath(W, H, holeX, holeY, holeW, holeH, r)} fill={DIM} fillRule="evenodd" />
+        </Svg>
+      ) : null}
 
       {/* frame + corners + sweep */}
       <View style={frameStyle}>
@@ -553,7 +589,7 @@ export function ScanFrame({ sweep = true, inset = { top: 13, right: 9, bottom: 1
                   {
                     translateY: sweepAnim.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0, s(220)],
+                      outputRange: [0, holeH],
                     }),
                   },
                 ],

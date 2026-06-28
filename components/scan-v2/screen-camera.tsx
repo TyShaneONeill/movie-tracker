@@ -21,6 +21,7 @@ import {
 import { CameraView } from 'expo-camera';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
@@ -59,6 +60,7 @@ export function ScreenCamera({
   onClose,
 }: ScreenCameraProps) {
   const camRef = useRef<CameraView>(null);
+  const insets = useSafeAreaInsets();
   const [torch, setTorch] = useState(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
   const [busy, setBusy] = useState(false);
@@ -159,8 +161,8 @@ export function ScreenCamera({
         </View>
       )}
 
-      {/* bottom controls */}
-      <View style={{ position: 'absolute', bottom: s(18), left: 0, right: 0, zIndex: 5, gap: s(12) }}>
+      {/* bottom controls — lifted above the home indicator now the tab bar is hidden */}
+      <View style={{ position: 'absolute', bottom: s(18) + insets.bottom, left: 0, right: 0, zIndex: 5, gap: s(12) }}>
         {captures.length > 0 && <CaptureTray captures={captures} readyCount={readyCount} />}
 
         {captures.length > 0 && (
