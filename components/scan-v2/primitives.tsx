@@ -51,6 +51,9 @@ export type ScanIconName =
   | 'x'
   | 'check'
   | 'chevR'
+  | 'chevL'
+  | 'chevD'
+  | 'calendar'
   | 'pencil'
   | 'search'
   | 'clock'
@@ -112,6 +115,20 @@ export function Icon({ name, size = 20, color = ScanV2Colors.text, stroke = 2 }:
       break;
     case 'chevR':
       body = <Path {...p} d="M10 6l6 6-6 6" />;
+      break;
+    case 'chevL':
+      body = <Path {...p} d="M14 6l-6 6 6 6" />;
+      break;
+    case 'chevD':
+      body = <Path {...p} d="M6 9l6 6 6-6" />;
+      break;
+    case 'calendar':
+      body = (
+        <>
+          <Rect {...p} x={3} y={5} width={18} height={16} rx={2.5} />
+          <Path {...p} d="M3 10h18M8 3v4M16 3v4" />
+        </>
+      );
       break;
     case 'pencil':
       body = (
