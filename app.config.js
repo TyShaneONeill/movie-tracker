@@ -131,6 +131,12 @@ export default {
           cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to capture ticket photos and take your profile picture.",
         },
       ],
+      [
+        "expo-camera",
+        {
+          cameraPermission: "PocketStubs uses the camera to scan your movie tickets.",
+        },
+      ],
       "@react-native-community/datetimepicker",
       [
         "react-native-google-mobile-ads",

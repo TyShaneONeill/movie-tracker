@@ -152,6 +152,13 @@ export const Fonts = {
     bold: 'Outfit_700Bold',
     extrabold: 'Outfit_800ExtraBold',
   },
+  // JetBrains Mono variants (ticket / metadata microcopy)
+  // Registered in app/_layout.tsx via @expo-google-fonts/jetbrains-mono.
+  mono: {
+    regular: 'JetBrainsMono_400Regular',
+    medium: 'JetBrainsMono_500Medium',
+    bold: 'JetBrainsMono_700Bold',
+  },
   // Legacy aliases for backwards compatibility
   sans: Platform.select({
     ios: 'Inter_400Regular',
