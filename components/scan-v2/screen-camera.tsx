@@ -62,12 +62,17 @@ export function ScreenCamera({
   const [torch, setTorch] = useState(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
   const [busy, setBusy] = useState(false);
+  // Synchronous re-entrancy guard: `busy` is React state and two rapid taps can
+  // both read it as false before the first setBusy flushes, double-firing the
+  // shutter and wasting a (rate-limited) scan. The ref flips synchronously.
+  const busyRef = useRef(false);
 
   const remaining = scansLeft;
   const readyCount = captures.filter((c) => c.status !== 'failed').length;
 
   const shoot = useCallback(async () => {
-    if (busy || scanning || remaining <= 0) return;
+    if (busyRef.current || scanning || remaining <= 0) return;
+    busyRef.current = true;
     setBusy(true);
     // 110ms white flash
     Animated.sequence([
@@ -80,9 +85,10 @@ export function ScreenCamera({
         onShutter(photo.base64, 'image/jpeg');
       }
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
-  }, [busy, scanning, remaining, onShutter, flashAnim]);
+  }, [scanning, remaining, onShutter, flashAnim]);
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', overflow: 'hidden' }]}>
