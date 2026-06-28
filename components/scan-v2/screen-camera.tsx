@@ -9,7 +9,7 @@
  * Dark-only; recreates `ScreenCamera` from scan-screens.jsx.
  */
 
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Pressable,
@@ -17,6 +17,7 @@ import {
   Easing,
   StyleSheet,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { CameraView } from 'expo-camera';
 import { BlurView } from 'expo-blur';
@@ -61,6 +62,8 @@ export function ScreenCamera({
 }: ScreenCameraProps) {
   const camRef = useRef<CameraView>(null);
   const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
+  const [bottomH, setBottomH] = useState(0);
   const [torch, setTorch] = useState(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
   const [busy, setBusy] = useState(false);
@@ -71,6 +74,18 @@ export function ScreenCamera({
 
   const remaining = scansLeft;
   const readyCount = captures.filter((c) => c.status !== 'failed').length;
+
+  // The frame's bottom inset must always clear the bottom-controls stack, which
+  // grows with 2+ captures (tray height) — a fixed % collides with the live
+  // preview. Derive it from the measured stack height so the frame's bottom edge
+  // always sits a gap above the controls, at any capture count.
+  const frameInset = useMemo<FrameInset>(() => {
+    if (!captures.length) return EMPTY_INSET;
+    if (!bottomH || !winH) return TRAY_INSET; // pre-measure fallback (first frame)
+    const clearPx = s(18) + insets.bottom + bottomH + s(16); // stack offset + height + gap
+    const bottomPct = Math.min(64, Math.max(TRAY_INSET.bottom, (clearPx / winH) * 100));
+    return { top: 11, right: 9, bottom: bottomPct, left: 9 };
+  }, [captures.length, bottomH, winH, insets.bottom]);
 
   const shoot = useCallback(async () => {
     if (busyRef.current || scanning || remaining <= 0) return;
@@ -97,7 +112,7 @@ export function ScreenCamera({
       <CameraView ref={camRef} style={StyleSheet.absoluteFill} facing="back" enableTorch={torch} />
 
       {/* scan frame + dim mask (hidden while analyzing) */}
-      {!scanning && <ScanFrame sweep inset={captures.length ? TRAY_INSET : EMPTY_INSET} />}
+      {!scanning && <ScanFrame sweep inset={frameInset} />}
 
       {/* white flash */}
       <Animated.View
@@ -162,7 +177,13 @@ export function ScreenCamera({
       )}
 
       {/* bottom controls — lifted above the home indicator now the tab bar is hidden */}
-      <View style={{ position: 'absolute', bottom: s(18) + insets.bottom, left: 0, right: 0, zIndex: 5, gap: s(12) }}>
+      <View
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          setBottomH((prev) => (Math.abs(prev - h) < 1 ? prev : h));
+        }}
+        style={{ position: 'absolute', bottom: s(18) + insets.bottom, left: 0, right: 0, zIndex: 5, gap: s(12) }}
+      >
         {captures.length > 0 && <CaptureTray captures={captures} readyCount={readyCount} />}
 
         {captures.length > 0 && (
