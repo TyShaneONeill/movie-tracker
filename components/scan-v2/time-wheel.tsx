@@ -3,20 +3,25 @@
  *
  * Native recreation of the prototype's `TimeWheel`/`WheelColumn`: three
  * snap-scrolling wheels (Hour 1–12 · Minute 00–59 · AM/PM), 5 rows tall, a
- * center selection band, a big rose label, quick chips, and a Set time CTA.
+ * center selection band, a big rose label, and a Set time CTA.
  *
  * Replaces preset showtime lists so ANY time is reachable (a home watch could be
  * 3 AM). Each column initializes scrolled to its current value (rAF-aligned after
- * layout) and snaps to the nearest item on settle.
+ * layout) and snaps to the nearest item on settle. Drag/flick is the primary
+ * interaction; tapping a visible row also selects it.
  *
  * Native snap details (mirrors the README §3b warnings about looping/hanging):
  *  - The item height is ROUNDED to an integer (`ITEM`) so the snap interval never
  *    drifts on sub-pixel scales.
+ *  - `nestedScrollEnabled` keeps the columns drag-scrollable on Android even when
+ *    rendered inside a sheet (a same-axis parent ScrollView would otherwise
+ *    swallow the pan — the picker now hosts the wheel in a plain View to avoid
+ *    that, and this is the belt-and-braces guard).
  *  - We never re-scroll inside the scroll handler; `snapToInterval` does the
  *    snapping and we only read the settled index on `onMomentumScrollEnd` /
- *    `onScrollEndDrag`. Programmatic scrolls happen only on mount, a tap, or an
- *    external value change (quick chips), each guarded by `lastIndex` so a
- *    settle that matches the current value can't trigger a feedback re-scroll.
+ *    `onScrollEndDrag`. Programmatic scrolls happen only on mount or a tap, each
+ *    guarded by `lastIndex` so a settle that matches the current value can't
+ *    trigger a feedback re-scroll.
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
@@ -55,8 +60,6 @@ export function parseTimeLabel(str: string | undefined): ParsedTime {
   return { h: 7, min: 30, ap: 'PM' };
 }
 
-const QUICK_CHIPS = ['12:00 PM', '3:00 PM', '7:30 PM', '12:00 AM'];
-
 interface WheelColumnProps<T extends string | number> {
   items: T[];
   value: T;
@@ -88,17 +91,6 @@ function WheelColumn<T extends string | number>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // External value changes (quick chips) scroll the column — guarded so a
-  // settle-driven change can't bounce the scroll position.
-  useEffect(() => {
-    const i = idxOf(value);
-    if (i !== lastIndex.current) {
-      lastIndex.current = i;
-      scrollRef.current?.scrollTo({ y: i * ITEM, animated: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
   const onSettle = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const y = e.nativeEvent.contentOffset.y;
@@ -120,6 +112,7 @@ function WheelColumn<T extends string | number>({
       showsVerticalScrollIndicator={false}
       snapToInterval={ITEM}
       decelerationRate="fast"
+      nestedScrollEnabled
       onMomentumScrollEnd={onSettle}
       onScrollEndDrag={onSettle}
       contentContainerStyle={{ paddingVertical: ITEM * 2 }}
@@ -213,34 +206,7 @@ export function TimeWheel({ current, onPick }: TimeWheelProps) {
         <WheelColumn items={ampm} value={ap} onChange={setAp} width={colW} />
       </View>
 
-      {/* quick chips */}
-      <View style={{ flexDirection: 'row', gap: s(8), marginTop: s(14) }}>
-        {QUICK_CHIPS.map((q) => (
-          <Pressable
-            key={q}
-            onPress={() => {
-              const p = parseTimeLabel(q);
-              setH(p.h);
-              setMin(p.min);
-              setAp(p.ap);
-            }}
-            style={{
-              flex: 1,
-              minHeight: s(32),
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 999,
-              backgroundColor: ScanV2Colors.field,
-              borderWidth: 1,
-              borderColor: ScanV2Colors.line,
-            }}
-          >
-            <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(11.5), lineHeight: s(14), color: ScanV2Colors.sec }}>{q}</ScanText>
-          </Pressable>
-        ))}
-      </View>
-
-      <PillButton full icon="check" label="Set time" onPress={() => onPick(label)} style={{ marginTop: s(16) }} />
+      <PillButton full icon="check" label="Set time" onPress={() => onPick(label)} style={{ marginTop: s(20) }} />
     </View>
   );
 }
