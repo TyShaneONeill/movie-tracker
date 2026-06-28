@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cinetrak is a React Native mobile app (iOS, Android, Web) built with Expo and expo-router for file-based routing.
 
+## Judgment calls
+
+When you hit an ambiguous decision this file and the task brief don't settle — quick fix vs real feature, ship now vs harden first, is this audit finding actually real, which approach fits — read `~/OPINIONS.md` if it's present and resolve it the way the owner would. It's a living map of his taste, consistent tradeoffs, and judgment (distinct from these instructions, which are *how* to work, not *what he believes*). It's optional context: if the file isn't there (e.g. a cloud/CI session), proceed with the conventions in this file.
+
 ## First-time setup
 
 See [`docs/operations/dev-environment-setup.md`](docs/operations/dev-environment-setup.md) — covers prerequisites (Node, Xcode, Homebrew), Doppler binding, gitleaks pre-commit hook, and account access requests.
