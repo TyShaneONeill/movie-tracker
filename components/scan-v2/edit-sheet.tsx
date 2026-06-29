@@ -40,6 +40,7 @@ import {
 } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
@@ -90,6 +91,14 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
   const [picker, setPicker] = useState<PickerKind | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const kbHeight = useKeyboardHeight();
+  const insets = useSafeAreaInsets();
+
+  // Opening any picker must dismiss the keyboard first — otherwise the overlay
+  // pops up BEHIND the still-open keyboard and can't be interacted with.
+  const openPicker = useCallback((kind: PickerKind) => {
+    Keyboard.dismiss();
+    setPicker(kind);
+  }, []);
 
   // Keyboard avoidance: scroll the focused field above the keyboard.
   const scrollRef = useRef<ScrollView>(null);
@@ -105,7 +114,8 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
       input.measureInWindow((_x, y, _w, h) => {
         if (kbHeightRef.current <= 0) return;
         const kbTop = Dimensions.get('window').height - kbHeightRef.current;
-        const overlap = y + h + s(20) - kbTop;
+        // Extra margin so the FULL text box clears the keyboard (not flush).
+        const overlap = y + h + s(44) - kbTop;
         if (overlap > 0) {
           sv.scrollTo({ y: scrollY.current + overlap, animated: true });
         }
@@ -193,7 +203,7 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
             borderWidth: 1,
             borderBottomWidth: 0,
             borderColor: ScanV2Colors.line,
-            maxHeight: '92%',
+            maxHeight: '94%',
             overflow: 'hidden',
           }}
         >
@@ -272,7 +282,7 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
                     </ScanText>
                   </View>
                 </View>
-                <PillButton kind="soft" icon="search" label="Change" onPress={() => setPicker('movie')} />
+                <PillButton kind="soft" icon="search" label="Change" onPress={() => openPicker('movie')} />
               </View>
             </SectionCard>
 
@@ -280,9 +290,9 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
             <SectionCard title="From your ticket">
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: s(12) }}>
                 <EditField label="Theater" value={form.theater} onChangeText={(v) => set('theater', v)} onInputFocus={handleInputFocus} placeholder="Theater name" />
-                <EditField label="Date" value={formatEditDate(form.dateISO)} onTap={() => setPicker('date')} picker="calendar" placeholder="Pick date" />
-                <EditField label="Time" value={form.time} onTap={() => setPicker('time')} picker="clock" placeholder="Pick time" />
-                <EditField label="Rated" value={form.rated} onTap={() => setPicker('rated')} picker="info" placeholder="—" />
+                <EditField label="Date" value={formatEditDate(form.dateISO)} onTap={() => openPicker('date')} picker="calendar" placeholder="Pick date" />
+                <EditField label="Time" value={form.time} onTap={() => openPicker('time')} picker="clock" placeholder="Pick time" />
+                <EditField label="Rated" value={form.rated} onTap={() => openPicker('rated')} picker="info" placeholder="—" />
               </View>
             </SectionCard>
 
@@ -296,7 +306,7 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
                       label={o.label}
                       value={form[o.key]}
                       onChangeText={o.tap ? undefined : (v) => set(o.key, v)}
-                      onTap={o.tap ? () => setPicker(o.tap!) : undefined}
+                      onTap={o.tap ? () => openPicker(o.tap!) : undefined}
                       onInputFocus={o.tap ? undefined : handleInputFocus}
                       picker={o.icon}
                       placeholder={o.placeholder}
@@ -324,9 +334,11 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
             {/* "Also on your ticket — not tracked" — hidden for now */}
             {SHOW_UNTRACKED && <View />}
 
-            {/* keyboard safe-area spacer — live keyboard height on both
-                platforms so the focused field can always scroll above it */}
-            <View style={{ height: kbHeight + s(8) }} />
+            {/* bottom spacer — when the keyboard is up, reserve its height so the
+                focused field can always scroll above it; otherwise reserve the
+                home-indicator inset so the last field clears it and the form
+                scrolls comfortably to the very bottom. */}
+            <View style={{ height: (kbHeight > 0 ? kbHeight : insets.bottom) + s(8) }} />
           </ScrollView>
         </View>
 

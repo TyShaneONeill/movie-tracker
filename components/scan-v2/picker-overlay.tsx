@@ -1,9 +1,12 @@
 /**
  * Ticket Scan v2 — `PickerOverlay`.
  *
- * Native recreation of the prototype's stacked picker sheet (~78% h). Rendered
- * as an absolute overlay INSIDE the Edit sheet's modal so it never dismisses the
- * parent sheet or loses its scroll position (README "Critical native-platform").
+ * Native recreation of the prototype's stacked picker sheet. The sheet is
+ * content-height (capped at 90%) so there's no empty bottom gap; the time
+ * picker's "Set time" CTA lives in a sticky footer that owns the home-indicator
+ * inset and is always reachable. Rendered as an absolute overlay INSIDE the Edit
+ * sheet's modal so it never dismisses the parent sheet or loses its scroll
+ * position (README "Critical native-platform").
  *
  * Hosts, by `kind`:
  *  - `movie`  → live movie search (reuses `use-movie-search` +
@@ -16,7 +19,8 @@
  * Single-choice pickers (radio / time / date) render in a plain content-height
  * View — no inner scroll — so the whole short list is visible at once and the
  * Time Dial's wheel columns are the only vertical scrollers (a nested same-axis
- * ScrollView would otherwise swallow their drag on Android).
+ * ScrollView would otherwise swallow their drag on Android). The time picker
+ * commits via the sheet's sticky footer; radio/date commit on tap.
  *
  * Dark-only: built from `ScanV2Colors`/`ScanV2Accent`; all text via `ScanText`,
  * sizes via `s()`.
@@ -32,6 +36,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
@@ -40,8 +45,8 @@ import { useMovieSearch } from '@/hooks/use-movie-search';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { TicketMovieSearchResult } from '@/components/ticket-movie-search-result';
 import type { TMDBMovie } from '@/lib/tmdb.types';
-import { Icon, ScanText } from './primitives';
-import { TimeWheel } from './time-wheel';
+import { Icon, ScanText, PillButton } from './primitives';
+import { TimeWheel, parseTimeLabel } from './time-wheel';
 
 export type PickerKind = 'movie' | 'format' | 'rated' | 'type' | 'time' | 'date';
 
@@ -79,8 +84,20 @@ export function PickerOverlay({
   onPickMovie,
   onClose,
 }: PickerOverlayProps) {
+  const insets = useSafeAreaInsets();
   const radioItems =
     kind === 'format' ? FORMATS : kind === 'rated' ? RATINGS : kind === 'type' ? TICKET_TYPES : null;
+
+  // Live time label, kept in sync by the wheel, committed by the sticky footer.
+  const [timeLabel, setTimeLabel] = useState(() => {
+    const t = parseTimeLabel(currentValue);
+    return `${t.h}:${String(t.min).padStart(2, '0')} ${t.ap}`;
+  });
+
+  // Single-choice pickers (radio / date) commit on tap, so their last option
+  // just needs to clear the home indicator. The time picker commits from its
+  // sticky footer, which owns the safe-area inset instead.
+  const bodyBottom = s(20) + (kind === 'time' ? 0 : insets.bottom);
 
   return (
     <View style={{ position: 'absolute', inset: 0, zIndex: 40, justifyContent: 'flex-end' } as any}>
@@ -101,7 +118,9 @@ export function PickerOverlay({
             borderWidth: 1,
             borderBottomWidth: 0,
             borderColor: ScanV2Colors.line,
-            maxHeight: '78%',
+            // Content-height sheet (no fixed/min height → no empty bottom gap),
+            // capped so the tallest body (3 time wheels + label + footer) fits.
+            maxHeight: '90%',
             overflow: 'hidden',
           }}
         >
@@ -124,10 +143,27 @@ export function PickerOverlay({
           ) : (
             // Single-choice pickers: content-height, all options visible, no
             // inner scroll (keeps the Time Dial wheels as the only scrollers).
-            <View style={{ paddingHorizontal: s(16), paddingTop: s(2), paddingBottom: s(24) }}>
+            // `flexShrink` lets the body yield to the sticky footer if the
+            // viewport is short, so the action button is never pushed off-screen.
+            <View style={{ flexShrink: 1, paddingHorizontal: s(16), paddingTop: s(2), paddingBottom: bodyBottom }}>
               {radioItems && <RadioList items={radioItems} current={currentValue} onPick={onPickValue} />}
-              {kind === 'time' && <TimeWheel current={currentValue} onPick={onPickValue} />}
+              {kind === 'time' && <TimeWheel current={currentValue} onChange={setTimeLabel} />}
               {kind === 'date' && <DateGrid currentISO={currentValue || ''} onPick={onPickValue} />}
+            </View>
+          )}
+
+          {/* Sticky footer — the time picker's only commit path; always visible
+              regardless of content height, with the home-indicator inset. */}
+          {kind === 'time' && (
+            <View
+              style={{
+                flexShrink: 0,
+                paddingHorizontal: s(16),
+                paddingTop: s(8),
+                paddingBottom: insets.bottom + s(12),
+              }}
+            >
+              <PillButton full icon="check" label="Set time" onPress={() => onPickValue(timeLabel)} />
             </View>
           )}
         </View>
