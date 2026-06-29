@@ -17,6 +17,8 @@ import {
   Easing,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { CameraView } from 'expo-camera';
@@ -27,6 +29,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
+import { useRewardedAd } from '@/hooks/use-rewarded-ad';
+import { captureException } from '@/lib/sentry';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TicketVM } from '@/lib/scan-v2/ticket-view-model';
 import {
@@ -43,9 +47,12 @@ interface ScreenCameraProps {
   scansLeft: number;
   scanning: boolean;
   onShutter: (base64: string, mimeType: string) => void;
+  /** Grant a bonus scan after the user watches a rewarded ad. */
+  onEarnScan: () => void | Promise<void>;
   onUpload: () => void;
   onContinue: () => void;
   onClose: () => void;
+  onEdit: (id: string) => void;
 }
 
 const EMPTY_INSET: FrameInset = { top: 13, right: 9, bottom: 16, left: 9 };
@@ -56,9 +63,11 @@ export function ScreenCamera({
   scansLeft,
   scanning,
   onShutter,
+  onEarnScan,
   onUpload,
   onContinue,
   onClose,
+  onEdit,
 }: ScreenCameraProps) {
   const camRef = useRef<CameraView>(null);
   const insets = useSafeAreaInsets();
@@ -151,7 +160,10 @@ export function ScreenCamera({
         >
           <Icon name="x" size={s(19)} color="#fff" />
         </Pressable>
-        <ScansPill left={remaining} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8) }}>
+          <EarnScanBubble onEarn={onEarnScan} />
+          <ScansPill left={remaining} />
+        </View>
       </View>
 
       {/* hint chip */}
@@ -184,7 +196,7 @@ export function ScreenCamera({
         }}
         style={{ position: 'absolute', bottom: s(18) + insets.bottom, left: 0, right: 0, zIndex: 5, gap: s(12) }}
       >
-        {captures.length > 0 && <CaptureTray captures={captures} readyCount={readyCount} />}
+        {captures.length > 0 && <CaptureTray captures={captures} readyCount={readyCount} onEdit={onEdit} />}
 
         {captures.length > 0 && (
           <View style={{ paddingHorizontal: s(16) }}>
@@ -269,6 +281,83 @@ export function ScreenCamera({
 }
 
 // ============================================================================
+// Earn-a-scan bubble — watch a rewarded ad for +1 scan
+// ============================================================================
+
+/**
+ * Compact gold pill ("Watch Ad +1") that sits next to the scans pill — gold +
+ * explicit "Watch Ad" copy so it's clearly an ad opt-in, not a hidden one.
+ * Tapping it shows a
+ * rewarded ad (via the shared `useRewardedAd('scan')` abstraction, which is a
+ * no-op stub on web), and on reward earned calls `onEarn` to grant the bonus
+ * scan. Always rendered next to the pill — including at 0 scans left — so the
+ * user can top up. Reflects the ad's loading/showing state via opacity + a
+ * spinner. Mobile-only: hidden on web, mirroring v1's `RewardedAdButton`.
+ */
+function EarnScanBubble({ onEarn }: { onEarn: () => void | Promise<void> }) {
+  const { loaded, showAd, reloadAd } = useRewardedAd('scan');
+  const [showing, setShowing] = useState(false);
+
+  // Rewarded ads are AdMob mobile-only; web hook is a stub that never loads.
+  if (Platform.OS === 'web') return null;
+
+  const disabled = !loaded || showing;
+
+  const handlePress = async () => {
+    if (disabled) return;
+    setShowing(true);
+    try {
+      const earned = await showAd();
+      if (earned) {
+        await onEarn();
+        reloadAd();
+      }
+    } catch (err) {
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scan-v2-rewarded-ad' });
+    } finally {
+      setShowing(false);
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={disabled}
+      hitSlop={s(6)}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: s(5),
+        paddingVertical: s(7),
+        paddingHorizontal: s(11),
+        borderRadius: 999,
+        backgroundColor: 'rgba(251,191,36,0.14)',
+        borderWidth: 1,
+        borderColor: 'rgba(251,191,36,0.38)',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {showing ? (
+        <ActivityIndicator size="small" color={ScanV2Colors.amber} />
+      ) : (
+        <Icon name="plus" size={s(13)} color={ScanV2Colors.amber} stroke={2.4} />
+      )}
+      <ScanText
+        style={{
+          fontFamily: Fonts.mono.medium,
+          fontSize: s(11),
+          lineHeight: s(13),
+          letterSpacing: 0.3,
+          color: ScanV2Colors.amber,
+        }}
+      >
+        {showing ? 'AD…' : 'Watch Ad +1'}
+      </ScanText>
+    </Pressable>
+  );
+}
+
+// ============================================================================
 // Analyzing overlay
 // ============================================================================
 
@@ -314,7 +403,7 @@ function AnalyzingOverlay() {
 // Collector-style capture tray
 // ============================================================================
 
-function CaptureTray({ captures, readyCount }: { captures: TicketVM[]; readyCount: number }) {
+function CaptureTray({ captures, readyCount, onEdit }: { captures: TicketVM[]; readyCount: number; onEdit: (id: string) => void }) {
   return (
     <View
       style={{
@@ -330,16 +419,19 @@ function CaptureTray({ captures, readyCount }: { captures: TicketVM[]; readyCoun
       <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(9,9,11,0.55)' }]} />
 
       {/* header */}
-      <View style={{ paddingHorizontal: s(6), paddingTop: s(3), paddingBottom: s(8) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: s(6), paddingTop: s(3), paddingBottom: s(8) }}>
         <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(11), letterSpacing: 1, color: 'rgba(255,255,255,0.55)' }}>
           {captures.length} CAPTURED
+        </ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(11.5), color: 'rgba(255,255,255,0.45)' }}>
+          Tap a card to edit
         </ScanText>
       </View>
 
       {/* card list */}
       <ScrollView style={{ maxHeight: s(146) }} contentContainerStyle={{ gap: s(7) }} showsVerticalScrollIndicator={false}>
         {captures.map((c) => (
-          <TrayRow key={c.id} ticket={c} />
+          <TrayRow key={c.id} ticket={c} onEdit={onEdit} />
         ))}
       </ScrollView>
 
@@ -352,7 +444,7 @@ function CaptureTray({ captures, readyCount }: { captures: TicketVM[]; readyCoun
   );
 }
 
-function TrayRow({ ticket }: { ticket: TicketVM }) {
+function TrayRow({ ticket, onEdit }: { ticket: TicketVM; onEdit: (id: string) => void }) {
   const failed = ticket.status === 'failed';
   const meta = failed
     ? "Couldn't read — review it"
@@ -361,7 +453,8 @@ function TrayRow({ ticket }: { ticket: TicketVM }) {
   const conf = ticket.confidence;
 
   return (
-    <View
+    <Pressable
+      onPress={() => onEdit(ticket.id)}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -405,6 +498,6 @@ function TrayRow({ ticket }: { ticket: TicketVM }) {
           <ScanText style={{ fontFamily: Fonts.mono.regular, fontSize: s(8.5), letterSpacing: 0.6, color: 'rgba(255,255,255,0.4)', marginTop: s(2) }}>MATCH</ScanText>
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }

@@ -21,6 +21,8 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { ScanV2Colors } from '@/constants/scan-v2-theme';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
+import { analytics } from '@/lib/analytics';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { useScanTicket, fetchScanStatus, type ProcessedScanResult } from '@/hooks/use-scan-ticket';
 import { imageUriToBase64, getMimeTypeFromUri } from '@/lib/image-utils';
@@ -40,6 +42,7 @@ import { ScreenPermission } from './screen-permission';
 import { ScreenReview } from './screen-review';
 import { ScreenUnable } from './screen-unable';
 import { ResolveDialog } from './resolve-dialog';
+import { EditSheet } from './edit-sheet';
 
 type Stage = 'camera' | 'permission' | 'unable' | 'review';
 
@@ -72,6 +75,7 @@ export function ScanV2Flow() {
   const [showDupNotice, setShowDupNotice] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showResolve, setShowResolve] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Request camera permission once on mount if we can still ask.
   useEffect(() => {
@@ -97,6 +101,17 @@ export function ScanV2Flow() {
   const vms = useMemo(() => items.map(toTicketVM), [items]);
   const failedVms = vms.filter((v) => v.status === 'failed');
   const readyCount = vms.length - failedVms.length;
+
+  const editingItem = editingId ? items.find((i) => i.id === editingId) ?? null : null;
+  const editingVM = editingId ? vms.find((v) => v.id === editingId) ?? null : null;
+
+  const handleSaveEdit = useCallback(
+    (updated: ProcessedTicket) => {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? { ...i, ticket: updated } : i)));
+      setEditingId(null);
+    },
+    [editingId]
+  );
 
   const appendResult = useCallback((result: ProcessedScanResult) => {
     setScansRemaining(result.scansRemaining);
@@ -135,6 +150,22 @@ export function ScanV2Flow() {
     },
     [runScan]
   );
+
+  // Rewarded-ad bonus scan — parity with v1 scanner's `handleAdReward`. Granted
+  // after the user watches a rewarded ad (wired from the camera screen bubble).
+  const handleEarnScan = useCallback(async () => {
+    if (!user) return;
+    const { error: rpcError } = await supabase.rpc('increment_bonus_scans', {
+      p_user_id: user.id,
+    });
+    if (rpcError) {
+      captureException(new Error(rpcError.message), { context: 'scan-v2-increment-bonus-scans' });
+      return;
+    }
+    analytics.track('scan:bonus_granted');
+    const status = await fetchScanStatus();
+    setScansRemaining(status.scansRemaining);
+  }, [user]);
 
   const handleUpload = useCallback(async () => {
     try {
@@ -255,9 +286,11 @@ export function ScanV2Flow() {
           scansLeft={scansRemaining}
           scanning={isScanning}
           onShutter={handleShutter}
+          onEarnScan={handleEarnScan}
           onUpload={handleUpload}
           onContinue={handleContinue}
           onClose={handleClose}
+          onEdit={setEditingId}
         />
       )}
 
@@ -285,6 +318,7 @@ export function ScanV2Flow() {
             onDismissDup={() => setShowDupNotice(false)}
             onSearch={() => setShowResolve(true)}
             onRemove={handleRemove}
+            onEdit={setEditingId}
             onResolve={() => setShowResolve(true)}
             onSave={handleSave}
             onBack={() => setStage('camera')}
@@ -299,6 +333,15 @@ export function ScanV2Flow() {
             onClose={() => setShowResolve(false)}
           />
         </>
+      )}
+
+      {editingItem && editingVM && (
+        <EditSheet
+          vm={editingVM}
+          ticket={editingItem.ticket}
+          onClose={() => setEditingId(null)}
+          onSave={handleSaveEdit}
+        />
       )}
     </View>
   );
