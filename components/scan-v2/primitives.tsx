@@ -66,6 +66,7 @@ export type ScanIconName =
   | 'arrowR'
   | 'gear'
   | 'ticket'
+  | 'share'
   | 'plus';
 
 interface IconProps {
@@ -197,6 +198,14 @@ export function Icon({ name, size = 20, color = ScanV2Colors.text, stroke = 2 }:
       break;
     case 'plus':
       body = <Path {...p} d="M12 5v14M5 12h14" />;
+      break;
+    case 'share':
+      body = (
+        <>
+          <Path {...p} d="M12 3v13M12 3 8 7m4-4 4 4" />
+          <Path {...p} d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7" />
+        </>
+      );
       break;
     case 'gear':
       body = (
