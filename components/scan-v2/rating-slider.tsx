@@ -57,6 +57,7 @@ interface RatingSliderProps {
 
 export function RatingSlider({ value, onChange }: RatingSliderProps) {
   const widthRef = useRef(0);
+  const leftRef = useRef(0); // track's absolute page-X, captured at grant so drag math uses absolute coords
   const lastSnapRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -65,10 +66,10 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
   const thumbValue = value ?? 5;
   const pct = ratingToPct(thumbValue);
 
-  const handleAt = useCallback((locationX: number) => {
+  const handleAt = useCallback((absoluteX: number) => {
     const w = widthRef.current;
     if (w <= 0) return;
-    const next = pctToRating((locationX / w) * 100);
+    const next = pctToRating(((absoluteX - leftRef.current) / w) * 100);
     if (next !== lastSnapRef.current) {
       lastSnapRef.current = next;
       hapticSelection();
@@ -83,9 +84,14 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (e: GestureResponderEvent) => {
           lastSnapRef.current = null;
-          handleAt(e.nativeEvent.locationX);
+          // The grant event's locationX IS reliable (touch just landed on the
+          // track), so derive the track's absolute left from it, then drive the
+          // whole drag off absolute page coords. MOVE-event locationX is relative
+          // to whatever sub-view is under the finger and jumps around (RN Android).
+          leftRef.current = e.nativeEvent.pageX - e.nativeEvent.locationX;
+          handleAt(e.nativeEvent.pageX);
         },
-        onPanResponderMove: (e: GestureResponderEvent) => handleAt(e.nativeEvent.locationX),
+        onPanResponderMove: (e: GestureResponderEvent, g) => handleAt(g.moveX),
       }),
     [handleAt]
   );
