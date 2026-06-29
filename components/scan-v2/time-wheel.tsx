@@ -3,7 +3,9 @@
  *
  * Native recreation of the prototype's `TimeWheel`/`WheelColumn`: three
  * snap-scrolling wheels (Hour 1–12 · Minute 00–59 · AM/PM), 5 rows tall, a
- * center selection band, a big rose label, and a Set time CTA.
+ * center selection band, and a big rose label. The "Set time" CTA lives in the
+ * host sheet's sticky footer (always reachable); this component reports the live
+ * label up via `onChange` so the footer can commit it.
  *
  * Replaces preset showtime lists so ANY time is reachable (a home watch could be
  * 3 AM). Each column initializes scrolled to its current value (rAF-aligned after
@@ -36,7 +38,7 @@ import {
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
-import { ScanText, PillButton } from './primitives';
+import { ScanText } from './primitives';
 
 const VISIBLE_ROWS = 5;
 const COL_WIDTH = 64;
@@ -149,10 +151,12 @@ function WheelColumn<T extends string | number>({
 
 interface TimeWheelProps {
   current?: string;
-  onPick: (label: string) => void;
+  /** Reports the live label (fires on mount + every wheel change) so the host
+   *  sheet can commit it from a sticky footer button. */
+  onChange: (label: string) => void;
 }
 
-export function TimeWheel({ current, onPick }: TimeWheelProps) {
+export function TimeWheel({ current, onChange }: TimeWheelProps) {
   const init = parseTimeLabel(current);
   const [h, setH] = React.useState<number>(init.h);
   const [min, setMin] = React.useState<number>(init.min);
@@ -165,6 +169,12 @@ export function TimeWheel({ current, onPick }: TimeWheelProps) {
   const ITEM = Math.round(s(40));
   const label = `${h}:${String(min).padStart(2, '0')} ${ap}`;
   const colW = s(COL_WIDTH);
+
+  // Keep the host in sync with the current wheel value (initial + on change).
+  React.useEffect(() => {
+    onChange(label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label]);
 
   return (
     <View>
@@ -205,8 +215,6 @@ export function TimeWheel({ current, onPick }: TimeWheelProps) {
         <WheelColumn items={mins} value={min} onChange={setMin} format={(m) => String(m).padStart(2, '0')} width={colW} />
         <WheelColumn items={ampm} value={ap} onChange={setAp} width={colW} />
       </View>
-
-      <PillButton full icon="check" label="Set time" onPress={() => onPick(label)} style={{ marginTop: s(20) }} />
     </View>
   );
 }
