@@ -172,14 +172,16 @@ export function PickerOverlay({
         </View>
       </KeyboardAvoidingView>
 
-      {/* The overlay is inset by the bottom safe area (Expo edge-to-edge), so the
-          sheet's gray stops above the nav-bar strip and that strip shows as an ugly
-          black bar. Fill the strip with the sheet's gray so the sheet reads as
-          reaching the very bottom of the device (gap stays, but it's gray). */}
+      {/* The content-height sheet bottoms out ~insets.bottom above the device edge,
+          so the dark scrim shows through in the gap below it and reads as an ugly
+          black bar. The overlay root DOES reach the device bottom (verified on
+          device), so a gray foot pinned to the bottom (bottom: 0) fills exactly that
+          gap with the sheet's surface color — the sheet now reads as reaching the
+          very bottom. (Earlier `bottom: -insets.bottom` placed this offscreen.) */}
       {insets.bottom > 0 && (
         <View
           pointerEvents="none"
-          style={{ position: 'absolute', left: 0, right: 0, bottom: -insets.bottom, height: insets.bottom + s(1), backgroundColor: ScanV2Colors.surface } as any}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: insets.bottom + s(1), backgroundColor: ScanV2Colors.surface } as any}
         />
       )}
     </View>
