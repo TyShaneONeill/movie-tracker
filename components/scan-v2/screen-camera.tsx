@@ -17,6 +17,8 @@ import {
   Easing,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { CameraView } from 'expo-camera';
@@ -27,6 +29,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
+import { useRewardedAd } from '@/hooks/use-rewarded-ad';
+import { captureException } from '@/lib/sentry';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TicketVM } from '@/lib/scan-v2/ticket-view-model';
 import {
@@ -43,6 +47,8 @@ interface ScreenCameraProps {
   scansLeft: number;
   scanning: boolean;
   onShutter: (base64: string, mimeType: string) => void;
+  /** Grant a bonus scan after the user watches a rewarded ad. */
+  onEarnScan: () => void | Promise<void>;
   onUpload: () => void;
   onContinue: () => void;
   onClose: () => void;
@@ -57,6 +63,7 @@ export function ScreenCamera({
   scansLeft,
   scanning,
   onShutter,
+  onEarnScan,
   onUpload,
   onContinue,
   onClose,
@@ -153,7 +160,10 @@ export function ScreenCamera({
         >
           <Icon name="x" size={s(19)} color="#fff" />
         </Pressable>
-        <ScansPill left={remaining} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8) }}>
+          <EarnScanBubble onEarn={onEarnScan} />
+          <ScansPill left={remaining} />
+        </View>
       </View>
 
       {/* hint chip */}
@@ -267,6 +277,81 @@ export function ScreenCamera({
         </View>
       </View>
     </View>
+  );
+}
+
+// ============================================================================
+// Earn-a-scan bubble — watch a rewarded ad for +1 scan
+// ============================================================================
+
+/**
+ * Compact rose pill that sits next to the scans pill. Tapping it shows a
+ * rewarded ad (via the shared `useRewardedAd('scan')` abstraction, which is a
+ * no-op stub on web), and on reward earned calls `onEarn` to grant the bonus
+ * scan. Always rendered next to the pill — including at 0 scans left — so the
+ * user can top up. Reflects the ad's loading/showing state via opacity + a
+ * spinner. Mobile-only: hidden on web, mirroring v1's `RewardedAdButton`.
+ */
+function EarnScanBubble({ onEarn }: { onEarn: () => void | Promise<void> }) {
+  const { loaded, showAd, reloadAd } = useRewardedAd('scan');
+  const [showing, setShowing] = useState(false);
+
+  // Rewarded ads are AdMob mobile-only; web hook is a stub that never loads.
+  if (Platform.OS === 'web') return null;
+
+  const disabled = !loaded || showing;
+
+  const handlePress = async () => {
+    if (disabled) return;
+    setShowing(true);
+    try {
+      const earned = await showAd();
+      if (earned) {
+        await onEarn();
+        reloadAd();
+      }
+    } catch (err) {
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scan-v2-rewarded-ad' });
+    } finally {
+      setShowing(false);
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={disabled}
+      hitSlop={s(6)}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: s(5),
+        paddingVertical: s(7),
+        paddingHorizontal: s(11),
+        borderRadius: 999,
+        backgroundColor: ScanV2Accent.soft,
+        borderWidth: 1,
+        borderColor: 'rgba(225,29,72,0.35)',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {showing ? (
+        <ActivityIndicator size="small" color={ScanV2Accent.primary} />
+      ) : (
+        <Icon name="plus" size={s(13)} color={ScanV2Accent.primary} stroke={2.4} />
+      )}
+      <ScanText
+        style={{
+          fontFamily: Fonts.mono.medium,
+          fontSize: s(11),
+          lineHeight: s(13),
+          letterSpacing: 0.3,
+          color: ScanV2Accent.primary,
+        }}
+      >
+        {showing ? 'AD…' : '+1 SCAN'}
+      </ScanText>
+    </Pressable>
   );
 }
 
