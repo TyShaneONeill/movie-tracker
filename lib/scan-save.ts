@@ -113,6 +113,13 @@ function mapTicketToJourneyData(ticket: ProcessedTicket): JourneyUpdate {
 // Public API
 // ============================================================================
 
+/** A successfully-saved movie, in the shape the First Take wizard iterates. */
+export interface SavedMovie {
+  tmdbId: number;
+  title: string;
+  posterPath: string | null;
+}
+
 export interface SaveTicketsResult {
   /** Number of tickets saved successfully. */
   succeeded: number;
@@ -122,6 +129,11 @@ export interface SaveTicketsResult {
   attempted: number;
   /** TMDB id of the first successfully saved movie (for single-movie nav). */
   firstMovieTmdbId: number | null;
+  /**
+   * Every successfully-saved movie, in save order — the First Take wizard runs
+   * one step-sequence per entry. Mirrors v1's `successfulMovies`.
+   */
+  savedMovies: SavedMovie[];
 }
 
 /**
@@ -142,7 +154,7 @@ export async function saveTicketsToJourney(
   const validTickets = tickets.filter((t) => t.tmdbMatch !== null);
 
   if (validTickets.length === 0) {
-    return { succeeded: 0, failed: 0, attempted: 0, firstMovieTmdbId: null };
+    return { succeeded: 0, failed: 0, attempted: 0, firstMovieTmdbId: null, savedMovies: [] };
   }
 
   // Track journey IDs for navigation
@@ -327,14 +339,16 @@ export async function saveTicketsToJourney(
     }
   }
 
-  // First successfully-saved movie id (for single-movie journey nav).
-  let firstMovieTmdbId: number | null = null;
+  // Every successfully-saved movie, in save order (mirrors v1's
+  // `successfulMovies`). The first entry doubles as the single-movie nav target.
+  const savedMovies: SavedMovie[] = [];
   for (let i = 0; i < results.length; i++) {
     if (results[i].status === 'fulfilled') {
-      firstMovieTmdbId = validTickets[i].tmdbMatch!.movie.id;
-      break;
+      const movie = validTickets[i].tmdbMatch!.movie;
+      savedMovies.push({ tmdbId: movie.id, title: movie.title, posterPath: movie.poster_path });
     }
   }
+  const firstMovieTmdbId = savedMovies.length > 0 ? savedMovies[0].tmdbId : null;
 
-  return { succeeded, failed, attempted: validTickets.length, firstMovieTmdbId };
+  return { succeeded, failed, attempted: validTickets.length, firstMovieTmdbId, savedMovies };
 }

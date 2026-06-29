@@ -5,9 +5,11 @@
  * the scanner tab gate when the `ticket_scan_v2` flag is on. Owns the captured
  * tickets, scan-status, and post-save navigation. Capture wires to the EXISTING
  * `useScanTicket().scanTicket` path; save wires to the extracted
- * `saveTicketsToJourney`. First Take is out of scope for PR 1 — after save we
- * route to the existing destination (single matched -> journey card; else
- * profile).
+ * `saveTicketsToJourney`. After save, when the user's `firstTakePromptEnabled`
+ * pref is on, the First Take wizard (`FirstTakeSheet`) runs over the saved
+ * movies and applies the post-save nav on finish/abandon; with the pref off we
+ * route immediately to the existing destination (single matched -> journey
+ * card; else profile).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -28,7 +30,8 @@ import { useScanTicket, fetchScanStatus, type ProcessedScanResult } from '@/hook
 import { imageUriToBase64, getMimeTypeFromUri } from '@/lib/image-utils';
 import { captureException } from '@/lib/sentry';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
-import { saveTicketsToJourney } from '@/lib/scan-save';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { saveTicketsToJourney, type SavedMovie } from '@/lib/scan-save';
 import {
   toScanTicketItems,
   toTicketVM,
@@ -43,6 +46,7 @@ import { ScreenReview } from './screen-review';
 import { ScreenUnable } from './screen-unable';
 import { ResolveDialog } from './resolve-dialog';
 import { EditSheet } from './edit-sheet';
+import { FirstTakeSheet } from './first-take-sheet';
 
 type Stage = 'camera' | 'permission' | 'unable' | 'review';
 
@@ -51,6 +55,7 @@ export function ScanV2Flow() {
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
   const { scanTicket, isScanning } = useScanTicket();
+  const { preferences } = useUserPreferences();
   const [permission, requestPermission] = useCameraPermissions();
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
 
@@ -76,6 +81,9 @@ export function ScanV2Flow() {
   const [isSaving, setIsSaving] = useState(false);
   const [showResolve, setShowResolve] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // After save, when the First Take pref is on, the wizard runs over the saved
+  // movies; `firstId` carries the single-movie nav target. Null = no wizard.
+  const [firstTake, setFirstTake] = useState<{ movies: SavedMovie[]; firstId: number | null } | null>(null);
 
   // Request camera permission once on mount if we can still ask.
   useEffect(() => {
@@ -235,6 +243,19 @@ export function ScanV2Flow() {
     }
   }, []);
 
+  // Post-save navigation contract: single saved movie -> its journey card; else
+  // the profile. Shared by the immediate path (First Take pref off) and the
+  // wizard's finish/abandon path.
+  const navigateAfterSave = useCallback((movies: SavedMovie[], firstId: number | null) => {
+    if (movies.length === 1 && firstId != null) {
+      router.replace(`/journey/movie/${firstId}`);
+    } else {
+      router.replace('/(tabs)/profile');
+    }
+  }, []);
+
+  const firstTakePromptEnabled = preferences?.firstTakePromptEnabled ?? true;
+
   const handleSave = useCallback(async () => {
     if (!user) return;
     setShowResolve(false);
@@ -246,17 +267,26 @@ export function ScanV2Flow() {
         queryClient,
         triggerAchievementCheck
       );
-      if (result.succeeded === 1 && result.firstMovieTmdbId != null) {
-        router.replace(`/journey/movie/${result.firstMovieTmdbId}`);
+      // With the First Take pref on and at least one saved movie, run the wizard
+      // over the saved movies; it applies the same nav on finish/abandon.
+      if (firstTakePromptEnabled && result.savedMovies.length > 0) {
+        setFirstTake({ movies: result.savedMovies, firstId: result.firstMovieTmdbId });
       } else {
-        router.replace('/(tabs)/profile');
+        navigateAfterSave(result.savedMovies, result.firstMovieTmdbId);
       }
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scan-v2-save' });
     } finally {
       setIsSaving(false);
     }
-  }, [user, items, queryClient, triggerAchievementCheck]);
+  }, [user, items, queryClient, triggerAchievementCheck, firstTakePromptEnabled, navigateAfterSave]);
+
+  // Finish (last movie posted) or abandon (X) — both apply the post-save nav.
+  const handleFirstTakeFinish = useCallback(() => {
+    if (!firstTake) return;
+    navigateAfterSave(firstTake.movies, firstTake.firstId);
+    setFirstTake(null);
+  }, [firstTake, navigateAfterSave]);
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -341,6 +371,15 @@ export function ScanV2Flow() {
           ticket={editingItem.ticket}
           onClose={() => setEditingId(null)}
           onSave={handleSaveEdit}
+        />
+      )}
+
+      {firstTake && user && (
+        <FirstTakeSheet
+          userId={user.id}
+          movies={firstTake.movies}
+          onClose={handleFirstTakeFinish}
+          onDone={handleFirstTakeFinish}
         />
       )}
     </View>
