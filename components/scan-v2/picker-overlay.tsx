@@ -101,8 +101,11 @@ export function PickerOverlay({
 
   return (
     <View style={{ position: 'absolute', inset: 0, zIndex: 40, justifyContent: 'flex-end' } as any}>
+      {/* Strong scrim: fully hide the Edit ticket screen behind the picker so it
+          reads as a single takeover (a weak dim made it look like two stacked
+          screens — the form's chips/"Add row" peeking through were confusing). */}
       <Pressable
-        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)' } as any}
+        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.88)' } as any}
         onPress={onClose}
       />
 
@@ -178,7 +181,7 @@ export function PickerOverlay({
 
 function RadioList({ items, current, onPick }: { items: string[]; current?: string; onPick: (v: string) => void }) {
   return (
-    <View style={{ gap: s(8) }}>
+    <View style={{ gap: s(10) }}>
       {items.map((it) => {
         const on = it === current;
         return (
@@ -189,8 +192,8 @@ function RadioList({ items, current, onPick }: { items: string[]; current?: stri
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              minHeight: s(48),
-              paddingVertical: s(10),
+              minHeight: s(56),
+              paddingVertical: s(14),
               paddingHorizontal: s(14),
               borderRadius: s(12),
               backgroundColor: on ? ScanV2Accent.soft : 'transparent',
