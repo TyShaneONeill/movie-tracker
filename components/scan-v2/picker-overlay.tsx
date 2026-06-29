@@ -96,8 +96,10 @@ export function PickerOverlay({
 
   // Single-choice pickers (radio / date) commit on tap, so their last option
   // just needs to clear the home indicator. The time picker commits from its
-  // sticky footer, which owns the safe-area inset instead.
-  const bodyBottom = s(20) + (kind === 'time' ? 0 : insets.bottom);
+  // sticky footer, which owns the safe-area inset instead. Radio lists get extra
+  // bottom clearance (s(16)) so the last full-width card doesn't sit flush against
+  // the device edge / home indicator.
+  const bodyBottom = s(20) + (kind === 'time' ? 0 : insets.bottom) + (radioItems ? s(16) : 0);
 
   return (
     <View style={{ position: 'absolute', inset: 0, zIndex: 40, justifyContent: 'flex-end' } as any}>
@@ -107,6 +109,18 @@ export function PickerOverlay({
       <Pressable
         style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.88)' } as any}
         onPress={onClose}
+      />
+
+      {/* Gray "foot" pinned to the device bottom, BEHIND the sheet. The content-height
+          sheet bottoms out ~one safe-area inset above the device edge (modal bottom
+          inset), so the dark scrim used to show through that gap as a black bar. This
+          foot is taller than the gap but far shorter than the sheet, so it fills the
+          gap with the sheet's surface color while the opaque sheet covers its top — the
+          picker reads as flush to the device bottom on any inset/nav-mode, without
+          guessing the exact gap height. pointerEvents none so the gap still closes. */}
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: ScanV2Colors.surface } as any}
       />
 
       <KeyboardAvoidingView
@@ -171,19 +185,6 @@ export function PickerOverlay({
           )}
         </View>
       </KeyboardAvoidingView>
-
-      {/* The content-height sheet bottoms out ~insets.bottom above the device edge,
-          so the dark scrim shows through in the gap below it and reads as an ugly
-          black bar. The overlay root DOES reach the device bottom (verified on
-          device), so a gray foot pinned to the bottom (bottom: 0) fills exactly that
-          gap with the sheet's surface color — the sheet now reads as reaching the
-          very bottom. (Earlier `bottom: -insets.bottom` placed this offscreen.) */}
-      {insets.bottom > 0 && (
-        <View
-          pointerEvents="none"
-          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: insets.bottom + s(1), backgroundColor: ScanV2Colors.surface } as any}
-        />
-      )}
     </View>
   );
 }
