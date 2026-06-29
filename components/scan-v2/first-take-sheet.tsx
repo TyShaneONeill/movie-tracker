@@ -138,7 +138,8 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
         posterPath: movie.posterPath,
         reactionEmoji: '',
         quoteText: take.text,
-        isSpoiler: take.spoiler,
+        isSpoiler: take.text.trim() ? take.spoiler : false, // no words → never a spoiler
+
         rating: take.rating,
         visibility: VIS_TO_REVIEW[take.vis],
       });
@@ -163,17 +164,29 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
   }, [userId, movie, take, last, onDone]);
 
   const advance = useCallback(() => {
+    // No written take → skip the spoiler step (2): there's nothing to mark as a
+    // spoiler, so reaction (1) jumps straight to visibility (3).
+    if (step === 1 && !take.text.trim()) {
+      goStep(3);
+      return;
+    }
     if (step < TOTAL - 1) goStep(step + 1);
     else void postMovie();
-  }, [step, goStep, postMovie]);
+  }, [step, take.text, goStep, postMovie]);
 
   const onBack = useCallback(() => {
+    // Mirror the spoiler-skip: from visibility (3) with no words, step back past
+    // the skipped spoiler step straight to the reaction (1).
+    if (step === 3 && !take.text.trim()) {
+      goStep(1);
+      return;
+    }
     if (step > 0) goStep(step - 1);
     else if (idx > 0) {
       setIdx((i) => i - 1);
       setStep(TOTAL - 1);
     }
-  }, [step, idx, goStep]);
+  }, [step, take.text, idx, goStep]);
 
   const canBack = step > 0 || idx > 0;
 
@@ -322,8 +335,10 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
                     skipLabel="Skip — no words this time"
                     onNext={advance}
                     onSkip={() => {
-                      patch({ text: '' });
-                      advance();
+                      // Skipping the reaction = no words → skip the spoiler step too
+                      // (straight to visibility, step 3); nothing to mark as a spoiler.
+                      patch({ text: '', spoiler: false });
+                      goStep(3);
                     }}
                   />
                 </View>
