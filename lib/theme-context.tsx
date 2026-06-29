@@ -153,3 +153,30 @@ export function useEffectiveColorScheme(): EffectiveTheme {
   const { effectiveTheme } = useTheme();
   return effectiveTheme;
 }
+
+/**
+ * Forces a single `effectiveTheme` onto a subtree. For surfaces that are
+ * intentionally single-theme (e.g. the dark-only Ticket Scan v2 screens) but
+ * embed theme-aware components (which would otherwise render light-on-dark in
+ * light mode). Overrides ONLY `effectiveTheme`; preference/setter/isLoading pass
+ * through from the real provider unchanged.
+ */
+export function ForcedThemeProvider({
+  theme,
+  children,
+}: {
+  theme: EffectiveTheme;
+  children: React.ReactNode;
+}) {
+  const parent = useContext(ThemeContext);
+  const value = useMemo<ThemeContextType>(
+    () => ({
+      themePreference: parent?.themePreference ?? 'system',
+      effectiveTheme: theme,
+      setThemePreference: parent?.setThemePreference ?? (async () => {}),
+      isLoading: parent?.isLoading ?? false,
+    }),
+    [parent, theme]
+  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}

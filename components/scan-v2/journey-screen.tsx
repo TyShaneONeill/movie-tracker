@@ -34,6 +34,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
+import { ForcedThemeProvider } from '@/lib/theme-context';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { useAuth } from '@/hooks/use-auth';
@@ -188,7 +189,7 @@ export function JourneyScreenV2() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: CarouselItem }) => {
+    ({ item, index }: { item: CarouselItem; index: number }) => {
       if (item.type === 'add') {
         return (
           <View style={{ width: pageWidth, paddingHorizontal: s(CAROUSEL_HORIZONTAL_PADDING) }}>
@@ -243,12 +244,12 @@ export function JourneyScreenV2() {
             firstTake={firstTake}
             companions={resolveCompanions(item.journey)}
             showAi={showsAiPoster(item.journey)}
-            flipped={flipped}
+            flipped={flipped && index === currentIndex}
             onFlip={() => {
               setFlipped((v) => !v);
               hapticImpact(ImpactFeedbackStyle.Light);
             }}
-            page={page}
+            page={index === currentIndex ? page : 0}
             setPage={setPage}
             onEdit={() => router.push(`/journey/edit/${item.journey.id}` as never)}
             height={ticketHeight}
@@ -256,7 +257,7 @@ export function JourneyScreenV2() {
         </View>
       );
     },
-    [pageWidth, ticketHeight, handleCreateJourney, firstTake, resolveCompanions, flipped, page, router],
+    [pageWidth, ticketHeight, handleCreateJourney, firstTake, resolveCompanions, flipped, page, currentIndex, router],
   );
 
   const movieTitle = journeys[0]?.title ?? 'Movie';
@@ -293,6 +294,7 @@ export function JourneyScreenV2() {
   }
 
   return (
+    <ForcedThemeProvider theme="dark">
     <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg }}>
       {/* Header */}
       <View
@@ -467,6 +469,7 @@ export function JourneyScreenV2() {
         onClose={() => setUpgradeSheetVisible(false)}
       />
     </View>
+    </ForcedThemeProvider>
   );
 }
 

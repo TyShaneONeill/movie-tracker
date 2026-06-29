@@ -54,7 +54,7 @@ function buildSeat(journey: UserMovie): { label: string; value: string } | null 
   const aud = journey.auditorium?.trim() || null;
   if (seat && aud) return { label: 'Seat · Aud', value: `${seat} · ${aud}` };
   if (seat) return { label: 'Seat', value: seat };
-  if (aud) return { label: 'Aud', value: `Aud ${aud}` };
+  if (aud) return { label: 'Aud', value: aud };
   return null;
 }
 
@@ -311,7 +311,7 @@ export function JourneyCard({
   const stubBg = showAi ? '#100b18' : ScanV2Colors.card;
 
   const front = (
-    <View style={{ flex: 1, minHeight: s(520) }}>
+    <View style={{ flex: 1, minHeight: Math.min(s(520), height) }}>
       {/* Poster */}
       <View
         style={{
@@ -534,7 +534,7 @@ export function JourneyCard({
   );
 
   const back = (
-    <View style={{ flex: 1, minHeight: s(520) }}>
+    <View style={{ flex: 1, minHeight: Math.min(s(520), height) }}>
       <View
         style={{
           flex: 1,
@@ -627,7 +627,7 @@ export function JourneyCard({
   );
 
   return (
-    <View style={{ height, flexDirection: 'column' }}>
+    <View style={{ height, flexDirection: 'column', overflow: 'hidden' }}>
       <FadeIn key={flipped ? 'back' : 'front'}>{flipped ? back : front}</FadeIn>
     </View>
   );
