@@ -171,6 +171,17 @@ export function PickerOverlay({
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* The overlay is inset by the bottom safe area (Expo edge-to-edge), so the
+          sheet's gray stops above the nav-bar strip and that strip shows as an ugly
+          black bar. Fill the strip with the sheet's gray so the sheet reads as
+          reaching the very bottom of the device (gap stays, but it's gray). */}
+      {insets.bottom > 0 && (
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', left: 0, right: 0, bottom: -insets.bottom, height: insets.bottom + s(1), backgroundColor: ScanV2Colors.surface } as any}
+        />
+      )}
     </View>
   );
 }
