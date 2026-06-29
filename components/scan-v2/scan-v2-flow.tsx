@@ -21,6 +21,8 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { ScanV2Colors } from '@/constants/scan-v2-theme';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
+import { analytics } from '@/lib/analytics';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { useScanTicket, fetchScanStatus, type ProcessedScanResult } from '@/hooks/use-scan-ticket';
 import { imageUriToBase64, getMimeTypeFromUri } from '@/lib/image-utils';
@@ -149,6 +151,22 @@ export function ScanV2Flow() {
     [runScan]
   );
 
+  // Rewarded-ad bonus scan — parity with v1 scanner's `handleAdReward`. Granted
+  // after the user watches a rewarded ad (wired from the camera screen bubble).
+  const handleEarnScan = useCallback(async () => {
+    if (!user) return;
+    const { error: rpcError } = await supabase.rpc('increment_bonus_scans', {
+      p_user_id: user.id,
+    });
+    if (rpcError) {
+      captureException(new Error(rpcError.message), { context: 'scan-v2-increment-bonus-scans' });
+      return;
+    }
+    analytics.track('scan:bonus_granted');
+    const status = await fetchScanStatus();
+    setScansRemaining(status.scansRemaining);
+  }, [user]);
+
   const handleUpload = useCallback(async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -268,6 +286,7 @@ export function ScanV2Flow() {
           scansLeft={scansRemaining}
           scanning={isScanning}
           onShutter={handleShutter}
+          onEarnScan={handleEarnScan}
           onUpload={handleUpload}
           onContinue={handleContinue}
           onClose={handleClose}
