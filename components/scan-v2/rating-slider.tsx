@@ -158,6 +158,7 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
       >
         {/* base track */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             left: 0,
@@ -171,6 +172,7 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
         />
         {/* fill */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             left: 0,
@@ -182,6 +184,7 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
         />
         {/* center anchor tick at 5.0 */}
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
             left: '50%',

@@ -378,6 +378,7 @@ export function ScanV2Flow() {
         <FirstTakeSheet
           userId={user.id}
           movies={firstTake.movies}
+          defaultVisibility={preferences?.reviewVisibility ?? 'public'}
           onClose={handleFirstTakeFinish}
           onDone={handleFirstTakeFinish}
         />

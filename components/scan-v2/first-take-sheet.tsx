@@ -54,13 +54,28 @@ interface TakeDraft {
   vis: VisKey;
 }
 
-const blankTake = (): TakeDraft => ({ rating: null, text: '', spoiler: false, vis: 'Public' });
+const blankTake = (vis: VisKey): TakeDraft => ({ rating: null, text: '', spoiler: false, vis });
 
 // Design Public/Followers/Private → DB visibility (CHECK: public/followers_only/private).
 const VIS_TO_REVIEW: Record<VisKey, ReviewVisibility> = {
   Public: 'public',
   Followers: 'followers_only',
   Private: 'private',
+};
+
+// DB visibility (the user's saved review_visibility default) → design VisKey, so the
+// wizard seeds the user's preference instead of forcing Public (privacy default —
+// matches first-take-modal / multi-first-take-modal / review-modal).
+const REVIEW_TO_VIS: Record<ReviewVisibility, VisKey> = {
+  public: 'Public',
+  followers_only: 'Followers',
+  private: 'Private',
+};
+
+const VIS_SKIP_LABEL: Record<VisKey, string> = {
+  Public: 'Keep it public',
+  Followers: 'Keep it followers-only',
+  Private: 'Keep it private',
 };
 
 const VIS_OPTIONS: { key: VisKey; icon: ScanIconName; desc: string }[] = [
@@ -78,19 +93,23 @@ interface FirstTakeSheetProps {
   userId: string;
   /** Successfully-saved movies, in order — one step-sequence per entry. */
   movies: SavedMovie[];
+  /** The user's saved review_visibility default — seeds each take's visibility. */
+  defaultVisibility: ReviewVisibility;
   /** Abandon (X) — the caller applies the post-save navigation. */
   onClose: () => void;
   /** Finished the last movie — the caller applies the post-save navigation. */
   onDone: () => void;
 }
 
-export function FirstTakeSheet({ userId, movies, onClose, onDone }: FirstTakeSheetProps) {
+export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onDone }: FirstTakeSheetProps) {
   const insets = useSafeAreaInsets();
   const kbHeight = useKeyboardHeight();
+  const defaultVis = REVIEW_TO_VIS[defaultVisibility] ?? 'Public';
   const [idx, setIdx] = useState(0);
   const [step, setStep] = useState(0);
   const [isPosting, setIsPosting] = useState(false);
-  const [takes, setTakes] = useState<TakeDraft[]>(() => movies.map(blankTake));
+  const postingRef = useRef(false);
+  const [takes, setTakes] = useState<TakeDraft[]>(() => movies.map(() => blankTake(defaultVis)));
 
   const multi = movies.length > 1;
   const movie = movies[idx];
@@ -109,7 +128,8 @@ export function FirstTakeSheet({ userId, movies, onClose, onDone }: FirstTakeShe
   // Commit the current movie's take, then advance to the next movie or finish.
   // DUPLICATE_FIRST_TAKE (re-scan of an already-taken movie) is non-fatal.
   const postMovie = useCallback(async () => {
-    if (isPosting) return;
+    if (postingRef.current) return; // hard latch: two same-frame taps can't double-commit
+    postingRef.current = true;
     setIsPosting(true);
     try {
       await createFirstTake(userId, {
@@ -131,6 +151,7 @@ export function FirstTakeSheet({ userId, movies, onClose, onDone }: FirstTakeShe
       // Either way, skip this movie gracefully and keep the batch moving.
     } finally {
       setIsPosting(false);
+      postingRef.current = false;
     }
 
     if (last) {
@@ -139,7 +160,7 @@ export function FirstTakeSheet({ userId, movies, onClose, onDone }: FirstTakeShe
       setIdx((i) => i + 1);
       setStep(0);
     }
-  }, [isPosting, userId, movie, take, last, onDone]);
+  }, [userId, movie, take, last, onDone]);
 
   const advance = useCallback(() => {
     if (step < TOTAL - 1) goStep(step + 1);
@@ -357,7 +378,7 @@ export function FirstTakeSheet({ userId, movies, onClose, onDone }: FirstTakeShe
                   <StepActions
                     nextLabel="Continue"
                     nextIcon="arrowR"
-                    skipLabel="Keep it public"
+                    skipLabel={VIS_SKIP_LABEL[take.vis]}
                     onNext={advance}
                     onSkip={advance}
                   />
