@@ -285,7 +285,9 @@ export function ScreenCamera({
 // ============================================================================
 
 /**
- * Compact rose pill that sits next to the scans pill. Tapping it shows a
+ * Compact gold pill ("Watch Ad +1") that sits next to the scans pill — gold +
+ * explicit "Watch Ad" copy so it's clearly an ad opt-in, not a hidden one.
+ * Tapping it shows a
  * rewarded ad (via the shared `useRewardedAd('scan')` abstraction, which is a
  * no-op stub on web), and on reward earned calls `onEarn` to grant the bonus
  * scan. Always rendered next to the pill — including at 0 scans left — so the
@@ -329,16 +331,16 @@ function EarnScanBubble({ onEarn }: { onEarn: () => void | Promise<void> }) {
         paddingVertical: s(7),
         paddingHorizontal: s(11),
         borderRadius: 999,
-        backgroundColor: ScanV2Accent.soft,
+        backgroundColor: 'rgba(251,191,36,0.14)',
         borderWidth: 1,
-        borderColor: 'rgba(225,29,72,0.35)',
+        borderColor: 'rgba(251,191,36,0.38)',
         opacity: disabled ? 0.5 : 1,
       }}
     >
       {showing ? (
-        <ActivityIndicator size="small" color={ScanV2Accent.primary} />
+        <ActivityIndicator size="small" color={ScanV2Colors.amber} />
       ) : (
-        <Icon name="plus" size={s(13)} color={ScanV2Accent.primary} stroke={2.4} />
+        <Icon name="plus" size={s(13)} color={ScanV2Colors.amber} stroke={2.4} />
       )}
       <ScanText
         style={{
@@ -346,10 +348,10 @@ function EarnScanBubble({ onEarn }: { onEarn: () => void | Promise<void> }) {
           fontSize: s(11),
           lineHeight: s(13),
           letterSpacing: 0.3,
-          color: ScanV2Accent.primary,
+          color: ScanV2Colors.amber,
         }}
       >
-        {showing ? 'AD…' : '+1 SCAN'}
+        {showing ? 'AD…' : 'Watch Ad +1'}
       </ScanText>
     </Pressable>
   );
