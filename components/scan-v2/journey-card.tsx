@@ -213,7 +213,7 @@ function Barcode({ height, color }: { height: number; color: string }) {
 function StubField({ label, value, node }: StubFieldData) {
   if (!value && !node) return null;
   return (
-    <View style={{ width: '47%', minWidth: 0, marginBottom: s(10) }}>
+    <View style={{ width: '47%', minWidth: 0, marginBottom: s(6) }}>
       <ScanText
         style={{
           fontFamily: Fonts.mono.medium,
@@ -284,13 +284,11 @@ export function JourneyCard({
     return getTMDBImageUrl(journey.poster_path ?? null, 'w780');
   }, [showAi, journey.ai_poster_url, journey.poster_path]);
 
+  // Front stub = the 3 essentials (Date / With / Format) so it reads clean and the
+  // poster stays the hero; the secondary details (Cinema · Seat · Paid) move to the back.
   const fields: StubFieldData[] = useMemo(() => {
-    const seat = buildSeat(journey);
     const list: StubFieldData[] = [
       { label: 'Date', value: formatDate(journey.watched_at) },
-      { label: 'Cinema', value: journey.location_name?.trim() || journey.theater_chain?.trim() || null },
-      seat ? { label: seat.label, value: seat.value } : { label: 'Seat', value: null },
-      { label: 'Format', value: journey.watch_format ? journey.watch_format.toUpperCase() : null },
       {
         label: 'With',
         node: companions.length ? (
@@ -302,10 +300,20 @@ export function JourneyCard({
           />
         ) : undefined,
       },
-      { label: 'Paid', value: formatPrice(journey.ticket_price) },
+      { label: 'Format', value: journey.watch_format ? journey.watch_format.toUpperCase() : null },
     ];
     return list.filter((f) => f.value || f.node);
   }, [journey, companions, showAi]);
+
+  // Secondary details shown on the BACK of the ticket (moved off the front).
+  const backDetails = useMemo(() => {
+    const seat = buildSeat(journey);
+    return [
+      { label: 'Cinema', value: journey.location_name?.trim() || journey.theater_chain?.trim() || null },
+      seat ? { label: seat.label, value: seat.value } : null,
+      { label: 'Paid', value: formatPrice(journey.ticket_price) },
+    ].filter((d): d is { label: string; value: string } => !!d && !!d.value);
+  }, [journey]);
 
   const ticketId = journey.ticket_id || `CNTK-${journey.id.slice(0, 8).toUpperCase()}`;
   const stubBg = showAi ? '#100b18' : ScanV2Colors.card;
@@ -379,7 +387,7 @@ export function JourneyCard({
           borderWidth: 1,
           borderTopWidth: 0,
           borderColor: ScanV2Colors.line,
-          paddingTop: s(18),
+          paddingTop: s(14),
           paddingHorizontal: s(18),
           paddingBottom: s(14),
         }}
@@ -425,7 +433,7 @@ export function JourneyCard({
         </View>
 
         {/* Carousel */}
-        <View style={{ marginTop: s(18), minHeight: s(96) }}>
+        <View style={{ marginTop: s(12), minHeight: s(60) }}>
           {page === 0 ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
               {fields.map((f, i) => (
@@ -603,6 +611,25 @@ export function JourneyCard({
           {ticketId}
         </ScanText>
 
+        {/* Secondary details (Cinema · Seat · Paid) — moved off the front */}
+        {backDetails.length > 0 ? (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', alignSelf: 'stretch', gap: s(8) }}>
+            {backDetails.map((d) => (
+              <View key={d.label} style={{ flex: 1, alignItems: 'center', paddingHorizontal: s(4) }}>
+                <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(9.5), letterSpacing: 1, color: ScanV2Colors.ter, textTransform: 'uppercase' }}>
+                  {d.label}
+                </ScanText>
+                <ScanText
+                  numberOfLines={2}
+                  style={{ fontFamily: Fonts.inter.semibold, fontSize: s(13), color: ScanV2Colors.text, marginTop: s(4), textAlign: 'center', lineHeight: s(16) }}
+                >
+                  {d.value}
+                </ScanText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {/* Footer */}
         <View style={{ alignItems: 'center', gap: s(3) }}>
           <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(16), color: ScanV2Colors.text }}>
@@ -616,10 +643,7 @@ export function JourneyCard({
               color: ScanV2Colors.ter,
             }}
           >
-            {[journey.location_name?.trim() || journey.theater_chain?.trim(), formatDate(journey.watched_at)]
-              .filter(Boolean)
-              .join(' · ')
-              .toUpperCase()}
+            {formatDate(journey.watched_at)?.toUpperCase()}
           </ScanText>
         </View>
       </View>
