@@ -32,6 +32,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
+  ActivityIndicator,
   Platform,
   Keyboard,
   Dimensions,
@@ -39,6 +40,8 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { Fonts } from '@/constants/theme';
 import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
@@ -46,8 +49,12 @@ import { s } from '@/lib/scan-v2/scale';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
+import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/sentry';
+import { pickImage } from '@/lib/image-utils';
 import type { UserMovie, JourneyUpdate, WatchFormat } from '@/lib/database.types';
 import { Avatar } from '@/components/ui/avatar';
+import { SignedPhoto } from '@/components/journey/signed-photo';
 import { Icon, ScanText, PillButton, type ScanIconName } from './primitives';
 import { PickerOverlay } from './picker-overlay';
 import { parseTimeLabel } from './time-wheel';
@@ -167,6 +174,9 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
   const [price, setPrice] = useState(journey.ticket_price != null ? String(journey.ticket_price) : '');
   const [ticketId, setTicketId] = useState(journey.ticket_id ?? '');
   const [companions, setCompanions] = useState<string[]>(journey.watched_with ?? []);
+  const [localPhotos, setLocalPhotos] = useState<string[]>(journey.journey_photos ?? []);
+  const [isUploading, setIsUploading] = useState(false);
+  const [photoEditMode, setPhotoEditMode] = useState(false);
 
   const [picker, setPicker] = useState<PickerKind | null>(null);
   const [showCompanions, setShowCompanions] = useState(false);
@@ -242,6 +252,63 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
     setCompanions((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // Add photo — ported verbatim from v1 `app/journey/edit/[id].tsx` :177-222.
+  // Uses `journey.id` (the create flow creates the row BEFORE opening the sheet,
+  // so this is always a real row id). Stores the PUBLIC url; SignedPhoto re-signs.
+  const handleAddPhoto = useCallback(async () => {
+    const result = await pickImage();
+    if (!result) return;
+
+    setIsUploading(true);
+    try {
+      const fileName = `${user?.id}/${journey.id}/${Date.now()}.jpg`;
+
+      // Convert URI to ArrayBuffer — native needs FileSystem (blob.arrayBuffer() not available in RN)
+      let uploadBody: ArrayBuffer;
+      if (Platform.OS === 'web') {
+        const response = await fetch(result.uri);
+        uploadBody = await response.arrayBuffer();
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(result.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        uploadBody = bytes.buffer;
+      }
+
+      const { error } = await supabase.storage
+        .from('journey-photos')
+        .upload(fileName, uploadBody, { contentType: 'image/jpeg', cacheControl: '86400', upsert: false });
+
+      if (error) {
+        captureException(new Error(error.message), { context: 'journey-photo-upload' });
+        Toast.show({ type: 'error', text1: 'Upload failed', text2: error.message, visibilityTime: 3000 });
+        return;
+      }
+
+      const { data } = supabase.storage.from('journey-photos').getPublicUrl(fileName);
+      setLocalPhotos((prev) => [...prev, data.publicUrl]);
+    } catch (err) {
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'journey-photo-upload' });
+      Toast.show({ type: 'error', text1: 'Upload failed', text2: 'Please try again', visibilityTime: 3000 });
+    } finally {
+      setIsUploading(false);
+    }
+  }, [user?.id, journey.id]);
+
+  // Delete photo — optimistic remove, then best-effort storage delete (v1 :225-231).
+  const handleDeletePhoto = useCallback((photoUrl: string) => {
+    setLocalPhotos((prev) => prev.filter((url) => url !== photoUrl));
+    const path = photoUrl.split('/journey-photos/')[1];
+    if (path) {
+      supabase.storage.from('journey-photos').remove([path]).catch(() => {});
+    }
+  }, []);
+
   const handleSave = useCallback(() => {
     const deduped = dedupeNames(companions);
     const patch: JourneyUpdate = {
@@ -256,10 +323,11 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
       ticket_price: Number.isFinite(parseFloat(price)) ? parseFloat(price) : null,
       ticket_id: ticketId.trim() || null,
       watched_with: deduped.length > 0 ? deduped : null,
+      journey_photos: localPhotos.length > 0 ? localPhotos : null,
     };
     hapticImpact(ImpactFeedbackStyle.Medium);
     onSave(patch);
-  }, [tagline, notes, dateISO, timeLabel, location, seat, format, auditorium, price, ticketId, companions, onSave]);
+  }, [tagline, notes, dateISO, timeLabel, location, seat, format, auditorium, price, ticketId, companions, localPhotos, onSave]);
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
@@ -305,6 +373,104 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
             contentContainerStyle={{ paddingHorizontal: s(16), paddingBottom: s(40) }}
             showsVerticalScrollIndicator={false}
           >
+            {/* Memories — journey photos (journey-photos bucket; SignedPhoto re-signs on display). */}
+            <SectionCard title="Memories">
+              <ScanText
+                style={{
+                  fontFamily: Fonts.inter.regular,
+                  fontSize: s(12.5),
+                  lineHeight: s(17),
+                  color: ScanV2Colors.sec,
+                  marginBottom: s(10),
+                }}
+              >
+                Add photos of your ticket, poster, or friends. First photo is the cover.
+              </ScanText>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ flexDirection: 'row', gap: s(10), paddingBottom: s(2) }}
+              >
+                {localPhotos.map((photoUrl) => (
+                  <View
+                    key={photoUrl}
+                    style={{
+                      width: s(100),
+                      height: s(140),
+                      borderRadius: s(10),
+                      overflow: 'hidden',
+                      backgroundColor: ScanV2Colors.field,
+                    }}
+                  >
+                    <SignedPhoto
+                      expoImage
+                      uri={photoUrl}
+                      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                    {photoEditMode && (
+                      <Pressable
+                        onPress={() => handleDeletePhoto(photoUrl)}
+                        hitSlop={6}
+                        style={{
+                          position: 'absolute',
+                          top: s(6),
+                          right: s(6),
+                          width: s(24),
+                          height: s(24),
+                          borderRadius: 999,
+                          backgroundColor: ScanV2Accent.primary,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Icon name="x" size={s(14)} color={ScanV2Accent.on} stroke={2.6} />
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+
+                {!photoEditMode && (
+                  <Pressable
+                    onPress={handleAddPhoto}
+                    disabled={isUploading}
+                    style={{
+                      width: s(100),
+                      height: s(140),
+                      borderRadius: s(10),
+                      borderWidth: 1.5,
+                      borderStyle: 'dashed',
+                      borderColor: ScanV2Colors.lineHi,
+                      backgroundColor: ScanV2Colors.field,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {isUploading ? (
+                      <ActivityIndicator size="small" color={ScanV2Accent.primary} />
+                    ) : (
+                      <Icon name="plus" size={s(30)} color={ScanV2Colors.sec} />
+                    )}
+                  </Pressable>
+                )}
+              </ScrollView>
+
+              {localPhotos.length > 0 && (
+                <Pressable
+                  onPress={() => setPhotoEditMode((prev) => !prev)}
+                  hitSlop={6}
+                  style={{ alignSelf: 'flex-end', marginTop: s(8), paddingVertical: s(4), paddingHorizontal: s(6) }}
+                >
+                  <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(13), color: ScanV2Accent.primary }}>
+                    {photoEditMode ? 'Done' : 'Edit'}
+                  </ScanText>
+                </Pressable>
+              )}
+            </SectionCard>
+
             {/* Your journey */}
             <SectionCard title="Your journey">
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: s(12) }}>
