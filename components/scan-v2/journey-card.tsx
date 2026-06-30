@@ -154,7 +154,7 @@ function PerforationSeam() {
         }}
       >
         {Array.from({ length: SEAM_DASHES }).map((_, i) => (
-          <View key={i} style={{ width: s(6), height: 2, borderRadius: 1, backgroundColor: ScanV2Colors.lineHi }} />
+          <View key={i} style={{ width: s(7), height: s(2), borderRadius: 1, backgroundColor: ScanV2Colors.sec }} />
         ))}
       </View>
       <View
@@ -213,7 +213,7 @@ function Barcode({ height, color }: { height: number; color: string }) {
 function StubField({ label, value, node }: StubFieldData) {
   if (!value && !node) return null;
   return (
-    <View style={{ width: '47%', minWidth: 0, marginBottom: s(15) }}>
+    <View style={{ width: '47%', minWidth: 0, marginBottom: s(10) }}>
       <ScanText
         style={{
           fontFamily: Fonts.mono.medium,
@@ -316,7 +316,7 @@ export function JourneyCard({
       <View
         style={{
           flex: 1,
-          minHeight: s(270),
+          minHeight: s(210),
           maxHeight: s(580),
           borderTopLeftRadius: s(22),
           borderTopRightRadius: s(22),

@@ -128,9 +128,12 @@ export function JourneyScreenV2() {
   const screenWidth = Math.min(windowWidth, MAX_JOURNEY_WIDTH);
   const pageWidth = screenWidth;
   const isLandscape = windowWidth > screenHeight;
+  // Reserve room BELOW the card for the Original/AI toggle (or Generate-AI button)
+  // + the journey dots — otherwise the card eats the whole screen and those controls
+  // overlap and clip the stub bottom (page dots).
   const ticketHeight = Math.min(
-    screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - s(16) * 2,
-    screenHeight * (isLandscape ? 0.88 : 0.8),
+    screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - s(16) * 2 - s(120),
+    screenHeight * (isLandscape ? 0.82 : 0.7),
   );
   const totalPages = journeys.length + 1;
 
