@@ -13,7 +13,7 @@
  * when not flipped — reuses v1's `display_poster` optimistic write), and dot
  * pagination.
  *
- * Dark-only (built from `ScanV2Colors`/`ScanV2Accent`, never the theme-aware
+ * Theme-aware (built from `useScanColors()`/`ScanV2Accent`, not the global theme
  * `Colors`); text via `ScanText`, sizes via `s()`.
  */
 
@@ -32,9 +32,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
-import { ForcedThemeProvider } from '@/lib/theme-context';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { useAuth } from '@/hooks/use-auth';
@@ -85,6 +84,7 @@ export function JourneyScreenV2() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { user } = useAuth();
+  const c = useScanColors();
 
   const parsedTmdbId = tmdbId ? parseInt(tmdbId, 10) : undefined;
 
@@ -261,8 +261,8 @@ export function JourneyScreenV2() {
                 height: ticketHeight,
                 borderRadius: s(22),
                 borderWidth: 1.5,
-                borderColor: ScanV2Colors.lineHi,
-                backgroundColor: ScanV2Colors.card,
+                borderColor: c.lineHi,
+                backgroundColor: c.card,
                 alignItems: 'center',
                 justifyContent: 'center',
                 paddingHorizontal: s(24),
@@ -285,14 +285,14 @@ export function JourneyScreenV2() {
                   <Icon name="plus" size={s(34)} color={ScanV2Accent.primary} />
                 )}
               </View>
-              <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(19), color: ScanV2Colors.text }}>
+              <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(19), color: c.text }}>
                 Log another viewing
               </ScanText>
               <ScanText
                 style={{
                   fontFamily: Fonts.inter.regular,
                   fontSize: s(13.5),
-                  color: ScanV2Colors.sec,
+                  color: c.sec,
                   textAlign: 'center',
                 }}
               >
@@ -325,7 +325,7 @@ export function JourneyScreenV2() {
         </View>
       );
     },
-    [pageWidth, ticketHeight, handleCreateJourney, isCreating, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster, scannedIds],
+    [c, pageWidth, ticketHeight, handleCreateJourney, isCreating, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster, scannedIds],
   );
 
   const movieTitle = journeys[0]?.title ?? 'Movie';
@@ -333,9 +333,9 @@ export function JourneyScreenV2() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg, alignItems: 'center', justifyContent: 'center', gap: s(12) }}>
+      <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: s(12) }}>
         <ActivityIndicator size="large" color={ScanV2Accent.primary} />
-        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(14), color: ScanV2Colors.sec }}>
+        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(14), color: c.sec }}>
           Loading your journeys…
         </ScanText>
       </View>
@@ -344,11 +344,11 @@ export function JourneyScreenV2() {
 
   if (isError || journeys.length === 0) {
     return (
-      <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: s(24), gap: s(10) }}>
-        <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(20), color: ScanV2Colors.text }}>
+      <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: s(24), gap: s(10) }}>
+        <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(20), color: c.text }}>
           No journeys found
         </ScanText>
-        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(14), color: ScanV2Colors.sec, textAlign: 'center' }}>
+        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(14), color: c.sec, textAlign: 'center' }}>
           You have not logged any viewings for this movie yet.
         </ScanText>
         <Pressable
@@ -362,8 +362,7 @@ export function JourneyScreenV2() {
   }
 
   return (
-    <ForcedThemeProvider theme="dark">
-    <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* Header */}
       <View
         style={{
@@ -381,14 +380,14 @@ export function JourneyScreenV2() {
             width: s(38),
             height: s(38),
             borderRadius: 999,
-            backgroundColor: ScanV2Colors.field,
+            backgroundColor: c.field,
             borderWidth: 1,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="arrowL" size={s(19)} color={ScanV2Colors.text} />
+          <Icon name="arrowL" size={s(19)} color={c.text} />
         </Pressable>
         <View style={{ flex: 1, minWidth: 0, alignItems: 'center' }}>
           <ScanText
@@ -406,7 +405,7 @@ export function JourneyScreenV2() {
             style={{
               fontFamily: Fonts.outfit.bold,
               fontSize: s(17),
-              color: ScanV2Colors.text,
+              color: c.text,
               marginTop: s(1),
             }}
           >
@@ -447,10 +446,10 @@ export function JourneyScreenV2() {
               style={{
                 flexDirection: 'row',
                 padding: s(4),
-                backgroundColor: ScanV2Colors.field,
+                backgroundColor: c.field,
                 borderRadius: 999,
                 borderWidth: 1,
-                borderColor: ScanV2Colors.line,
+                borderColor: c.line,
               }}
             >
               {([
@@ -475,18 +474,18 @@ export function JourneyScreenV2() {
                       backgroundColor: on
                         ? variant === 'ai'
                           ? ScanV2Accent.primary
-                          : ScanV2Colors.cardHi
+                          : c.cardHi
                         : 'transparent',
                     }}
                   >
                     {variant === 'ai' ? (
-                      <Sparkle size={s(15)} color={on ? ScanV2Accent.on : ScanV2Colors.sec} />
+                      <Sparkle size={s(15)} color={on ? ScanV2Accent.on : c.sec} />
                     ) : null}
                     <ScanText
                       style={{
                         fontFamily: Fonts.inter.semibold,
                         fontSize: s(14),
-                        color: on ? (variant === 'ai' ? ScanV2Accent.on : ScanV2Colors.text) : ScanV2Colors.sec,
+                        color: on ? (variant === 'ai' ? ScanV2Accent.on : c.text) : c.sec,
                       }}
                     >
                       {label}
@@ -527,10 +526,10 @@ export function JourneyScreenV2() {
               borderRadius: 999,
               backgroundColor:
                 currentIndex === index
-                  ? ScanV2Colors.text
+                  ? c.text
                   : index === totalPages - 1
                     ? ScanV2Accent.soft
-                    : ScanV2Colors.lineHi,
+                    : c.lineHi,
             }}
           />
         ))}
@@ -575,7 +574,6 @@ export function JourneyScreenV2() {
         />
       ) : null}
     </View>
-    </ForcedThemeProvider>
   );
 }
 

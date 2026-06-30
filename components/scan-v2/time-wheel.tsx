@@ -36,7 +36,7 @@ import {
 } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { ScanText } from './primitives';
 
@@ -77,6 +77,7 @@ function WheelColumn<T extends string | number>({
   format,
   width,
 }: WheelColumnProps<T>) {
+  const c = useScanColors();
   const ITEM = Math.round(s(40));
   const scrollRef = useRef<ScrollView>(null);
   const idxOf = useCallback((v: T) => Math.max(0, items.indexOf(v)), [items]);
@@ -136,7 +137,7 @@ function WheelColumn<T extends string | number>({
                 fontFamily: on ? Fonts.outfit.extrabold : Fonts.outfit.semibold,
                 fontSize: on ? s(24) : s(20),
                 lineHeight: on ? s(28) : s(24),
-                color: on ? ScanV2Colors.text : ScanV2Colors.ter,
+                color: on ? c.text : c.ter,
                 opacity: on ? 1 : 0.5,
               }}
             >
@@ -157,6 +158,7 @@ interface TimeWheelProps {
 }
 
 export function TimeWheel({ current, onChange }: TimeWheelProps) {
+  const c = useScanColors();
   const init = parseTimeLabel(current);
   const [h, setH] = React.useState<number>(init.h);
   const [min, setMin] = React.useState<number>(init.min);
@@ -205,13 +207,13 @@ export function TimeWheel({ current, onChange }: TimeWheelProps) {
             height: ITEM,
             transform: [{ translateY: -ITEM / 2 }],
             borderRadius: s(12),
-            backgroundColor: ScanV2Colors.field,
+            backgroundColor: c.field,
             borderWidth: 1,
-            borderColor: ScanV2Colors.fieldLine,
+            borderColor: c.fieldLine,
           }}
         />
         <WheelColumn items={hours} value={h} onChange={setH} width={colW} />
-        <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(24), lineHeight: s(28), color: ScanV2Colors.text }}>:</ScanText>
+        <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(24), lineHeight: s(28), color: c.text }}>:</ScanText>
         <WheelColumn items={mins} value={min} onChange={setMin} format={(m) => String(m).padStart(2, '0')} width={colW} />
         <WheelColumn items={ampm} value={ap} onChange={setAp} width={colW} />
       </View>

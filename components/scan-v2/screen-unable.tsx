@@ -10,7 +10,7 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors } from '@/constants/scan-v2-theme';
+import { useScanColors } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { Icon, ScanText, ScansPill, PillButton, TopBar } from './primitives';
 
@@ -22,9 +22,10 @@ interface ScreenUnableProps {
 }
 
 export function ScreenUnable({ scansLeft, onRetry, onManual, onBack }: ScreenUnableProps) {
+  const c = useScanColors();
   const none = scansLeft <= 0;
   return (
-    <View style={{ position: 'absolute', inset: 0, backgroundColor: ScanV2Colors.bg } as any}>
+    <View style={{ position: 'absolute', inset: 0, backgroundColor: c.bg } as any}>
       <TopBar onBack={onBack} title="Review" sub="No tickets read" right={<ScansPill left={scansLeft} />} />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: s(32), gap: s(8) }}>
         <View
@@ -32,20 +33,20 @@ export function ScreenUnable({ scansLeft, onRetry, onManual, onBack }: ScreenUna
             width: s(72),
             height: s(72),
             borderRadius: s(20),
-            backgroundColor: ScanV2Colors.field,
+            backgroundColor: c.field,
             borderWidth: 1,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: s(8),
           }}
         >
-          <Icon name="ticket" size={s(32)} color={ScanV2Colors.ter} />
+          <Icon name="ticket" size={s(32)} color={c.ter} />
         </View>
-        <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(21), lineHeight: s(25), color: ScanV2Colors.text, textAlign: 'center' }}>
+        <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(21), lineHeight: s(25), color: c.text, textAlign: 'center' }}>
           {"Couldn't read that ticket"}
         </ScanText>
-        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(14), lineHeight: s(21), color: ScanV2Colors.sec, textAlign: 'center', maxWidth: s(290) }}>
+        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(14), lineHeight: s(21), color: c.sec, textAlign: 'center', maxWidth: s(290) }}>
           {none
             ? "You're out of scans for today. You can still add this movie by hand — it's unlimited."
             : 'Try again with the ticket flat, well-lit, and text in focus.'}
@@ -55,7 +56,7 @@ export function ScreenUnable({ scansLeft, onRetry, onManual, onBack }: ScreenUna
           <PillButton kind={none ? 'primary' : 'ghost'} icon="search" label="Add movie by hand" onPress={onManual} />
         </View>
         {!none && (
-          <ScanText style={{ fontFamily: Fonts.mono.regular, fontSize: s(11), letterSpacing: 0.5, color: ScanV2Colors.ter, marginTop: s(6) }}>
+          <ScanText style={{ fontFamily: Fonts.mono.regular, fontSize: s(11), letterSpacing: 0.5, color: c.ter, marginTop: s(6) }}>
             {scansLeft} SCAN{scansLeft === 1 ? '' : 'S'} LEFT TODAY
           </ScanText>
         )}

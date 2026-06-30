@@ -2,8 +2,8 @@
  * Ticket Scan v2 — shared visual primitives.
  *
  * Native recreation of `scan-art.jsx` / the shared chrome in `scan-screens.jsx`.
- * Everything here is DARK-ONLY (built from `ScanV2Colors`/`ScanV2Accent`, never
- * the theme-aware `Colors`), and every numeric size runs through `s()`. Text is
+ * Chrome here is theme-aware (built from `useScanColors()`/`ScanV2Accent`, not
+ * the global theme `Colors`), and every numeric size runs through `s()`. Text is
  * rendered via `ScanText`, which disables RN font scaling so `s()` is the sole
  * scaling source (no double-scale).
  */
@@ -24,7 +24,7 @@ import {
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 
 // ============================================================================
@@ -76,10 +76,12 @@ interface IconProps {
   stroke?: number;
 }
 
-export function Icon({ name, size = 20, color = ScanV2Colors.text, stroke = 2 }: IconProps) {
+export function Icon({ name, size = 20, color, stroke = 2 }: IconProps) {
+  const c = useScanColors();
+  const resolved = color ?? c.text;
   const p = {
     fill: 'none' as const,
-    stroke: color,
+    stroke: resolved,
     strokeWidth: stroke,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
@@ -245,6 +247,7 @@ interface ChipProps {
 }
 
 export function Chip({ icon, label }: ChipProps) {
+  const c = useScanColors();
   return (
     <View
       style={{
@@ -254,18 +257,18 @@ export function Chip({ icon, label }: ChipProps) {
         paddingVertical: s(5),
         paddingHorizontal: s(9),
         borderRadius: 999,
-        backgroundColor: ScanV2Colors.field,
+        backgroundColor: c.field,
         borderWidth: 1,
-        borderColor: ScanV2Colors.fieldLine,
+        borderColor: c.fieldLine,
       }}
     >
-      {icon ? <Icon name={icon} size={s(13)} color={ScanV2Colors.sec} stroke={2} /> : null}
+      {icon ? <Icon name={icon} size={s(13)} color={c.sec} stroke={2} /> : null}
       <ScanText
         style={{
           fontFamily: Fonts.inter.medium,
           fontSize: s(12),
           lineHeight: s(13.2),
-          color: ScanV2Colors.sec,
+          color: c.sec,
         }}
       >
         {label}
@@ -293,16 +296,19 @@ interface PillButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-function pillColors(kind: PillKind): { bg: string; fg: string; border: string } {
+function pillColors(
+  kind: PillKind,
+  sc: ReturnType<typeof useScanColors>,
+): { bg: string; fg: string; border: string } {
   switch (kind) {
     case 'primary':
       return { bg: ScanV2Accent.primary, fg: ScanV2Accent.on, border: 'transparent' };
     case 'soft':
       return { bg: ScanV2Accent.soft, fg: ScanV2Accent.primary, border: 'transparent' };
     case 'ghost':
-      return { bg: ScanV2Colors.field, fg: ScanV2Colors.text, border: ScanV2Colors.line };
+      return { bg: sc.field, fg: sc.text, border: sc.line };
     case 'quiet':
-      return { bg: 'transparent', fg: ScanV2Colors.sec, border: 'transparent' };
+      return { bg: 'transparent', fg: sc.sec, border: 'transparent' };
   }
 }
 
@@ -317,7 +323,8 @@ export function PillButton({
   nowrap,
   style,
 }: PillButtonProps) {
-  const c = pillColors(kind);
+  const sc = useScanColors();
+  const c = pillColors(kind, sc);
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -366,8 +373,9 @@ export function PillButton({
 // ============================================================================
 
 export function ScansPill({ left }: { left: number }) {
+  const c = useScanColors();
   const none = left <= 0;
-  const color = none ? ScanV2Accent.primary : ScanV2Colors.sec;
+  const color = none ? ScanV2Accent.primary : c.sec;
   return (
     <View
       style={{
@@ -377,9 +385,9 @@ export function ScansPill({ left }: { left: number }) {
         paddingVertical: s(7),
         paddingHorizontal: s(11),
         borderRadius: 999,
-        backgroundColor: none ? 'rgba(225,29,72,0.12)' : ScanV2Colors.field,
+        backgroundColor: none ? 'rgba(225,29,72,0.12)' : c.field,
         borderWidth: 1,
-        borderColor: none ? 'rgba(225,29,72,0.35)' : ScanV2Colors.line,
+        borderColor: none ? 'rgba(225,29,72,0.35)' : c.line,
       }}
     >
       <Icon name="bolt" size={s(13)} color={color} />
@@ -411,6 +419,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ title, sub, right, onBack, transparent }: TopBarProps) {
+  const c = useScanColors();
   return (
     <View
       style={{
@@ -420,7 +429,7 @@ export function TopBar({ title, sub, right, onBack, transparent }: TopBarProps) 
         paddingTop: s(54),
         paddingBottom: s(10),
         paddingHorizontal: s(16),
-        backgroundColor: transparent ? 'transparent' : ScanV2Colors.bg,
+        backgroundColor: transparent ? 'transparent' : c.bg,
       }}
     >
       {onBack ? (
@@ -430,14 +439,14 @@ export function TopBar({ title, sub, right, onBack, transparent }: TopBarProps) 
             width: s(38),
             height: s(38),
             borderRadius: 999,
-            backgroundColor: transparent ? 'rgba(0,0,0,0.4)' : ScanV2Colors.field,
+            backgroundColor: transparent ? 'rgba(0,0,0,0.4)' : c.field,
             borderWidth: 1,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="arrowL" size={s(19)} color={ScanV2Colors.text} />
+          <Icon name="arrowL" size={s(19)} color={c.text} />
         </Pressable>
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -448,7 +457,7 @@ export function TopBar({ title, sub, right, onBack, transparent }: TopBarProps) 
               fontSize: s(24),
               lineHeight: s(26.4),
               letterSpacing: -0.4,
-              color: ScanV2Colors.text,
+              color: c.text,
             }}
           >
             {title}
@@ -460,7 +469,7 @@ export function TopBar({ title, sub, right, onBack, transparent }: TopBarProps) 
               fontFamily: Fonts.inter.regular,
               fontSize: s(13),
               lineHeight: s(16),
-              color: ScanV2Colors.sec,
+              color: c.sec,
               marginTop: s(2),
             }}
           >
