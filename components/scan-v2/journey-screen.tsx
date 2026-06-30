@@ -49,7 +49,6 @@ import { Icon, ScanText } from './primitives';
 import { JourneyCard } from './journey-card';
 import type { AvatarStackPerson } from './avatar-stack';
 
-const HEADER_HEIGHT = 100;
 const MAX_JOURNEY_WIDTH = 480;
 const CAROUSEL_HORIZONTAL_PADDING = 16;
 
@@ -79,7 +78,7 @@ export function JourneyScreenV2() {
   const router = useRouter();
   const { tmdbId } = useLocalSearchParams<{ tmdbId: string }>();
   const insets = useSafeAreaInsets();
-  const { height: screenHeight, width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const { user } = useAuth();
 
   const parsedTmdbId = tmdbId ? parseInt(tmdbId, 10) : undefined;
@@ -96,6 +95,7 @@ export function JourneyScreenV2() {
   const [flipped, setFlipped] = useState(false);
   const [page, setPage] = useState(0);
   const [upgradeSheetVisible, setUpgradeSheetVisible] = useState(false);
+  const [cardH, setCardH] = useState(0); // measured height of the flex card area (fills available space)
   const carouselRef = useRef<FlatList<CarouselItem>>(null);
 
   // name -> avatar lookup from mutual follows (same source as the v1 edit screen)
@@ -124,17 +124,13 @@ export function JourneyScreenV2() {
     [friendAvatarMap],
   );
 
-  // Dimensions — mirror v1's carousel sizing.
+  // The card FLEXES to fill the space between the header and the bottom controls
+  // (toggle/button + dots) via a measured flex:1 wrapper (`cardH`) — so it's as tall as
+  // the device allows and the controls hug the bottom with no dead gap, rather than a
+  // fixed reserve that left slack on tall phones.
   const screenWidth = Math.min(windowWidth, MAX_JOURNEY_WIDTH);
   const pageWidth = screenWidth;
-  const isLandscape = windowWidth > screenHeight;
-  // Reserve room BELOW the card for the Original/AI toggle (or Generate-AI button)
-  // + the journey dots — otherwise the card eats the whole screen and those controls
-  // overlap and clip the stub bottom (page dots).
-  const ticketHeight = Math.min(
-    screenHeight - HEADER_HEIGHT - insets.top - insets.bottom - s(16) * 2 - s(120),
-    screenHeight * (isLandscape ? 0.82 : 0.7),
-  );
+  const ticketHeight = cardH;
   const totalPages = journeys.length + 1;
 
   const carouselData: CarouselItem[] = useMemo(() => {
@@ -351,22 +347,28 @@ export function JourneyScreenV2() {
         <View style={{ width: s(38) }} />
       </View>
 
-      {/* Carousel */}
-      <FlatList
-        ref={carouselRef}
-        data={carouselData}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => (item.type === 'journey' ? item.journey.id : `add-${index}`)}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        getItemLayout={getItemLayout}
-        bounces={false}
-        style={{ flexGrow: 0, width: screenWidth, alignSelf: 'center' }}
-        initialNumToRender={totalPages}
-      />
+      {/* Carousel — the flex:1 wrapper fills the space between the header and the bottom
+          controls; we measure it (cardH) and size the cards to fill, so the card is as
+          tall as the device allows and the controls hug the bottom (no dead gap). */}
+      <View style={{ flex: 1, width: '100%' }} onLayout={(e) => setCardH(e.nativeEvent.layout.height)}>
+        {cardH > 0 && (
+          <FlatList
+            ref={carouselRef}
+            data={carouselData}
+            renderItem={renderItem}
+            keyExtractor={(item, index) => (item.type === 'journey' ? item.journey.id : `add-${index}`)}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            getItemLayout={getItemLayout}
+            bounces={false}
+            style={{ flexGrow: 0, width: screenWidth, alignSelf: 'center', height: ticketHeight }}
+            initialNumToRender={totalPages}
+          />
+        )}
+      </View>
 
       {/* Original / AI toggle OR AI-generation button (current journey only, not flipped) */}
       {currentJourney && !flipped ? (
