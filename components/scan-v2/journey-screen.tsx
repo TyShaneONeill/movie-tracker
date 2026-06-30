@@ -51,6 +51,8 @@ import { Icon, ScanText } from './primitives';
 import { JourneyCard } from './journey-card';
 import { EditJourneySheet } from './edit-journey-sheet';
 import type { AvatarStackPerson } from './avatar-stack';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 const MAX_JOURNEY_WIDTH = 480;
 const CAROUSEL_HORIZONTAL_PADDING = 16;
@@ -89,6 +91,20 @@ export function JourneyScreenV2() {
   const { data: journeyData, isLoading, isError } = useJourneysByMovie(parsedTmdbId);
   const journeys = useMemo(() => journeyData?.journeys ?? [], [journeyData?.journeys]);
   const firstTake = journeyData?.firstTake ?? null;
+
+  // Which journeys are scan-verified (a ticket_scans row backs them) — gates the
+  // emerald "Verified" badge so manually-logged journeys read as plain "Theater visit".
+  const journeyIds = useMemo(() => journeys.map((j) => j.id), [journeys]);
+  const { data: scannedIds } = useQuery({
+    queryKey: ['journeyScans', parsedTmdbId, user?.id, journeyIds.length],
+    enabled: journeyIds.length > 0 && !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase.from('ticket_scans').select('journey_id').in('journey_id', journeyIds);
+      return new Set(
+        ((data ?? []) as { journey_id: string | null }[]).map((r) => r.journey_id).filter(Boolean) as string[],
+      );
+    },
+  });
   const { updateJourney, deleteJourney } = useJourneyMutations(parsedTmdbId);
   const { createJourney, isCreating } = useCreateJourney();
 
@@ -303,12 +319,13 @@ export function JourneyScreenV2() {
             setPage={setPage}
             onEdit={() => setEditingJourney(item.journey)}
             onInspectPoster={handleInspectPoster}
+            verified={scannedIds?.has(item.journey.id) ?? false}
             height={ticketHeight}
           />
         </View>
       );
     },
-    [pageWidth, ticketHeight, handleCreateJourney, isCreating, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster],
+    [pageWidth, ticketHeight, handleCreateJourney, isCreating, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster, scannedIds],
   );
 
   const movieTitle = journeys[0]?.title ?? 'Movie';
