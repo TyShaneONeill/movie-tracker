@@ -259,6 +259,8 @@ export interface JourneyCardProps {
   page: number;
   setPage: (page: number) => void;
   onEdit: () => void;
+  /** Opens the full-screen 3D poster inspector with the ACTIVE poster image (the one tapped). */
+  onInspectPoster?: (uri: string, journey: UserMovie) => void;
   /** Fixed height the card fills so the poster flexes above the content stub. */
   height: number;
 }
@@ -273,6 +275,7 @@ export function JourneyCard({
   page,
   setPage,
   onEdit,
+  onInspectPoster,
   height,
 }: JourneyCardProps) {
   const rating = firstTake?.rating ?? null;
@@ -335,13 +338,18 @@ export function JourneyCard({
         }}
       >
         {posterUri ? (
-          <SignedPhoto
-            expoImage
-            uri={posterUri}
+          <Pressable
+            onPress={() => onInspectPoster?.(posterUri, journey)}
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-            contentFit="cover"
-            transition={200}
-          />
+          >
+            <SignedPhoto
+              expoImage
+              uri={posterUri}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+              contentFit="cover"
+              transition={200}
+            />
+          </Pressable>
         ) : null}
 
         <GlassButton side="left" onPress={onFlip}>

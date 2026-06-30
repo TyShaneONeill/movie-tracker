@@ -44,6 +44,8 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { JourneyAIGenerationButton } from '@/components/journey/journey-ai-generation-button';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
+import { PosterInspectionModal } from '@/components/poster-inspection';
+import { resolveJourneyPhotoUrl } from '@/lib/ticket-photo-url';
 import type { UserMovie } from '@/lib/database.types';
 import { Icon, ScanText } from './primitives';
 import { JourneyCard } from './journey-card';
@@ -96,6 +98,9 @@ export function JourneyScreenV2() {
   const [page, setPage] = useState(0);
   const [upgradeSheetVisible, setUpgradeSheetVisible] = useState(false);
   const [cardH, setCardH] = useState(0); // measured height of the flex card area (fills available space)
+  const [posterModalVisible, setPosterModalVisible] = useState(false);
+  const [inspectUri, setInspectUri] = useState('');
+  const [inspectTitle, setInspectTitle] = useState('');
   const carouselRef = useRef<FlatList<CarouselItem>>(null);
 
   // name -> avatar lookup from mutual follows (same source as the v1 edit screen)
@@ -123,6 +128,18 @@ export function JourneyScreenV2() {
       }),
     [friendAvatarMap],
   );
+
+  // Tap the poster → full-screen 3D tilt inspector (reuses the v1 PosterInspectionModal),
+  // with the ACTIVE poster image the card is showing (Original or AI — whichever is up).
+  const handleInspectPoster = useCallback((uri: string, journey: UserMovie) => {
+    if (!uri) return;
+    setInspectTitle(journey.title);
+    // Resolve/sign first — the inspector renders a raw <Image>, not SignedPhoto.
+    setInspectUri('');
+    void resolveJourneyPhotoUrl(uri).then(setInspectUri);
+    setPosterModalVisible(true);
+    hapticImpact(ImpactFeedbackStyle.Medium);
+  }, []);
 
   // The card FLEXES to fill the space between the header and the bottom controls
   // (toggle/button + dots) via a measured flex:1 wrapper (`cardH`) — so it's as tall as
@@ -251,12 +268,13 @@ export function JourneyScreenV2() {
             page={index === currentIndex ? page : 0}
             setPage={setPage}
             onEdit={() => router.push(`/journey/edit/${item.journey.id}` as never)}
+            onInspectPoster={handleInspectPoster}
             height={ticketHeight}
           />
         </View>
       );
     },
-    [pageWidth, ticketHeight, handleCreateJourney, firstTake, resolveCompanions, flipped, page, currentIndex, router],
+    [pageWidth, ticketHeight, handleCreateJourney, firstTake, resolveCompanions, flipped, page, currentIndex, router, handleInspectPoster],
   );
 
   const movieTitle = journeys[0]?.title ?? 'Movie';
@@ -472,6 +490,12 @@ export function JourneyScreenV2() {
         visible={upgradeSheetVisible}
         featureKey="ai_poster_generation"
         onClose={() => setUpgradeSheetVisible(false)}
+      />
+      <PosterInspectionModal
+        visible={posterModalVisible}
+        imageUrl={inspectUri}
+        movieTitle={inspectTitle}
+        onClose={() => setPosterModalVisible(false)}
       />
     </View>
     </ForcedThemeProvider>
