@@ -39,7 +39,7 @@ import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import { buildAvatarUrl } from '@/lib/avatar-service';
 import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
-import { useJourneysByMovie, useJourneyMutations } from '@/hooks/use-journey';
+import { useJourneysByMovie, useJourneyMutations, useCreateJourney } from '@/hooks/use-journey';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { JourneyAIGenerationButton } from '@/components/journey/journey-ai-generation-button';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
@@ -51,6 +51,8 @@ import { Icon, ScanText } from './primitives';
 import { JourneyCard } from './journey-card';
 import { EditJourneySheet } from './edit-journey-sheet';
 import type { AvatarStackPerson } from './avatar-stack';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 const MAX_JOURNEY_WIDTH = 480;
 const CAROUSEL_HORIZONTAL_PADDING = 16;
@@ -89,7 +91,22 @@ export function JourneyScreenV2() {
   const { data: journeyData, isLoading, isError } = useJourneysByMovie(parsedTmdbId);
   const journeys = useMemo(() => journeyData?.journeys ?? [], [journeyData?.journeys]);
   const firstTake = journeyData?.firstTake ?? null;
-  const { updateJourney } = useJourneyMutations(parsedTmdbId);
+
+  // Which journeys are scan-verified (a ticket_scans row backs them) — gates the
+  // emerald "Verified" badge so manually-logged journeys read as plain "Theater visit".
+  const journeyIds = useMemo(() => journeys.map((j) => j.id), [journeys]);
+  const { data: scannedIds } = useQuery({
+    queryKey: ['journeyScans', parsedTmdbId, user?.id, journeyIds.length],
+    enabled: journeyIds.length > 0 && !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase.from('ticket_scans').select('journey_id').in('journey_id', journeyIds);
+      return new Set(
+        ((data ?? []) as { journey_id: string | null }[]).map((r) => r.journey_id).filter(Boolean) as string[],
+      );
+    },
+  });
+  const { updateJourney, deleteJourney } = useJourneyMutations(parsedTmdbId);
+  const { createJourney, isCreating } = useCreateJourney();
 
   const { mutualFollows } = useMutualFollows(user?.id ?? '');
   const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
@@ -103,7 +120,12 @@ export function JourneyScreenV2() {
   const [inspectUri, setInspectUri] = useState('');
   const [inspectTitle, setInspectTitle] = useState('');
   const [editingJourney, setEditingJourney] = useState<UserMovie | null>(null);
+  // Set ONLY for a freshly-created-but-unsaved journey (the create flow). When it
+  // matches the open sheet's journey, cancelling deletes the empty row so no blank
+  // journey is left behind. The edit-pencil path leaves this null → never deletes.
+  const [pendingCreateId, setPendingCreateId] = useState<string | null>(null);
   const carouselRef = useRef<FlatList<CarouselItem>>(null);
+  const creatingRef = useRef(false); // synchronous re-entrancy guard for create (double-tap)
 
   // name -> avatar lookup from mutual follows (same source as the v1 edit screen)
   const friendAvatarMap = useMemo(() => {
@@ -178,12 +200,33 @@ export function JourneyScreenV2() {
     else router.replace('/');
   }, [router]);
 
+  // Create the row FIRST (so the edit sheet's photo upload has a real journey.id),
+  // then open the same v2 EditJourneySheet on it. `journeys[0]` is the metadata
+  // template — the create RPC derives movie identity + next journey_number from it;
+  // all editable fields start null (the sheet seeds blank). Cancel cleans up via
+  // pendingCreateId (see the sheet's onClose) so no empty journey is left behind.
   const handleCreateJourney = useCallback(() => {
-    requireAuth(() => {
-      if (journeys.length === 0 || !parsedTmdbId) return;
-      router.push(`/journey/edit/new?tmdbId=${parsedTmdbId}` as never);
+    requireAuth(async () => {
+      // Synchronous re-entrancy guard: `disabled={isCreating}` lags a render commit,
+      // so a fast double-tap could fire two create RPCs (the first row orphaned). The
+      // ref blocks the second tap immediately.
+      if (creatingRef.current || !journeys[0]) return;
+      creatingRef.current = true;
+      try {
+        const newJourney = await createJourney(journeys[0]);
+        setPendingCreateId(newJourney.id);
+        setEditingJourney(newJourney);
+      } catch {
+        Toast.show({
+          type: 'error',
+          text1: 'Could not start a new journey',
+          text2: 'Please try again.',
+        });
+      } finally {
+        creatingRef.current = false;
+      }
     }, 'Sign in to log another viewing');
-  }, [requireAuth, journeys.length, parsedTmdbId, router]);
+  }, [requireAuth, journeys, createJourney]);
 
   // Reuse v1's optimistic display_poster write.
   const handleTogglePoster = useCallback(
@@ -213,6 +256,7 @@ export function JourneyScreenV2() {
           <View style={{ width: pageWidth, paddingHorizontal: s(CAROUSEL_HORIZONTAL_PADDING) }}>
             <Pressable
               onPress={handleCreateJourney}
+              disabled={isCreating}
               style={{
                 height: ticketHeight,
                 borderRadius: s(22),
@@ -235,7 +279,11 @@ export function JourneyScreenV2() {
                   justifyContent: 'center',
                 }}
               >
-                <Icon name="plus" size={s(34)} color={ScanV2Accent.primary} />
+                {isCreating ? (
+                  <ActivityIndicator size="small" color={ScanV2Accent.primary} />
+                ) : (
+                  <Icon name="plus" size={s(34)} color={ScanV2Accent.primary} />
+                )}
               </View>
               <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(19), color: ScanV2Colors.text }}>
                 Log another viewing
@@ -271,12 +319,13 @@ export function JourneyScreenV2() {
             setPage={setPage}
             onEdit={() => setEditingJourney(item.journey)}
             onInspectPoster={handleInspectPoster}
+            verified={scannedIds?.has(item.journey.id) ?? false}
             height={ticketHeight}
           />
         </View>
       );
     },
-    [pageWidth, ticketHeight, handleCreateJourney, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster],
+    [pageWidth, ticketHeight, handleCreateJourney, isCreating, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster, scannedIds],
   );
 
   const movieTitle = journeys[0]?.title ?? 'Movie';
@@ -502,13 +551,25 @@ export function JourneyScreenV2() {
       {editingJourney ? (
         <EditJourneySheet
           journey={editingJourney}
-          onClose={() => setEditingJourney(null)}
+          onClose={() => {
+            // Cancel: if this is a freshly-created-but-never-saved row (create flow),
+            // delete it so the carousel isn't left with an empty journey. The
+            // edit-pencil path leaves pendingCreateId null → never deletes a real row.
+            if (pendingCreateId && editingJourney && pendingCreateId === editingJourney.id) {
+              deleteJourney(pendingCreateId).catch(() => {});
+            }
+            setPendingCreateId(null);
+            setEditingJourney(null);
+          }}
           onSave={(patch) => {
             updateJourney({ journeyId: editingJourney.id, data: patch }).catch(() => {
               // optimistic update rolls back via the mutation's onError — surface it
               // so the user knows the change didn't stick (v1 parity).
               Toast.show({ type: 'error', text1: 'Could not save changes', text2: 'Please try again.' });
             });
+            // Saved → keep the row; clear the pending-create flag so a later Cancel
+            // on a re-opened sheet never deletes it.
+            setPendingCreateId(null);
             setEditingJourney(null);
           }}
         />

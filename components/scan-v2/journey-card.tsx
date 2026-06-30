@@ -261,6 +261,8 @@ export interface JourneyCardProps {
   onEdit: () => void;
   /** Opens the full-screen 3D poster inspector with the ACTIVE poster image (the one tapped). */
   onInspectPoster?: (uri: string, journey: UserMovie) => void;
+  /** True only when a ticket scan backs this journey — gates the emerald "Verified" badge. */
+  verified?: boolean;
   /** Fixed height the card fills so the poster flexes above the content stub. */
   height: number;
 }
@@ -276,6 +278,7 @@ export function JourneyCard({
   setPage,
   onEdit,
   onInspectPoster,
+  verified,
   height,
 }: JourneyCardProps) {
   const rating = firstTake?.rating ?? null;
@@ -584,7 +587,8 @@ export function JourneyCard({
           <FlipGlyph size={s(17)} color={ScanV2Colors.sec} />
         </Pressable>
 
-        {/* Verified pill */}
+        {/* Status pill — emerald "Verified" only when a ticket scan backs the visit;
+            otherwise a neutral "Theater visit" (manually-logged journeys aren't scanned). */}
         <View
           style={{
             flexDirection: 'row',
@@ -593,12 +597,12 @@ export function JourneyCard({
             paddingVertical: s(6),
             paddingHorizontal: s(12),
             borderRadius: 999,
-            backgroundColor: 'rgba(16,185,129,0.14)',
+            backgroundColor: verified ? 'rgba(16,185,129,0.14)' : ScanV2Colors.field,
           }}
         >
-          <Icon name="check" size={s(14)} color={ScanV2Colors.emerald} stroke={2.6} />
-          <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(12), color: ScanV2Colors.emerald }}>
-            Verified theater visit
+          {verified ? <Icon name="check" size={s(14)} color={ScanV2Colors.emerald} stroke={2.6} /> : null}
+          <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(12), color: verified ? ScanV2Colors.emerald : ScanV2Colors.sec }}>
+            {verified ? 'Verified theater visit' : 'Theater visit'}
           </ScanText>
         </View>
 
