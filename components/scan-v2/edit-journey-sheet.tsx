@@ -384,7 +384,7 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
                   marginBottom: s(10),
                 }}
               >
-                Add photos of your ticket, poster, or friends. First photo is the cover.
+                Add photos of your ticket, poster, or the people you saw it with.
               </ScanText>
 
               <ScrollView
