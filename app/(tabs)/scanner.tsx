@@ -15,14 +15,15 @@ import { View } from 'react-native';
 
 import { ScannerV1 } from '@/components/scanner/scanner-v1';
 import { ScanV2Flow } from '@/components/scan-v2/scan-v2-flow';
-import { ScanV2Colors } from '@/constants/scan-v2-theme';
+import { useScanColors } from '@/constants/scan-v2-theme';
 import { useTicketScanV2 } from '@/hooks/use-ticket-scan-v2';
 
 export default function ScannerScreen() {
   const { variant, resolving } = useTicketScanV2();
+  const c = useScanColors();
 
   if (resolving) {
-    return <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg }} />;
+    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   }
 
   if (variant === 'v2') {

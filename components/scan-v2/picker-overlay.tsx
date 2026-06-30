@@ -22,7 +22,7 @@
  * ScrollView would otherwise swallow their drag on Android). The time picker
  * commits via the sheet's sticky footer; radio/date commit on tap.
  *
- * Dark-only: built from `ScanV2Colors`/`ScanV2Accent`; all text via `ScanText`,
+ * Theme-aware: built from `useScanColors`/`ScanV2Accent`; all text via `ScanText`,
  * sizes via `s()`.
  */
 
@@ -39,7 +39,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { useMovieSearch } from '@/hooks/use-movie-search';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -84,6 +84,7 @@ export function PickerOverlay({
   onPickMovie,
   onClose,
 }: PickerOverlayProps) {
+  const c = useScanColors();
   const insets = useSafeAreaInsets();
   const radioItems =
     kind === 'format' ? FORMATS : kind === 'rated' ? RATINGS : kind === 'type' ? TICKET_TYPES : null;
@@ -120,7 +121,7 @@ export function PickerOverlay({
           guessing the exact gap height. pointerEvents none so the gap still closes. */}
       <View
         pointerEvents="none"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: ScanV2Colors.surface } as any}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: c.surface } as any}
       />
 
       <KeyboardAvoidingView
@@ -129,12 +130,12 @@ export function PickerOverlay({
       >
         <View
           style={{
-            backgroundColor: ScanV2Colors.surface,
+            backgroundColor: c.surface,
             borderTopLeftRadius: s(24),
             borderTopRightRadius: s(24),
             borderWidth: 1,
             borderBottomWidth: 0,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             // Content-height sheet (no fixed/min height → no empty bottom gap),
             // capped so the tallest body (3 time wheels + label + footer) fits.
             maxHeight: '90%',
@@ -143,15 +144,15 @@ export function PickerOverlay({
         >
           {/* header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: s(16), paddingTop: s(16), paddingBottom: s(10) }}>
-            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: ScanV2Colors.text }}>
+            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: c.text }}>
               {PICKER_TITLES[kind]}
             </ScanText>
             <Pressable
               onPress={onClose}
               hitSlop={8}
-              style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: ScanV2Colors.field, alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Icon name="x" size={s(16)} color={ScanV2Colors.sec} />
+              <Icon name="x" size={s(16)} color={c.sec} />
             </Pressable>
           </View>
 
@@ -194,6 +195,7 @@ export function PickerOverlay({
 // ============================================================================
 
 function RadioList({ items, current, onPick }: { items: string[]; current?: string; onPick: (v: string) => void }) {
+  const c = useScanColors();
   return (
     <View style={{ gap: s(10) }}>
       {items.map((it) => {
@@ -212,10 +214,10 @@ function RadioList({ items, current, onPick }: { items: string[]; current?: stri
               borderRadius: s(12),
               backgroundColor: on ? ScanV2Accent.soft : 'transparent',
               borderWidth: 1,
-              borderColor: on ? ScanV2Accent.primary : ScanV2Colors.line,
+              borderColor: on ? ScanV2Accent.primary : c.line,
             }}
           >
-            <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15.5), lineHeight: s(19), color: on ? ScanV2Accent.primary : ScanV2Colors.text }}>
+            <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15.5), lineHeight: s(19), color: on ? ScanV2Accent.primary : c.text }}>
               {it}
             </ScanText>
             {on && <Icon name="check" size={s(18)} color={ScanV2Accent.primary} stroke={2.6} />}
@@ -231,6 +233,7 @@ function RadioList({ items, current, onPick }: { items: string[]; current?: stri
 // ============================================================================
 
 function MoviePicker({ onSelect, currentId }: { onSelect: (movie: TMDBMovie) => void; currentId: number | null }) {
+  const c = useScanColors();
   const [query, setQuery] = useState('');
   const debounced = useDebouncedValue(query, 300);
   const enabled = debounced.trim().length >= 2;
@@ -248,21 +251,21 @@ function MoviePicker({ onSelect, currentId }: { onSelect: (movie: TMDBMovie) => 
           marginBottom: s(10),
           paddingVertical: s(10),
           paddingHorizontal: s(12),
-          backgroundColor: ScanV2Colors.field,
+          backgroundColor: c.field,
           borderWidth: 1,
-          borderColor: ScanV2Colors.fieldLine,
+          borderColor: c.fieldLine,
           borderRadius: s(12),
         }}
       >
-        <Icon name="search" size={s(17)} color={ScanV2Colors.sec} />
+        <Icon name="search" size={s(17)} color={c.sec} />
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="Search title…"
-          placeholderTextColor={ScanV2Colors.ter}
+          placeholderTextColor={c.ter}
           autoFocus
           allowFontScaling={false}
-          style={{ flex: 1, color: ScanV2Colors.text, fontFamily: Fonts.inter.regular, fontSize: s(15), padding: 0 }}
+          style={{ flex: 1, color: c.text, fontFamily: Fonts.inter.regular, fontSize: s(15), padding: 0 }}
         />
       </View>
 
@@ -277,7 +280,7 @@ function MoviePicker({ onSelect, currentId }: { onSelect: (movie: TMDBMovie) => 
           </View>
         )}
         {!showSpinner && enabled && movies.length === 0 && (
-          <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13), color: ScanV2Colors.ter, textAlign: 'center', paddingVertical: s(20) }}>
+          <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13), color: c.ter, textAlign: 'center', paddingVertical: s(20) }}>
             No matches — try another title
           </ScanText>
         )}
@@ -319,6 +322,7 @@ function toISO(y: number, m: number, d: number): string {
 }
 
 function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: string) => void }) {
+  const c = useScanColors();
   const seed = useMemo(() => parseISO(currentISO) ?? null, [currentISO]);
   const now = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(seed ? seed.y : now.getFullYear());
@@ -349,9 +353,9 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
     <Pressable
       onPress={onPress}
       hitSlop={8}
-      style={{ width: s(34), height: s(34), borderRadius: 999, backgroundColor: ScanV2Colors.field, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: s(34), height: s(34), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
     >
-      <Icon name={icon} size={s(18)} color={ScanV2Colors.text} />
+      <Icon name={icon} size={s(18)} color={c.text} />
     </Pressable>
   );
 
@@ -360,7 +364,7 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
       {/* month nav */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: s(12) }}>
         {navBtn('chevL', () => step(-1))}
-        <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(15), lineHeight: s(19), color: ScanV2Colors.text }}>
+        <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(15), lineHeight: s(19), color: c.text }}>
           {MONTH_NAMES[viewMonth]} {viewYear}
         </ScanText>
         {navBtn('chevR', () => step(1))}
@@ -370,7 +374,7 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
       <View style={{ flexDirection: 'row' }}>
         {WEEKDAYS.map((d, i) => (
           <View key={`h${i}`} style={{ flex: 1, alignItems: 'center', paddingVertical: s(4) }}>
-            <ScanText style={{ fontFamily: Fonts.mono.regular, fontSize: s(10), color: ScanV2Colors.ter }}>{d}</ScanText>
+            <ScanText style={{ fontFamily: Fonts.mono.regular, fontSize: s(10), color: c.ter }}>{d}</ScanText>
           </View>
         ))}
       </View>
@@ -393,7 +397,7 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
                   backgroundColor: on ? ScanV2Accent.primary : 'transparent',
                 }}
               >
-                <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(17), color: on ? ScanV2Accent.on : ScanV2Colors.text }}>
+                <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(17), color: on ? ScanV2Accent.on : c.text }}>
                   {d}
                 </ScanText>
               </Pressable>

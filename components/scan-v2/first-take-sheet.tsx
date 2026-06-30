@@ -10,8 +10,8 @@
  *
  * Each posted movie commits via `createFirstTake` — `DUPLICATE_FIRST_TAKE`
  * (re-take of an already-taken movie) is swallowed so the batch keeps moving.
- * Reuses the EditSheet Modal + keyboard-avoidance shell; dark-only
- * (`ScanV2Colors`/`ScanV2Accent`), sizes via `s()`, text via `ScanText`.
+ * Reuses the EditSheet Modal + keyboard-avoidance shell; theme-aware
+ * (`useScanColors`/`ScanV2Accent`), sizes via `s()`, text via `ScanText`.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -32,7 +32,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { createFirstTake } from '@/lib/first-take-service';
@@ -102,6 +102,7 @@ interface FirstTakeSheetProps {
 }
 
 export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onDone }: FirstTakeSheetProps) {
+  const c = useScanColors();
   const insets = useSafeAreaInsets();
   const kbHeight = useKeyboardHeight();
   const defaultVis = REVIEW_TO_VIS[defaultVisibility] ?? 'Public';
@@ -221,26 +222,26 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
 
         <View
           style={{
-            backgroundColor: ScanV2Colors.surface,
+            backgroundColor: c.surface,
             borderTopLeftRadius: s(26),
             borderTopRightRadius: s(26),
             borderWidth: 1,
             borderBottomWidth: 0,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             maxHeight: '94%',
             overflow: 'hidden',
           }}
         >
           {/* grabber */}
           <View style={{ alignItems: 'center', paddingTop: s(10) }}>
-            <View style={{ width: s(38), height: s(5), borderRadius: 999, backgroundColor: ScanV2Colors.lineHi }} />
+            <View style={{ width: s(38), height: s(5), borderRadius: 999, backgroundColor: c.lineHi }} />
           </View>
 
           {/* top row: movie counter (multi) + X */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(8), paddingHorizontal: s(16), paddingTop: s(8), paddingBottom: s(10) }}>
             <View style={{ minWidth: s(54) }}>
               {multi ? (
-                <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(11), lineHeight: s(14), letterSpacing: 1, color: ScanV2Colors.ter }}>
+                <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(11), lineHeight: s(14), letterSpacing: 1, color: c.ter }}>
                   {idx + 1} / {movies.length}
                 </ScanText>
               ) : null}
@@ -248,9 +249,9 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
             <Pressable
               onPress={onClose}
               hitSlop={8}
-              style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: ScanV2Colors.field, alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Icon name="x" size={s(16)} color={ScanV2Colors.sec} />
+              <Icon name="x" size={s(16)} color={c.sec} />
             </Pressable>
           </View>
 
@@ -307,24 +308,24 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
                         ensureVisible(focusedInput.current);
                       }}
                       placeholder="e.g. The IMAX sound design wrecked me — did not see that ending coming."
-                      placeholderTextColor={ScanV2Colors.ter}
+                      placeholderTextColor={c.ter}
                       textAlignVertical="top"
                       style={{
                         minHeight: s(120),
-                        backgroundColor: ScanV2Colors.field,
+                        backgroundColor: c.field,
                         borderWidth: 1,
-                        borderColor: ScanV2Colors.fieldLine,
+                        borderColor: c.fieldLine,
                         borderRadius: s(14),
                         padding: s(14),
                         paddingBottom: s(28),
-                        color: ScanV2Colors.text,
+                        color: c.text,
                         fontFamily: Fonts.inter.regular,
                         fontSize: s(15.5),
                         lineHeight: s(23),
                       }}
                     />
                     <ScanText
-                      style={{ position: 'absolute', bottom: s(10), right: s(12), fontFamily: Fonts.mono.medium, fontSize: s(11), lineHeight: s(13), color: ScanV2Colors.ter }}
+                      style={{ position: 'absolute', bottom: s(10), right: s(12), fontFamily: Fonts.mono.medium, fontSize: s(11), lineHeight: s(13), color: c.ter }}
                     >
                       {take.text.length}/{MAX_REACTION}
                     </ScanText>
@@ -420,7 +421,7 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
                       disabled={isPosting}
                     />
                     <Pressable onPress={() => void postMovie()} disabled={isPosting} style={{ minHeight: s(38), alignItems: 'center', justifyContent: 'center' }}>
-                      <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(18), color: ScanV2Colors.sec }}>
+                      <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(18), color: c.sec }}>
                         {multi && !last ? 'Skip this movie' : 'Skip for now'}
                       </ScanText>
                     </Pressable>
@@ -452,6 +453,7 @@ interface StepHeaderProps {
 }
 
 function StepHeader({ step, movie, idx, count, multi, onBack }: StepHeaderProps) {
+  const c = useScanColors();
   const posterUrl = getTMDBImageUrl(movie.posterPath, 'w185');
   return (
     <View style={{ marginBottom: s(18) }}>
@@ -461,9 +463,9 @@ function StepHeader({ step, movie, idx, count, multi, onBack }: StepHeaderProps)
           <Pressable
             onPress={onBack}
             hitSlop={6}
-            style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: ScanV2Colors.field, borderWidth: 1, borderColor: ScanV2Colors.line, alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: c.field, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Icon name="chevL" size={s(16)} color={ScanV2Colors.sec} />
+            <Icon name="chevL" size={s(16)} color={c.sec} />
           </Pressable>
         ) : (
           <View style={{ width: s(30) }} />
@@ -472,26 +474,26 @@ function StepHeader({ step, movie, idx, count, multi, onBack }: StepHeaderProps)
           {Array.from({ length: TOTAL }).map((_, i) => (
             <View
               key={i}
-              style={{ flex: 1, height: s(5), borderRadius: 999, backgroundColor: i <= step ? ScanV2Accent.primary : ScanV2Colors.lineHi }}
+              style={{ flex: 1, height: s(5), borderRadius: 999, backgroundColor: i <= step ? ScanV2Accent.primary : c.lineHi }}
             />
           ))}
         </View>
-        <ScanText style={{ width: s(30), textAlign: 'right', fontFamily: Fonts.mono.medium, fontSize: s(11), lineHeight: s(14), letterSpacing: 0.5, color: ScanV2Colors.ter }}>
+        <ScanText style={{ width: s(30), textAlign: 'right', fontFamily: Fonts.mono.medium, fontSize: s(11), lineHeight: s(14), letterSpacing: 0.5, color: c.ter }}>
           {step + 1}/{TOTAL}
         </ScanText>
       </View>
 
       {/* movie context */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), marginTop: s(16) }}>
-        <View style={{ width: s(38), height: s(54), borderRadius: s(8), overflow: 'hidden', backgroundColor: '#1b1b20', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: s(38), height: s(54), borderRadius: s(8), overflow: 'hidden', backgroundColor: c.cardHi, alignItems: 'center', justifyContent: 'center' }}>
           {posterUrl ? (
             <Image source={{ uri: posterUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
           ) : (
-            <Icon name="film" size={s(18)} color={ScanV2Colors.ter} />
+            <Icon name="film" size={s(18)} color={c.ter} />
           )}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <ScanText numberOfLines={1} style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(21), color: ScanV2Colors.text }}>
+          <ScanText numberOfLines={1} style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(21), color: c.text }}>
             {movie.title}
           </ScanText>
           <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(11), lineHeight: s(14), letterSpacing: 0.5, color: ScanV2Accent.primary, marginTop: s(2) }}>
@@ -516,22 +518,24 @@ interface StepActionsProps {
 }
 
 function StepActions({ nextLabel, nextIcon, skipLabel, onNext, onSkip }: StepActionsProps) {
+  const c = useScanColors();
   return (
     <View style={{ marginTop: s(22), gap: s(8) }}>
       <PillButton full label={nextLabel} iconRight={nextIcon} onPress={onNext} />
       <Pressable onPress={onSkip} style={{ minHeight: s(38), alignItems: 'center', justifyContent: 'center' }}>
-        <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(18), color: ScanV2Colors.sec }}>{skipLabel}</ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(18), color: c.sec }}>{skipLabel}</ScanText>
       </Pressable>
     </View>
   );
 }
 
 function Headline({ title, sub }: { title: string; sub?: string }) {
+  const c = useScanColors();
   return (
     <View style={{ marginBottom: s(16) }}>
-      <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(24), lineHeight: s(27), letterSpacing: -0.4, color: ScanV2Colors.text }}>{title}</ScanText>
+      <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(24), lineHeight: s(27), letterSpacing: -0.4, color: c.text }}>{title}</ScanText>
       {sub ? (
-        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13.5), lineHeight: s(19.5), color: ScanV2Colors.sec, marginTop: s(6) }}>{sub}</ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13.5), lineHeight: s(19.5), color: c.sec, marginTop: s(6) }}>{sub}</ScanText>
       ) : null}
     </View>
   );
@@ -546,6 +550,7 @@ interface OptionRowProps {
 }
 
 function OptionRow({ selected, icon, title, desc, onPress }: OptionRowProps) {
+  const c = useScanColors();
   return (
     <Pressable
       onPress={onPress}
@@ -555,19 +560,19 @@ function OptionRow({ selected, icon, title, desc, onPress }: OptionRowProps) {
         gap: s(12),
         padding: s(14),
         borderRadius: s(15),
-        backgroundColor: selected ? ScanV2Accent.soft : ScanV2Colors.field,
+        backgroundColor: selected ? ScanV2Accent.soft : c.field,
         borderWidth: 1.5,
-        borderColor: selected ? ScanV2Accent.primary : ScanV2Colors.line,
+        borderColor: selected ? ScanV2Accent.primary : c.line,
       }}
     >
       <View
-        style={{ width: s(34), height: s(34), borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? ScanV2Accent.primary : ScanV2Colors.cardHi }}
+        style={{ width: s(34), height: s(34), borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? ScanV2Accent.primary : c.cardHi }}
       >
-        <Icon name={icon} size={s(17)} color={selected ? ScanV2Accent.on : ScanV2Colors.sec} />
+        <Icon name={icon} size={s(17)} color={selected ? ScanV2Accent.on : c.sec} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(15.5), lineHeight: s(19), color: selected ? ScanV2Accent.primary : ScanV2Colors.text }}>{title}</ScanText>
-        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(12.5), lineHeight: s(16), color: ScanV2Colors.sec, marginTop: s(1) }}>{desc}</ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(15.5), lineHeight: s(19), color: selected ? ScanV2Accent.primary : c.text }}>{title}</ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(12.5), lineHeight: s(16), color: c.sec, marginTop: s(1) }}>{desc}</ScanText>
       </View>
       {selected ? <Icon name="check" size={s(18)} color={ScanV2Accent.primary} stroke={2.6} /> : null}
     </Pressable>
@@ -575,38 +580,39 @@ function OptionRow({ selected, icon, title, desc, onPress }: OptionRowProps) {
 }
 
 function SummaryCard({ take }: { take: TakeDraft }) {
+  const c = useScanColors();
   return (
-    <View style={{ backgroundColor: ScanV2Colors.card, borderWidth: 1, borderColor: ScanV2Colors.line, borderRadius: s(16), padding: s(16), gap: s(13) }}>
+    <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: s(16), padding: s(16), gap: s(13) }}>
       {/* rating */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(10) }}>
-        <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(13), lineHeight: s(16), color: ScanV2Colors.sec }}>Rating</ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(13), lineHeight: s(16), color: c.sec }}>Rating</ScanText>
         {take.rating == null ? (
-          <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(17), color: ScanV2Colors.ter }}>No rating</ScanText>
+          <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(17), color: c.ter }}>No rating</ScanText>
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
             <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(18), lineHeight: s(22), color: ScanV2Accent.primary }}>{take.rating.toFixed(1)}</ScanText>
-            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(13), lineHeight: s(17), color: ScanV2Colors.ter }}>{' / 10'}</ScanText>
+            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(13), lineHeight: s(17), color: c.ter }}>{' / 10'}</ScanText>
           </View>
         )}
       </View>
-      <View style={{ height: 1, backgroundColor: ScanV2Colors.line }} />
+      <View style={{ height: 1, backgroundColor: c.line }} />
       {/* words */}
       <View>
-        <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(13), lineHeight: s(16), color: ScanV2Colors.sec }}>Your words</ScanText>
+        <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(13), lineHeight: s(16), color: c.sec }}>Your words</ScanText>
         <ScanText
           style={{
             fontFamily: Fonts.inter.regular,
             fontStyle: take.text ? 'normal' : 'italic',
             fontSize: s(14.5),
             lineHeight: s(21.75),
-            color: take.text ? ScanV2Colors.text : ScanV2Colors.ter,
+            color: take.text ? c.text : c.ter,
             marginTop: s(5),
           }}
         >
           {take.text || 'No words this time'}
         </ScanText>
       </View>
-      <View style={{ height: 1, backgroundColor: ScanV2Colors.line }} />
+      <View style={{ height: 1, backgroundColor: c.line }} />
       {/* visibility + spoiler chips */}
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: s(8) }}>
         <Chip icon={take.vis === 'Private' ? 'info' : take.vis === 'Followers' ? 'check' : 'share'} label={take.vis} />

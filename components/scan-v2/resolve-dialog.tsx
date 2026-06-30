@@ -14,7 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Modal, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { useMovieSearch } from '@/hooks/use-movie-search';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -42,6 +42,7 @@ export function ResolveDialog({
   onSaveReady,
   onClose,
 }: ResolveDialogProps) {
+  const c = useScanColors();
   const [searchingId, setSearchingId] = useState<string | null>(null);
 
   // Auto-close once every unknown movie is resolved or removed.
@@ -63,10 +64,10 @@ export function ResolveDialog({
 
         <View
           style={{
-            backgroundColor: ScanV2Colors.surface,
+            backgroundColor: c.surface,
             borderRadius: s(24),
             borderWidth: 1,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             overflow: 'hidden',
             maxHeight: '88%',
           }}
@@ -97,10 +98,10 @@ export function ResolveDialog({
                 >
                   <Icon name="warn" size={s(26)} color={ScanV2Accent.primary} />
                 </View>
-                <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(20), lineHeight: s(24), color: ScanV2Colors.text, marginTop: s(12), textAlign: 'center' }}>
+                <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(20), lineHeight: s(24), color: c.text, marginTop: s(12), textAlign: 'center' }}>
                   {n === 1 ? 'One movie needs your help' : `${n} movies need your help`}
                 </ScanText>
-                <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13.5), lineHeight: s(20), color: ScanV2Colors.sec, marginTop: s(6), textAlign: 'center', maxWidth: s(300) }}>
+                <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13.5), lineHeight: s(20), color: c.sec, marginTop: s(6), textAlign: 'center', maxWidth: s(300) }}>
                   {n === 1
                     ? "We couldn't match this ticket to a movie. Unknown movies can't be added — pick the title or remove it."
                     : "We couldn't match these tickets to a movie. Unknown movies can't be added — pick the title or remove them."}
@@ -112,14 +113,14 @@ export function ResolveDialog({
                 {failed.map((tkt) => {
                   const meta = [tkt.fields.date, tkt.fields.time, tkt.fields.format].filter(Boolean).join(' · ');
                   return (
-                    <View key={tkt.id} style={{ backgroundColor: ScanV2Colors.card, borderWidth: 1, borderColor: ScanV2Colors.line, borderRadius: s(14), padding: s(12) }}>
+                    <View key={tkt.id} style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: s(14), padding: s(12) }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(11) }}>
-                        <View style={{ width: s(38), height: s(54), borderRadius: s(8), backgroundColor: '#1b1b20', alignItems: 'center', justifyContent: 'center' }}>
-                          <Icon name="film" size={s(20)} color={ScanV2Colors.ter} />
+                        <View style={{ width: s(38), height: s(54), borderRadius: s(8), backgroundColor: c.cardHi, alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name="film" size={s(20)} color={c.ter} />
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
-                          <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14.5), lineHeight: s(18), color: ScanV2Colors.text }}>Unknown movie</ScanText>
-                          <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), lineHeight: s(15), color: ScanV2Colors.ter, marginTop: s(2) }}>
+                          <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14.5), lineHeight: s(18), color: c.text }}>Unknown movie</ScanText>
+                          <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), lineHeight: s(15), color: c.ter, marginTop: s(2) }}>
                             {meta || 'No details read'}
                           </ScanText>
                         </View>
@@ -134,10 +135,10 @@ export function ResolveDialog({
               </ScrollView>
 
               {/* footer */}
-              <View style={{ paddingHorizontal: s(16), paddingTop: s(14), paddingBottom: s(16), gap: s(8), borderTopWidth: 1, borderTopColor: ScanV2Colors.line, marginTop: s(10) }}>
+              <View style={{ paddingHorizontal: s(16), paddingTop: s(14), paddingBottom: s(16), gap: s(8), borderTopWidth: 1, borderTopColor: c.line, marginTop: s(10) }}>
                 {readyCount > 0 && (
                   <Pressable onPress={onSaveReady} style={{ minHeight: s(34), alignItems: 'center', justifyContent: 'center' }}>
-                    <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), color: ScanV2Colors.sec }}>
+                    <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), color: c.sec }}>
                       Skip {n === 1 ? 'it' : 'them'} · save {readyCount} ready ticket{readyCount === 1 ? '' : 's'}
                     </ScanText>
                   </Pressable>
@@ -157,6 +158,7 @@ export function ResolveDialog({
 // ============================================================================
 
 function SearchPanel({ onBack, onSelect }: { onBack: () => void; onSelect: (movie: TMDBMovie) => void }) {
+  const c = useScanColors();
   const [query, setQuery] = useState('');
   const debounced = useDebouncedValue(query, 300);
   const { movies, isLoading, isFetching } = useMovieSearch({ query: debounced, enabled: debounced.trim().length >= 2 });
@@ -166,23 +168,23 @@ function SearchPanel({ onBack, onSelect }: { onBack: () => void; onSelect: (movi
     <View style={{ maxHeight: '100%' }}>
       {/* header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10), paddingHorizontal: s(16), paddingTop: s(18), paddingBottom: s(10) }}>
-        <Pressable onPress={onBack} hitSlop={8} style={{ width: s(34), height: s(34), borderRadius: 999, backgroundColor: ScanV2Colors.field, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="arrowL" size={s(18)} color={ScanV2Colors.text} />
+        <Pressable onPress={onBack} hitSlop={8} style={{ width: s(34), height: s(34), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="arrowL" size={s(18)} color={c.text} />
         </Pressable>
-        <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: ScanV2Colors.text }}>Find the movie</ScanText>
+        <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: c.text }}>Find the movie</ScanText>
       </View>
 
       {/* search field */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginHorizontal: s(16), marginBottom: s(10), paddingVertical: s(10), paddingHorizontal: s(12), backgroundColor: ScanV2Colors.field, borderWidth: 1, borderColor: ScanV2Colors.fieldLine, borderRadius: s(12) }}>
-        <Icon name="search" size={s(17)} color={ScanV2Colors.sec} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginHorizontal: s(16), marginBottom: s(10), paddingVertical: s(10), paddingHorizontal: s(12), backgroundColor: c.field, borderWidth: 1, borderColor: c.fieldLine, borderRadius: s(12) }}>
+        <Icon name="search" size={s(17)} color={c.sec} />
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="Search by title…"
-          placeholderTextColor={ScanV2Colors.ter}
+          placeholderTextColor={c.ter}
           autoFocus
           allowFontScaling={false}
-          style={{ flex: 1, color: ScanV2Colors.text, fontFamily: Fonts.inter.regular, fontSize: s(15), padding: 0 }}
+          style={{ flex: 1, color: c.text, fontFamily: Fonts.inter.regular, fontSize: s(15), padding: 0 }}
         />
       </View>
 
@@ -193,7 +195,7 @@ function SearchPanel({ onBack, onSelect }: { onBack: () => void; onSelect: (movi
           </View>
         )}
         {!showSpinner && debounced.trim().length >= 2 && movies.length === 0 && (
-          <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13), color: ScanV2Colors.ter, textAlign: 'center', paddingVertical: s(20) }}>
+          <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13), color: c.ter, textAlign: 'center', paddingVertical: s(20) }}>
             No matches found.
           </ScanText>
         )}

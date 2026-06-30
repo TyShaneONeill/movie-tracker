@@ -12,14 +12,14 @@
  * inset border so overlapping avatars read as distinct discs on the dark
  * surface.
  *
- * Dark-only (built from `ScanV2Colors`), sizes via `s()`.
+ * Theme-aware (built from `useScanColors()`), sizes via `s()`.
  */
 
 import React from 'react';
 import { View } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors } from '@/constants/scan-v2-theme';
+import { useScanColors } from '@/constants/scan-v2-theme';
 import { Avatar } from '@/components/ui/avatar';
 import { ScanText } from './primitives';
 
@@ -42,6 +42,7 @@ interface AvatarStackProps {
 }
 
 export function AvatarStack({ people, max = 3, size = 28, ringColor }: AvatarStackProps) {
+  const c = useScanColors();
   if (!people.length) return null;
 
   const shown = people.slice(0, max);
@@ -88,16 +89,16 @@ export function AvatarStack({ people, max = 3, size = 28, ringColor }: AvatarSta
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: ScanV2Colors.cardHi,
+              backgroundColor: c.cardHi,
               borderWidth: 1,
-              borderColor: ScanV2Colors.lineHi,
+              borderColor: c.lineHi,
             }}
           >
             <ScanText
               style={{
                 fontFamily: Fonts.mono.bold,
                 fontSize: Math.round(size * 0.36),
-                color: ScanV2Colors.sec,
+                color: c.sec,
               }}
             >
               +{extra}

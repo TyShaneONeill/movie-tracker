@@ -21,7 +21,7 @@ import { useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { ScanV2Colors } from '@/constants/scan-v2-theme';
+import { useScanColors } from '@/constants/scan-v2-theme';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { analytics } from '@/lib/analytics';
@@ -51,6 +51,7 @@ import { FirstTakeSheet } from './first-take-sheet';
 type Stage = 'camera' | 'permission' | 'unable' | 'review';
 
 export function ScanV2Flow() {
+  const c = useScanColors();
   const { user, isLoading: isAuthLoading } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
@@ -303,13 +304,13 @@ export function ScanV2Flow() {
 
   // Neutral dark while auth / permission / scan-status resolve.
   if (isAuthLoading || permission === null || scansRemaining === null) {
-    return <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg }} />;
+    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   }
 
   const cameraGranted = permission.granted;
 
   return (
-    <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       {stage === 'camera' && cameraGranted && (
         <ScreenCamera
           captures={vms}

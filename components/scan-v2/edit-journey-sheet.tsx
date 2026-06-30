@@ -1,7 +1,7 @@
 /**
  * Ticket Scan v2 — `EditJourneySheet` (Edit Journey).
  *
- * Dark-only v2 bottom sheet opened from the journey card's edit pencil (behind
+ * Theme-aware v2 bottom sheet opened from the journey card's edit pencil (behind
  * `ticket_scan_v2`), replacing the v1 `/journey/edit/[id]` route for the
  * subset of fields that map to a single `user_movies` row: tagline, notes,
  * date, time, location, seat, format, auditorium, ticket price, ticket id, and
@@ -21,7 +21,7 @@
  * the dark `CompanionPicker`. All overlays render INSIDE this sheet's modal so
  * they never dismiss it.
  *
- * Dark-only (built from `ScanV2Colors`/`ScanV2Accent`); text via `ScanText`,
+ * Theme-aware (built from `useScanColors`/`ScanV2Accent`); text via `ScanText`,
  * sizes via `s()`.
  */
 
@@ -44,7 +44,7 @@ import Toast from 'react-native-toast-message';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import { useAuth } from '@/hooks/use-auth';
@@ -159,6 +159,7 @@ function maskPrice(raw: string): string {
 }
 
 export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetProps) {
+  const c = useScanColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { mutualFollows } = useMutualFollows(user?.id ?? '');
@@ -336,27 +337,27 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
 
         <View
           style={{
-            backgroundColor: ScanV2Colors.surface,
+            backgroundColor: c.surface,
             borderTopLeftRadius: s(26),
             borderTopRightRadius: s(26),
             borderWidth: 1,
             borderBottomWidth: 0,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             maxHeight: '94%',
             overflow: 'hidden',
           }}
         >
           {/* grabber */}
           <View style={{ alignItems: 'center', paddingTop: s(10) }}>
-            <View style={{ width: s(38), height: s(5), borderRadius: 999, backgroundColor: ScanV2Colors.lineHi }} />
+            <View style={{ width: s(38), height: s(5), borderRadius: 999, backgroundColor: c.lineHi }} />
           </View>
 
           {/* header: Cancel / Edit journey / Save */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(8), paddingHorizontal: s(16), paddingTop: s(8), paddingBottom: s(10) }}>
             <Pressable onPress={onClose} hitSlop={8} style={{ minWidth: s(54) }}>
-              <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(15), color: ScanV2Colors.sec }}>Cancel</ScanText>
+              <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(15), color: c.sec }}>Cancel</ScanText>
             </Pressable>
-            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: ScanV2Colors.text }}>Edit journey</ScanText>
+            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: c.text }}>Edit journey</ScanText>
             <Pressable onPress={handleSave} hitSlop={8} style={{ minWidth: s(54), alignItems: 'flex-end' }}>
               <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(15), color: ScanV2Accent.primary }}>Save</ScanText>
             </Pressable>
@@ -380,7 +381,7 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
                   fontFamily: Fonts.inter.regular,
                   fontSize: s(12.5),
                   lineHeight: s(17),
-                  color: ScanV2Colors.sec,
+                  color: c.sec,
                   marginBottom: s(10),
                 }}
               >
@@ -401,7 +402,7 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
                       height: s(140),
                       borderRadius: s(10),
                       overflow: 'hidden',
-                      backgroundColor: ScanV2Colors.field,
+                      backgroundColor: c.field,
                     }}
                   >
                     <SignedPhoto
@@ -443,8 +444,8 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
                       borderRadius: s(10),
                       borderWidth: 1.5,
                       borderStyle: 'dashed',
-                      borderColor: ScanV2Colors.lineHi,
-                      backgroundColor: ScanV2Colors.field,
+                      borderColor: c.lineHi,
+                      backgroundColor: c.field,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
@@ -452,7 +453,7 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
                     {isUploading ? (
                       <ActivityIndicator size="small" color={ScanV2Accent.primary} />
                     ) : (
-                      <Icon name="plus" size={s(30)} color={ScanV2Colors.sec} />
+                      <Icon name="plus" size={s(30)} color={c.sec} />
                     )}
                   </Pressable>
                 )}
@@ -548,15 +549,15 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
                           paddingLeft: s(5),
                           paddingRight: s(9),
                           borderRadius: 999,
-                          backgroundColor: ScanV2Colors.field,
+                          backgroundColor: c.field,
                           borderWidth: 1,
-                          borderColor: ScanV2Colors.fieldLine,
+                          borderColor: c.fieldLine,
                         }}
                       >
                         <Avatar size={s(20)} userId={a?.userId} avatarUrl={a?.avatarUrl} updatedAt={a?.updatedAt} name={name} />
-                        <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(13), color: ScanV2Colors.text }}>{name}</ScanText>
+                        <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(13), color: c.text }}>{name}</ScanText>
                         <Pressable onPress={() => removeCompanion(i)} hitSlop={6}>
-                          <Icon name="x" size={s(13)} color={ScanV2Colors.sec} stroke={2.4} />
+                          <Icon name="x" size={s(13)} color={c.sec} stroke={2.4} />
                         </Pressable>
                       </View>
                     );
@@ -620,13 +621,14 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
 // ============================================================================
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const c = useScanColors();
   return (
     <View
       style={{
-        backgroundColor: ScanV2Colors.card,
+        backgroundColor: c.card,
         borderRadius: s(16),
         borderWidth: 1,
-        borderColor: ScanV2Colors.line,
+        borderColor: c.line,
         padding: s(14),
         marginTop: s(12),
       }}
@@ -637,7 +639,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
           fontSize: s(11),
           letterSpacing: 1.4,
           textTransform: 'uppercase',
-          color: ScanV2Colors.ter,
+          color: c.ter,
           marginBottom: s(10),
         }}
       >
@@ -679,6 +681,7 @@ function EditField({
   onTap,
   onInputFocus,
 }: EditFieldProps) {
+  const c = useScanColors();
   const inputRef = useRef<TextInput>(null);
   const boxStyle = {
     minHeight: multiline ? s(76) : s(42),
@@ -687,16 +690,16 @@ function EditField({
     gap: s(8),
     paddingVertical: s(8),
     paddingHorizontal: s(11),
-    backgroundColor: ScanV2Colors.field,
+    backgroundColor: c.field,
     borderWidth: 1,
-    borderColor: ScanV2Colors.fieldLine,
+    borderColor: c.fieldLine,
     borderRadius: s(11),
   };
-  const leadingIcon = picker ? <Icon name={picker} size={s(15)} color={ScanV2Colors.sec} /> : null;
+  const leadingIcon = picker ? <Icon name={picker} size={s(15)} color={c.sec} /> : null;
 
   return (
     <View style={{ flex: 1, minWidth: fullWidth ? '100%' : s(120) }}>
-      <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(12), lineHeight: s(15), color: ScanV2Colors.sec, marginBottom: s(5) }}>{label}</ScanText>
+      <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(12), lineHeight: s(15), color: c.sec, marginBottom: s(5) }}>{label}</ScanText>
       {onTap ? (
         <Pressable onPress={onTap} style={boxStyle}>
           {leadingIcon}
@@ -704,17 +707,17 @@ function EditField({
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.7}
-            style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? ScanV2Colors.text : ScanV2Colors.ter }}
+            style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? c.text : c.ter }}
           >
             {value || placeholder}
           </ScanText>
-          <Icon name="chevD" size={s(15)} color={ScanV2Colors.ter} />
+          <Icon name="chevD" size={s(15)} color={c.ter} />
         </Pressable>
       ) : (
         <View style={boxStyle}>
           {leadingIcon}
           {prefix ? (
-            <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? ScanV2Colors.text : ScanV2Colors.ter }}>{prefix}</ScanText>
+            <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? c.text : c.ter }}>{prefix}</ScanText>
           ) : null}
           <TextInput
             ref={inputRef}
@@ -722,7 +725,7 @@ function EditField({
             onChangeText={onChangeText}
             onFocus={() => onInputFocus?.(inputRef.current)}
             placeholder={placeholder}
-            placeholderTextColor={ScanV2Colors.ter}
+            placeholderTextColor={c.ter}
             allowFontScaling={false}
             multiline={multiline}
             maxLength={maxLength}
@@ -731,7 +734,7 @@ function EditField({
             style={{
               flex: 1,
               padding: 0,
-              color: ScanV2Colors.text,
+              color: c.text,
               fontFamily: Fonts.inter.semibold,
               fontSize: s(15),
               minHeight: multiline ? s(60) : undefined,
@@ -763,6 +766,7 @@ function RadioPickerOverlay({
   onPick: (value: string) => void;
   onClose: () => void;
 }) {
+  const c = useScanColors();
   const insets = useSafeAreaInsets();
   const bodyBottom = s(20) + insets.bottom + s(16);
 
@@ -771,29 +775,29 @@ function RadioPickerOverlay({
       <Pressable style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.88)' } as any} onPress={onClose} />
       <View
         pointerEvents="none"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: ScanV2Colors.surface } as any}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: c.surface } as any}
       />
       <View
         style={{
-          backgroundColor: ScanV2Colors.surface,
+          backgroundColor: c.surface,
           borderTopLeftRadius: s(24),
           borderTopRightRadius: s(24),
           borderWidth: 1,
           borderBottomWidth: 0,
-          borderColor: ScanV2Colors.line,
+          borderColor: c.line,
           maxHeight: '90%',
           overflow: 'hidden',
         }}
       >
         {/* header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: s(16), paddingTop: s(16), paddingBottom: s(10) }}>
-          <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: ScanV2Colors.text }}>{title}</ScanText>
+          <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: c.text }}>{title}</ScanText>
           <Pressable
             onPress={onClose}
             hitSlop={8}
-            style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: ScanV2Colors.field, alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Icon name="x" size={s(16)} color={ScanV2Colors.sec} />
+            <Icon name="x" size={s(16)} color={c.sec} />
           </Pressable>
         </View>
 
@@ -815,10 +819,10 @@ function RadioPickerOverlay({
                     borderRadius: s(12),
                     backgroundColor: on ? ScanV2Accent.soft : 'transparent',
                     borderWidth: 1,
-                    borderColor: on ? ScanV2Accent.primary : ScanV2Colors.line,
+                    borderColor: on ? ScanV2Accent.primary : c.line,
                   }}
                 >
-                  <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15.5), lineHeight: s(19), color: on ? ScanV2Accent.primary : ScanV2Colors.text }}>
+                  <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15.5), lineHeight: s(19), color: on ? ScanV2Accent.primary : c.text }}>
                     {it}
                   </ScanText>
                   {on && <Icon name="check" size={s(18)} color={ScanV2Accent.primary} stroke={2.6} />}

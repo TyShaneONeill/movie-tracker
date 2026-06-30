@@ -14,7 +14,7 @@
  * underlying `ProcessedTicket` (`applyTicketEdits`) and a movie change clears the
  * block-on-unknown (failed/review → matched).
  *
- * Dark-only (built from `ScanV2Colors`/`ScanV2Accent`, never the theme-aware
+ * Theme-aware (built from `useScanColors`/`ScanV2Accent`, never the theme-aware
  * sheet/icon components); text via `ScanText`, sizes via `s()`.
  *
  * Keyboard avoidance (both platforms, RN primitives only): the body is a
@@ -43,7 +43,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl, type TMDBMovie } from '@/lib/tmdb.types';
 import type { ProcessedTicket } from '@/lib/ticket-processor';
@@ -86,6 +86,7 @@ interface EditSheetProps {
 }
 
 export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
+  const c = useScanColors();
   const [form, setForm] = useState<TicketEditForm>(() => seedEditForm(ticket));
   const [movie, setMovie] = useState<TMDBMovie | null>(ticket.tmdbMatch?.movie ?? null);
   const [picker, setPicker] = useState<PickerKind | null>(null);
@@ -197,27 +198,27 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
 
         <View
           style={{
-            backgroundColor: ScanV2Colors.surface,
+            backgroundColor: c.surface,
             borderTopLeftRadius: s(26),
             borderTopRightRadius: s(26),
             borderWidth: 1,
             borderBottomWidth: 0,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             maxHeight: '94%',
             overflow: 'hidden',
           }}
         >
           {/* grabber */}
           <View style={{ alignItems: 'center', paddingTop: s(10) }}>
-            <View style={{ width: s(38), height: s(5), borderRadius: 999, backgroundColor: ScanV2Colors.lineHi }} />
+            <View style={{ width: s(38), height: s(5), borderRadius: 999, backgroundColor: c.lineHi }} />
           </View>
 
           {/* header: Cancel / Edit ticket / Save */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(8), paddingHorizontal: s(16), paddingTop: s(8), paddingBottom: s(10) }}>
             <Pressable onPress={onClose} hitSlop={8} style={{ minWidth: s(54) }}>
-              <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(15), color: ScanV2Colors.sec }}>Cancel</ScanText>
+              <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(15), color: c.sec }}>Cancel</ScanText>
             </Pressable>
-            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: ScanV2Colors.text }}>Edit ticket</ScanText>
+            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: c.text }}>Edit ticket</ScanText>
             <Pressable onPress={handleSave} hitSlop={8} style={{ minWidth: s(54), alignItems: 'flex-end' }}>
               <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(15), color: ScanV2Accent.primary }}>Save</ScanText>
             </Pressable>
@@ -237,15 +238,15 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
             {/* Movie */}
             <SectionCard title="Movie">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(12) }}>
-                <View style={{ width: s(48), height: s(68), borderRadius: s(8), overflow: 'hidden', backgroundColor: '#1b1b20', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: s(48), height: s(68), borderRadius: s(8), overflow: 'hidden', backgroundColor: c.cardHi, alignItems: 'center', justifyContent: 'center' }}>
                   {posterUrl ? (
                     <Image source={{ uri: posterUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   ) : (
-                    <Icon name="film" size={s(22)} color={ScanV2Colors.ter} />
+                    <Icon name="film" size={s(22)} color={c.ter} />
                   )}
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(21), color: ScanV2Colors.text }}>
+                  <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(21), color: c.text }}>
                     {movie ? movie.title : 'No match'}
                   </ScanText>
                   <View
@@ -268,14 +269,14 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
                     <Icon
                       name={movie ? (confident ? 'check' : 'info') : 'warn'}
                       size={s(12)}
-                      color={movie ? (confident ? ScanV2Colors.emerald : ScanV2Colors.amber) : ScanV2Colors.amber}
+                      color={movie ? (confident ? c.emerald : c.amber) : c.amber}
                     />
                     <ScanText
                       style={{
                         fontFamily: Fonts.inter.semibold,
                         fontSize: s(11.5),
                         lineHeight: s(14),
-                        color: movie ? (confident ? ScanV2Colors.emerald : ScanV2Colors.amber) : ScanV2Colors.amber,
+                        color: movie ? (confident ? c.emerald : c.amber) : c.amber,
                       }}
                     >
                       {movie ? (confident ? `AI match · ${confidence}%` : `Low confidence · ${confidence}%`) : 'No match — pick a title'}
@@ -322,7 +323,7 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
                 <DashedBorder radius={s(14)}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), paddingVertical: s(12), paddingHorizontal: s(14) }}>
                     <Icon name="plus" size={s(16)} color={ScanV2Accent.primary} />
-                    <ScanText style={{ flex: 1, fontFamily: Fonts.inter.medium, fontSize: s(13.5), lineHeight: s(17), color: ScanV2Colors.sec }}>
+                    <ScanText style={{ flex: 1, fontFamily: Fonts.inter.medium, fontSize: s(13.5), lineHeight: s(17), color: c.sec }}>
                       Add {missing.slice(0, 3).map((m) => m.label.toLowerCase()).join(', ')}
                       {missing.length > 3 ? '…' : ''}
                     </ScanText>
@@ -366,13 +367,14 @@ export function EditSheet({ vm, ticket, onClose, onSave }: EditSheetProps) {
 // ============================================================================
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const c = useScanColors();
   return (
     <View
       style={{
-        backgroundColor: ScanV2Colors.card,
+        backgroundColor: c.card,
         borderRadius: s(16),
         borderWidth: 1,
-        borderColor: ScanV2Colors.line,
+        borderColor: c.line,
         padding: s(14),
         marginTop: s(12),
       }}
@@ -383,7 +385,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
           fontSize: s(11),
           letterSpacing: 1.4,
           textTransform: 'uppercase',
-          color: ScanV2Colors.ter,
+          color: c.ter,
           marginBottom: s(10),
         }}
       >
@@ -407,6 +409,7 @@ interface EditFieldProps {
 
 function EditField({ label, value, placeholder, picker, onChangeText, onTap, onInputFocus }: EditFieldProps) {
   const inputRef = useRef<TextInput>(null);
+  const c = useScanColors();
   const boxStyle = {
     minHeight: s(42),
     flexDirection: 'row' as const,
@@ -414,16 +417,16 @@ function EditField({ label, value, placeholder, picker, onChangeText, onTap, onI
     gap: s(8),
     paddingVertical: s(8),
     paddingHorizontal: s(11),
-    backgroundColor: ScanV2Colors.field,
+    backgroundColor: c.field,
     borderWidth: 1,
-    borderColor: ScanV2Colors.fieldLine,
+    borderColor: c.fieldLine,
     borderRadius: s(11),
   };
-  const leadingIcon = picker ? <Icon name={picker} size={s(15)} color={ScanV2Colors.sec} /> : null;
+  const leadingIcon = picker ? <Icon name={picker} size={s(15)} color={c.sec} /> : null;
 
   return (
     <View style={{ flex: 1, minWidth: s(120) }}>
-      <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(12), lineHeight: s(15), color: ScanV2Colors.sec, marginBottom: s(5) }}>{label}</ScanText>
+      <ScanText style={{ fontFamily: Fonts.inter.medium, fontSize: s(12), lineHeight: s(15), color: c.sec, marginBottom: s(5) }}>{label}</ScanText>
       {onTap ? (
         <Pressable onPress={onTap} style={boxStyle}>
           {leadingIcon}
@@ -431,11 +434,11 @@ function EditField({ label, value, placeholder, picker, onChangeText, onTap, onI
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.7}
-            style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? ScanV2Colors.text : ScanV2Colors.ter }}
+            style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: value ? c.text : c.ter }}
           >
             {value || placeholder}
           </ScanText>
-          <Icon name="chevD" size={s(15)} color={ScanV2Colors.ter} />
+          <Icon name="chevD" size={s(15)} color={c.ter} />
         </Pressable>
       ) : (
         <View style={boxStyle}>
@@ -446,9 +449,9 @@ function EditField({ label, value, placeholder, picker, onChangeText, onTap, onI
             onChangeText={onChangeText}
             onFocus={() => onInputFocus?.(inputRef.current)}
             placeholder={placeholder}
-            placeholderTextColor={ScanV2Colors.ter}
+            placeholderTextColor={c.ter}
             allowFontScaling={false}
-            style={{ flex: 1, padding: 0, color: ScanV2Colors.text, fontFamily: Fonts.inter.semibold, fontSize: s(15) }}
+            style={{ flex: 1, padding: 0, color: c.text, fontFamily: Fonts.inter.semibold, fontSize: s(15) }}
           />
         </View>
       )}
@@ -462,6 +465,7 @@ function EditField({ label, value, placeholder, picker, onChangeText, onTap, onI
 
 function DashedBorder({ radius, children }: { radius: number; children: React.ReactNode }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const c = useScanColors();
   return (
     <View onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
       {size.w > 0 && size.h > 0 && (
@@ -474,7 +478,7 @@ function DashedBorder({ radius, children }: { radius: number; children: React.Re
             rx={radius}
             ry={radius}
             fill="none"
-            stroke={ScanV2Colors.fieldLine}
+            stroke={c.fieldLine}
             strokeWidth={1.5}
             strokeDasharray="5,4"
           />

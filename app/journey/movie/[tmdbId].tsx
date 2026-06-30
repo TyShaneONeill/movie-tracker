@@ -49,7 +49,7 @@ import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 import { ContentContainer } from '@/components/content-container';
 import { useTicketScanV2 } from '@/hooks/use-ticket-scan-v2';
-import { ScanV2Colors } from '@/constants/scan-v2-theme';
+import { useScanColors } from '@/constants/scan-v2-theme';
 import { JourneyScreenV2 } from '@/components/scan-v2/journey-screen';
 
 // Type for the colors object
@@ -466,9 +466,10 @@ type CarouselItem =
 // the scanner-tab gate) so v1 never flashes for a v2 tester.
 export default function JourneyScreen() {
   const { variant, resolving } = useTicketScanV2();
+  const c = useScanColors();
 
   if (resolving) {
-    return <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg }} />;
+    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   }
 
   if (variant === 'v2') {

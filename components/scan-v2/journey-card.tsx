@@ -16,7 +16,7 @@
  * fades; NO 3D transform): an emerald "Verified theater visit" pill, a
  * decorative barcode, the real `ticket_id` confirmation code, and a footer.
  *
- * Dark-only (built from `ScanV2Colors`/`ScanV2Accent`, never the theme-aware
+ * Theme-aware (built from `useScanColors`/`ScanV2Accent`, never the theme-aware
  * `Colors`); text via `ScanText`, sizes via `s()`.
  */
 
@@ -25,7 +25,7 @@ import { View, Pressable, Animated } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { SignedPhoto } from '@/components/journey/signed-photo';
@@ -138,6 +138,7 @@ function FlipGlyph({ size, color }: { size: number; color: string }) {
 const SEAM_DASHES = 22;
 
 function PerforationSeam() {
+  const c = useScanColors();
   const notch = s(11);
   return (
     <View style={{ height: 0, zIndex: 2 }}>
@@ -154,7 +155,7 @@ function PerforationSeam() {
         }}
       >
         {Array.from({ length: SEAM_DASHES }).map((_, i) => (
-          <View key={i} style={{ width: s(7), height: s(2), borderRadius: 1, backgroundColor: ScanV2Colors.sec }} />
+          <View key={i} style={{ width: s(7), height: s(2), borderRadius: 1, backgroundColor: c.sec }} />
         ))}
       </View>
       <View
@@ -165,7 +166,7 @@ function PerforationSeam() {
           width: notch * 2,
           height: notch * 2,
           borderRadius: notch,
-          backgroundColor: ScanV2Colors.bg,
+          backgroundColor: c.bg,
         }}
       />
       <View
@@ -176,7 +177,7 @@ function PerforationSeam() {
           width: notch * 2,
           height: notch * 2,
           borderRadius: notch,
-          backgroundColor: ScanV2Colors.bg,
+          backgroundColor: c.bg,
         }}
       />
     </View>
@@ -211,6 +212,7 @@ function Barcode({ height, color }: { height: number; color: string }) {
 // ============================================================================
 
 function StubField({ label, value, node }: StubFieldData) {
+  const c = useScanColors();
   if (!value && !node) return null;
   return (
     <View style={{ width: '47%', minWidth: 0, marginBottom: s(6) }}>
@@ -219,7 +221,7 @@ function StubField({ label, value, node }: StubFieldData) {
           fontFamily: Fonts.mono.medium,
           fontSize: s(10),
           letterSpacing: 1.3,
-          color: ScanV2Colors.ter,
+          color: c.ter,
           textTransform: 'uppercase',
         }}
       >
@@ -232,7 +234,7 @@ function StubField({ label, value, node }: StubFieldData) {
           style={{
             fontFamily: Fonts.inter.semibold,
             fontSize: s(15.5),
-            color: ScanV2Colors.text,
+            color: c.text,
             marginTop: s(3),
             lineHeight: s(18.6),
           }}
@@ -281,6 +283,7 @@ export function JourneyCard({
   verified,
   height,
 }: JourneyCardProps) {
+  const c = useScanColors();
   const rating = firstTake?.rating ?? null;
   const note = firstTake?.quote_text?.trim() || null;
   const hasTake = rating != null || !!note;
@@ -302,14 +305,14 @@ export function JourneyCard({
             people={companions}
             max={3}
             size={s(28)}
-            ringColor={showAi ? '#100b18' : ScanV2Colors.card}
+            ringColor={c.card}
           />
         ) : undefined,
       },
       { label: 'Format', value: journey.watch_format ? journey.watch_format.toUpperCase() : null },
     ];
     return list.filter((f) => f.value || f.node);
-  }, [journey, companions, showAi]);
+  }, [journey, companions, c.card]);
 
   // Secondary details shown on the BACK of the ticket (moved off the front).
   const backDetails = useMemo(() => {
@@ -322,7 +325,7 @@ export function JourneyCard({
   }, [journey]);
 
   const ticketId = journey.ticket_id || `CNTK-${journey.id.slice(0, 8).toUpperCase()}`;
-  const stubBg = showAi ? '#100b18' : ScanV2Colors.card;
+  const stubBg = c.card; // themed: AI premium is marked by the rose border + poster, not a dark stub (which broke light mode)
 
   const front = (
     <View style={{ flex: 1, minHeight: Math.min(s(520), height) }}>
@@ -335,7 +338,7 @@ export function JourneyCard({
           borderTopLeftRadius: s(22),
           borderTopRightRadius: s(22),
           overflow: 'hidden',
-          backgroundColor: ScanV2Colors.card,
+          backgroundColor: c.card,
           borderWidth: showAi ? 1 : 0,
           borderColor: showAi ? ScanV2Accent.soft : 'transparent',
         }}
@@ -397,7 +400,7 @@ export function JourneyCard({
           borderBottomRightRadius: s(22),
           borderWidth: 1,
           borderTopWidth: 0,
-          borderColor: ScanV2Colors.line,
+          borderColor: c.line,
           paddingTop: s(14),
           paddingHorizontal: s(18),
           paddingBottom: s(14),
@@ -412,7 +415,7 @@ export function JourneyCard({
               fontSize: s(23),
               letterSpacing: -0.4,
               lineHeight: s(25.8),
-              color: ScanV2Colors.text,
+              color: c.text,
             }}
           >
             {journey.title}
@@ -458,7 +461,7 @@ export function JourneyCard({
                   fontFamily: Fonts.mono.medium,
                   fontSize: s(10),
                   letterSpacing: 1.3,
-                  color: ScanV2Colors.ter,
+                  color: c.ter,
                   textTransform: 'uppercase',
                   marginBottom: s(6),
                 }}
@@ -466,7 +469,7 @@ export function JourneyCard({
                 Your First Take
               </ScanText>
               {note ? (
-                <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(15), color: ScanV2Colors.text, lineHeight: s(22.5) }}>
+                <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(15), color: c.text, lineHeight: s(22.5) }}>
                   {note}
                 </ScanText>
               ) : (
@@ -474,7 +477,7 @@ export function JourneyCard({
                   style={{
                     fontFamily: Fonts.inter.regular,
                     fontSize: s(14.5),
-                    color: ScanV2Colors.ter,
+                    color: c.ter,
                     fontStyle: 'italic',
                     lineHeight: s(21.75),
                   }}
@@ -484,7 +487,7 @@ export function JourneyCard({
               )}
               {rating != null ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginTop: s(12) }}>
-                  <View style={{ flex: 1, height: s(6), borderRadius: 999, backgroundColor: ScanV2Colors.field, overflow: 'hidden' }}>
+                  <View style={{ flex: 1, height: s(6), borderRadius: 999, backgroundColor: c.field, overflow: 'hidden' }}>
                     <View style={{ width: `${rating * 10}%`, height: '100%', borderRadius: 999, backgroundColor: ScanV2Accent.primary }} />
                   </View>
                   <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(14), color: ScanV2Accent.primary }}>
@@ -506,15 +509,15 @@ export function JourneyCard({
                 width: s(32),
                 height: s(32),
                 borderRadius: 999,
-                backgroundColor: ScanV2Colors.field,
+                backgroundColor: c.field,
                 borderWidth: 1,
-                borderColor: ScanV2Colors.line,
+                borderColor: c.line,
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: page === 0 ? 0.4 : 1,
               }}
             >
-              <Icon name="chevL" size={s(15)} color={ScanV2Colors.sec} />
+              <Icon name="chevL" size={s(15)} color={c.sec} />
             </Pressable>
             <View style={{ flexDirection: 'row', gap: s(6) }}>
               {[0, 1].map((i) => (
@@ -524,7 +527,7 @@ export function JourneyCard({
                     width: page === i ? s(18) : s(6),
                     height: s(6),
                     borderRadius: 999,
-                    backgroundColor: page === i ? ScanV2Accent.primary : ScanV2Colors.lineHi,
+                    backgroundColor: page === i ? ScanV2Accent.primary : c.lineHi,
                   }}
                 />
               ))}
@@ -536,15 +539,15 @@ export function JourneyCard({
                 width: s(32),
                 height: s(32),
                 borderRadius: 999,
-                backgroundColor: ScanV2Colors.field,
+                backgroundColor: c.field,
                 borderWidth: 1,
-                borderColor: ScanV2Colors.line,
+                borderColor: c.line,
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: page === 1 ? 0.4 : 1,
               }}
             >
-              <Icon name="chevR" size={s(15)} color={ScanV2Colors.sec} />
+              <Icon name="chevR" size={s(15)} color={c.sec} />
             </Pressable>
           </View>
         ) : null}
@@ -559,8 +562,8 @@ export function JourneyCard({
           flex: 1,
           borderRadius: s(22),
           borderWidth: 1,
-          borderColor: ScanV2Colors.line,
-          backgroundColor: ScanV2Colors.card,
+          borderColor: c.line,
+          backgroundColor: c.card,
           alignItems: 'center',
           justifyContent: 'center',
           gap: s(18),
@@ -577,14 +580,14 @@ export function JourneyCard({
             width: s(36),
             height: s(36),
             borderRadius: 999,
-            backgroundColor: ScanV2Colors.field,
+            backgroundColor: c.field,
             borderWidth: 1,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <FlipGlyph size={s(17)} color={ScanV2Colors.sec} />
+          <FlipGlyph size={s(17)} color={c.sec} />
         </Pressable>
 
         {/* Status pill — emerald "Verified" only when a ticket scan backs the visit;
@@ -597,18 +600,18 @@ export function JourneyCard({
             paddingVertical: s(6),
             paddingHorizontal: s(12),
             borderRadius: 999,
-            backgroundColor: verified ? 'rgba(16,185,129,0.14)' : ScanV2Colors.field,
+            backgroundColor: verified ? 'rgba(16,185,129,0.14)' : c.field,
           }}
         >
-          {verified ? <Icon name="check" size={s(14)} color={ScanV2Colors.emerald} stroke={2.6} /> : null}
-          <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(12), color: verified ? ScanV2Colors.emerald : ScanV2Colors.sec }}>
+          {verified ? <Icon name="check" size={s(14)} color={c.emerald} stroke={2.6} /> : null}
+          <ScanText style={{ fontFamily: Fonts.inter.bold, fontSize: s(12), color: verified ? c.emerald : c.sec }}>
             {verified ? 'Verified theater visit' : 'Theater visit'}
           </ScanText>
         </View>
 
         {/* Decorative barcode */}
         <View style={{ width: '78%' }}>
-          <Barcode height={s(82)} color={ScanV2Colors.text} />
+          <Barcode height={s(82)} color={c.text} />
         </View>
 
         {/* Real confirmation code */}
@@ -617,7 +620,7 @@ export function JourneyCard({
             fontFamily: Fonts.mono.medium,
             fontSize: s(12),
             letterSpacing: 3,
-            color: ScanV2Colors.sec,
+            color: c.sec,
           }}
         >
           {ticketId}
@@ -628,12 +631,12 @@ export function JourneyCard({
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', alignSelf: 'stretch', gap: s(8) }}>
             {backDetails.map((d) => (
               <View key={d.label} style={{ flex: 1, alignItems: 'center', paddingHorizontal: s(4) }}>
-                <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(9.5), letterSpacing: 1, color: ScanV2Colors.ter, textTransform: 'uppercase' }}>
+                <ScanText style={{ fontFamily: Fonts.mono.medium, fontSize: s(9.5), letterSpacing: 1, color: c.ter, textTransform: 'uppercase' }}>
                   {d.label}
                 </ScanText>
                 <ScanText
                   numberOfLines={2}
-                  style={{ fontFamily: Fonts.inter.semibold, fontSize: s(13), color: ScanV2Colors.text, marginTop: s(4), textAlign: 'center', lineHeight: s(16) }}
+                  style={{ fontFamily: Fonts.inter.semibold, fontSize: s(13), color: c.text, marginTop: s(4), textAlign: 'center', lineHeight: s(16) }}
                 >
                   {d.value}
                 </ScanText>
@@ -644,7 +647,7 @@ export function JourneyCard({
 
         {/* Footer */}
         <View style={{ alignItems: 'center', gap: s(3) }}>
-          <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(16), color: ScanV2Colors.text }}>
+          <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(16), color: c.text }}>
             {journey.title}
           </ScanText>
           <ScanText
@@ -652,7 +655,7 @@ export function JourneyCard({
               fontFamily: Fonts.mono.regular,
               fontSize: s(11),
               letterSpacing: 1,
-              color: ScanV2Colors.ter,
+              color: c.ter,
             }}
           >
             {formatDate(journey.watched_at)?.toUpperCase()}

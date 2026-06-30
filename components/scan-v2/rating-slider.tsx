@@ -13,15 +13,15 @@
  *
  * Drag + tap-anywhere via `PanResponder` (no native module → OTA-able). Each
  * 0.1 change fires `hapticSelection()`. Exposed as an a11y "adjustable" with
- * increment / decrement (custom controls need an accessible step). Dark-only
- * (`ScanV2Colors`/`ScanV2Accent`); sizes via `s()`, text via `ScanText`.
+ * increment / decrement (custom controls need an accessible step). Theme-aware
+ * (`useScanColors`/`ScanV2Accent`); sizes via `s()`, text via `ScanText`.
  */
 
 import React, { useCallback, useMemo, useRef } from 'react';
 import { View, PanResponder, type GestureResponderEvent } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { hapticSelection } from '@/lib/haptics';
 import { ScanText } from './primitives';
@@ -56,6 +56,7 @@ interface RatingSliderProps {
 }
 
 export function RatingSlider({ value, onChange }: RatingSliderProps) {
+  const c = useScanColors();
   const widthRef = useRef(0);
   const leftRef = useRef(0); // track's absolute page-X, captured at grant so drag math uses absolute coords
   const lastSnapRef = useRef<number | null>(null);
@@ -114,7 +115,7 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
           {value == null ? (
             <ScanText
-              style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(50), lineHeight: s(54), color: ScanV2Colors.lineHi }}
+              style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(50), lineHeight: s(54), color: c.lineHi }}
             >
               —
             </ScanText>
@@ -126,7 +127,7 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
                 {value.toFixed(1)}
               </ScanText>
               <ScanText
-                style={{ fontFamily: Fonts.outfit.bold, fontSize: s(20), lineHeight: s(24), color: ScanV2Colors.ter }}
+                style={{ fontFamily: Fonts.outfit.bold, fontSize: s(20), lineHeight: s(24), color: c.ter }}
               >
                 {' / 10'}
               </ScanText>
@@ -138,7 +139,7 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
             fontFamily: Fonts.inter.semibold,
             fontSize: s(13),
             lineHeight: s(16),
-            color: value == null ? ScanV2Colors.ter : ScanV2Colors.sec,
+            color: value == null ? c.ter : c.sec,
             marginTop: s(4),
           }}
         >
@@ -171,9 +172,9 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
             right: 0,
             height: s(8),
             borderRadius: 999,
-            backgroundColor: ScanV2Colors.field,
+            backgroundColor: c.field,
             borderWidth: 1,
-            borderColor: ScanV2Colors.fieldLine,
+            borderColor: c.fieldLine,
           }}
         />
         {/* fill */}
@@ -198,7 +199,7 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
             height: s(15),
             marginLeft: -s(1),
             borderRadius: s(2),
-            backgroundColor: ScanV2Colors.lineHi,
+            backgroundColor: c.lineHi,
           }}
         />
         {/* thumb */}
@@ -225,15 +226,15 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
 
       {/* POOR · AVERAGE · MASTERPIECE */}
       <View style={{ flexDirection: 'row', marginTop: s(2) }}>
-        <ScanText style={labelStyle('left')}>POOR</ScanText>
-        <ScanText style={labelStyle('center')}>AVERAGE</ScanText>
-        <ScanText style={labelStyle('right')}>MASTERPIECE</ScanText>
+        <ScanText style={labelStyle('left', c.ter)}>POOR</ScanText>
+        <ScanText style={labelStyle('center', c.ter)}>AVERAGE</ScanText>
+        <ScanText style={labelStyle('right', c.ter)}>MASTERPIECE</ScanText>
       </View>
     </View>
   );
 }
 
-function labelStyle(align: 'left' | 'center' | 'right') {
+function labelStyle(align: 'left' | 'center' | 'right', terColor: string) {
   return {
     flex: 1,
     textAlign: align,
@@ -241,6 +242,6 @@ function labelStyle(align: 'left' | 'center' | 'right') {
     fontSize: s(10),
     lineHeight: s(13),
     letterSpacing: 0.5,
-    color: ScanV2Colors.ter,
+    color: terColor,
   } as const;
 }

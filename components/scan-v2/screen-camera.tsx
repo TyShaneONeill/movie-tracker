@@ -27,7 +27,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { ScanV2ColorsDark, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { useRewardedAd } from '@/hooks/use-rewarded-ad';
 import { captureException } from '@/lib/sentry';
@@ -338,9 +338,9 @@ function EarnScanBubble({ onEarn }: { onEarn: () => void | Promise<void> }) {
       }}
     >
       {showing ? (
-        <ActivityIndicator size="small" color={ScanV2Colors.amber} />
+        <ActivityIndicator size="small" color={ScanV2ColorsDark.amber} />
       ) : (
-        <Icon name="plus" size={s(13)} color={ScanV2Colors.amber} stroke={2.4} />
+        <Icon name="plus" size={s(13)} color={ScanV2ColorsDark.amber} stroke={2.4} />
       )}
       <ScanText
         style={{
@@ -348,7 +348,7 @@ function EarnScanBubble({ onEarn }: { onEarn: () => void | Promise<void> }) {
           fontSize: s(11),
           lineHeight: s(13),
           letterSpacing: 0.3,
-          color: ScanV2Colors.amber,
+          color: ScanV2ColorsDark.amber,
         }}
       >
         {showing ? 'AD…' : 'Watch Ad +1'}
@@ -384,7 +384,7 @@ function AnalyzingOverlay() {
           height: s(54),
           borderRadius: 999,
           borderWidth: 3,
-          borderColor: ScanV2Colors.line,
+          borderColor: ScanV2ColorsDark.line,
           borderTopColor: ScanV2Accent.primary,
           transform: [{ rotate }],
         }}

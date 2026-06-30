@@ -1,7 +1,7 @@
 /**
  * Ticket Scan v2 — `CompanionPicker`.
  *
- * Dark-only v2 people picker for the Edit Journey sheet's "Who was there?"
+ * Theme-aware v2 people picker for the Edit Journey sheet's "Who was there?"
  * field. Modeled on `PickerOverlay`'s `MoviePicker` chrome (dark search field +
  * scrollable results) — NOT the theme-aware `FriendPickerModal` (which renders
  * light-on-dark). Rendered as an absolute overlay INSIDE the sheet's modal so it
@@ -13,7 +13,7 @@
  * add ("Add '<query>'") emits the trimmed string; mutual-follow rows emit the
  * display name (`full_name || username`). `watched_with` stores names, no FK.
  *
- * Dark-only (built from `ScanV2Colors`/`ScanV2Accent`); text via `ScanText`,
+ * Theme-aware (built from `useScanColors`/`ScanV2Accent`); text via `ScanText`,
  * sizes via `s()`.
  */
 
@@ -29,7 +29,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { Avatar } from '@/components/ui/avatar';
@@ -46,6 +46,7 @@ interface CompanionPickerProps {
 }
 
 export function CompanionPicker({ userId, alreadyAdded, onAdd, onClose }: CompanionPickerProps) {
+  const c = useScanColors();
   const insets = useSafeAreaInsets();
   const { mutualFollows, isLoading } = useMutualFollows(userId);
   const [query, setQuery] = useState('');
@@ -107,33 +108,33 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onClose }: Compan
           (mirrors PickerOverlay). pointerEvents none so the gap still closes. */}
       <View
         pointerEvents="none"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: ScanV2Colors.surface } as any}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: c.surface } as any}
       />
 
       <View style={{ width: '100%' }}>
         <View
           style={{
-            backgroundColor: ScanV2Colors.surface,
+            backgroundColor: c.surface,
             borderTopLeftRadius: s(24),
             borderTopRightRadius: s(24),
             borderWidth: 1,
             borderBottomWidth: 0,
-            borderColor: ScanV2Colors.line,
+            borderColor: c.line,
             maxHeight: '80%',
             overflow: 'hidden',
           }}
         >
           {/* header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: s(16), paddingTop: s(16), paddingBottom: s(10) }}>
-            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: ScanV2Colors.text }}>
+            <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: c.text }}>
               Who was there?
             </ScanText>
             <Pressable
               onPress={onClose}
               hitSlop={8}
-              style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: ScanV2Colors.field, alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Icon name="x" size={s(16)} color={ScanV2Colors.sec} />
+              <Icon name="x" size={s(16)} color={c.sec} />
             </Pressable>
           </View>
 
@@ -147,22 +148,22 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onClose }: Compan
               marginBottom: s(10),
               paddingVertical: s(10),
               paddingHorizontal: s(12),
-              backgroundColor: ScanV2Colors.field,
+              backgroundColor: c.field,
               borderWidth: 1,
-              borderColor: ScanV2Colors.fieldLine,
+              borderColor: c.fieldLine,
               borderRadius: s(12),
             }}
           >
-            <Icon name="search" size={s(17)} color={ScanV2Colors.sec} />
+            <Icon name="search" size={s(17)} color={c.sec} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Search people or type a name…"
-              placeholderTextColor={ScanV2Colors.ter}
+              placeholderTextColor={c.ter}
               autoFocus
               autoCorrect={false}
               allowFontScaling={false}
-              style={{ flex: 1, color: ScanV2Colors.text, fontFamily: Fonts.inter.regular, fontSize: s(15), padding: 0 }}
+              style={{ flex: 1, color: c.text, fontFamily: Fonts.inter.regular, fontSize: s(15), padding: 0 }}
             />
           </View>
 
@@ -186,7 +187,7 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onClose }: Compan
                 <View style={{ width: s(40), height: s(40), borderRadius: 999, backgroundColor: ScanV2Accent.soft, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="plus" size={s(20)} color={ScanV2Accent.primary} />
                 </View>
-                <ScanText numberOfLines={1} style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), color: ScanV2Colors.text }}>
+                <ScanText numberOfLines={1} style={{ flex: 1, fontFamily: Fonts.inter.semibold, fontSize: s(15), color: c.text }}>
                   Add “{trimmed}”
                 </ScanText>
               </Pressable>
@@ -203,11 +204,11 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onClose }: Compan
                 >
                   <Avatar size={s(40)} userId={p.id} avatarUrl={p.avatar_url} updatedAt={p.updated_at} name={name} />
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15), color: ScanV2Colors.text }}>
+                    <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15), color: c.text }}>
                       {name}
                     </ScanText>
                     {p.username ? (
-                      <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.regular, fontSize: s(12.5), color: ScanV2Colors.sec, marginTop: s(1) }}>
+                      <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.regular, fontSize: s(12.5), color: c.sec, marginTop: s(1) }}>
                         @{p.username}
                       </ScanText>
                     ) : null}
@@ -217,7 +218,7 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onClose }: Compan
             })}
 
             {!isLoading && results.length === 0 && !canManualAdd && (
-              <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13), color: ScanV2Colors.ter, textAlign: 'center', paddingVertical: s(20) }}>
+              <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(13), color: c.ter, textAlign: 'center', paddingVertical: s(20) }}>
                 {mutualFollows.length === 0
                   ? 'Follow friends on PocketStubs to see them here'
                   : 'No matches — type a name to add'}

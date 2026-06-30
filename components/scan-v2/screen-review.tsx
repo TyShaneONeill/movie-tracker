@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
-import { ScanV2Colors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import type { TicketVM } from '@/lib/scan-v2/ticket-view-model';
 import { ReviewCard } from './review-card';
@@ -48,6 +48,7 @@ export function ScreenReview({
   onSave,
   onBack,
 }: ScreenReviewProps) {
+  const c = useScanColors();
   const insets = useSafeAreaInsets();
   const ready = tickets.filter((t) => t.status !== 'failed');
   const failed = tickets.filter((t) => t.status === 'failed');
@@ -58,7 +59,7 @@ export function ScreenReview({
     : `Save to Journey${ready.length > 1 ? ` · ${ready.length}` : ''}`;
 
   return (
-    <View style={{ position: 'absolute', inset: 0, backgroundColor: ScanV2Colors.bg } as any}>
+    <View style={{ position: 'absolute', inset: 0, backgroundColor: c.bg } as any}>
       <TopBar
         onBack={onBack}
         title="Review"
@@ -86,11 +87,11 @@ export function ScreenReview({
               borderColor: 'rgba(251,191,36,0.25)',
             }}
           >
-            <Icon name="info" size={s(15)} color={ScanV2Colors.amber} />
-            <ScanText style={{ flex: 1, fontFamily: Fonts.inter.medium, fontSize: s(12.5), lineHeight: s(16), color: ScanV2Colors.text }}>
+            <Icon name="info" size={s(15)} color={c.amber} />
+            <ScanText style={{ flex: 1, fontFamily: Fonts.inter.medium, fontSize: s(12.5), lineHeight: s(16), color: c.text }}>
               {duplicatesRemoved} duplicate ticket{duplicatesRemoved === 1 ? ' was' : 's were'} removed.
             </ScanText>
-            <Icon name="x" size={s(14)} color={ScanV2Colors.ter} />
+            <Icon name="x" size={s(14)} color={c.ter} />
           </Pressable>
         )}
 
@@ -99,8 +100,8 @@ export function ScreenReview({
         ))}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: s(6), marginTop: s(2) }}>
-          <Icon name="check" size={s(13)} color={ScanV2Colors.ter} />
-          <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), color: ScanV2Colors.ter }}>
+          <Icon name="check" size={s(13)} color={c.ter} />
+          <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), color: c.ter }}>
             Only details read from your ticket are shown.
           </ScanText>
         </View>
@@ -109,7 +110,7 @@ export function ScreenReview({
       {/* sticky CTA — clears the home indicator now the tab bar is hidden */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: s(14), paddingHorizontal: s(16), paddingBottom: Math.max(s(28), insets.bottom + s(14)), gap: s(10) }}>
         <LinearGradient
-          colors={['transparent', ScanV2Colors.bg]}
+          colors={['transparent', c.bg]}
           locations={[0, 0.38]}
           style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
           pointerEvents="none"
@@ -132,10 +133,10 @@ export function ScreenReview({
               <Icon name="warn" size={s(16)} color={ScanV2Accent.primary} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(13.5), lineHeight: s(17), color: ScanV2Colors.text }}>
+              <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(13.5), lineHeight: s(17), color: c.text }}>
                 {failed.length} ticket{failed.length === 1 ? '' : 's'} {failed.length === 1 ? "isn't" : "aren't"} matched to a movie
               </ScanText>
-              <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), lineHeight: s(15), color: ScanV2Colors.sec, marginTop: s(1) }}>
+              <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), lineHeight: s(15), color: c.sec, marginTop: s(1) }}>
                 Pick the title or remove {failed.length === 1 ? 'it' : 'them'} to save.
               </ScanText>
             </View>
