@@ -49,6 +49,7 @@ import { resolveJourneyPhotoUrl } from '@/lib/ticket-photo-url';
 import type { UserMovie } from '@/lib/database.types';
 import { Icon, ScanText } from './primitives';
 import { JourneyCard } from './journey-card';
+import { EditJourneySheet } from './edit-journey-sheet';
 import type { AvatarStackPerson } from './avatar-stack';
 
 const MAX_JOURNEY_WIDTH = 480;
@@ -101,6 +102,7 @@ export function JourneyScreenV2() {
   const [posterModalVisible, setPosterModalVisible] = useState(false);
   const [inspectUri, setInspectUri] = useState('');
   const [inspectTitle, setInspectTitle] = useState('');
+  const [editingJourney, setEditingJourney] = useState<UserMovie | null>(null);
   const carouselRef = useRef<FlatList<CarouselItem>>(null);
 
   // name -> avatar lookup from mutual follows (same source as the v1 edit screen)
@@ -267,14 +269,14 @@ export function JourneyScreenV2() {
             }}
             page={index === currentIndex ? page : 0}
             setPage={setPage}
-            onEdit={() => router.push(`/journey/edit/${item.journey.id}` as never)}
+            onEdit={() => setEditingJourney(item.journey)}
             onInspectPoster={handleInspectPoster}
             height={ticketHeight}
           />
         </View>
       );
     },
-    [pageWidth, ticketHeight, handleCreateJourney, firstTake, resolveCompanions, flipped, page, currentIndex, router, handleInspectPoster],
+    [pageWidth, ticketHeight, handleCreateJourney, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster],
   );
 
   const movieTitle = journeys[0]?.title ?? 'Movie';
@@ -497,6 +499,20 @@ export function JourneyScreenV2() {
         movieTitle={inspectTitle}
         onClose={() => setPosterModalVisible(false)}
       />
+      {editingJourney ? (
+        <EditJourneySheet
+          journey={editingJourney}
+          onClose={() => setEditingJourney(null)}
+          onSave={(patch) => {
+            updateJourney({ journeyId: editingJourney.id, data: patch }).catch(() => {
+              // optimistic update rolls back via the mutation's onError — surface it
+              // so the user knows the change didn't stick (v1 parity).
+              Toast.show({ type: 'error', text1: 'Could not save changes', text2: 'Please try again.' });
+            });
+            setEditingJourney(null);
+          }}
+        />
+      ) : null}
     </View>
     </ForcedThemeProvider>
   );
