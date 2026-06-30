@@ -48,6 +48,9 @@ import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 import { ContentContainer } from '@/components/content-container';
+import { useTicketScanV2 } from '@/hooks/use-ticket-scan-v2';
+import { ScanV2Colors } from '@/constants/scan-v2-theme';
+import { JourneyScreenV2 } from '@/components/scan-v2/journey-screen';
 
 // Type for the colors object
 type ThemeColors = typeof Colors.dark;
@@ -457,7 +460,25 @@ type CarouselItem =
   | { type: 'journey'; journey: UserMovie }
   | { type: 'add' };
 
-export default function JourneyCarouselScreen() {
+// Ticket Scan v2 gate: when the `ticket_scan_v2` flag resolves true, render the
+// dark-only v2 journey screen; otherwise the v1 carousel below renders
+// byte-identical. A neutral dark screen holds while the flag resolves (mirrors
+// the scanner-tab gate) so v1 never flashes for a v2 tester.
+export default function JourneyScreen() {
+  const { variant, resolving } = useTicketScanV2();
+
+  if (resolving) {
+    return <View style={{ flex: 1, backgroundColor: ScanV2Colors.bg }} />;
+  }
+
+  if (variant === 'v2') {
+    return <JourneyScreenV2 />;
+  }
+
+  return <JourneyCarouselScreen />;
+}
+
+function JourneyCarouselScreen() {
   const router = useRouter();
   const { tmdbId } = useLocalSearchParams<{ tmdbId: string }>();
   const { effectiveTheme } = useTheme();
