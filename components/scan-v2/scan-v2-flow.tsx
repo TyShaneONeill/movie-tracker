@@ -275,6 +275,16 @@ export function ScanV2Flow() {
       } else {
         navigateAfterSave(result.savedMovies, result.firstMovieTmdbId);
       }
+      // The scanner is a tab screen and stays mounted after navigating away, so
+      // the session must be cleared here — otherwise returning to the tab
+      // resurrects the already-saved review and Save can be tapped again
+      // (duplicate journeys). The First Take wizard is a Modal over `firstTake`
+      // state, so it survives this reset.
+      setItems([]);
+      setDuplicatesRemoved(0);
+      setShowDupNotice(false);
+      setEditingId(null);
+      setStage('camera');
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scan-v2-save' });
     } finally {
