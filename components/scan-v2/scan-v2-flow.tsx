@@ -26,7 +26,7 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { analytics } from '@/lib/analytics';
 import { useAchievementCheck } from '@/lib/achievement-context';
-import { useScanTicket, fetchScanStatus, type ProcessedScanResult } from '@/hooks/use-scan-ticket';
+import { useScanTicket, fetchScanStatus, isScanTicketError, type ProcessedScanResult } from '@/hooks/use-scan-ticket';
 import { imageUriToBase64, getMimeTypeFromUri } from '@/lib/image-utils';
 import { captureException } from '@/lib/sentry';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
@@ -85,6 +85,9 @@ export function ScanV2Flow() {
   // After save, when the First Take pref is on, the wizard runs over the saved
   // movies; `firstId` carries the single-movie nav target. Null = no wizard.
   const [firstTake, setFirstTake] = useState<{ movies: SavedMovie[]; firstId: number | null } | null>(null);
+  // Why the last scan produced nothing — drives the unable screen's copy.
+  // 'service_down' = backend outage (scan refunded, not the user's photo).
+  const [unableReason, setUnableReason] = useState<'unreadable' | 'service_down'>('unreadable');
 
   // Request camera permission once on mount if we can still ask.
   useEffect(() => {
@@ -139,14 +142,31 @@ export function ScanV2Flow() {
         const result = await scanTicket(base64, mimeType);
         const added = appendResult(result);
         if (added === 0 && items.length === 0) {
+          setUnableReason('unreadable');
           setStage('unable');
         }
         return added;
       } catch (err) {
         // scanTicket already surfaces a user-facing error; if nothing has been
-        // captured yet, drop to the "couldn't read" state.
+        // captured yet, drop to the unable state with the honest reason.
         captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scan-v2-run-scan' });
-        if (items.length === 0) setStage('unable');
+        // Keep the displayed count truthful on failures: prefer the count the
+        // server sent with the error (post-refund), else re-fetch. A stale "3
+        // left" over an exhausted quota is how retries turn an outage into a
+        // dead end (2026-07-01 billing lapse).
+        if (isScanTicketError(err) && typeof err.scansRemaining === 'number') {
+          setScansRemaining(err.scansRemaining);
+        } else {
+          fetchScanStatus()
+            .then((status) => setScansRemaining(status.scansRemaining))
+            .catch(() => {});
+        }
+        if (items.length === 0) {
+          setUnableReason(
+            isScanTicketError(err) && err.type === 'service_unavailable' ? 'service_down' : 'unreadable'
+          );
+          setStage('unable');
+        }
         return 0;
       }
     },
@@ -342,6 +362,7 @@ export function ScanV2Flow() {
       {stage === 'unable' && (
         <ScreenUnable
           scansLeft={scansRemaining}
+          reason={unableReason}
           onRetry={() => setStage('camera')}
           onManual={() => router.push('/search')}
           onBack={() => setStage('camera')}
