@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { sleep } from '../_shared/delay.ts';
 import { checkDailyAiSpend, logAiCost, buildSpendLimitResponse, estimateAiCost } from '../_shared/cost-tracking.ts';
+import { reportAiGenerationFailure, type AiFailureSeverity } from '../_shared/ai-failure-alert.ts';
 
 // Gemini model for ticket extraction. Env-overridable so we can swap models
 // without a redeploy (e.g. when Google retires one — gemini-2.0-flash was
@@ -712,11 +713,45 @@ async function extractWithGemini(
 // Main Handler
 // ============================================================================
 
+/**
+ * Give back a scan charged by `check_and_increment_scan` when the request
+ * failed upstream and delivered nothing (Gemini outage, billing lapse, crash
+ * mid-pipeline). Returns the corrected scans-remaining for the response body;
+ * falls back to the pre-refund figure if the refund itself fails (never
+ * throws into the caller's error path).
+ */
+async function refundScan(
+  supabaseClient: ReturnType<typeof createClient>,
+  userId: string,
+  chargedRemaining: number,
+): Promise<number> {
+  try {
+    const { error } = await supabaseClient.rpc('refund_scan', { p_user_id: userId });
+    if (error) {
+      console.error('[scan-ticket] refund_scan failed:', error);
+      return chargedRemaining;
+    }
+    // 999 is the unlimited sentinel (dev tier / bypass flag) — don't inflate it.
+    return chargedRemaining >= 999 ? 999 : chargedRemaining + 1;
+  } catch (e) {
+    console.error('[scan-ticket] refund_scan threw:', e);
+    return chargedRemaining;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req) });
   }
+
+  // Set once the quota is charged; cleared on the success response. Any error
+  // path that fires while this is non-null owes the user their scan back.
+  let refundCtx: {
+    client: ReturnType<typeof createClient>;
+    userId: string;
+    remaining: number;
+  } | null = null;
 
   try {
     // Get API keys from environment
@@ -811,7 +846,16 @@ Deno.serve(async (req: Request) => {
     const accountTier = profile?.account_tier || 'free';
     const dailyLimit = accountTier === 'dev' ? 999 : accountTier === 'plus' || accountTier === 'premium' ? 20 : 3;
 
-    // Check rate limit
+    // Check daily AI spend limit BEFORE charging the user's quota — hitting
+    // the global spend cap must not consume a personal scan.
+    const spendCheck = await checkDailyAiSpend(supabaseClient);
+    if (!spendCheck.allowed) {
+      return buildSpendLimitResponse(req, spendCheck);
+    }
+
+    // Check rate limit. This charges the scan atomically (check+increment in
+    // one RPC, so parallel requests can't race past the limit); every error
+    // path below that returns without ticket data must refund via refundCtx.
     const { data: rateLimit, error: rateLimitError } = await supabaseClient.rpc(
       'check_and_increment_scan',
       {
@@ -841,11 +885,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Check daily AI spend limit before calling Gemini
-    const spendCheck = await checkDailyAiSpend(supabaseClient);
-    if (!spendCheck.allowed) {
-      return buildSpendLimitResponse(req, spendCheck);
-    }
+    refundCtx = { client: supabaseClient, userId: user.id, remaining: rateLimitResult.scans_remaining };
 
     // Extract ticket data using Gemini
     let extraction: GeminiExtraction;
@@ -853,13 +893,33 @@ Deno.serve(async (req: Request) => {
       extraction = await extractWithGemini(image, mimeType, GEMINI_API_KEY);
     } catch (geminiError) {
       console.error('[scan-ticket] Gemini extraction failed:', geminiError);
+      // A throw here is a SERVICE failure (HTTP error, timeout, unparseable
+      // response) — a genuinely unreadable photo still returns 200 with an
+      // empty tickets array. Refund the scan and say so honestly instead of
+      // blaming the user's photo (2026-07-01: a lapsed GCP bill burned a
+      // user's whole daily quota through "try with a clearer image" retries).
+      const scansRemaining = await refundScan(supabaseClient, user.id, rateLimitResult.scans_remaining);
+      refundCtx = null;
+      const detail = geminiError instanceof Error ? geminiError.message : String(geminiError);
+      // Key/billing/permission failures need action NOW; transient 5xx/timeouts don't.
+      const severity: AiFailureSeverity =
+        /gemini api error: 4|api key|billing|permission/i.test(detail) ? 'critical' : 'warn';
+      reportAiGenerationFailure({
+        feature: 'scan-ticket',
+        reason: 'gemini_upstream',
+        severity,
+        userId: user.id,
+        detail,
+        creditNote: 'scan refunded',
+      });
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Failed to extract ticket information. Please try with a clearer image.',
-          scansRemaining: rateLimitResult.scans_remaining,
+          errorCode: 'service_unavailable',
+          error: "Ticket scanning is temporarily unavailable — your scan wasn't used. Try again in a few minutes.",
+          scansRemaining,
         }),
-        { status: 422, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        { status: 503, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -980,6 +1040,9 @@ Deno.serve(async (req: Request) => {
     // Deduplicate tickets
     const deduplicatedTickets = deduplicateTickets(processedTickets);
 
+    // Ticket data is being delivered — the charged scan is now legitimately spent.
+    refundCtx = null;
+
     const response: ScanTicketResponse = {
       success: true,
       scansRemaining: rateLimitResult.scans_remaining,
@@ -999,8 +1062,19 @@ Deno.serve(async (req: Request) => {
 
   } catch (error) {
     console.error('[scan-ticket] Unhandled error:', error);
+    // A crash after the quota was charged (TMDB loop, cost logging, …) still
+    // delivered nothing — give the scan back.
+    let scansRemaining: number | undefined;
+    if (refundCtx) {
+      scansRemaining = await refundScan(refundCtx.client, refundCtx.userId, refundCtx.remaining);
+      refundCtx = null;
+    }
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({
+        error: 'Internal server error',
+        errorCode: 'service_unavailable',
+        ...(scansRemaining !== undefined ? { scansRemaining } : {}),
+      }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
