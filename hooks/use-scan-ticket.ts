@@ -90,9 +90,31 @@ export interface ProcessedScanResult {
 export type ScanTicketErrorType =
   | 'rate_limit'
   | 'extraction_failed'
+  | 'service_unavailable'
   | 'network_error'
   | 'auth_error'
   | 'unknown';
+
+/**
+ * Error thrown by `scanTicket`, carrying the classification and — when the
+ * server included it — the authoritative scans-remaining, so callers can keep
+ * their displayed count honest on failure paths instead of going stale.
+ */
+export class ScanTicketError extends Error {
+  type: ScanTicketErrorType;
+  scansRemaining?: number;
+
+  constructor(type: ScanTicketErrorType, message: string, scansRemaining?: number) {
+    super(message);
+    this.name = 'ScanTicketError';
+    this.type = type;
+    this.scansRemaining = scansRemaining;
+  }
+}
+
+export function isScanTicketError(err: unknown): err is ScanTicketError {
+  return err instanceof ScanTicketError;
+}
 
 /**
  * Hook result interface
@@ -112,6 +134,7 @@ export interface UseScanTicketResult {
 const ERROR_MESSAGES: Record<ScanTicketErrorType, string> = {
   rate_limit: "You've reached your daily scan limit. Try again tomorrow.",
   extraction_failed: "Couldn't read the ticket. Try with better lighting.",
+  service_unavailable: "Scanning is temporarily down — your scan wasn't used. Try again in a few minutes.",
   network_error: "Connection failed. Check your internet.",
   auth_error: "Please sign in to scan tickets.",
   unknown: "Something went wrong. Please try again.",
@@ -215,6 +238,21 @@ export function useScanTicket(): UseScanTicketResult {
 
         const errorMessage = fnError.message || '';
 
+        // Check for service failure (503 / errorCode) FIRST — the backend
+        // refunded the scan; this is our outage, not the user's photo. Must
+        // run before the rate-limit branch: a body from a failed refund can
+        // carry scansRemaining 0, which would otherwise read as "limit reached".
+        if (errorBody?.errorCode === 'service_unavailable' || httpStatus === 503) {
+          setErrorType('service_unavailable');
+          setError(ERROR_MESSAGES.service_unavailable);
+          analytics.track('scan:fail', { reason: 'service_unavailable' });
+          throw new ScanTicketError(
+            'service_unavailable',
+            ERROR_MESSAGES.service_unavailable,
+            typeof errorBody?.scansRemaining === 'number' ? errorBody.scansRemaining : undefined
+          );
+        }
+
         // Check for rate limit (429) - check parsed body first, then status, then message strings
         if (
           errorBody?.scansRemaining === 0 ||
@@ -228,7 +266,7 @@ export function useScanTicket(): UseScanTicketResult {
           setErrorType('rate_limit');
           setError(`You've reached ${typeof limit === 'number' ? `your ${limit}` : limit} scan limit. Try again tomorrow.`);
           analytics.track('scan:fail', { reason: 'rate_limit' });
-          throw new Error(ERROR_MESSAGES.rate_limit);
+          throw new ScanTicketError('rate_limit', ERROR_MESSAGES.rate_limit, 0);
         }
 
         // Check for extraction failure (422)
@@ -240,7 +278,11 @@ export function useScanTicket(): UseScanTicketResult {
           setErrorType('extraction_failed');
           setError(ERROR_MESSAGES.extraction_failed);
           analytics.track('scan:fail', { reason: 'extraction_failed' });
-          throw new Error(ERROR_MESSAGES.extraction_failed);
+          throw new ScanTicketError(
+            'extraction_failed',
+            ERROR_MESSAGES.extraction_failed,
+            typeof errorBody?.scansRemaining === 'number' ? errorBody.scansRemaining : undefined
+          );
         }
 
         // Check for auth errors (401)
@@ -254,7 +296,7 @@ export function useScanTicket(): UseScanTicketResult {
           setErrorType('auth_error');
           setError(ERROR_MESSAGES.auth_error);
           analytics.track('scan:fail', { reason: 'auth_error' });
-          throw new Error(ERROR_MESSAGES.auth_error);
+          throw new ScanTicketError('auth_error', ERROR_MESSAGES.auth_error);
         }
 
         // Check for network-related errors
@@ -262,14 +304,14 @@ export function useScanTicket(): UseScanTicketResult {
           setErrorType('network_error');
           setError(ERROR_MESSAGES.network_error);
           analytics.track('scan:fail', { reason: 'network_error' });
-          throw new Error(ERROR_MESSAGES.network_error);
+          throw new ScanTicketError('network_error', ERROR_MESSAGES.network_error);
         }
 
         // Unknown error
         setErrorType('unknown');
         setError(ERROR_MESSAGES.unknown);
         analytics.track('scan:fail', { reason: 'unknown' });
-        throw new Error(ERROR_MESSAGES.unknown);
+        throw new ScanTicketError('unknown', ERROR_MESSAGES.unknown);
       }
 
       // Validate response data

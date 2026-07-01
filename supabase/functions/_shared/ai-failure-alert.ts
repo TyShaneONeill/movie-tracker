@@ -32,6 +32,8 @@ export interface AiFailureAlert {
   detail?: string;
   /** What the user had at stake — confirms a failure consumed nothing. */
   creditNote?: string;
+  /** Alert title prefix + embed footer; defaults to the original journey-art caller. */
+  feature?: string;
 }
 
 export async function reportAiGenerationFailure(args: AiFailureAlert): Promise<void> {
@@ -49,7 +51,7 @@ export async function reportAiGenerationFailure(args: AiFailureAlert): Promise<v
       body: JSON.stringify({
         embeds: [
           {
-            title: `${meta.emoji} AI art generation failed — ${args.reason}`,
+            title: `${meta.emoji} ${args.feature ?? 'AI art generation'} failed — ${args.reason}`,
             color: meta.color,
             fields: [
               { name: 'Movie', value: (args.movieTitle || '—').slice(0, 100), inline: true },
@@ -59,7 +61,7 @@ export async function reportAiGenerationFailure(args: AiFailureAlert): Promise<v
               { name: 'Credit', value: `✓ ${args.creditNote || 'not consumed'}`, inline: true },
               { name: 'Detail', value: (args.detail || '—').slice(0, 800) },
             ],
-            footer: { text: 'generate-journey-art' },
+            footer: { text: args.feature ?? 'generate-journey-art' },
             timestamp: new Date().toISOString(),
           },
         ],
