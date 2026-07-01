@@ -731,6 +731,9 @@ async function refundScan(
       console.error('[scan-ticket] refund_scan failed:', error);
       return chargedRemaining;
     }
+    // The RPC no-ops (refunded:false) only when the charge's counter already
+    // expired at the UTC day boundary — the next check_and_increment_scan
+    // resets daily_count anyway, so +1 here is at worst momentarily optimistic.
     // 999 is the unlimited sentinel (dev tier / bypass flag) — don't inflate it.
     return chargedRemaining >= 999 ? 999 : chargedRemaining + 1;
   } catch (e) {
@@ -904,7 +907,10 @@ Deno.serve(async (req: Request) => {
       // Key/billing/permission failures need action NOW; transient 5xx/timeouts don't.
       const severity: AiFailureSeverity =
         /gemini api error: 4|api key|billing|permission/i.test(detail) ? 'critical' : 'warn';
-      reportAiGenerationFailure({
+      // Awaited: a floating promise isn't guaranteed to complete once the
+      // Response resolves in the Edge Runtime, and this alert IS the pager
+      // for the next billing lapse. Helper self-times-out at 1.5s.
+      await reportAiGenerationFailure({
         feature: 'scan-ticket',
         reason: 'gemini_upstream',
         severity,
