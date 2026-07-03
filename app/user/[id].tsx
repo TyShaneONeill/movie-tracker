@@ -264,6 +264,7 @@ export default function UserProfileScreen() {
         isAiPoster={isAiPoster}
         journeyCount={movie.journeyCount}
         style={{ width: cardWidth }}
+        onPress={() => router.push(`/movie/${movie.tmdb_id}`)}
       />
     );
   }, [cardWidth]);
