@@ -28,6 +28,25 @@ export type StatsV2ColorTokens = {
   goldLine: string;
   /** Skeleton shimmer block color. */
   shimmer: string;
+  /** Screen accent (rose) — Your Year current-month bar, highlights. */
+  accent: {
+    primary: string;
+    deep: string;
+    glow: string;
+  };
+  /** Your Year graph bar colors. */
+  bar: {
+    /** Past-month grey gradient, top → bottom. */
+    pastTop: string;
+    pastBottom: string;
+    /** Future-month dashed empty stub. */
+    futureBorder: string;
+    futureBg: string;
+    /** Future-month letter — fainter than `faint`. */
+    futureLabel: string;
+  };
+  /** Stable genre segment colors, assigned by index (Top Genres split bar). */
+  genrePalette: string[];
   /** Per-stat accent colors (match the design handoff). */
   stat: {
     movies: string;
@@ -54,6 +73,28 @@ export const StatsV2ColorsDark: StatsV2ColorTokens = {
   goldSoft: 'rgba(251,191,36,0.12)',
   goldLine: 'rgba(251,191,36,0.35)',
   shimmer: 'rgba(255,255,255,0.06)',
+  accent: {
+    primary: '#e11d48',
+    deep: '#9f1239',
+    glow: 'rgba(225,29,72,0.45)',
+  },
+  bar: {
+    pastTop: '#3f3f46',
+    pastBottom: '#27272a',
+    futureBorder: 'rgba(255,255,255,0.12)',
+    futureBg: 'rgba(255,255,255,0.02)',
+    futureLabel: 'rgba(255,255,255,0.18)',
+  },
+  genrePalette: [
+    '#e11d48', // rose
+    '#10b981', // emerald
+    '#fbbf24', // amber
+    '#3b82f6', // blue
+    '#8b5cf6', // purple
+    '#ec4899', // pink
+    '#14b8a6', // teal
+    '#f97316', // orange
+  ],
   stat: {
     movies: '#e11d48',
     tvShows: '#10b981',
@@ -79,6 +120,28 @@ export const StatsV2ColorsLight: StatsV2ColorTokens = {
   goldSoft: 'rgba(217,119,6,0.10)',
   goldLine: 'rgba(217,119,6,0.35)',
   shimmer: 'rgba(0,0,0,0.06)',
+  accent: {
+    primary: '#e11d48',
+    deep: '#9f1239',
+    glow: 'rgba(225,29,72,0.35)',
+  },
+  bar: {
+    pastTop: '#d4d4d8', // zinc-300 → zinc-200: grey gradient inverted for light
+    pastBottom: '#e4e4e7',
+    futureBorder: 'rgba(0,0,0,0.14)',
+    futureBg: 'rgba(0,0,0,0.02)',
+    futureLabel: 'rgba(0,0,0,0.22)',
+  },
+  genrePalette: [
+    '#e11d48', // rose
+    '#059669', // emerald-600: emerald-500 is low-contrast on a light bg
+    '#d97706', // amber-600 (see gold note above)
+    '#3b82f6', // blue
+    '#8b5cf6', // purple
+    '#ec4899', // pink
+    '#0d9488', // teal-600: teal-500 is low-contrast on a light bg
+    '#f97316', // orange
+  ],
   stat: {
     movies: '#e11d48',
     tvShows: '#059669', // emerald-600: emerald-500 is low-contrast on a light bg

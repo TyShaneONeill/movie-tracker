@@ -8,6 +8,12 @@ jest.mock('@expo/vector-icons', () => {
   return { Ionicons: View };
 });
 
+// Mock expo-linear-gradient (native module) — the Your Year bars render it.
+jest.mock('expo-linear-gradient', () => {
+  const { View } = require('react-native');
+  return { LinearGradient: View };
+});
+
 jest.mock('@/lib/theme-context', () => ({
   useTheme: () => ({ effectiveTheme: 'dark' }),
   useEffectiveColorScheme: () => 'dark',
@@ -31,6 +37,29 @@ jest.mock('expo-haptics', () => ({
 }));
 
 const mockUseUserStats = useUserStats as jest.Mock;
+
+// The Your Year graph keys months off the device clock, so fixtures are built
+// against the real current year/month to stay deterministic year-round.
+const NOW = new Date();
+const THIS_YEAR = NOW.getFullYear();
+const MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+function monthEntry(year: number, monthIndex: number, count: number) {
+  return {
+    month: `${year}-${String(monthIndex + 1).padStart(2, '0')}`,
+    monthLabel: MONTH_LABELS[monthIndex],
+    count,
+  };
+}
+
+const populatedGenres = [
+  { genreId: 28, genreName: 'Action', count: 9, percentage: 45 },
+  { genreId: 35, genreName: 'Comedy', count: 5, percentage: 25 },
+  { genreId: 18, genreName: 'Drama', count: 4, percentage: 20 },
+];
 
 const populatedStats = {
   summary: {
@@ -110,6 +139,76 @@ describe('StatsV2Screen', () => {
 
     // the skeleton overlay covers the (animated, opacity-0) content layer
     expect(getByTestId('stats-v2-skeleton')).toBeTruthy();
+  });
+
+  it('renders the Your Year graph when the year has activity', () => {
+    mockUseUserStats.mockReturnValue({
+      data: {
+        ...populatedStats,
+        monthlyActivity: [monthEntry(THIS_YEAR, NOW.getMonth(), 12)],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { getByText } = render(<StatsV2Screen />);
+
+    expect(getByText(`YOUR YEAR · ${THIS_YEAR}`)).toBeTruthy();
+    // year total (12) with the "movies" unit in accent
+    expect(getByText('movies')).toBeTruthy();
+    // the current month's count renders above its bar
+    expect(getByText('12')).toBeTruthy();
+  });
+
+  it('hides the Your Year card entirely when nothing is logged this year', () => {
+    mockUseUserStats.mockReturnValue({
+      data: {
+        ...populatedStats,
+        genres: populatedGenres,
+        // rolling window: prior-year activity + a zero current-year month
+        monthlyActivity: [
+          monthEntry(THIS_YEAR - 1, 10, 4),
+          monthEntry(THIS_YEAR, NOW.getMonth(), 0),
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { queryByText, getByText } = render(<StatsV2Screen />);
+
+    expect(queryByText(`YOUR YEAR · ${THIS_YEAR}`)).toBeNull();
+    // genres live inside the Your Year card, so they hide with it
+    expect(queryByText('TOP GENRES')).toBeNull();
+    // the hero block still shows
+    expect(getByText('Movies')).toBeTruthy();
+    expect(getByText('69')).toBeTruthy();
+  });
+
+  it('renders the genre split bar and legend inside the Your Year card', () => {
+    mockUseUserStats.mockReturnValue({
+      data: {
+        ...populatedStats,
+        genres: populatedGenres,
+        monthlyActivity: [monthEntry(THIS_YEAR, NOW.getMonth(), 7)],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { getByText } = render(<StatsV2Screen />);
+
+    expect(getByText('TOP GENRES')).toBeTruthy();
+    // legend rows: name + mono percentage
+    expect(getByText('Action')).toBeTruthy();
+    expect(getByText('45%')).toBeTruthy();
+    expect(getByText('Comedy')).toBeTruthy();
+    expect(getByText('25%')).toBeTruthy();
+    expect(getByText('Drama')).toBeTruthy();
+    expect(getByText('20%')).toBeTruthy();
   });
 
   it('shows the error state when the fetch fails with no cached data', () => {
