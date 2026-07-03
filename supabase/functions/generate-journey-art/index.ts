@@ -280,7 +280,7 @@ Deno.serve(async (req: Request) => {
     // Verify the journey belongs to this user
     const { data: journey, error: journeyError } = await supabaseAdmin
       .from('user_movies')
-      .select('id, user_id, ai_poster_url')
+      .select('id, user_id, ai_poster_url, ai_poster_rarity')
       .eq('id', journeyId)
       .single();
 
@@ -298,11 +298,19 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Check if already has AI poster (prevent re-generation for now)
+    // Idempotency: if art already exists for this journey, return it as a
+    // SUCCESS rather than a 400. A client retry after a dropped connection
+    // (issue #592) must be indistinguishable from a fresh success, and this
+    // still prevents paying for a second generation.
     if (journey.ai_poster_url) {
       return new Response(
-        JSON.stringify({ error: 'AI poster already generated for this journey' }),
-        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          imageUrl: journey.ai_poster_url,
+          rarity: journey.ai_poster_rarity ?? undefined,
+          alreadyGenerated: true,
+        }),
+        { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 

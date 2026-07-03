@@ -28,6 +28,7 @@ export function useRewardedAd(type: RewardedAdType = 'scan') {
       return {
         RewardedAd: ads.RewardedAd,
         RewardedAdEventType: ads.RewardedAdEventType,
+        AdEventType: ads.AdEventType,
         TestIds: ads.TestIds,
       };
     } catch {
@@ -76,22 +77,64 @@ export function useRewardedAd(type: RewardedAdType = 'scan') {
     };
   }, [loadAd]);
 
-  const showAd = useCallback(async (): Promise<boolean> => {
+  // `onEarned` fires synchronously the instant the reward is earned (before the
+  // ad is dismissed), so callers can durably persist a pending credit and
+  // survive an app kill during the ad-dismissal window. The returned promise
+  // still resolves only after the ad CLOSES (see below).
+  const showAd = useCallback(async (onEarned?: () => void): Promise<boolean> => {
     if (!adModule || !adRef.current || !loaded) return false;
 
+    // Resolve only after the ad is DISMISSED (CLOSED), carrying whether the
+    // reward was earned — NOT on EARNED_REWARD. EARNED_REWARD fires while the
+    // ad activity still owns the foreground, so any network call the caller
+    // makes on resolution (grant credit / grant scan) fires into a dead window
+    // and throws FunctionsFetchError (issue #592). Waiting for CLOSED means the
+    // app is foregrounded and the network is live when the caller acts.
     return new Promise((resolve) => {
-      const unsub = adRef.current.addAdEventListener(
-        adModule!.RewardedAdEventType.EARNED_REWARD,
-        () => {
-          unsub();
-          resolve(true);
-        }
+      let earned = false;
+      let settled = false;
+      let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const subs: Array<() => void> = [];
+      const cleanup = () => {
+        subs.forEach((unsub) => unsub());
+        subs.length = 0;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+      };
+      const settle = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      };
+
+      subs.push(
+        adRef.current.addAdEventListener(
+          adModule!.RewardedAdEventType.EARNED_REWARD,
+          () => {
+            earned = true;
+            try {
+              onEarned?.();
+            } catch {
+              // never let a caller's persistence hook break ad resolution
+            }
+            // Safety net: if CLOSED never arrives (rare SDK edge case), don't
+            // hang the caller forever — settle a few seconds after the reward.
+            if (!fallbackTimer) {
+              fallbackTimer = setTimeout(() => settle(earned), 4000);
+            }
+          }
+        )
       );
 
-      adRef.current.show().catch(() => {
-        unsub();
-        resolve(false);
-      });
+      subs.push(
+        adRef.current.addAdEventListener(
+          adModule!.AdEventType.CLOSED,
+          () => settle(earned)
+        )
+      );
+
+      adRef.current.show().catch(() => settle(false));
     });
   }, [loaded, adModule]);
 
