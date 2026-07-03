@@ -24,6 +24,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useFollowers } from '@/hooks/use-followers';
 import { useAuth } from '@/hooks/use-auth';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
+import { useProfilePrivacyGate } from '@/hooks/use-profile-privacy-gate';
 import { FollowButton } from '@/components/social/FollowButton';
 import { Avatar } from '@/components/ui/avatar';
 import type { Profile } from '@/lib/database.types';
@@ -49,6 +50,7 @@ export default function FollowersScreen() {
   const { session } = useAuth();
   const currentUserId = session?.user?.id;
 
+  const { isLocked, isLoading: isGateLoading } = useProfilePrivacyGate(id!);
   const { followers: rawFollowers, isLoading, isError } = useFollowers(id!);
   const { blockedIds } = useBlockedUsers();
   const followers = rawFollowers.filter((u: Profile) => !blockedIds.includes(u.id));
@@ -122,7 +124,7 @@ export default function FollowersScreen() {
   );
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || isGateLoading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <ContentContainer style={{ flex: 1 }}>
@@ -166,6 +168,35 @@ export default function FollowersScreen() {
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             Please try again later
+          </Text>
+        </View>
+        </ContentContainer>
+      </SafeAreaView>
+    );
+  }
+
+  // Private account gate — RLS already hides the rows; show an explicit lock
+  if (isLocked) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ContentContainer style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={handleBack}
+            style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <BackIcon color={colors.text} />
+          </Pressable>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Followers</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="lock-closed" size={48} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            This account is private
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Follow this account to see who follows them
           </Text>
         </View>
         </ContentContainer>
