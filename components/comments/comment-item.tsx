@@ -16,6 +16,7 @@ interface CommentItemProps {
   onDelete?: (commentId: string) => void;
   onReport?: (commentId: string) => void;
   onLike?: (commentId: string) => void;
+  onUserPress?: (userId: string) => void;
 }
 
 export function CommentItem({
@@ -26,6 +27,7 @@ export function CommentItem({
   onDelete,
   onReport,
   onLike,
+  onUserPress,
 }: CommentItemProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -34,6 +36,12 @@ export function CommentItem({
 
   const isOwnComment = currentUserId === comment.commenter.userId;
   const displayName = comment.commenter.fullName || comment.commenter.username || 'Anonymous';
+
+  const handleUserPress = () => {
+    if (comment.commenter.userId && onUserPress) {
+      onUserPress(comment.commenter.userId);
+    }
+  };
 
   const handleLongPress = () => {
     if (comment.isHidden) return;
@@ -69,22 +77,24 @@ export function CommentItem({
 
   return (
     <Pressable onLongPress={handleLongPress} style={[styles.container, isReply && styles.reply]}>
-      {/* Avatar */}
-      <View style={styles.avatarContainer}>
+      {/* Avatar — taps through to the commenter's profile */}
+      <Pressable onPress={handleUserPress} hitSlop={8} style={styles.avatarContainer}>
         <Avatar
           size={isReply ? 24 : 32}
           userId={comment.commenter.userId}
           avatarUrl={comment.commenter.avatarUrl}
           name={displayName}
         />
-      </View>
+      </Pressable>
 
       {/* Content */}
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.name} numberOfLines={1}>
-            {displayName}
-          </Text>
+          <Pressable onPress={handleUserPress} hitSlop={4} style={styles.namePressable}>
+            <Text style={styles.name} numberOfLines={1}>
+              {displayName}
+            </Text>
+          </Pressable>
           <Text style={styles.time}>{formatRelativeTime(comment.createdAt)}</Text>
           {comment.likedByAuthor && (
             <View style={styles.authorBadge}>
@@ -176,11 +186,13 @@ function createStyles(colors: typeof Colors.dark) {
       gap: Spacing.sm,
       marginBottom: 2,
     },
+    namePressable: {
+      flexShrink: 1,
+    },
     name: {
       ...Typography.body.sm,
       fontWeight: '600',
       color: colors.text,
-      flexShrink: 1,
     },
     time: {
       ...Typography.body.xs,
