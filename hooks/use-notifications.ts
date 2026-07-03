@@ -107,6 +107,15 @@ export function useNotifications(): UseNotificationsResult {
       if (!user) throw new Error('Not authenticated');
       return markAllAsReadService(user.id);
     },
+    // Zero the badge immediately — it must clear even if the user leaves the
+    // notifications screen before the server write lands.
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notificationCount', user?.id] });
+      queryClient.setQueryData(['notificationCount', user?.id], 0);
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationCount', user?.id] });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['notifications', user?.id],
