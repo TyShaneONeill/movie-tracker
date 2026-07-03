@@ -203,91 +203,100 @@ export default function NotificationsScreen() {
   // Track which notification is currently being acted upon
   const [activeRequestNotificationId, setActiveRequestNotificationId] = useState<string | null>(null);
 
+  // Remove EVERY follow_request notification from a requester — duplicate
+  // cards happen when a request is cancelled and re-sent (issue #588).
+  const cleanupRequestNotifications = useCallback(async (actorId: string) => {
+    if (!user) return;
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('actor_id', actorId)
+      .eq('type', 'follow_request');
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+  }, [queryClient, user]);
+
   const handleAcceptFollowRequest = useCallback(async (notification: Notification) => {
-    const data = (notification.data ?? {}) as Record<string, unknown>;
-    let followRequestId = data.follow_request_id as string | undefined;
+    if (!notification.actor_id || !user) return;
 
-    // Fallback for older notifications that only stored requester_id:
-    // look up the pending follow_request row by requester (actor_id)
-    if (!followRequestId && notification.actor_id && user) {
-      const { data: req } = await supabase
-        .from('follow_requests')
-        .select('id')
-        .eq('requester_id', notification.actor_id)
-        .eq('target_id', user.id)
+    // Always resolve the CURRENT pending request from this requester. The
+    // notification's stored follow_request_id may reference a row that was
+    // deleted by a cancel + re-request — trusting it fails on every card
+    // except the newest (issue #588).
+    const { data: req } = await supabase
+      .from('follow_requests')
+      .select('id')
+      .eq('requester_id', notification.actor_id)
+      .eq('target_id', user.id)
+      .maybeSingle();
+
+    if (!req?.id) {
+      // No pending request: cancelled, or already accepted via another card.
+      const { data: existingFollow } = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', notification.actor_id)
+        .eq('following_id', user.id)
         .maybeSingle();
-      followRequestId = req?.id;
-    }
-
-    if (!followRequestId) {
-      // Stale notification — the request was cancelled before we could act on it.
-      await supabase.from('notifications').delete().eq('id', notification.id);
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
-      Toast.show({
-        type: 'info',
-        text1: 'Request no longer pending',
-        text2: 'This follow request was cancelled.',
-        visibilityTime: 3000,
-      });
+      await cleanupRequestNotifications(notification.actor_id);
+      Toast.show(
+        existingFollow
+          ? {
+              type: 'info',
+              text1: 'Already accepted',
+              text2: 'They already follow you.',
+              visibilityTime: 3000,
+            }
+          : {
+              type: 'info',
+              text1: 'Request no longer pending',
+              text2: 'This follow request was cancelled.',
+              visibilityTime: 3000,
+            }
+      );
       return;
     }
 
-    const actorProfile = notification.actor_id
-      ? actorProfiles?.get(notification.actor_id)
-      : undefined;
+    const actorProfile = actorProfiles?.get(notification.actor_id);
 
     setActiveRequestNotificationId(notification.id);
     try {
-      await acceptRequest(followRequestId, actorProfile?.username);
-      // Remove the follow_request notification now that it's been acted on
-      await supabase.from('notifications').delete().eq('id', notification.id);
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+      await acceptRequest(req.id, actorProfile?.username);
+      await cleanupRequestNotifications(notification.actor_id);
     } finally {
       setActiveRequestNotificationId(null);
     }
-  }, [acceptRequest, actorProfiles, queryClient, user]);
+  }, [acceptRequest, actorProfiles, cleanupRequestNotifications, user]);
 
   const handleDeclineFollowRequest = useCallback(async (notification: Notification) => {
-    const data = (notification.data ?? {}) as Record<string, unknown>;
-    let followRequestId = data.follow_request_id as string | undefined;
+    if (!notification.actor_id || !user) return;
 
-    // Fallback for older notifications that only stored requester_id:
-    // look up the pending follow_request row by requester (actor_id)
-    if (!followRequestId && notification.actor_id && user) {
-      const { data: req } = await supabase
-        .from('follow_requests')
-        .select('id')
-        .eq('requester_id', notification.actor_id)
-        .eq('target_id', user.id)
-        .maybeSingle();
-      followRequestId = req?.id;
-    }
+    // Same current-pending resolution as accept (issue #588).
+    const { data: req } = await supabase
+      .from('follow_requests')
+      .select('id')
+      .eq('requester_id', notification.actor_id)
+      .eq('target_id', user.id)
+      .maybeSingle();
 
-    if (!followRequestId) {
-      // Stale notification — the request was already cancelled. Remove it silently.
-      await supabase.from('notifications').delete().eq('id', notification.id);
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+    if (!req?.id) {
+      // Stale notification — the request was already cancelled. Remove all
+      // cards from this requester silently.
+      await cleanupRequestNotifications(notification.actor_id);
       return;
     }
 
-    const actorProfile = notification.actor_id
-      ? actorProfiles?.get(notification.actor_id)
-      : undefined;
+    const actorProfile = actorProfiles?.get(notification.actor_id);
 
     setActiveRequestNotificationId(notification.id);
     try {
-      await declineRequest(followRequestId, actorProfile?.username);
-      // Remove the follow_request notification now that it's been acted on
-      await supabase.from('notifications').delete().eq('id', notification.id);
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+      await declineRequest(req.id, actorProfile?.username);
+      await cleanupRequestNotifications(notification.actor_id);
     } finally {
       setActiveRequestNotificationId(null);
     }
-  }, [declineRequest, actorProfiles, queryClient, user]);
+  }, [declineRequest, actorProfiles, cleanupRequestNotifications, user]);
 
   const renderNotification = ({ item }: { item: Notification }) => {
     const actorProfile = item.actor_id
