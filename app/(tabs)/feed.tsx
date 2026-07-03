@@ -57,23 +57,27 @@ function AuthenticatedFeed() {
     id: string;
   } | null>(null);
 
-  // Invalidate unread indicator when feed tab gains focus
-  useFocusEffect(
-    useCallback(() => {
-      analytics.track('feed:view', { tab: feedFilter === 'friends' ? 'following' : 'community' });
-      queryClient.invalidateQueries({ queryKey: ['feed-unread'] });
-    }, [queryClient, feedFilter])
-  );
-
   const {
     feedItems,
     isLoading,
     isError,
     refetch,
+    refreshIfStale,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = usePrioritizedFeed(user?.id, feedFilter);
+
+  // On tab focus: invalidate the unread indicator and pull fresh feed content
+  // if the cache is older than a minute — without this, the 5-minute staleTime
+  // kept serving an identical feed on every return to the tab.
+  useFocusEffect(
+    useCallback(() => {
+      analytics.track('feed:view', { tab: feedFilter === 'friends' ? 'following' : 'community' });
+      queryClient.invalidateQueries({ queryKey: ['feed-unread'] });
+      refreshIfStale();
+    }, [queryClient, feedFilter, refreshIfStale])
+  );
 
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);

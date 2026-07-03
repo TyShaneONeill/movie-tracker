@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useEffect, useRef } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 
 import type { FeedFilter } from '@/hooks/use-activity-feed';
 import {
@@ -163,6 +163,34 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     communityQuery.error ??
     null;
 
+  // Focus refresh: the 5-minute staleTime protects against render thrash, but
+  // returning to the feed tab is an explicit "show me what's new" signal.
+  // Bypass the cache when the newest data is older than maxAgeMs.
+  const refreshIfStale = useCallback(
+    async (maxAgeMs: number = 60 * 1000) => {
+      const newestUpdate = Math.max(
+        followingFeedQuery.dataUpdatedAt,
+        followingReviewsQuery.dataUpdatedAt,
+        followingCommentsQuery.dataUpdatedAt,
+        communityQuery.dataUpdatedAt
+      );
+      if (newestUpdate && Date.now() - newestUpdate < maxAgeMs) return;
+      hasUpdatedLastSeen.current = false;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['following-ids', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['activity-feed', 'following'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity-feed', 'following-reviews'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity-feed', 'following-comments'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity-feed', 'community'] }),
+      ]);
+    },
+    [queryClient, userId,
+      followingFeedQuery.dataUpdatedAt,
+      followingReviewsQuery.dataUpdatedAt,
+      followingCommentsQuery.dataUpdatedAt,
+      communityQuery.dataUpdatedAt]
+  );
+
   // Refetch all queries
   const refetch = async () => {
     hasUpdatedLastSeen.current = false;
@@ -190,6 +218,7 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     isError,
     error,
     refetch,
+    refreshIfStale,
     fetchNextPage: communityQuery.fetchNextPage,
     hasNextPage: communityQuery.hasNextPage ?? false,
     isFetchingNextPage: communityQuery.isFetchingNextPage,
