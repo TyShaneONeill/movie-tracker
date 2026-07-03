@@ -9,9 +9,11 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useUserStats, type GenreStats } from '@/hooks/use-user-stats';
 import { useAuth } from '@/hooks/use-auth';
+import { useStatsV2 } from '@/hooks/use-stats-v2';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { ContentContainer } from '@/components/content-container';
+import { StatsV2Screen } from '@/components/stats-v2/stats-v2-screen';
 
 // Genre color palette for the donut chart
 const GENRE_COLORS = [
@@ -26,6 +28,17 @@ const GENRE_COLORS = [
 ];
 
 export default function AnalyticsScreen() {
+  const { variant, resolving } = useStatsV2();
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+  // Hold a neutral screen while PostHog resolves the flag so testers don't see
+  // v1 flash and snap to v2 (same gate as app/(tabs)/scanner.tsx).
+  if (resolving) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  if (variant === 'v2') return <StatsV2Screen />;
+  return <AnalyticsV1Screen />;
+}
+
+function AnalyticsV1Screen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
