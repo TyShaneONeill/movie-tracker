@@ -21,8 +21,10 @@ import React, { useCallback } from 'react';
 import { View, Modal, Pressable } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsMutating } from '@tanstack/react-query';
 
 import { Fonts } from '@/constants/theme';
+import { MUTATION_KEYS } from '@/lib/query-client';
 import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
@@ -47,9 +49,16 @@ export function GenerateArtSheet({ journey, onClose, onUpgradePress }: GenerateA
   const insets = useSafeAreaInsets();
 
   const { tier } = usePremium();
-  const { generateArt, isGenerating, hasUsedFreeTrial, adCredits } = useGenerateArt();
+  const { generateArt, isGenerating: isGeneratingLocal, hasUsedFreeTrial, adCredits } = useGenerateArt();
   const { loaded: adLoaded, showAd, reloadAd } = useRewardedAd('ai');
   const { grantCredit, isGranting } = useGrantAdReward();
+
+  // The sheet closes right after firing (fire-and-close, ~30s server round
+  // trip), which unmounts this instance and its local isPending. Count ALL
+  // in-flight generate-art mutations so a reopened sheet can't fire a second
+  // generation while one is still running.
+  const generatingGlobally = useIsMutating({ mutationKey: [MUTATION_KEYS.GENERATE_ART] }) > 0;
+  const isGenerating = isGeneratingLocal || generatingGlobally;
 
   // Out of generations (free tier, trial spent, no ad credits) → the ad path.
   const needsAd = tier === 'free' && hasUsedFreeTrial && adCredits <= 0;
@@ -151,7 +160,7 @@ export function GenerateArtSheet({ journey, onClose, onUpgradePress }: GenerateA
 
           <View style={{ paddingHorizontal: s(16), paddingTop: s(2) }}>
             {/* headline */}
-            <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(24), lineHeight: s(27), letterSpacing: -0.4, color: c.text }}>
+            <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(24), lineHeight: s(28), letterSpacing: -0.4, color: c.text }}>
               Generate AI poster
             </ScanText>
             <ScanText
