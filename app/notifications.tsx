@@ -9,7 +9,7 @@
  * - Marks notifications as read when screen is viewed
  */
 
-import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -88,6 +88,7 @@ export default function NotificationsScreen() {
     unreadCount,
     isLoading,
     error,
+    markAsRead,
     markAllAsRead,
     isMarkingAllAsRead,
     loadMore,
@@ -110,14 +111,15 @@ export default function NotificationsScreen() {
     enabled: actorIds.length > 0,
   });
 
-  // Mark all as read when screen is viewed (after a short delay)
+  // Mark all as read once the list has rendered with data — rendered = seen.
+  // A delayed timer here gets cancelled by the cleanup on quick back-out (and
+  // reset by re-renders since markAllAsRead has unstable identity), which left
+  // the badge stuck until a later 2s+ visit.
+  const hasMarkedRef = useRef(false);
   useEffect(() => {
-    if (unreadCount > 0 && !isLoading) {
-      const timer = setTimeout(() => {
-        markAllAsRead();
-      }, 2000); // Mark as read after 2 seconds of viewing
-
-      return () => clearTimeout(timer);
+    if (!hasMarkedRef.current && unreadCount > 0 && !isLoading) {
+      hasMarkedRef.current = true;
+      markAllAsRead();
     }
   }, [unreadCount, isLoading, markAllAsRead]);
 
@@ -129,7 +131,28 @@ export default function NotificationsScreen() {
     }
   };
 
+  // Session-local read overrides for tapped rows. The cache patch alone can
+  // lose a race against an in-flight refetch that snapshotted before the
+  // mark-read committed (#580); this keeps the tapped row visually read no
+  // matter how cache updates interleave. Server durability = markAsRead.
+  const [readOverrides, setReadOverrides] = useState<Set<string>>(() => new Set());
+
+  const displayNotifications = useMemo(
+    () =>
+      notifications.map((n) =>
+        !n.read && readOverrides.has(n.id) ? { ...n, read: true } : n
+      ),
+    [notifications, readOverrides]
+  );
+
   const handleNotificationPress = (notification: Notification) => {
+    // Clear this specific row's unread dot immediately (optimistic);
+    // fire-and-forget so navigation never blocks on the server write.
+    if (!notification.read) {
+      setReadOverrides((prev) => new Set(prev).add(notification.id));
+      markAsRead(notification.id).catch(() => {});
+    }
+
     const data = (notification.data ?? {}) as Record<string, unknown>;
 
     switch (notification.type) {
@@ -436,7 +459,7 @@ export default function NotificationsScreen() {
 
       {/* Notifications List */}
       <FlatList
-        data={notifications}
+        data={displayNotifications}
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
         contentContainerStyle={styles.listContent}
