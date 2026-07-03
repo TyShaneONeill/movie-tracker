@@ -3,6 +3,15 @@ import { router } from 'expo-router';
 import { supabase } from './supabase';
 import { captureException } from './sentry';
 
+/**
+ * Strip query string and fragment before a URL reaches Sentry. Auth deep
+ * links carry access_token / refresh_token / PKCE codes in exactly those
+ * parts — logging them hands session tokens to anyone with Sentry access.
+ */
+function scrubUrl(url: string): string {
+  return url.replace(/[?#].*$/, '#[REDACTED]');
+}
+
 /** Allowed parameter keys for auth deep links */
 const ALLOWED_PARAMS = new Set([
   'code',
@@ -130,7 +139,7 @@ export async function handleAuthDeepLink(url: string): Promise<string | null> {
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {
       context: 'deep-link-handler',
-      url,
+      url: scrubUrl(url),
     });
     return null;
   }
@@ -229,7 +238,7 @@ export function handleContentDeepLink(url: string): boolean {
   } catch (err) {
     captureException(err instanceof Error ? err : new Error(String(err)), {
       context: 'content-deep-link-handler',
-      url,
+      url: scrubUrl(url),
     });
     return false;
   }
