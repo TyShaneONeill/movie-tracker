@@ -91,10 +91,28 @@ export function useNotifications(): UseNotificationsResult {
   // Mutation to mark a single notification as read
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId: string) => markAsReadService(notificationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    // Optimistically flip the tapped row to read so its dot is already gone
+    // when the user navigates back — no waiting on server round-trip/refetch.
+    onMutate: async (notificationId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications', user?.id] });
+      const pages = queryClient.getQueriesData<{ notifications: Notification[]; hasMore: boolean }>({
         queryKey: ['notifications', user?.id],
       });
+      for (const [key, page] of pages) {
+        if (!page?.notifications.some((n) => n.id === notificationId && !n.read)) continue;
+        queryClient.setQueryData(key, {
+          ...page,
+          notifications: page.notifications.map((n) =>
+            n.id === notificationId ? { ...n, read: true } : n
+          ),
+        });
+      }
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notificationCount', user?.id] });
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['notificationCount', user?.id],
       });
@@ -117,8 +135,12 @@ export function useNotifications(): UseNotificationsResult {
       queryClient.invalidateQueries({ queryKey: ['notificationCount', user?.id] });
     },
     onSuccess: () => {
+      // Mark the list stale WITHOUT refetching now: row dots stay visible for
+      // the current session (so the user can see what's new) and clear
+      // individually on tap; the next visit refetches everything as read.
       queryClient.invalidateQueries({
         queryKey: ['notifications', user?.id],
+        refetchType: 'none',
       });
       queryClient.invalidateQueries({
         queryKey: ['notificationCount', user?.id],

@@ -88,6 +88,7 @@ export default function NotificationsScreen() {
     unreadCount,
     isLoading,
     error,
+    markAsRead,
     markAllAsRead,
     isMarkingAllAsRead,
     loadMore,
@@ -131,6 +132,12 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = (notification: Notification) => {
+    // Clear this specific row's unread dot immediately (optimistic);
+    // fire-and-forget so navigation never blocks on the server write.
+    if (!notification.read) {
+      markAsRead(notification.id).catch(() => {});
+    }
+
     const data = (notification.data ?? {}) as Record<string, unknown>;
 
     switch (notification.type) {
