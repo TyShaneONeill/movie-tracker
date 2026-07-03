@@ -131,10 +131,25 @@ export default function NotificationsScreen() {
     }
   };
 
+  // Session-local read overrides for tapped rows. The cache patch alone can
+  // lose a race against an in-flight refetch that snapshotted before the
+  // mark-read committed (#580); this keeps the tapped row visually read no
+  // matter how cache updates interleave. Server durability = markAsRead.
+  const [readOverrides, setReadOverrides] = useState<Set<string>>(() => new Set());
+
+  const displayNotifications = useMemo(
+    () =>
+      notifications.map((n) =>
+        !n.read && readOverrides.has(n.id) ? { ...n, read: true } : n
+      ),
+    [notifications, readOverrides]
+  );
+
   const handleNotificationPress = (notification: Notification) => {
     // Clear this specific row's unread dot immediately (optimistic);
     // fire-and-forget so navigation never blocks on the server write.
     if (!notification.read) {
+      setReadOverrides((prev) => new Set(prev).add(notification.id));
       markAsRead(notification.id).catch(() => {});
     }
 
@@ -444,7 +459,7 @@ export default function NotificationsScreen() {
 
       {/* Notifications List */}
       <FlatList
-        data={notifications}
+        data={displayNotifications}
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
         contentContainerStyle={styles.listContent}

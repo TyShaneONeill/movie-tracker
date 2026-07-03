@@ -88,6 +88,22 @@ export function useNotifications(): UseNotificationsResult {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Flip one row to read across all cached pages.
+  const patchNotificationRead = (notificationId: string) => {
+    const pages = queryClient.getQueriesData<{ notifications: Notification[]; hasMore: boolean }>({
+      queryKey: ['notifications', user?.id],
+    });
+    for (const [key, page] of pages) {
+      if (!page?.notifications.some((n) => n.id === notificationId && !n.read)) continue;
+      queryClient.setQueryData(key, {
+        ...page,
+        notifications: page.notifications.map((n) =>
+          n.id === notificationId ? { ...n, read: true } : n
+        ),
+      });
+    }
+  };
+
   // Mutation to mark a single notification as read
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId: string) => markAsReadService(notificationId),
@@ -95,24 +111,18 @@ export function useNotifications(): UseNotificationsResult {
     // when the user navigates back — no waiting on server round-trip/refetch.
     onMutate: async (notificationId: string) => {
       await queryClient.cancelQueries({ queryKey: ['notifications', user?.id] });
-      const pages = queryClient.getQueriesData<{ notifications: Notification[]; hasMore: boolean }>({
-        queryKey: ['notifications', user?.id],
-      });
-      for (const [key, page] of pages) {
-        if (!page?.notifications.some((n) => n.id === notificationId && !n.read)) continue;
-        queryClient.setQueryData(key, {
-          ...page,
-          notifications: page.notifications.map((n) =>
-            n.id === notificationId ? { ...n, read: true } : n
-          ),
-        });
-      }
+      patchNotificationRead(notificationId);
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['notificationCount', user?.id] });
     },
-    onSuccess: () => {
+    onSuccess: (_data, notificationId) => {
+      // Re-assert after the server write commits: an in-flight list refetch
+      // that snapshotted BEFORE the mark-read committed can land after the
+      // optimistic patch and overwrite it with stale unread rows (#580
+      // device repro). Post-commit, read=true IS server truth.
+      patchNotificationRead(notificationId);
       queryClient.invalidateQueries({
         queryKey: ['notificationCount', user?.id],
       });
