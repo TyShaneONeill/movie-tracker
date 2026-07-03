@@ -9,9 +9,12 @@
  *
  * Header (`JOURNEY X OF Y` mono accent + title + back), a horizontal card
  * carousel mirroring v1's FlatList of the movie's journeys (+ a v2-styled "Log
- * another viewing" trailing card), the Original / AI Art segmented toggle (only
- * when not flipped — reuses v1's `display_poster` optimistic write), and dot
- * pagination.
+ * another viewing" trailing card), and dot pagination centered between the
+ * card and the home indicator. Every card renders at ONE identical height
+ * derived from layout constants (poster ~2:3 + fixed stub) — never from data
+ * or ad state. The Original|AI art control lives ON the card (segmented glass
+ * pill); tapping AI with no art opens the on-demand `GenerateArtSheet`
+ * (variant swaps reuse v1's `display_poster` optimistic write).
  *
  * Theme-aware (built from `useScanColors()`/`ScanV2Accent`, not the global theme
  * `Colors`); text via `ScanText`, sizes via `s()`.
@@ -26,7 +29,6 @@ import {
   useWindowDimensions,
   type ViewToken,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -40,15 +42,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { useJourneysByMovie, useJourneyMutations, useCreateJourney } from '@/hooks/use-journey';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { JourneyAIGenerationButton } from '@/components/journey/journey-ai-generation-button';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { PosterInspectionModal } from '@/components/poster-inspection';
 import { resolveJourneyPhotoUrl } from '@/lib/ticket-photo-url';
 import type { UserMovie } from '@/lib/database.types';
 import { Icon, ScanText } from './primitives';
-import { JourneyCard } from './journey-card';
+import { JourneyCard, JOURNEY_STUB_MIN_HEIGHT, JOURNEY_POSTER_ASPECT } from './journey-card';
 import { EditJourneySheet } from './edit-journey-sheet';
+import { GenerateArtSheet } from './generate-art-sheet';
 import type { AvatarStackPerson } from './avatar-stack';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -60,22 +62,6 @@ type CarouselItem = { type: 'journey'; journey: UserMovie } | { type: 'add' };
 
 function showsAiPoster(journey: UserMovie): boolean {
   return journey.display_poster === 'ai_generated' && !!journey.ai_poster_url;
-}
-
-// Sparkle glyph (not in the shared Icon set) — drawn inline for the AI toggle.
-function Sparkle({ size, color }: { size: number; color: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3l1.7 4.8L18.5 9.5 13.7 11.2 12 16l-1.7-4.8L5.5 9.5l4.8-1.7zM18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"
-      />
-    </Svg>
-  );
 }
 
 export function JourneyScreenV2() {
@@ -120,6 +106,9 @@ export function JourneyScreenV2() {
   const [inspectUri, setInspectUri] = useState('');
   const [inspectTitle, setInspectTitle] = useState('');
   const [editingJourney, setEditingJourney] = useState<UserMovie | null>(null);
+  // Journey whose on-demand "Generate AI poster" sheet is open (AI segment
+  // tapped with no AI art yet) — null when closed.
+  const [generateJourney, setGenerateJourney] = useState<UserMovie | null>(null);
   // Set ONLY for a freshly-created-but-unsaved journey (the create flow). When it
   // matches the open sheet's journey, cancelling deletes the empty row so no blank
   // journey is left behind. The edit-pencil path leaves this null → never deletes.
@@ -165,14 +154,23 @@ export function JourneyScreenV2() {
     hapticImpact(ImpactFeedbackStyle.Medium);
   }, []);
 
-  // The card FLEXES to fill the space between the header and the bottom controls
-  // (toggle/button + dots) via a measured flex:1 wrapper (`cardH`) — so it's as tall as
-  // the device allows and the controls hug the bottom with no dead gap, rather than a
-  // fixed reserve that left slack on tall phones.
+  // The card fills the measured space between the header and the dots strip
+  // (`cardH`). EVERY card (journeys + "Log another viewing") renders at this ONE
+  // height — geometry derives only from layout constants, never data or state,
+  // so the perforation seam and stub never jump while swiping.
   const screenWidth = Math.min(windowWidth, MAX_JOURNEY_WIDTH);
   const pageWidth = screenWidth;
   const ticketHeight = cardH;
   const totalPages = journeys.length + 1;
+
+  // Fixed stub-slab height: give the poster a full ~2:3 region when the viewport
+  // allows, and never let the stub shrink below its minimum. Identical for every
+  // card — the seam Y is a per-device constant.
+  const cardWidth = pageWidth - 2 * s(CAROUSEL_HORIZONTAL_PADDING);
+  const stubHeight = Math.max(
+    s(JOURNEY_STUB_MIN_HEIGHT),
+    ticketHeight - Math.round(cardWidth * JOURNEY_POSTER_ASPECT),
+  );
 
   const carouselData: CarouselItem[] = useMemo(() => {
     const items: CarouselItem[] = journeys.map((journey) => ({ type: 'journey' as const, journey }));
@@ -249,6 +247,26 @@ export function JourneyScreenV2() {
     [updateJourney],
   );
 
+  // On-card Original|AI segmented pill. AI with no art yet → open the generate
+  // sheet; otherwise a tap on the inactive side swaps the cover (active side is
+  // a no-op).
+  const handleSelectVariant = useCallback(
+    (journey: UserMovie, variant: 'original' | 'ai') => {
+      const aiActive = showsAiPoster(journey);
+      if (variant === 'ai') {
+        if (!journey.ai_poster_url) {
+          hapticImpact(ImpactFeedbackStyle.Light);
+          setGenerateJourney(journey);
+          return;
+        }
+        if (!aiActive) void handleTogglePoster(journey);
+      } else if (aiActive) {
+        void handleTogglePoster(journey);
+      }
+    },
+    [handleTogglePoster],
+  );
+
   const renderItem = useCallback(
     ({ item, index }: { item: CarouselItem; index: number }) => {
       if (item.type === 'add') {
@@ -321,15 +339,16 @@ export function JourneyScreenV2() {
             onInspectPoster={handleInspectPoster}
             verified={scannedIds?.has(item.journey.id) ?? false}
             height={ticketHeight}
+            stubHeight={stubHeight}
+            onSelectVariant={(variant) => handleSelectVariant(item.journey, variant)}
           />
         </View>
       );
     },
-    [c, pageWidth, ticketHeight, handleCreateJourney, isCreating, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster, scannedIds],
+    [c, pageWidth, ticketHeight, stubHeight, handleCreateJourney, isCreating, firstTake, resolveCompanions, flipped, page, currentIndex, handleInspectPoster, scannedIds, handleSelectVariant],
   );
 
   const movieTitle = journeys[0]?.title ?? 'Movie';
-  const currentJourney = currentIndex < journeys.length ? journeys[currentIndex] : null;
 
   if (isLoading) {
     return (
@@ -438,83 +457,16 @@ export function JourneyScreenV2() {
         )}
       </View>
 
-      {/* Original / AI toggle OR AI-generation button (current journey only, not flipped) */}
-      {currentJourney && !flipped ? (
-        <View style={{ width: screenWidth, alignSelf: 'center', paddingHorizontal: s(16), marginTop: s(16) }}>
-          {currentJourney.ai_poster_url ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                padding: s(4),
-                backgroundColor: c.field,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: c.line,
-              }}
-            >
-              {([
-                ['original', 'Original'],
-                ['ai', 'AI Art'],
-              ] as const).map(([variant, label]) => {
-                const on =
-                  variant === 'ai' ? showsAiPoster(currentJourney) : !showsAiPoster(currentJourney);
-                const wouldChange = variant === 'ai' ? !showsAiPoster(currentJourney) : showsAiPoster(currentJourney);
-                return (
-                  <Pressable
-                    key={variant}
-                    onPress={() => wouldChange && handleTogglePoster(currentJourney)}
-                    style={{
-                      flex: 1,
-                      minHeight: s(40),
-                      borderRadius: 999,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexDirection: 'row',
-                      gap: s(6),
-                      backgroundColor: on
-                        ? variant === 'ai'
-                          ? ScanV2Accent.primary
-                          : c.cardHi
-                        : 'transparent',
-                    }}
-                  >
-                    {variant === 'ai' ? (
-                      <Sparkle size={s(15)} color={on ? ScanV2Accent.on : c.sec} />
-                    ) : null}
-                    <ScanText
-                      style={{
-                        fontFamily: Fonts.inter.semibold,
-                        fontSize: s(14),
-                        color: on ? (variant === 'ai' ? ScanV2Accent.on : c.text) : c.sec,
-                      }}
-                    >
-                      {label}
-                    </ScanText>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : (
-            <JourneyAIGenerationButton
-              journeyId={currentJourney.id}
-              movieTitle={currentJourney.title}
-              genreIds={currentJourney.genre_ids}
-              posterPath={currentJourney.poster_path}
-              onUpgradePress={() => setUpgradeSheetVisible(true)}
-            />
-          )}
-        </View>
-      ) : null}
-
-      {/* Dots */}
+      {/* Dots — vertically centered in the fixed strip between the card bottom
+          and the OS home indicator (no bottom action bar anywhere) */}
       <View
         style={{
+          height: s(52),
+          marginBottom: insets.bottom,
           flexDirection: 'row',
           justifyContent: 'center',
           alignItems: 'center',
           gap: s(8),
-          paddingTop: s(16),
-          paddingBottom: insets.bottom + s(16),
         }}
       >
         {Array.from({ length: totalPages }).map((_, index) => (
@@ -536,6 +488,16 @@ export function JourneyScreenV2() {
       </View>
 
       <LoginPromptModal visible={isLoginPromptVisible} onClose={hideLoginPrompt} message={loginPromptMessage} />
+      {generateJourney ? (
+        <GenerateArtSheet
+          journey={generateJourney}
+          onClose={() => setGenerateJourney(null)}
+          onUpgradePress={() => {
+            setGenerateJourney(null);
+            setUpgradeSheetVisible(true);
+          }}
+        />
+      ) : null}
       <UpgradePromptSheet
         visible={upgradeSheetVisible}
         featureKey="ai_poster_generation"
