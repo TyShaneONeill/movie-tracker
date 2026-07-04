@@ -28,6 +28,22 @@ export type StatsV2ColorTokens = {
   goldLine: string;
   /** Skeleton shimmer block color. */
   shimmer: string;
+  /** Going deeper chip status colors (1E). */
+  status: {
+    /** "Live for you" (member, buildable, enough data) — emerald. */
+    live: string;
+    /** "Coming soon" / "Log a few more" — neutral. */
+    neutral: string;
+  };
+  /** Seasonal Wrapped banner (1E, in-window Dec → early Jan). */
+  wrapped: {
+    gradientStart: string;
+    gradientEnd: string;
+    border: string;
+    iconBg: string;
+    pillBg: string;
+    pillText: string;
+  };
   /** Screen accent (rose) — Your Year current-month bar, highlights. */
   accent: {
     primary: string;
@@ -75,6 +91,18 @@ export const StatsV2ColorsDark: StatsV2ColorTokens = {
   goldSoft: 'rgba(251,191,36,0.12)',
   goldLine: 'rgba(251,191,36,0.35)',
   shimmer: 'rgba(255,255,255,0.06)',
+  status: {
+    live: '#10b981',
+    neutral: '#a1a1aa',
+  },
+  wrapped: {
+    gradientStart: 'rgba(225,29,72,0.20)',
+    gradientEnd: 'rgba(124,45,18,0.12)',
+    border: 'rgba(225,29,72,0.25)',
+    iconBg: 'rgba(225,29,72,0.22)',
+    pillBg: 'rgba(0,0,0,0.3)',
+    pillText: '#fca5b5',
+  },
   accent: {
     primary: '#e11d48',
     deep: '#9f1239',
@@ -123,6 +151,18 @@ export const StatsV2ColorsLight: StatsV2ColorTokens = {
   goldSoft: 'rgba(217,119,6,0.10)',
   goldLine: 'rgba(217,119,6,0.35)',
   shimmer: 'rgba(0,0,0,0.06)',
+  status: {
+    live: '#059669', // emerald-600: emerald-500 is low-contrast on a light bg
+    neutral: '#52525b',
+  },
+  wrapped: {
+    gradientStart: 'rgba(225,29,72,0.10)',
+    gradientEnd: 'rgba(124,45,18,0.06)',
+    border: 'rgba(225,29,72,0.25)',
+    iconBg: 'rgba(225,29,72,0.14)',
+    pillBg: 'rgba(255,255,255,0.65)',
+    pillText: '#9f1239', // rose-800: the dark pill's soft pink needs inverting for light
+  },
   accent: {
     primary: '#e11d48',
     deep: '#9f1239',
