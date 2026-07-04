@@ -5,6 +5,41 @@
   "cleanUrls": true,
   "redirects": [
     {
+      "source": "/ig",
+      "destination": "/?utm_source=instagram&utm_medium=bio&utm_campaign=bio",
+      "permanent": false
+    },
+    {
+      "source": "/th",
+      "destination": "/?utm_source=threads&utm_medium=bio&utm_campaign=bio",
+      "permanent": false
+    },
+    {
+      "source": "/x",
+      "destination": "/?utm_source=twitter&utm_medium=bio&utm_campaign=bio",
+      "permanent": false
+    },
+    {
+      "source": "/tt",
+      "destination": "/?utm_source=tiktok&utm_medium=bio&utm_campaign=bio",
+      "permanent": false
+    },
+    {
+      "source": "/yt",
+      "destination": "/?utm_source=youtube&utm_medium=bio&utm_campaign=bio",
+      "permanent": false
+    },
+    {
+      "source": "/rd",
+      "destination": "/?utm_source=reddit&utm_medium=bio&utm_campaign=bio",
+      "permanent": false
+    },
+    {
+      "source": "/dc",
+      "destination": "/?utm_source=discord&utm_medium=bio&utm_campaign=bio",
+      "permanent": false
+    },
+    {
       "source": "/",
       "missing": [
         { "type": "cookie", "key": "pocketstubs_visited" },

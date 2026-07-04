@@ -57,6 +57,7 @@ import { isInternalEmail } from '@/lib/internal-accounts';
 import { useSessionTracking, useScreenTracking } from '@/hooks/use-analytics-lifecycle';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useWidgetSync } from '@/hooks/use-widget-sync';
+import { useAiCreditRecovery } from '@/hooks/use-ai-credit-recovery';
 import { useAuthTokenSync } from '@/hooks/use-auth-token-sync';
 
 export const unstable_settings = {
@@ -295,6 +296,7 @@ function RootLayoutNav() {
   usePushNotifications();
   useWidgetSync();
   useAuthTokenSync();
+  useAiCreditRecovery();
 
   useEffect(() => {
     setBg(Colors[effectiveTheme].background);

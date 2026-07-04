@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -124,6 +125,10 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
     [likeCommentFn]
   );
 
+  const handleUserPress = useCallback((userId: string) => {
+    router.push(`/user/${userId}`);
+  }, []);
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -155,6 +160,7 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
                 onDelete={handleDelete}
                 onReport={handleReport}
                 onLike={handleLike}
+                onUserPress={handleUserPress}
               />
 
               {/* Show replies if expanded */}
@@ -167,6 +173,7 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
                   onDelete={handleDelete}
                   onReport={handleReport}
                   onLike={handleLike}
+                  onUserPress={handleUserPress}
                 />
               ))}
 

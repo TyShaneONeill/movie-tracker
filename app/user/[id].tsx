@@ -264,6 +264,7 @@ export default function UserProfileScreen() {
         isAiPoster={isAiPoster}
         journeyCount={movie.journeyCount}
         style={{ width: cardWidth }}
+        onPress={() => router.push(`/movie/${movie.tmdb_id}`)}
       />
     );
   }, [cardWidth]);
@@ -574,6 +575,7 @@ export default function UserProfileScreen() {
         {/* Follower/Following Stats */}
         <View style={styles.followStats}>
           <Pressable
+            disabled={!!isPrivateAndNotFollowing}
             onPress={() => router.push(`/followers/${id}`)}
             style={({ pressed }) => [
               styles.followStatItem,
@@ -589,6 +591,7 @@ export default function UserProfileScreen() {
           </Pressable>
           <View style={styles.followStatDivider} />
           <Pressable
+            disabled={!!isPrivateAndNotFollowing}
             onPress={() => router.push(`/following/${id}`)}
             style={({ pressed }) => [
               styles.followStatItem,

@@ -88,13 +88,41 @@ export function useNotifications(): UseNotificationsResult {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Flip one row to read across all cached pages.
+  const patchNotificationRead = (notificationId: string) => {
+    const pages = queryClient.getQueriesData<{ notifications: Notification[]; hasMore: boolean }>({
+      queryKey: ['notifications', user?.id],
+    });
+    for (const [key, page] of pages) {
+      if (!page?.notifications.some((n) => n.id === notificationId && !n.read)) continue;
+      queryClient.setQueryData(key, {
+        ...page,
+        notifications: page.notifications.map((n) =>
+          n.id === notificationId ? { ...n, read: true } : n
+        ),
+      });
+    }
+  };
+
   // Mutation to mark a single notification as read
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId: string) => markAsReadService(notificationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['notifications', user?.id],
-      });
+    // Optimistically flip the tapped row to read so its dot is already gone
+    // when the user navigates back — no waiting on server round-trip/refetch.
+    onMutate: async (notificationId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications', user?.id] });
+      patchNotificationRead(notificationId);
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notificationCount', user?.id] });
+    },
+    onSuccess: (_data, notificationId) => {
+      // Re-assert after the server write commits: an in-flight list refetch
+      // that snapshotted BEFORE the mark-read committed can land after the
+      // optimistic patch and overwrite it with stale unread rows (#580
+      // device repro). Post-commit, read=true IS server truth.
+      patchNotificationRead(notificationId);
       queryClient.invalidateQueries({
         queryKey: ['notificationCount', user?.id],
       });
@@ -107,9 +135,22 @@ export function useNotifications(): UseNotificationsResult {
       if (!user) throw new Error('Not authenticated');
       return markAllAsReadService(user.id);
     },
+    // Zero the badge immediately — it must clear even if the user leaves the
+    // notifications screen before the server write lands.
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notificationCount', user?.id] });
+      queryClient.setQueryData(['notificationCount', user?.id], 0);
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationCount', user?.id] });
+    },
     onSuccess: () => {
+      // Mark the list stale WITHOUT refetching now: row dots stay visible for
+      // the current session (so the user can see what's new) and clear
+      // individually on tap; the next visit refetches everything as read.
       queryClient.invalidateQueries({
         queryKey: ['notifications', user?.id],
+        refetchType: 'none',
       });
       queryClient.invalidateQueries({
         queryKey: ['notificationCount', user?.id],

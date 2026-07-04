@@ -67,7 +67,8 @@ export type ScanIconName =
   | 'gear'
   | 'ticket'
   | 'share'
-  | 'plus';
+  | 'plus'
+  | 'sparkle';
 
 interface IconProps {
   name: ScanIconName;
@@ -200,6 +201,14 @@ export function Icon({ name, size = 20, color, stroke = 2 }: IconProps) {
       break;
     case 'plus':
       body = <Path {...p} d="M12 5v14M5 12h14" />;
+      break;
+    case 'sparkle':
+      body = (
+        <Path
+          {...p}
+          d="M12 3l1.7 4.8L18.5 9.5 13.7 11.2 12 16l-1.7-4.8L5.5 9.5l4.8-1.7zM18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"
+        />
+      );
       break;
     case 'share':
       body = (

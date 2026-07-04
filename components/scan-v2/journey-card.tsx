@@ -6,11 +6,14 @@
  * only — the edit pencil routes to the v1 edit screen (PR 5 swaps it for the v2
  * EditSheet).
  *
- * FRONT — a flex poster (Original / AI art) with glass flip + edit buttons and a
- * rose `THEATRICAL RUN` tag, a perforation seam (dashed line + two bg-colored
- * notch circles), then a content-sized stub: title + italic rating header and a
- * 2-page carousel (details grid / "Your First Take"), with page dots when a take
- * exists.
+ * FRONT — a poster (Original / AI art) with glass flip + edit buttons, an
+ * Original|AI segmented glass pill (bottom-left), and a rose watch-context tag
+ * (label from `location_type`), a perforation seam (dashed line + two
+ * bg-colored notch circles), then a FIXED-HEIGHT stub (`stubHeight` prop —
+ * layout constant, never content-sized, so the seam sits at the same Y on
+ * every card): one-line title + rating chip, priority fields (Date ·
+ * Cinema/Service/Airline-or-Format · With), and a 2-page carousel row
+ * ("Your First Take") whose space is always reserved.
  *
  * BACK — a crossfade (the inner face is keyed on `flipped` so it re-mounts and
  * fades; NO 3D transform): an emerald "Verified theater visit" pill, a
@@ -29,20 +32,28 @@ import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { SignedPhoto } from '@/components/journey/signed-photo';
+import {
+  buildPlaceField,
+  formatStubDate as formatDate,
+  getWatchContextLabel,
+} from '@/lib/scan-v2/journey-stub-fields';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 import { Icon, ScanText } from './primitives';
 import { AvatarStack, type AvatarStackPerson } from './avatar-stack';
 
 // ============================================================================
-// Helpers
+// Layout constants — card geometry NEVER derives from data or state
 // ============================================================================
 
-function formatDate(dateString: string | null): string | null {
-  if (!dateString) return null;
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
+/**
+ * Minimum fixed height of the stub slab (in `s()` units). The screen computes
+ * the actual stub height once from layout constants (viewport slot minus a
+ * ~2:3 poster) and passes it down — identical for every card in the pager.
+ */
+export const JOURNEY_STUB_MIN_HEIGHT = 158;
+
+/** Poster height/width target — full 2:3 movie-poster aspect. */
+export const JOURNEY_POSTER_ASPECT = 1.5;
 
 function formatPrice(price: number | null): string | null {
   if (price === null || price === undefined) return null;
@@ -132,6 +143,79 @@ function FlipGlyph({ size, color }: { size: number; color: string }) {
 }
 
 // ============================================================================
+// ArtSegmentedPill — Original | ✦ AI glass segmented control on the poster
+// ============================================================================
+
+function ArtSegmentedPill({
+  showAi,
+  onSelect,
+}: {
+  showAi: boolean;
+  onSelect: (variant: 'original' | 'ai') => void;
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: s(12),
+        bottom: s(12),
+        flexDirection: 'row',
+        padding: s(3),
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.18)',
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        zIndex: 3,
+      }}
+    >
+      {(
+        [
+          ['original', 'Original'],
+          ['ai', 'AI'],
+        ] as const
+      ).map(([variant, label]) => {
+        const on = variant === 'ai' ? showAi : !showAi;
+        return (
+          <Pressable
+            key={variant}
+            onPress={() => onSelect(variant)}
+            hitSlop={6}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: s(4),
+              height: s(26),
+              paddingHorizontal: s(11),
+              borderRadius: 999,
+              backgroundColor: on
+                ? variant === 'ai'
+                  ? ScanV2Accent.primary
+                  : 'rgba(255,255,255,0.92)'
+                : 'transparent',
+            }}
+          >
+            {variant === 'ai' ? (
+              <Icon name="sparkle" size={s(12)} color={on ? ScanV2Accent.on : 'rgba(255,255,255,0.85)'} />
+            ) : null}
+            <ScanText
+              style={{
+                fontFamily: Fonts.inter.semibold,
+                fontSize: s(12),
+                lineHeight: s(15),
+                color: on ? (variant === 'ai' ? ScanV2Accent.on : '#18181b') : 'rgba(255,255,255,0.85)',
+              }}
+            >
+              {label}
+            </ScanText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// ============================================================================
 // Perforation seam — dashed line + two bg-colored notch circles
 // ============================================================================
 
@@ -215,11 +299,13 @@ function StubField({ label, value, node }: StubFieldData) {
   const c = useScanColors();
   if (!value && !node) return null;
   return (
-    <View style={{ width: '47%', minWidth: 0, marginBottom: s(6) }}>
+    <View style={{ flex: 1, minWidth: 0 }}>
       <ScanText
+        numberOfLines={1}
         style={{
           fontFamily: Fonts.mono.medium,
           fontSize: s(10),
+          lineHeight: s(13),
           letterSpacing: 1.3,
           color: c.ter,
           textTransform: 'uppercase',
@@ -231,12 +317,13 @@ function StubField({ label, value, node }: StubFieldData) {
         <View style={{ marginTop: s(5), flexDirection: 'row', alignItems: 'center' }}>{node}</View>
       ) : (
         <ScanText
+          numberOfLines={1}
           style={{
             fontFamily: Fonts.inter.semibold,
-            fontSize: s(15.5),
+            fontSize: s(15),
             color: c.text,
             marginTop: s(3),
-            lineHeight: s(18.6),
+            lineHeight: s(19),
           }}
         >
           {value}
@@ -265,8 +352,18 @@ export interface JourneyCardProps {
   onInspectPoster?: (uri: string, journey: UserMovie) => void;
   /** True only when a ticket scan backs this journey — gates the emerald "Verified" badge. */
   verified?: boolean;
-  /** Fixed height the card fills so the poster flexes above the content stub. */
+  /** Fixed card height — identical for every card in the pager (layout constant). */
   height: number;
+  /**
+   * Fixed stub-slab height (layout constant from the screen — same for every
+   * card) so the perforation seam sits at the same Y regardless of data/state.
+   */
+  stubHeight: number;
+  /**
+   * Segmented Original|AI pill tap. The screen decides: swap the cover when AI
+   * art exists, open the generate sheet when it doesn't.
+   */
+  onSelectVariant: (variant: 'original' | 'ai') => void;
 }
 
 export function JourneyCard({
@@ -282,6 +379,8 @@ export function JourneyCard({
   onInspectPoster,
   verified,
   height,
+  stubHeight,
+  onSelectVariant,
 }: JourneyCardProps) {
   const c = useScanColors();
   const rating = firstTake?.rating ?? null;
@@ -293,25 +392,25 @@ export function JourneyCard({
     return getTMDBImageUrl(journey.poster_path ?? null, 'w780');
   }, [showAi, journey.ai_poster_url, journey.poster_path]);
 
-  // Front stub = the 3 essentials (Date / With / Format) so it reads clean and the
-  // poster stays the hero; the secondary details (Cinema · Seat · Paid) move to the back.
+  // Front stub = at most 3 priority fields (Date · Cinema/Service/Airline-or-
+  // Format · With) in ONE row — empty fields are omitted (never "N/A"), long
+  // values ellipsize (never wrap to new rows); the secondary details
+  // (Cinema · Seat · Paid) stay on the back.
   const fields: StubFieldData[] = useMemo(() => {
-    const list: StubFieldData[] = [
-      { label: 'Date', value: formatDate(journey.watched_at) },
-      {
-        label: 'With',
-        node: companions.length ? (
-          <AvatarStack
-            people={companions}
-            max={3}
-            size={s(28)}
-            ringColor={c.card}
-          />
-        ) : undefined,
-      },
-      { label: 'Format', value: journey.watch_format ? journey.watch_format.toUpperCase() : null },
-    ];
-    return list.filter((f) => f.value || f.node);
+    const list: StubFieldData[] = [];
+    const date = formatDate(journey.watched_at);
+    if (date) list.push({ label: 'Date', value: date });
+    const place = buildPlaceField(journey);
+    if (place) list.push(place);
+    list.push(
+      companions.length
+        ? {
+            label: 'With',
+            node: <AvatarStack people={companions} max={3} size={s(28)} ringColor={c.card} />,
+          }
+        : { label: 'With', value: 'Solo' },
+    );
+    return list;
   }, [journey, companions, c.card]);
 
   // Secondary details shown on the BACK of the ticket (moved off the front).
@@ -328,13 +427,12 @@ export function JourneyCard({
   const stubBg = c.card; // themed: AI premium is marked by the rose border + poster, not a dark stub (which broke light mode)
 
   const front = (
-    <View style={{ flex: 1, minHeight: Math.min(s(520), height) }}>
-      {/* Poster */}
+    <View style={{ flex: 1 }}>
+      {/* Poster — fills the fixed region above the seam (height - stubHeight,
+          both layout constants, so the seam Y never moves between cards) */}
       <View
         style={{
           flex: 1,
-          minHeight: s(210),
-          maxHeight: s(580),
           borderTopLeftRadius: s(22),
           borderTopRightRadius: s(22),
           overflow: 'hidden',
@@ -365,7 +463,10 @@ export function JourneyCard({
           <Icon name="pencil" size={s(17)} color="#fff" />
         </GlassButton>
 
-        {/* THEATRICAL RUN status tag (theater-hardcoded by design) */}
+        {/* Original | ✦ AI segmented pill — the art control lives ON the card */}
+        <ArtSegmentedPill showAi={showAi} onSelect={onSelectVariant} />
+
+        {/* Watch-context tag — label driven by location_type */}
         <View
           style={{
             position: 'absolute',
@@ -385,36 +486,39 @@ export function JourneyCard({
               color: ScanV2Accent.on,
             }}
           >
-            THEATRICAL RUN
+            {getWatchContextLabel(journey.location_type)}
           </ScanText>
         </View>
       </View>
 
       <PerforationSeam />
 
-      {/* Stub */}
+      {/* Stub — FIXED-height minimal slab; content truncates/omits, never grows */}
       <View
         style={{
+          height: stubHeight,
           backgroundColor: stubBg,
           borderBottomLeftRadius: s(22),
           borderBottomRightRadius: s(22),
           borderWidth: 1,
           borderTopWidth: 0,
           borderColor: c.line,
-          paddingTop: s(14),
+          paddingTop: s(12),
           paddingHorizontal: s(18),
-          paddingBottom: s(14),
+          paddingBottom: s(8),
+          overflow: 'hidden',
         }}
       >
-        {/* Header: title + rating */}
+        {/* Header: one-line title + rating chip (only when rating exists) */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: s(10) }}>
           <ScanText
+            numberOfLines={1}
             style={{
               flex: 1,
               fontFamily: Fonts.outfit.extrabold,
-              fontSize: s(23),
+              fontSize: s(22),
               letterSpacing: -0.4,
-              lineHeight: s(25.8),
+              lineHeight: s(26),
               color: c.text,
             }}
           >
@@ -425,8 +529,9 @@ export function JourneyCard({
               <ScanText
                 style={{
                   fontFamily: Fonts.outfit.extrabold,
-                  fontSize: s(23),
+                  fontSize: s(22),
                   letterSpacing: -0.4,
+                  lineHeight: s(26),
                   color: ScanV2Accent.primary,
                 }}
               >
@@ -446,10 +551,10 @@ export function JourneyCard({
           ) : null}
         </View>
 
-        {/* Carousel */}
-        <View style={{ marginTop: s(12), minHeight: s(60) }}>
+        {/* Carousel pages — clipped to the space between title and the dots row */}
+        <View style={{ flex: 1, marginTop: s(8), overflow: 'hidden' }}>
           {page === 0 ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', gap: s(12) }}>
               {fields.map((f, i) => (
                 <StubField key={`${f.label}-${i}`} label={f.label} value={f.value} node={f.node} />
               ))}
@@ -460,33 +565,24 @@ export function JourneyCard({
                 style={{
                   fontFamily: Fonts.mono.medium,
                   fontSize: s(10),
+                  lineHeight: s(13),
                   letterSpacing: 1.3,
                   color: c.ter,
                   textTransform: 'uppercase',
-                  marginBottom: s(6),
+                  marginBottom: s(4),
                 }}
               >
                 Your First Take
               </ScanText>
               {note ? (
-                <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(15), color: c.text, lineHeight: s(22.5) }}>
+                <ScanText
+                  numberOfLines={2}
+                  style={{ fontFamily: Fonts.inter.regular, fontSize: s(14.5), color: c.text, lineHeight: s(20) }}
+                >
                   {note}
                 </ScanText>
-              ) : (
-                <ScanText
-                  style={{
-                    fontFamily: Fonts.inter.regular,
-                    fontSize: s(14.5),
-                    color: c.ter,
-                    fontStyle: 'italic',
-                    lineHeight: s(21.75),
-                  }}
-                >
-                  No take yet — tap the pencil to add your thoughts.
-                </ScanText>
-              )}
-              {rating != null ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginTop: s(12) }}>
+              ) : rating != null ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginTop: s(8) }}>
                   <View style={{ flex: 1, height: s(6), borderRadius: 999, backgroundColor: c.field, overflow: 'hidden' }}>
                     <View style={{ width: `${rating * 10}%`, height: '100%', borderRadius: 999, backgroundColor: ScanV2Accent.primary }} />
                   </View>
@@ -499,64 +595,67 @@ export function JourneyCard({
           )}
         </View>
 
-        {/* Page dots / chevrons (only when a take exists) */}
-        {hasTake ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: s(14), marginTop: s(12) }}>
-            <Pressable
-              onPress={() => setPage(Math.max(0, page - 1))}
-              disabled={page === 0}
-              style={{
-                width: s(32),
-                height: s(32),
-                borderRadius: 999,
-                backgroundColor: c.field,
-                borderWidth: 1,
-                borderColor: c.line,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: page === 0 ? 0.4 : 1,
-              }}
-            >
-              <Icon name="chevL" size={s(15)} color={c.sec} />
-            </Pressable>
-            <View style={{ flexDirection: 'row', gap: s(6) }}>
-              {[0, 1].map((i) => (
-                <View
-                  key={i}
-                  style={{
-                    width: page === i ? s(18) : s(6),
-                    height: s(6),
-                    borderRadius: 999,
-                    backgroundColor: page === i ? ScanV2Accent.primary : c.lineHi,
-                  }}
-                />
-              ))}
+        {/* Page dots / chevrons row — height always reserved so the stub never
+            resizes; controls render only when a take exists */}
+        <View style={{ height: s(34), justifyContent: 'center' }}>
+          {hasTake ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: s(14) }}>
+              <Pressable
+                onPress={() => setPage(Math.max(0, page - 1))}
+                disabled={page === 0}
+                style={{
+                  width: s(30),
+                  height: s(30),
+                  borderRadius: 999,
+                  backgroundColor: c.field,
+                  borderWidth: 1,
+                  borderColor: c.line,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: page === 0 ? 0.4 : 1,
+                }}
+              >
+                <Icon name="chevL" size={s(15)} color={c.sec} />
+              </Pressable>
+              <View style={{ flexDirection: 'row', gap: s(6) }}>
+                {[0, 1].map((i) => (
+                  <View
+                    key={i}
+                    style={{
+                      width: page === i ? s(18) : s(6),
+                      height: s(6),
+                      borderRadius: 999,
+                      backgroundColor: page === i ? ScanV2Accent.primary : c.lineHi,
+                    }}
+                  />
+                ))}
+              </View>
+              <Pressable
+                onPress={() => setPage(Math.min(1, page + 1))}
+                disabled={page === 1}
+                style={{
+                  width: s(30),
+                  height: s(30),
+                  borderRadius: 999,
+                  backgroundColor: c.field,
+                  borderWidth: 1,
+                  borderColor: c.line,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: page === 1 ? 0.4 : 1,
+                }}
+              >
+                <Icon name="chevR" size={s(15)} color={c.sec} />
+              </Pressable>
             </View>
-            <Pressable
-              onPress={() => setPage(Math.min(1, page + 1))}
-              disabled={page === 1}
-              style={{
-                width: s(32),
-                height: s(32),
-                borderRadius: 999,
-                backgroundColor: c.field,
-                borderWidth: 1,
-                borderColor: c.line,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: page === 1 ? 0.4 : 1,
-              }}
-            >
-              <Icon name="chevR" size={s(15)} color={c.sec} />
-            </Pressable>
-          </View>
-        ) : null}
+          ) : null}
+        </View>
       </View>
     </View>
   );
 
   const back = (
-    <View style={{ flex: 1, minHeight: Math.min(s(520), height) }}>
+    <View style={{ flex: 1 }}>
       <View
         style={{
           flex: 1,
