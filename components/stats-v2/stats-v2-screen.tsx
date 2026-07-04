@@ -14,11 +14,14 @@ import { Typography } from '@/constants/typography';
 import { useStatsColors } from '@/constants/stats-v2-theme';
 import { useUserStats } from '@/hooks/use-user-stats';
 import { useAuth } from '@/hooks/use-auth';
+import { usePremium } from '@/hooks/use-premium';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 import { ContentContainer } from '@/components/content-container';
+import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { StatsV2Header } from './stats-v2-header';
 import { HeroStatCard } from './hero-stat-card';
 import { YearGraph } from './year-graph';
+import { GoingDeeper } from './going-deeper';
 import { StatsV2Skeleton } from './stats-v2-skeleton';
 
 const SKELETON_FADE_MS = 320;
@@ -31,12 +34,13 @@ const CONTENT_REVEAL_DELAY_MS = 60;
  * PR 1 shipped the shell: header + membership pill (1A), the hero top-stats
  * card (1B), the first-run empty state (1G), the skeleton→content loading
  * cross-fade, and pull-to-refresh. PR 2 added the Your Year graph (1C) +
- * Top Genres (1D). Later PRs slot into the seams marked below: Going deeper
- * (1E), ad banner (1F), and the gated detail screens.
+ * Top Genres (1D). PR 3 added Going deeper (1E) + the free-tier ad banner
+ * (1F). PR 4 lands the gated detail screens the chips route to.
  */
 export function StatsV2Screen() {
   const c = useStatsColors();
   const { user } = useAuth();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
   const { data: stats, isLoading, error, refetch } = useUserStats();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -148,8 +152,19 @@ export function StatsV2Screen() {
                 monthlyActivity={stats?.monthlyActivity ?? []}
                 genres={stats?.genres ?? []}
               />
-              {/* Seam: Going deeper section (1E) mounts here. */}
-              {/* Seam: ad banner (1F, free users only) mounts here. */}
+              {/* Going deeper (1E) — teaser/insight chips. Still shows in
+                  the first-run empty state (it's the premium teaser). */}
+              <GoingDeeper
+                loggedCount={
+                  (stats?.summary.totalWatched ?? 0) + (stats?.summary.totalTvWatched ?? 0)
+                }
+              />
+              {/* Ad banner (1F) — free users only. The ads context already
+                  suppresses ads for members (PremiumProvider flips adsEnabled
+                  off, so BannerAdComponent self-hides via adsReady), but the
+                  gate here keeps the guarantee local and race-free while
+                  premium status is still resolving. */}
+              {!premiumLoading && !isPremium && <BannerAdComponent placement="stats" />}
             </Animated.View>
             {skeletonMounted && (
               <Animated.View

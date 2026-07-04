@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 import { StatsV2Screen } from '@/components/stats-v2/stats-v2-screen';
 import { useUserStats } from '@/hooks/use-user-stats';
+import { usePremium } from '@/hooks/use-premium';
 
 // Mock @expo/vector-icons — pulls in expo-asset which isn't in transformIgnorePatterns.
 jest.mock('@expo/vector-icons', () => {
@@ -24,8 +25,18 @@ jest.mock('@/hooks/use-auth', () => ({
 }));
 
 jest.mock('@/hooks/use-premium', () => ({
-  usePremium: () => ({ isPremium: false, isLoading: false, tier: 'free' }),
+  usePremium: jest.fn(),
 }));
+
+// Stub the banner ad — the real component reads the ads context (and lazily
+// requires react-native-google-mobile-ads); here we only care whether the
+// screen mounts it at all for the current membership.
+jest.mock('@/components/ads/banner-ad', () => {
+  const { View } = require('react-native');
+  return {
+    BannerAdComponent: () => <View testID="banner-ad" />,
+  };
+});
 
 jest.mock('@/hooks/use-user-stats', () => ({
   useUserStats: jest.fn(),
@@ -37,6 +48,7 @@ jest.mock('expo-haptics', () => ({
 }));
 
 const mockUseUserStats = useUserStats as jest.Mock;
+const mockUsePremium = usePremium as jest.Mock;
 
 // The Your Year graph keys months off the device clock, so fixtures are built
 // against the real current year/month to stay deterministic year-round.
@@ -77,6 +89,7 @@ const populatedStats = {
 describe('StatsV2Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUsePremium.mockReturnValue({ isPremium: false, isLoading: false, tier: 'free' });
   });
 
   it('renders the hero block with formatted stats when populated', () => {
@@ -209,6 +222,73 @@ describe('StatsV2Screen', () => {
     expect(getByText('25%')).toBeTruthy();
     expect(getByText('Drama')).toBeTruthy();
     expect(getByText('20%')).toBeTruthy();
+  });
+
+  it('renders the Going deeper section and the ad banner for free users', () => {
+    mockUseUserStats.mockReturnValue({
+      data: populatedStats,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { getByText, getByTestId } = render(<StatsV2Screen />);
+
+    expect(getByText('Going deeper')).toBeTruthy();
+    expect(getByText('a taste of PocketStubs+')).toBeTruthy();
+    expect(getByTestId('banner-ad')).toBeTruthy();
+  });
+
+  it('never mounts the ad banner for members', () => {
+    mockUsePremium.mockReturnValue({ isPremium: true, isLoading: false, tier: 'plus' });
+    mockUseUserStats.mockReturnValue({
+      data: populatedStats,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { getByText, queryByTestId } = render(<StatsV2Screen />);
+
+    expect(getByText('your insights')).toBeTruthy();
+    expect(queryByTestId('banner-ad')).toBeNull();
+  });
+
+  it('holds the ad banner while premium status is still resolving', () => {
+    mockUsePremium.mockReturnValue({ isPremium: false, isLoading: true, tier: 'free' });
+    mockUseUserStats.mockReturnValue({
+      data: populatedStats,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { queryByTestId } = render(<StatsV2Screen />);
+
+    expect(queryByTestId('banner-ad')).toBeNull();
+  });
+
+  it('still shows Going deeper in the first-run empty state', () => {
+    mockUseUserStats.mockReturnValue({
+      data: {
+        ...populatedStats,
+        summary: {
+          totalWatched: 0,
+          totalTvWatched: 0,
+          totalFirstTakes: 0,
+          averageRating: null,
+          totalEpisodesWatched: 0,
+          totalWatchTimeMinutes: 0,
+        },
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const { getByText } = render(<StatsV2Screen />);
+
+    expect(getByText('Going deeper')).toBeTruthy();
   });
 
   it('shows the error state when the fetch fails with no cached data', () => {
