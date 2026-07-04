@@ -35,6 +35,8 @@ export interface CommunityPayload {
 
 /** A single "where you part ways" row. */
 export interface DivergenceRow {
+  /** Stable identity for list keys — titles can collide (remakes). */
+  tmdbId: number;
   title: string;
   year: number | null;
   you: number;
@@ -211,6 +213,7 @@ export function computeRatingPersonality(
     const signed = round1(you - crowd);
     if (signed === 0) continue; // a dead-on match belongs to neither list
     rows.push({
+      tmdbId: r.tmdbId,
       title: r.title,
       year: r.year ?? null,
       you,

@@ -127,9 +127,12 @@ function Gated({
   return (
     <View style={styles.gatedWrap}>
       <View pointerEvents="none">{children}</View>
+      {/* dimezisBlurView: without it Android renders a translucent tint, not a
+          blur, and the gated content stays legible — see journey/[id].tsx. */}
       <BlurView
-        intensity={18}
+        intensity={40}
         tint={scheme === 'light' ? 'light' : 'dark'}
+        experimentalBlurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.gatedOverlay} pointerEvents="none">
@@ -254,7 +257,7 @@ function Content({
                   </Text>
                 </View>
                 {rp.generous.map((r) => (
-                  <DivergeRowView key={`gen-${r.title}-${r.crowd}`} r={r} c={c} />
+                  <DivergeRowView key={`gen-${r.tmdbId}`} r={r} c={c} />
                 ))}
               </>
             )}
@@ -267,7 +270,7 @@ function Content({
                   </Text>
                 </View>
                 {rp.tougher.map((r) => (
-                  <DivergeRowView key={`tuf-${r.title}-${r.crowd}`} r={r} c={c} />
+                  <DivergeRowView key={`tuf-${r.tmdbId}`} r={r} c={c} />
                 ))}
               </>
             )}
