@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
-import {
-  clearPendingAiCredit,
-  getPendingAiCredit,
-} from '@/lib/pending-ai-credit';
+import { clearPendingAiCredit } from '@/lib/pending-ai-credit';
 
 interface GrantAdRewardResponse {
   success: boolean;
@@ -23,14 +19,14 @@ export function useGrantAdReward() {
   const [isGranting, setIsGranting] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const resumingRef = useRef(false);
 
   /**
    * Grant one AI credit for a watched rewarded ad. Retries transient failures
    * (e.g. FunctionsFetchError when the network is briefly unavailable right
    * after the ad closes — issue #592) up to MAX_GRANT_ATTEMPTS. Clears the
-   * durable pending-credit marker ONLY on a confirmed success, so a failure
-   * leaves it for the resume path to retry later.
+   * durable pending-credit marker ONLY on a confirmed success. If it never
+   * succeeds (e.g. the whole flow was offline), the marker stays and the
+   * app-global `useAiCreditRecovery` redeems it on reconnect/foreground.
    */
   const grantCredit = useCallback(async (): Promise<boolean> => {
     setIsGranting(true);
@@ -80,31 +76,6 @@ export function useGrantAdReward() {
       setIsGranting(false);
     }
   }, [queryClient, user?.id]);
-
-  /**
-   * Self-heal: if a rewarded ad was earned but never successfully granted
-   * (app killed mid-flow, or the grant failed), redeem it when the app is
-   * next active. Runs on mount and on every foreground transition.
-   */
-  const resumePendingCredit = useCallback(async () => {
-    if (resumingRef.current || !user) return;
-    const pending = await getPendingAiCredit();
-    if (!pending) return;
-    resumingRef.current = true;
-    try {
-      await grantCredit();
-    } finally {
-      resumingRef.current = false;
-    }
-  }, [user, grantCredit]);
-
-  useEffect(() => {
-    void resumePendingCredit();
-    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active') void resumePendingCredit();
-    });
-    return () => sub.remove();
-  }, [resumePendingCredit]);
 
   return { grantCredit, isGranting };
 }
