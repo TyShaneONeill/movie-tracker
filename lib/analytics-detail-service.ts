@@ -251,58 +251,39 @@ async function fetchMonthlyDetail(
 ): Promise<AnalyticsDetailItem[]> {
   const { start, end } = getMonthRange(month);
 
-  const [moviesResult, tvResult] = await Promise.all([
-    supabase
-      .from('user_movies')
-      .select('id, tmdb_id, title, poster_path, release_date, watched_at, added_at, vote_average')
-      .eq('user_id', userId)
-      .eq('status', 'watched')
-      .gte('watched_at', start)
-      .lt('watched_at', end),
-    supabase
-      .from('user_tv_shows')
-      .select('id, tmdb_id, name, poster_path, first_air_date, finished_at, added_at, vote_average')
-      .eq('user_id', userId)
-      .eq('status', 'watched')
-      .gte('finished_at', start)
-      .lt('finished_at', end),
-  ]);
+  // "Your Year" counts a movie in the month it was WATCHED, falling back to the
+  // month it was added when no watch date was recorded. This must match the bar
+  // chart RPC (get_user_monthly_activity), which buckets by
+  // COALESCE(watched_at, added_at) — otherwise the bar count and this list
+  // disagree. Movies only: TV gets its own by-month graph later.
+  const { data, error } = await supabase
+    .from('user_movies')
+    .select('id, tmdb_id, title, poster_path, release_date, watched_at, added_at, vote_average')
+    .eq('user_id', userId)
+    .eq('status', 'watched')
+    .or(
+      `and(watched_at.gte.${start},watched_at.lt.${end}),` +
+        `and(watched_at.is.null,added_at.gte.${start},added_at.lt.${end})`
+    );
 
-  if (moviesResult.error) throw new Error(moviesResult.error.message);
-  if (tvResult.error) throw new Error(tvResult.error.message);
+  if (error) throw new Error(error.message);
 
-  const withDates: Array<AnalyticsDetailItem & { _sortDate: string }> = [
-    ...(moviesResult.data ?? []).map((row) => ({
-      _sortDate: row.watched_at ?? row.added_at ?? '',
-      id: `movie-${row.id}`,
-      tmdbId: row.tmdb_id,
-      title: row.title,
-      posterPath: row.poster_path,
-      year: extractYear(row.release_date),
-      mediaType: 'movie' as const,
-      primaryMetric: row.watched_at
-        ? formatDate(row.watched_at)
-        : `Added ${formatDate(row.added_at)}`,
-      secondaryMetric:
-        row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
-    })),
-    ...(tvResult.data ?? []).map((row) => ({
-      _sortDate: row.finished_at ?? row.added_at ?? '',
-      id: `tv-${row.id}`,
-      tmdbId: row.tmdb_id,
-      title: row.name,
-      posterPath: row.poster_path,
-      year: extractYear(row.first_air_date),
-      mediaType: 'tv' as const,
-      primaryMetric: row.finished_at
-        ? formatDate(row.finished_at)
-        : row.added_at
-        ? `Added ${formatDate(row.added_at)}`
-        : null,
-      secondaryMetric:
-        row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
-    })),
-  ];
+  const withDates: Array<AnalyticsDetailItem & { _sortDate: string }> = (
+    data ?? []
+  ).map((row) => ({
+    _sortDate: row.watched_at ?? row.added_at ?? '',
+    id: `movie-${row.id}`,
+    tmdbId: row.tmdb_id,
+    title: row.title,
+    posterPath: row.poster_path,
+    year: extractYear(row.release_date),
+    mediaType: 'movie' as const,
+    primaryMetric: row.watched_at
+      ? formatDate(row.watched_at)
+      : `Added ${formatDate(row.added_at)}`,
+    secondaryMetric:
+      row.vote_average != null ? row.vote_average.toFixed(1) : undefined,
+  }));
 
   return sortByDateDesc(withDates);
 }
