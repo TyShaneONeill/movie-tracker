@@ -9,7 +9,9 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { usePremiumGate } from '@/hooks/use-premium';
+import { useStatsV2 } from '@/hooks/use-stats-v2';
 import { useAnalyticsDetail } from '@/hooks/use-analytics-detail';
+import { RankedDetailV2 } from '@/components/stats-v2/ranked-detail-v2';
 import { AnalyticsDetailList } from '@/components/analytics/analytics-detail-list';
 import type { AnalyticsDetailType } from '@/lib/analytics-detail-service';
 import { ContentContainer } from '@/components/content-container';
@@ -109,7 +111,33 @@ const VALID_TYPES = new Set<AnalyticsDetailType>([
   'other-genres',
 ]);
 
+/**
+ * Ranked detail gate — this screen is SHARED by v1 and v2 stats, so it
+ * branches on the `stats_v2` flag exactly like `app/(tabs)/analytics.tsx`:
+ * flag OFF → the untouched v1 detail below; flag ON → the v2 reskin
+ * (`RankedDetailV2`, vault PS-05 PR 4 of 4). The per-type title/subtitle
+ * config and the `UpgradePaywall` are passed through so v2 reuses them
+ * verbatim instead of forking the copy.
+ */
 export default function AnalyticsDetailScreen() {
+  const { variant, resolving } = useStatsV2();
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+  // Hold a neutral screen while PostHog resolves the flag so testers don't
+  // see v1 flash and snap to v2 (same gate as the analytics tab).
+  if (resolving) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  if (variant === 'v2') {
+    return (
+      <RankedDetailV2
+        configs={SCREEN_CONFIGS}
+        renderPaywall={() => <UpgradePaywall colors={colors} />}
+      />
+    );
+  }
+  return <RankedDetailV1 />;
+}
+
+function RankedDetailV1() {
   const { type, month, label, genreId, genreName, genreIds } = useLocalSearchParams<{
     type: string;
     month?: string;

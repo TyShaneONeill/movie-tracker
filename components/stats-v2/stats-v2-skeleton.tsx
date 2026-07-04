@@ -10,7 +10,7 @@ import { useStatsColors } from '@/constants/stats-v2-theme';
  * skeleton blocks when they ship.
  */
 
-function useSkeletonPulse() {
+export function useSkeletonPulse() {
   const opacity = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     const pulse = Animated.loop(
@@ -25,7 +25,7 @@ function useSkeletonPulse() {
   return opacity;
 }
 
-function Block({
+export function Block({
   w = '100%',
   h = 14,
   r = 8,
