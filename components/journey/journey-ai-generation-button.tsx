@@ -10,6 +10,7 @@ import { getGenreNamesByIds } from '@/lib/genre-service';
 import { useGenerateArt } from '@/hooks/use-generate-art';
 import { useRewardedAd } from '@/hooks/use-rewarded-ad';
 import { useGrantAdReward } from '@/hooks/use-grant-ad-reward';
+import { setPendingAiCredit } from '@/lib/pending-ai-credit';
 import { usePremium } from '@/hooks/use-premium';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 
@@ -42,7 +43,11 @@ export function JourneyAIGenerationButton({
 
   const handleWatchAd = useCallback(async () => {
     hapticImpact();
-    const earned = await showAd();
+    // Persist the credit the instant it's earned (before the ad even closes) so
+    // an app kill during the ad-dismissal window doesn't lose it (issue #592).
+    const earned = await showAd(() => {
+      void setPendingAiCredit({ journeyId, earnedAt: Date.now() });
+    });
     if (earned) {
       const granted = await grantCredit();
       if (granted) {
@@ -53,11 +58,13 @@ export function JourneyAIGenerationButton({
           text2: 'Tap Generate AI Art to use it.',
         });
       } else {
-        hapticNotification(NotificationFeedbackType.Error);
+        // Credit stays persisted — it'll auto-redeem next time the app is
+        // active. Don't tell the user their ad was wasted.
+        hapticNotification(NotificationFeedbackType.Warning);
         Toast.show({
-          type: 'error',
-          text1: 'Could not grant credit',
-          text2: 'Something went wrong. Please try again.',
+          type: 'info',
+          text1: 'Finishing up…',
+          text2: "We'll add your credit in a moment — your ad counted.",
         });
       }
       reloadAd();

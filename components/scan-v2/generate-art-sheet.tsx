@@ -32,6 +32,7 @@ import { getGenreNamesByIds } from '@/lib/genre-service';
 import { useGenerateArt } from '@/hooks/use-generate-art';
 import { useRewardedAd } from '@/hooks/use-rewarded-ad';
 import { useGrantAdReward } from '@/hooks/use-grant-ad-reward';
+import { setPendingAiCredit } from '@/lib/pending-ai-credit';
 import { usePremium } from '@/hooks/use-premium';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import type { UserMovie } from '@/lib/database.types';
@@ -93,7 +94,10 @@ export function GenerateArtSheet({ journey, onClose, onUpgradePress }: GenerateA
       });
       return;
     }
-    const earned = await showAd();
+    // Persist on earn (before the ad closes) so a kill mid-flow is recoverable.
+    const earned = await showAd(() => {
+      void setPendingAiCredit({ journeyId: journey.id, earnedAt: Date.now() });
+    });
     if (earned) {
       const granted = await grantCredit();
       if (granted) {
@@ -104,11 +108,12 @@ export function GenerateArtSheet({ journey, onClose, onUpgradePress }: GenerateA
           text2: 'Tap Generate AI poster to use it.',
         });
       } else {
-        hapticNotification(NotificationFeedbackType.Error);
+        // Credit stays persisted → auto-redeems when the app is next active.
+        hapticNotification(NotificationFeedbackType.Warning);
         Toast.show({
-          type: 'error',
-          text1: 'Could not grant credit',
-          text2: 'Something went wrong. Please try again.',
+          type: 'info',
+          text1: 'Finishing up…',
+          text2: "We'll add your credit in a moment — your ad counted.",
         });
       }
       reloadAd();
