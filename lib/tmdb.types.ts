@@ -39,6 +39,29 @@ export const TMDB_GENRE_MAP: Record<number, string> = {
   37: 'Western',
 };
 
+// TV shows use a separate TMDB genre ID space. Stats aggregate genres across
+// BOTH movies and TV, so any lookup that only knows movie genres collapses
+// every TV genre into a fallback "Other" — which is how two distinct TV
+// genres ended up as two duplicate "Other" rows on the stats screen.
+export const TV_GENRE_MAP: Record<number, string> = {
+  10759: 'Action & Adventure',
+  10762: 'Kids',
+  10763: 'News',
+  10764: 'Reality',
+  10765: 'Sci-Fi & Fantasy',
+  10766: 'Soap',
+  10767: 'Talk',
+  10768: 'War & Politics',
+  10770: 'TV Movie',
+};
+
+// Complete movie + TV genre lookup — use this anywhere genres from both media
+// types are mixed (e.g. the stats Top Genres breakdown).
+export const COMPLETE_GENRE_MAP: Record<number, string> = {
+  ...TMDB_GENRE_MAP,
+  ...TV_GENRE_MAP,
+};
+
 // TMDB Movie from API response
 export interface TMDBMovie {
   id: number;
