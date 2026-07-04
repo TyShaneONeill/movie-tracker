@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Fonts } from '@/constants/theme';
 import { useStatsColors } from '@/constants/stats-v2-theme';
 import type { GenreStats } from '@/hooks/use-user-stats';
-import { buildDisplayGenres, isOtherGenre as isOther } from './genre-display';
+import { buildDisplayGenres, isOtherGenre as isOther, type DisplayGenre } from './genre-display';
 
 /**
  * Stats v2 Top Genres (design section 1D) — lives inside the Your Year card
@@ -20,10 +20,16 @@ import { buildDisplayGenres, isOtherGenre as isOther } from './genre-display';
  * ranking.
  */
 
-function tapGenre(genre: GenreStats) {
-  if (isOther(genre)) return; // "Other" has no single genre to drill into
+function tapGenre(genre: DisplayGenre) {
   if (Platform.OS !== 'web') {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+  if (isOther(genre)) {
+    // "Other" drills into the aggregated genres via the multi-genre detail.
+    const ids = genre.otherGenreIds ?? [];
+    if (ids.length === 0) return;
+    router.push(`/analytics/other-genres?genreIds=${ids.join(',')}`);
+    return;
   }
   router.push(
     `/analytics/genre?genreId=${genre.genreId}&genreName=${encodeURIComponent(genre.genreName)}`
@@ -53,7 +59,6 @@ export function GenreBar({ genres }: { genres: GenreStats[] }) {
           <Pressable
             key={genre.genreId}
             accessibilityLabel={genre.genreName}
-            disabled={isOther(genre)}
             onPress={() => tapGenre(genre)}
             // flex-weighted by percentage; floor at 1 so tiny genres stay visible
             style={[
@@ -75,15 +80,16 @@ export function GenreBar({ genres }: { genres: GenreStats[] }) {
           return (
             <Pressable
               key={genre.genreId}
-              disabled={other}
               onPress={() => tapGenre(genre)}
               style={({ pressed }) => [
                 styles.legendItem,
                 i % 2 === 0 ? styles.legendItemLeft : styles.legendItemRight,
                 hasRowBelow && { borderBottomWidth: 1, borderBottomColor: c.line },
-                pressed && !other && { opacity: 0.7 },
+                pressed && { opacity: 0.7 },
               ]}
             >
+              {/* "Other" keeps its muted grey dot to read as the aggregate,
+                  but is a normal drill target (multi-genre detail). */}
               <View style={[styles.dot, { backgroundColor: colorFor(genre, i) }]} />
               <Text
                 numberOfLines={1}
@@ -95,12 +101,7 @@ export function GenreBar({ genres }: { genres: GenreStats[] }) {
               <Text maxFontSizeMultiplier={1.3} style={[styles.legendPct, { color: c.sec }]}>
                 {genre.percentage}%
               </Text>
-              {/* "Other" has nothing to drill into — omit the chevron */}
-              {other ? (
-                <View style={styles.chevronSpacer} />
-              ) : (
-                <Ionicons name="chevron-forward" size={13} color={c.faint} />
-              )}
+              <Ionicons name="chevron-forward" size={13} color={c.faint} />
             </Pressable>
           );
         })}
@@ -171,9 +172,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono.regular,
     fontSize: 12,
     lineHeight: 15,
-  },
-  // Reserves the chevron's width on the "Other" row so % columns stay aligned.
-  chevronSpacer: {
-    width: 13,
   },
 });
