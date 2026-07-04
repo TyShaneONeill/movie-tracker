@@ -1,6 +1,8 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 import { Fonts } from '@/constants/theme';
 import { usePremium } from '@/hooks/use-premium';
@@ -12,10 +14,13 @@ import { useStatsColors, type StatsV2ColorTokens } from '@/constants/stats-v2-th
  *
  * A transparent 2-column grid of chips with internal grid lines only
  * (right/bottom borders on inner cells — no outer box, no per-chip fill).
- * A lone final chip (odd count) spans the full width, centered. Chips are
- * display-only in this PR: none of the deep-dive detail screens exist yet
- * (they land in PR 4), so no chip carries a `route`. PR 4 flips a chip
- * interactive by setting `route` in `GOING_DEEPER_FEATURES`.
+ * A lone final chip (odd count) spans the full width, centered. A chip with a
+ * `route` set in `GOING_DEEPER_FEATURES` is Pressable and pushes that route
+ * (light haptic) — for BOTH members and free users: the destination screen
+ * does its own premium gating, so a free tap lands on the gated deep-dive with
+ * a "See Plans" CTA (the intended paywall funnel). Chips without a route (not
+ * yet buildable) stay display-only. First routed chip: Rating Personality
+ * (PS-22).
  *
  * Chip status matrix (per the design handoff README):
  *   free  + buildable            → lock + "PocketStubs+" (gold)
@@ -69,6 +74,7 @@ export const GOING_DEEPER_FEATURES: GoingDeeperFeature[] = [
     title: 'Rating Personality',
     blurb: 'Are you generous or harsh? See how your scores stack up against everyone on PocketStubs.',
     buildable: true,
+    route: '/analytics/rating-personality',
   },
   {
     key: 'blind-spots',
@@ -201,18 +207,17 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
           const hasRight = !span && i % 2 === 0 && i + 1 < n;
           const hasBelow = i < n - lastRowCount;
           const status = chipStatus(feature, isPremium, insightsReady, c);
-          return (
-            // Titles/blurbs render immediately for stable layout, but the
-            // glyph + status line hold until premium resolves (same reason
-            // as the caption: members never see the free-tier state flash).
-            <View
-              key={feature.key}
-              style={[
-                span ? styles.chipSpan : styles.chip,
-                hasRight && { borderRightWidth: 1, borderRightColor: c.line },
-                hasBelow && { borderBottomWidth: 1, borderBottomColor: c.line },
-              ]}
-            >
+          const route = feature.route;
+          const chipStyle = [
+            span ? styles.chipSpan : styles.chip,
+            hasRight && { borderRightWidth: 1, borderRightColor: c.line },
+            hasBelow && { borderBottomWidth: 1, borderBottomColor: c.line },
+          ];
+          // Titles/blurbs render immediately for stable layout, but the
+          // glyph + status line hold until premium resolves (same reason
+          // as the caption: members never see the free-tier state flash).
+          const chipBody = (
+            <>
               <View style={span ? styles.chipTitleRowSpan : styles.chipTitleRow}>
                 <Text
                   maxFontSizeMultiplier={1.3}
@@ -243,6 +248,31 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
                   </Text>
                 </View>
               )}
+            </>
+          );
+
+          if (route) {
+            return (
+              <Pressable
+                key={feature.key}
+                onPress={() => {
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  router.push(route as never);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={feature.title}
+                style={({ pressed }) => [...chipStyle, pressed && { opacity: 0.6 }]}
+              >
+                {chipBody}
+              </Pressable>
+            );
+          }
+
+          return (
+            <View key={feature.key} style={chipStyle}>
+              {chipBody}
             </View>
           );
         })}
