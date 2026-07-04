@@ -4,9 +4,9 @@ import { View, Animated, StyleSheet, type DimensionValue } from 'react-native';
 import { useStatsColors } from '@/constants/stats-v2-theme';
 
 /**
- * Stats v2 loading skeleton — mirrors the home layout (header + hero card)
- * while analytics are fetched. The screen cross-fades from this to content.
- * Sections landing in later PRs (Your Year, Going deeper) grow matching
+ * Stats v2 loading skeleton — mirrors the home layout (header + hero card +
+ * Your Year graph) while analytics are fetched. The screen cross-fades from
+ * this to content. Sections landing in later PRs (Going deeper) grow matching
  * skeleton blocks when they ship.
  */
 
@@ -83,6 +83,20 @@ export function StatsV2Skeleton() {
           ))}
         </View>
       </View>
+
+      {/* Your Year graph card */}
+      <View style={[styles.yearCard, { backgroundColor: c.card, borderColor: c.line }]}>
+        <Block w={110} h={11} r={5} {...block} />
+        <Block w={130} h={30} r={8} {...block} style={styles.yearTotal} />
+        <View style={styles.yearBars}>
+          {[38, 62, 26, 74, 48, 90, 56, 30, 68, 44, 80, 52].map((h, i) => (
+            <View key={i} style={styles.yearBarCol}>
+              <Block w="100%" h={h} r={4} {...block} />
+            </View>
+          ))}
+        </View>
+        <Block w="100%" h={10} r={5} {...block} style={styles.yearGenreBar} />
+      </View>
     </View>
   );
 }
@@ -133,5 +147,27 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 16,
     paddingHorizontal: 4,
+  },
+  yearCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 16,
+  },
+  yearTotal: {
+    marginTop: 8,
+  },
+  yearBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 5,
+    marginTop: 16,
+  },
+  yearBarCol: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  yearGenreBar: {
+    marginTop: 18,
   },
 });
