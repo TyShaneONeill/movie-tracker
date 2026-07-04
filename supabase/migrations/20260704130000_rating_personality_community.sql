@@ -3,7 +3,9 @@
 --
 -- The "crowd" for Rating Personality is the PocketStubs community's OWN ratings
 -- (NOT TMDB): we aggregate `first_takes.rating` (1–10 scale) over all PUBLIC
--- movie takes. Movies only — TV shows (media_type = 'tv_show') are excluded.
+-- movie takes. Movies only — media_type is CHECK-constrained to ('movie',
+-- 'tv_show','tv_season','tv_episode'), so filter with = 'movie' (NOT
+-- <> 'tv_show', which would let episode/season ratings pollute movie stats).
 --
 -- Privacy model:
 --   * Only rows with visibility = 'public' are aggregated. The visibility
@@ -46,7 +48,7 @@ BEGIN
     INTO v_community_avg
   FROM first_takes
   WHERE visibility = 'public'
-    AND media_type <> 'tv_show'
+    AND media_type = 'movie'
     AND rating IS NOT NULL;
 
   -- Global distribution histogram, length 10, bucketed by round(rating) and
@@ -60,7 +62,7 @@ BEGIN
     SELECT LEAST(10, GREATEST(1, round(rating)::int)) AS bucket, count(*) AS cnt
     FROM first_takes
     WHERE visibility = 'public'
-      AND media_type <> 'tv_show'
+      AND media_type = 'movie'
       AND rating IS NOT NULL
     GROUP BY 1
   ) d ON d.bucket = g.bucket;
@@ -82,13 +84,13 @@ BEGIN
            count(DISTINCT ft.user_id) AS rater_count
     FROM first_takes ft
     WHERE ft.visibility = 'public'
-      AND ft.media_type <> 'tv_show'
+      AND ft.media_type = 'movie'
       AND ft.rating IS NOT NULL
       AND ft.tmdb_id IN (
         SELECT DISTINCT tmdb_id
         FROM first_takes
         WHERE user_id = v_user_id
-          AND media_type <> 'tv_show'
+          AND media_type = 'movie'
           AND rating IS NOT NULL
       )
     GROUP BY ft.tmdb_id
@@ -103,5 +105,10 @@ BEGIN
 END;
 $function$;
 
+-- REVOKE FROM PUBLIC too, not just anon: without it a role with no direct
+-- grant can still execute via the implicit PUBLIC grant (Supabase's default
+-- privileges usually strip it, but be explicit — verified behaviorally on
+-- staging before prod).
+REVOKE EXECUTE ON FUNCTION public.get_rating_personality(uuid) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.get_rating_personality(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_rating_personality(uuid) TO authenticated;

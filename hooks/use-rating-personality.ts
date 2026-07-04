@@ -14,7 +14,7 @@ import {
  *
  * Two fetches, run in parallel:
  *   1. The user's OWN movie ratings (`first_takes`, rating not null,
- *      media_type != 'tv_show') — a normal RLS read of the caller's rows.
+ *      media_type = 'movie') — a normal RLS read of the caller's rows.
  *   2. The `get_rating_personality` RPC for the community aggregates (global
  *      average + distribution + per-title consensus for titles with >= 2
  *      raters). The RPC is SECURITY DEFINER and binds to auth.uid().
@@ -30,7 +30,7 @@ async function fetchRatingPersonality(userId: string): Promise<RatingPersonality
       .select('rating, tmdb_id, movie_title, poster_path')
       .eq('user_id', userId)
       .not('rating', 'is', null)
-      .neq('media_type', 'tv_show')
+      .eq('media_type', 'movie')
       .order('created_at', { ascending: false }),
     supabase.rpc('get_rating_personality', { p_user_id: userId }),
   ]);
