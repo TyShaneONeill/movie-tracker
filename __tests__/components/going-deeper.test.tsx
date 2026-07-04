@@ -19,6 +19,17 @@ jest.mock('expo-linear-gradient', () => {
   return { LinearGradient: View };
 });
 
+// Routed chips (e.g. Rating Personality) push a route + fire a light haptic;
+// mock both native modules so the grid renders under jest.
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'light' },
+}));
+
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn() },
+}));
+
 jest.mock('@/lib/theme-context', () => ({
   useTheme: () => ({ effectiveTheme: 'dark' }),
   useEffectiveColorScheme: () => 'dark',
