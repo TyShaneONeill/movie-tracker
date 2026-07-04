@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Fonts } from '@/constants/theme';
 import { useStatsColors } from '@/constants/stats-v2-theme';
 import type { GenreStats } from '@/hooks/use-user-stats';
+import { buildDisplayGenres, isOtherGenre as isOther } from './genre-display';
 
 /**
  * Stats v2 Top Genres (design section 1D) — lives inside the Your Year card
@@ -20,6 +21,7 @@ import type { GenreStats } from '@/hooks/use-user-stats';
  */
 
 function tapGenre(genre: GenreStats) {
+  if (isOther(genre)) return; // "Other" has no single genre to drill into
   if (Platform.OS !== 'web') {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
@@ -33,7 +35,9 @@ export function GenreBar({ genres }: { genres: GenreStats[] }) {
 
   if (genres.length === 0) return null;
 
-  const colorFor = (i: number) => c.genrePalette[i % c.genrePalette.length];
+  const displayGenres = buildDisplayGenres(genres);
+  const colorFor = (genre: GenreStats, i: number) =>
+    isOther(genre) ? c.genreOther : c.genrePalette[i % c.genrePalette.length];
 
   return (
     <View>
@@ -45,15 +49,16 @@ export function GenreBar({ genres }: { genres: GenreStats[] }) {
 
       {/* slim split bar */}
       <View style={styles.splitBar}>
-        {genres.map((genre, i) => (
+        {displayGenres.map((genre, i) => (
           <Pressable
             key={genre.genreId}
             accessibilityLabel={genre.genreName}
+            disabled={isOther(genre)}
             onPress={() => tapGenre(genre)}
             // flex-weighted by percentage; floor at 1 so tiny genres stay visible
             style={[
               styles.segment,
-              { flex: Math.max(genre.percentage, 1), backgroundColor: colorFor(i) },
+              { flex: Math.max(genre.percentage, 1), backgroundColor: colorFor(genre, i) },
             ]}
           />
         ))}
@@ -61,34 +66,41 @@ export function GenreBar({ genres }: { genres: GenreStats[] }) {
 
       {/* clickable legend — 2-column grid, internal dividers only */}
       <View style={styles.legend}>
-        {genres.map((genre, i) => {
+        {displayGenres.map((genre, i) => {
           // Divider under every cell except the last row's — computed from the
           // row the cell sits in, so an odd count never leaves a half-width line.
-          const lastRowStart = genres.length - (genres.length % 2 === 0 ? 2 : 1);
+          const lastRowStart = displayGenres.length - (displayGenres.length % 2 === 0 ? 2 : 1);
           const hasRowBelow = i < lastRowStart;
+          const other = isOther(genre);
           return (
             <Pressable
               key={genre.genreId}
+              disabled={other}
               onPress={() => tapGenre(genre)}
               style={({ pressed }) => [
                 styles.legendItem,
                 i % 2 === 0 ? styles.legendItemLeft : styles.legendItemRight,
                 hasRowBelow && { borderBottomWidth: 1, borderBottomColor: c.line },
-                pressed && { opacity: 0.7 },
+                pressed && !other && { opacity: 0.7 },
               ]}
             >
-              <View style={[styles.dot, { backgroundColor: colorFor(i) }]} />
+              <View style={[styles.dot, { backgroundColor: colorFor(genre, i) }]} />
               <Text
                 numberOfLines={1}
                 maxFontSizeMultiplier={1.3}
-                style={[styles.legendName, { color: c.text }]}
+                style={[styles.legendName, { color: other ? c.sec : c.text }]}
               >
                 {genre.genreName}
               </Text>
               <Text maxFontSizeMultiplier={1.3} style={[styles.legendPct, { color: c.sec }]}>
                 {genre.percentage}%
               </Text>
-              <Ionicons name="chevron-forward" size={13} color={c.faint} />
+              {/* "Other" has nothing to drill into — omit the chevron */}
+              {other ? (
+                <View style={styles.chevronSpacer} />
+              ) : (
+                <Ionicons name="chevron-forward" size={13} color={c.faint} />
+              )}
             </Pressable>
           );
         })}
@@ -159,5 +171,9 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono.regular,
     fontSize: 12,
     lineHeight: 15,
+  },
+  // Reserves the chevron's width on the "Other" row so % columns stay aligned.
+  chevronSpacer: {
+    width: 13,
   },
 });

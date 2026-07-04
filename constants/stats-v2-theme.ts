@@ -47,6 +47,8 @@ export type StatsV2ColorTokens = {
   };
   /** Stable genre segment colors, assigned by index (Top Genres split bar). */
   genrePalette: string[];
+  /** Muted color for the aggregated "Other" genre bucket (6th slot). */
+  genreOther: string;
   /** Per-stat accent colors (match the design handoff). */
   stat: {
     movies: string;
@@ -95,6 +97,7 @@ export const StatsV2ColorsDark: StatsV2ColorTokens = {
     '#14b8a6', // teal
     '#f97316', // orange
   ],
+  genreOther: '#52525b', // zinc-600 — muted "everything else" on dark
   stat: {
     movies: '#e11d48',
     tvShows: '#10b981',
@@ -142,6 +145,7 @@ export const StatsV2ColorsLight: StatsV2ColorTokens = {
     '#0d9488', // teal-600: teal-500 is low-contrast on a light bg
     '#f97316', // orange
   ],
+  genreOther: '#a1a1aa', // zinc-400 — muted "everything else" on light
   stat: {
     movies: '#e11d48',
     tvShows: '#059669', // emerald-600: emerald-500 is low-contrast on a light bg
