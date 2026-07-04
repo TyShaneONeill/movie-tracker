@@ -18,6 +18,7 @@ import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
 import { ContentContainer } from '@/components/content-container';
 import { StatsV2Header } from './stats-v2-header';
 import { HeroStatCard } from './hero-stat-card';
+import { YearGraph } from './year-graph';
 import { StatsV2Skeleton } from './stats-v2-skeleton';
 
 const SKELETON_FADE_MS = 320;
@@ -27,11 +28,11 @@ const CONTENT_REVEAL_DELAY_MS = 60;
 /**
  * Stats v2 home — analytics redesign foundation (vault PS-05, PR 1 of 4).
  *
- * This PR ships the shell: header + membership pill (1A), the hero top-stats
+ * PR 1 shipped the shell: header + membership pill (1A), the hero top-stats
  * card (1B), the first-run empty state (1G), the skeleton→content loading
- * cross-fade, and pull-to-refresh. Later PRs slot into the seams marked below:
- * Your Year graph (1C) + genres (1D), Going deeper (1E), ad banner (1F), and
- * the gated detail screens.
+ * cross-fade, and pull-to-refresh. PR 2 added the Your Year graph (1C) +
+ * Top Genres (1D). Later PRs slot into the seams marked below: Going deeper
+ * (1E), ad banner (1F), and the gated detail screens.
  */
 export function StatsV2Screen() {
   const c = useStatsColors();
@@ -141,8 +142,12 @@ export function StatsV2Screen() {
             >
               <StatsV2Header />
               <HeroStatCard summary={stats?.summary} empty={isEmpty} />
-              {/* Seam: Your Year graph (1C) + Top Genres (1D) mount here — next stats-v2 PR.
-                  Hidden entirely when the user has 0 logged this year. */}
+              {/* Your Year graph (1C) + Top Genres (1D) — the card hides
+                  itself entirely when the user has 0 logged this year. */}
+              <YearGraph
+                monthlyActivity={stats?.monthlyActivity ?? []}
+                genres={stats?.genres ?? []}
+              />
               {/* Seam: Going deeper section (1E) mounts here. */}
               {/* Seam: ad banner (1F, free users only) mounts here. */}
             </Animated.View>
