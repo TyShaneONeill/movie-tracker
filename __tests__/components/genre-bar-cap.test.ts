@@ -32,6 +32,8 @@ describe('genre-display buildDisplayGenres — cap at 6 with an Other bucket', (
     expect(other.genreName).toBe('Other');
     expect(other.percentage).toBe(13); // 6 + 4 + 3
     expect(other.count).toBe(13);
+    // Carries the rolled-up genre IDs so its detail drill-in can query them.
+    expect(other.otherGenreIds).toEqual([6, 7, 8]);
 
     expect(out.slice(0, 5).map((x) => x.genreId)).toEqual([1, 2, 3, 4, 5]);
   });
