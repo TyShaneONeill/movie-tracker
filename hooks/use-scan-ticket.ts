@@ -28,6 +28,9 @@ interface EdgeFunctionTMDBMatch {
   overview?: string;
   vote_average?: number;
   confidence: number;
+  // Genres from the scan-ticket edge function's TMDB search result. Older
+  // edge deploys omit this; fall back to [] so scanned movies still save.
+  genre_ids?: number[];
 }
 
 /**
@@ -363,7 +366,7 @@ export function useScanTicket(): UseScanTicketResult {
               overview: tmdbMatchData.overview || '',
               vote_average: tmdbMatchData.vote_average || 0,
               vote_count: 0,
-              genre_ids: [],
+              genre_ids: tmdbMatchData.genre_ids ?? [],
             };
 
             tmdbMatch = {

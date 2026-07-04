@@ -94,19 +94,16 @@ Deno.serve(async (req: Request) => {
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Run all queries in parallel
-    const [summaryResult, genresResult, tvGenresResult, monthlyResult] = await Promise.all([
+    const [summaryResult, genresResult, monthlyResult] = await Promise.all([
       // Summary stats query (now includes total_tv_watched)
       supabaseClient.rpc('get_user_stats_summary', { p_user_id: user.id }),
 
-      // Genre distribution query - movie genres
+      // Genre distribution query - MOVIES ONLY. The stats "Top Genres" bar sits
+      // inside the movies "Your Year" card, so it must reflect movie genres
+      // only. Blending TV genres (which use a separate TMDB id space) let a
+      // couple of TV shows dominate the chart and crowd out real movie genres.
+      // TV genre breakdown will get its own graph later.
       supabaseClient.from('user_movies')
-        .select('genre_ids')
-        .eq('user_id', user.id)
-        .eq('status', 'watched')
-        .not('genre_ids', 'is', null),
-
-      // Genre distribution query - TV show genres
-      supabaseClient.from('user_tv_shows')
         .select('genre_ids')
         .eq('user_id', user.id)
         .eq('status', 'watched')
@@ -142,23 +139,11 @@ Deno.serve(async (req: Request) => {
     const genreCounts: Record<number, number> = {};
     let totalGenreCounts = 0;
 
-    // Movie genres
+    // Movie genres (movies only — see the movies-only note on the query above)
     if (genresResult.data) {
       for (const movie of genresResult.data) {
         if (movie.genre_ids && Array.isArray(movie.genre_ids)) {
           for (const genreId of movie.genre_ids) {
-            genreCounts[genreId] = (genreCounts[genreId] || 0) + 1;
-            totalGenreCounts++;
-          }
-        }
-      }
-    }
-
-    // TV show genres (merged into the same counts)
-    if (tvGenresResult.data) {
-      for (const show of tvGenresResult.data) {
-        if (show.genre_ids && Array.isArray(show.genre_ids)) {
-          for (const genreId of show.genre_ids) {
             genreCounts[genreId] = (genreCounts[genreId] || 0) + 1;
             totalGenreCounts++;
           }

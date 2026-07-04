@@ -74,6 +74,10 @@ interface TMDBMatch {
   poster_path: string | null;
   release_date: string | null;
   confidence: number;
+  // TMDB search results already carry genre_ids; pass them through so scanned
+  // movies are saved WITH genres (else the library row lands with genre_ids=[]
+  // and the stats/taste/calendar genre features have nothing to work with).
+  genre_ids: number[];
 }
 
 interface ProcessedTicket {
@@ -110,6 +114,7 @@ interface TMDBMovie {
   poster_path: string | null;
   release_date: string;
   vote_average: number;
+  genre_ids?: number[];
 }
 
 interface TMDBSearchResponse {
@@ -449,6 +454,7 @@ async function searchTMDB(
       poster_path: topResult.poster_path,
       release_date: topResult.release_date,
       confidence,
+      genre_ids: topResult.genre_ids ?? [],
     };
   } catch (error) {
     console.error('[scan-ticket] TMDB search error:', error);
