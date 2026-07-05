@@ -1,0 +1,2149 @@
+[
+  {
+    "era": "pre70s",
+    "tmdbId": 62,
+    "title": "2001: A Space Odyssey",
+    "year": 1968,
+    "genreIds": [
+      878,
+      9648,
+      12
+    ],
+    "voteAverage": 8.05,
+    "posterPath": "/ve72VxNqjGM69Uky4WTo2bK6rfq.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 539,
+    "title": "Psycho",
+    "year": 1960,
+    "genreIds": [
+      27,
+      53,
+      9648
+    ],
+    "voteAverage": 8.413,
+    "posterPath": "/yz4QVqPx3h1hD1DfqqQkCq3rmxW.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 389,
+    "title": "12 Angry Men",
+    "year": 1957,
+    "genreIds": [
+      18
+    ],
+    "voteAverage": 8.564,
+    "posterPath": "/zhG3vKWyDRaZYoaww1UVAi29T9h.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 429,
+    "title": "The Good, the Bad and the Ugly",
+    "year": 1966,
+    "genreIds": [
+      37
+    ],
+    "voteAverage": 8.5,
+    "posterPath": "/bX2xnavhMYjWDoZp1VM6VnU1xwe.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 408,
+    "title": "Snow White and the Seven Dwarfs",
+    "year": 1938,
+    "genreIds": [
+      14,
+      16,
+      10751
+    ],
+    "voteAverage": 7.123,
+    "posterPath": "/3VAHfuNb6Z7UiW12iYKANSPBl8m.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 567,
+    "title": "Rear Window",
+    "year": 1954,
+    "genreIds": [
+      53,
+      9648,
+      18
+    ],
+    "voteAverage": 8.337,
+    "posterPath": "/ILVF0eJxHMddjxeQhswFtpMtqx.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 11224,
+    "title": "Cinderella",
+    "year": 1950,
+    "genreIds": [
+      10751,
+      14,
+      16,
+      10749
+    ],
+    "voteAverage": 7.048,
+    "posterPath": "/ug3ndicuPM1V07vhVFGLMsd4AZl.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 9325,
+    "title": "The Jungle Book",
+    "year": 1967,
+    "genreIds": [
+      10751,
+      16,
+      12
+    ],
+    "voteAverage": 7.284,
+    "posterPath": "/yN1kuupnPTLUprgfvC5WapgrxG4.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 12230,
+    "title": "One Hundred and One Dalmatians",
+    "year": 1961,
+    "genreIds": [
+      12,
+      16,
+      35,
+      10751
+    ],
+    "voteAverage": 7.176,
+    "posterPath": "/v62BSVTUmFoVLW3v0ffXo7kzhL9.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 426,
+    "title": "Vertigo",
+    "year": 1958,
+    "genreIds": [
+      9648,
+      10749,
+      53
+    ],
+    "voteAverage": 8.134,
+    "posterPath": "/15uOEfqBNTVtDUT7hGBVCka0rZz.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 12092,
+    "title": "Alice in Wonderland",
+    "year": 1951,
+    "genreIds": [
+      16,
+      10751,
+      14,
+      12
+    ],
+    "voteAverage": 7.187,
+    "posterPath": "/20cvfwfaFqNbe9Fc3VEHJuPRxmn.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 10895,
+    "title": "Pinocchio",
+    "year": 1940,
+    "genreIds": [
+      16,
+      10751,
+      14
+    ],
+    "voteAverage": 7.111,
+    "posterPath": "/bnZJrLRnoQHpzEJdka1KYfsAF3N.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 935,
+    "title": "Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb",
+    "year": 1964,
+    "genreIds": [
+      35,
+      10752
+    ],
+    "voteAverage": 8.1,
+    "posterPath": "/6x7MzQ6BOMlRzam1StcmPO9v61g.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 630,
+    "title": "The Wizard of Oz",
+    "year": 1939,
+    "genreIds": [
+      12,
+      14,
+      10751
+    ],
+    "voteAverage": 7.584,
+    "posterPath": "/uCC3j4pV9eOZwzDUWp2ilbcTf1f.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 15,
+    "title": "Citizen Kane",
+    "year": 1941,
+    "genreIds": [
+      9648,
+      18
+    ],
+    "voteAverage": 7.971,
+    "posterPath": "/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 289,
+    "title": "Casablanca",
+    "year": 1943,
+    "genreIds": [
+      18,
+      10749
+    ],
+    "voteAverage": 8.138,
+    "posterPath": "/lGCEKlJo2CnWydQj7aamY7s1S7Q.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 3170,
+    "title": "Bambi",
+    "year": 1942,
+    "genreIds": [
+      16,
+      18,
+      10751
+    ],
+    "voteAverage": 7.013,
+    "posterPath": "/wV9e2y4myJ4KMFsyFfWYcUOawyK.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 10693,
+    "title": "Peter Pan",
+    "year": 1953,
+    "genreIds": [
+      16,
+      10751,
+      12,
+      14
+    ],
+    "voteAverage": 7.193,
+    "posterPath": "/fJJOs1iyrhKfZceANxoPxPwNGF1.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 10340,
+    "title": "Lady and the Tramp",
+    "year": 1955,
+    "genreIds": [
+      16,
+      10751,
+      10749,
+      12,
+      35
+    ],
+    "voteAverage": 7.126,
+    "posterPath": "/340NcWz9SQXWQyf4oicMxjbrLOb.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 433,
+    "title": "Mary Poppins",
+    "year": 1964,
+    "genreIds": [
+      35,
+      10751,
+      14
+    ],
+    "voteAverage": 7.5,
+    "posterPath": "/o4Wsby4ydIXhWmtmfvb451D5Np1.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 1585,
+    "title": "It's a Wonderful Life",
+    "year": 1946,
+    "genreIds": [
+      18,
+      10751,
+      14
+    ],
+    "voteAverage": 8.277,
+    "posterPath": "/bSqt9rhDZx1Q7UZ86dBPKdNomp2.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 335,
+    "title": "Once Upon a Time in the West",
+    "year": 1968,
+    "genreIds": [
+      18,
+      37
+    ],
+    "voteAverage": 8.271,
+    "posterPath": "/qbYgqOczabWNn2XKwgMtVrntD6P.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 391,
+    "title": "A Fistful of Dollars",
+    "year": 1964,
+    "genreIds": [
+      37
+    ],
+    "voteAverage": 7.824,
+    "posterPath": "/lBwOEpwVeUAmrmglcstnaGcJq3Y.jpg"
+  },
+  {
+    "era": "pre70s",
+    "tmdbId": 213,
+    "title": "North by Northwest",
+    "year": 1959,
+    "genreIds": [
+      53,
+      12
+    ],
+    "voteAverage": 7.964,
+    "posterPath": "/kNOFPQrel9YFCVzI0DF8FnCEpCw.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 238,
+    "title": "The Godfather",
+    "year": 1972,
+    "genreIds": [
+      18,
+      80
+    ],
+    "voteAverage": 8.687,
+    "posterPath": "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 11,
+    "title": "Star Wars",
+    "year": 1977,
+    "genreIds": [
+      12,
+      28,
+      878
+    ],
+    "voteAverage": 8.206,
+    "posterPath": "/6FfCtAuVAW8XJjZ7eWeLibRLWTw.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 348,
+    "title": "Alien",
+    "year": 1979,
+    "genreIds": [
+      27,
+      878
+    ],
+    "voteAverage": 8.171,
+    "posterPath": "/vfrQk5IPloGg1v9Rzbh2Eg3VGyM.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 240,
+    "title": "The Godfather Part II",
+    "year": 1974,
+    "genreIds": [
+      18,
+      80
+    ],
+    "voteAverage": 8.571,
+    "posterPath": "/hek3koDUyRQk7FIhPXsa6mT2Zc3.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 185,
+    "title": "A Clockwork Orange",
+    "year": 1971,
+    "genreIds": [
+      878,
+      80
+    ],
+    "voteAverage": 8.176,
+    "posterPath": "/4sHeTAp65WrSSuc05nRBKddhBxO.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 103,
+    "title": "Taxi Driver",
+    "year": 1976,
+    "genreIds": [
+      80,
+      18
+    ],
+    "voteAverage": 8.124,
+    "posterPath": "/ekstpH614fwDX8DUln1a2Opz0N8.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 578,
+    "title": "Jaws",
+    "year": 1975,
+    "genreIds": [
+      27,
+      53,
+      12
+    ],
+    "voteAverage": 7.684,
+    "posterPath": "/lxM6kqilAdpdhqUl2biYp5frUxE.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 510,
+    "title": "One Flew Over the Cuckoo's Nest",
+    "year": 1975,
+    "genreIds": [
+      18
+    ],
+    "voteAverage": 8.411,
+    "posterPath": "/kjWsMh72V6d8KRLV4EOoSJLT1H7.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 28,
+    "title": "Apocalypse Now",
+    "year": 1979,
+    "genreIds": [
+      18,
+      10752
+    ],
+    "voteAverage": 8.269,
+    "posterPath": "/gQB8Y5RCMkv2zwzFHbUJX3kAhvA.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 9552,
+    "title": "The Exorcist",
+    "year": 1973,
+    "genreIds": [
+      27,
+      18
+    ],
+    "voteAverage": 7.745,
+    "posterPath": "/5x0CeVHJI8tcDx8tUUwYHQSNILq.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 1366,
+    "title": "Rocky",
+    "year": 1976,
+    "genreIds": [
+      18
+    ],
+    "voteAverage": 7.801,
+    "posterPath": "/aYtBYWqCdUqcnoodWJdcTG3pFev.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 621,
+    "title": "Grease",
+    "year": 1978,
+    "genreIds": [
+      10749,
+      35
+    ],
+    "voteAverage": 7.369,
+    "posterPath": "/2rM7fQKpb7cs1Iq7IBqub9LFDzJ.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 762,
+    "title": "Monty Python and the Holy Grail",
+    "year": 1975,
+    "genreIds": [
+      12,
+      35,
+      14
+    ],
+    "voteAverage": 7.806,
+    "posterPath": "/7nTkHjETdGMYK1phHwDbPsrzbYl.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 948,
+    "title": "Halloween",
+    "year": 1978,
+    "genreIds": [
+      27,
+      53
+    ],
+    "voteAverage": 7.562,
+    "posterPath": "/wijlZ3HaYMvlDTPqJoTCWKFkCPU.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 10112,
+    "title": "The Aristocats",
+    "year": 1970,
+    "genreIds": [
+      16,
+      35,
+      10751,
+      12
+    ],
+    "voteAverage": 7.305,
+    "posterPath": "/aOWs5XMJEABN6SKCTJBCoeD1kCA.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 583,
+    "title": "Life of Brian",
+    "year": 1979,
+    "genreIds": [
+      35
+    ],
+    "voteAverage": 7.761,
+    "posterPath": "/lSSA64WF0M0BXnjwr2quMh6shCl.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 1367,
+    "title": "Rocky II",
+    "year": 1979,
+    "genreIds": [
+      18
+    ],
+    "voteAverage": 7.298,
+    "posterPath": "/nMaiiu0CzT77U4JZkUYV7KqdAjK.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 840,
+    "title": "Close Encounters of the Third Kind",
+    "year": 1977,
+    "genreIds": [
+      878,
+      18
+    ],
+    "voteAverage": 7.352,
+    "posterPath": "/yaPx3cK9zGFX3SbcKwxWM1QIbUh.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 11886,
+    "title": "Robin Hood",
+    "year": 1973,
+    "genreIds": [
+      16,
+      10751,
+      12
+    ],
+    "voteAverage": 7.3,
+    "posterPath": "/x9AvkYek0bGdxQSZ8W3lAjGrREm.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 7340,
+    "title": "Carrie",
+    "year": 1976,
+    "genreIds": [
+      27,
+      53
+    ],
+    "voteAverage": 7.3,
+    "posterPath": "/8tT1rqlsTguyfUBMrbHR9cv1rxM.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 1924,
+    "title": "Superman",
+    "year": 1978,
+    "genreIds": [
+      878,
+      28,
+      12
+    ],
+    "voteAverage": 7.165,
+    "posterPath": "/d7px1FQxW4tngdACVRsCSaZq0Xl.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 829,
+    "title": "Chinatown",
+    "year": 1974,
+    "genreIds": [
+      80,
+      9648,
+      53
+    ],
+    "voteAverage": 7.908,
+    "posterPath": "/kZRSP3FmOcq0xnBulqpUQngJUXY.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 11778,
+    "title": "The Deer Hunter",
+    "year": 1978,
+    "genreIds": [
+      18,
+      10752
+    ],
+    "voteAverage": 7.971,
+    "posterPath": "/bbGtogDZOg09bm42KIpCXUXICkh.jpg"
+  },
+  {
+    "era": "70s",
+    "tmdbId": 703,
+    "title": "Annie Hall",
+    "year": 1977,
+    "genreIds": [
+      35,
+      18,
+      10749
+    ],
+    "voteAverage": 7.725,
+    "posterPath": "/dEtjPywhDbAXYjoFfhBC4U9unU7.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 105,
+    "title": "Back to the Future",
+    "year": 1985,
+    "genreIds": [
+      12,
+      35,
+      878
+    ],
+    "voteAverage": 8.326,
+    "posterPath": "/vN5B5WgYscRGcQpVhHl6p9DDTP0.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 694,
+    "title": "The Shining",
+    "year": 1980,
+    "genreIds": [
+      27,
+      53
+    ],
+    "voteAverage": 8.203,
+    "posterPath": "/uAR0AWqhQL1hQa69UDEbb2rE5Wx.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 1891,
+    "title": "The Empire Strikes Back",
+    "year": 1980,
+    "genreIds": [
+      12,
+      28,
+      878
+    ],
+    "voteAverage": 8.392,
+    "posterPath": "/nNAeTmF4CtdSgMDplXTDPOpYzsX.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 1892,
+    "title": "Return of the Jedi",
+    "year": 1983,
+    "genreIds": [
+      12,
+      28,
+      878
+    ],
+    "voteAverage": 7.909,
+    "posterPath": "/jQYlydvHm3kUix1f8prMucrplhm.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 78,
+    "title": "Blade Runner",
+    "year": 1982,
+    "genreIds": [
+      878,
+      18,
+      53
+    ],
+    "voteAverage": 7.9,
+    "posterPath": "/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 218,
+    "title": "The Terminator",
+    "year": 1984,
+    "genreIds": [
+      28,
+      53,
+      878
+    ],
+    "voteAverage": 7.684,
+    "posterPath": "/qvktm0BHcnmDpul4Hz01GIazWPr.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 165,
+    "title": "Back to the Future Part II",
+    "year": 1989,
+    "genreIds": [
+      12,
+      35,
+      878
+    ],
+    "voteAverage": 7.783,
+    "posterPath": "/hQq8xZe5uLjFzSBt4LanNP7SQjl.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 85,
+    "title": "Raiders of the Lost Ark",
+    "year": 1981,
+    "genreIds": [
+      12,
+      28
+    ],
+    "voteAverage": 7.9,
+    "posterPath": "/ceG9VzoRAVGwivFU403Wc3AHRys.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 111,
+    "title": "Scarface",
+    "year": 1983,
+    "genreIds": [
+      28,
+      80,
+      18
+    ],
+    "voteAverage": 8.155,
+    "posterPath": "/iQ5ztdjvteGeboxtmRdXEChJOHh.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 207,
+    "title": "Dead Poets Society",
+    "year": 1989,
+    "genreIds": [
+      18
+    ],
+    "voteAverage": 8.3,
+    "posterPath": "/erzbMlcNHOdx24AXOcn2ZKA7R1q.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 562,
+    "title": "Die Hard",
+    "year": 1988,
+    "genreIds": [
+      28,
+      53
+    ],
+    "voteAverage": 7.813,
+    "posterPath": "/7Bjd8kfmDSOzpmhySpEhkUyK2oH.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 601,
+    "title": "E.T. the Extra-Terrestrial",
+    "year": 1982,
+    "genreIds": [
+      12,
+      878,
+      10751
+    ],
+    "voteAverage": 7.517,
+    "posterPath": "/an0nD6uq6byfxXCfk6lQBzdL2J1.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 600,
+    "title": "Full Metal Jacket",
+    "year": 1987,
+    "genreIds": [
+      18,
+      10752
+    ],
+    "voteAverage": 8.117,
+    "posterPath": "/kMKyx1k8hWWscYFnPbnxxN4Eqo4.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 89,
+    "title": "Indiana Jones and the Last Crusade",
+    "year": 1989,
+    "genreIds": [
+      12,
+      28
+    ],
+    "voteAverage": 7.853,
+    "posterPath": "/sizg1AU8f8JDZX4QIgE4pjUMBvx.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 679,
+    "title": "Aliens",
+    "year": 1986,
+    "genreIds": [
+      28,
+      53,
+      878
+    ],
+    "voteAverage": 8.0,
+    "posterPath": "/r1x5JGpyqZU8PYhbs4UcrO1Xb6x.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 87,
+    "title": "Indiana Jones and the Temple of Doom",
+    "year": 1984,
+    "genreIds": [
+      12,
+      28
+    ],
+    "voteAverage": 7.31,
+    "posterPath": "/gpdVNUaa4LhRMLfJOPj1AZdhAZ3.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 620,
+    "title": "Ghostbusters",
+    "year": 1984,
+    "genreIds": [
+      35,
+      14
+    ],
+    "voteAverage": 7.498,
+    "posterPath": "/7E8nLijS9AwwUEPu2oFYOVKhdFA.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 744,
+    "title": "Top Gun",
+    "year": 1986,
+    "genreIds": [
+      28,
+      18,
+      10749
+    ],
+    "voteAverage": 7.069,
+    "posterPath": "/xUuHj3CgmZQ9P2cMaqQs4J0d4Zc.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 106,
+    "title": "Predator",
+    "year": 1987,
+    "genreIds": [
+      878,
+      28,
+      12,
+      53
+    ],
+    "voteAverage": 7.568,
+    "posterPath": "/aN3cdjIK70KGmD84et8MMblU87Q.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 8392,
+    "title": "My Neighbor Totoro",
+    "year": 1988,
+    "genreIds": [
+      14,
+      16,
+      10751
+    ],
+    "voteAverage": 8.063,
+    "posterPath": "/rtGDOeG9LzoerkDGZF9dnVeLppL.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 268,
+    "title": "Batman",
+    "year": 1989,
+    "genreIds": [
+      14,
+      28,
+      80
+    ],
+    "voteAverage": 7.2,
+    "posterPath": "/cij4dd21v2Rk2YtUQbV5kW69WB2.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 2108,
+    "title": "The Breakfast Club",
+    "year": 1985,
+    "genreIds": [
+      35,
+      18
+    ],
+    "voteAverage": 7.721,
+    "posterPath": "/gp4zlj7wgbiofLMNsTPndMuO3PN.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 4011,
+    "title": "Beetlejuice",
+    "year": 1988,
+    "genreIds": [
+      14,
+      35
+    ],
+    "voteAverage": 7.37,
+    "posterPath": "/nnl6OWkyPpuMm595hmAxNW3rZFn.jpg"
+  },
+  {
+    "era": "80s",
+    "tmdbId": 10144,
+    "title": "The Little Mermaid",
+    "year": 1989,
+    "genreIds": [
+      16,
+      10751,
+      14
+    ],
+    "voteAverage": 7.4,
+    "posterPath": "/plcZXvI310FkbwIptvd6rqk63LP.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 550,
+    "title": "Fight Club",
+    "year": 1999,
+    "genreIds": [
+      18,
+      53
+    ],
+    "voteAverage": 8.438,
+    "posterPath": "/jSziioSwPVrOy9Yow3XhWIBDjq1.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 278,
+    "title": "The Shawshank Redemption",
+    "year": 1994,
+    "genreIds": [
+      18,
+      80
+    ],
+    "voteAverage": 8.724,
+    "posterPath": "/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 680,
+    "title": "Pulp Fiction",
+    "year": 1994,
+    "genreIds": [
+      53,
+      80,
+      35
+    ],
+    "voteAverage": 8.482,
+    "posterPath": "/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 13,
+    "title": "Forrest Gump",
+    "year": 1994,
+    "genreIds": [
+      35,
+      18,
+      10749
+    ],
+    "voteAverage": 8.464,
+    "posterPath": "/Cw4hIUIAmSYfK9QfaUW5igp9La.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 603,
+    "title": "The Matrix",
+    "year": 1999,
+    "genreIds": [
+      28,
+      878
+    ],
+    "voteAverage": 8.25,
+    "posterPath": "/dXNAPwY7VrqMAo51EKhhCJfaGb5.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 597,
+    "title": "Titanic",
+    "year": 1997,
+    "genreIds": [
+      18,
+      10749
+    ],
+    "voteAverage": 7.902,
+    "posterPath": "/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 807,
+    "title": "Se7en",
+    "year": 1995,
+    "genreIds": [
+      80,
+      9648,
+      53
+    ],
+    "voteAverage": 8.382,
+    "posterPath": "/191nKfP0ehp3uIvWqgPbFmI4lv9.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 37165,
+    "title": "The Truman Show",
+    "year": 1998,
+    "genreIds": [
+      35,
+      18
+    ],
+    "voteAverage": 8.155,
+    "posterPath": "/vuza0WqY239yBXOadKlGwJsZJFE.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 862,
+    "title": "Toy Story",
+    "year": 1995,
+    "genreIds": [
+      10751,
+      35,
+      16,
+      12
+    ],
+    "voteAverage": 7.98,
+    "posterPath": "/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 8587,
+    "title": "The Lion King",
+    "year": 1994,
+    "genreIds": [
+      16,
+      10751,
+      18
+    ],
+    "voteAverage": 8.254,
+    "posterPath": "/sKCr78MXSLixwmZ8DyJLrpMsd15.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 497,
+    "title": "The Green Mile",
+    "year": 1999,
+    "genreIds": [
+      14,
+      18,
+      80
+    ],
+    "voteAverage": 8.506,
+    "posterPath": "/8VG8fDNiy50H4FedGwdSVUPoaJe.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 274,
+    "title": "The Silence of the Lambs",
+    "year": 1991,
+    "genreIds": [
+      80,
+      53,
+      18
+    ],
+    "voteAverage": 8.345,
+    "posterPath": "/uS9m8OBk1A8eM9I042bx8XXpqAq.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 329,
+    "title": "Jurassic Park",
+    "year": 1993,
+    "genreIds": [
+      12,
+      878
+    ],
+    "voteAverage": 7.971,
+    "posterPath": "/1468Tv8LF207WCJXDolm8l7hVo4.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 424,
+    "title": "Schindler's List",
+    "year": 1993,
+    "genreIds": [
+      18,
+      36,
+      10752
+    ],
+    "voteAverage": 8.6,
+    "posterPath": "/sF1U4EUQS8YHUYjNl3pMGNIQyr0.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 857,
+    "title": "Saving Private Ryan",
+    "year": 1998,
+    "genreIds": [
+      10752,
+      18,
+      36
+    ],
+    "voteAverage": 8.229,
+    "posterPath": "/uqx37cS8cpHg8U35f9U5IBlrCV3.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 101,
+    "title": "Léon: The Professional",
+    "year": 1994,
+    "genreIds": [
+      80,
+      18,
+      28
+    ],
+    "voteAverage": 8.294,
+    "posterPath": "/bxB2q91nKYp8JNzqE7t7TWBVupB.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 500,
+    "title": "Reservoir Dogs",
+    "year": 1992,
+    "genreIds": [
+      80,
+      53
+    ],
+    "voteAverage": 8.114,
+    "posterPath": "/xi8Iu6qyTfyZVDVy60raIOYJJmk.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 863,
+    "title": "Toy Story 2",
+    "year": 1999,
+    "genreIds": [
+      16,
+      35,
+      10751
+    ],
+    "voteAverage": 7.614,
+    "posterPath": "/4rbcp3ng8n1MKHjpeqW0L7Fnpzz.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 607,
+    "title": "Men in Black",
+    "year": 1997,
+    "genreIds": [
+      28,
+      12,
+      35,
+      878
+    ],
+    "voteAverage": 7.225,
+    "posterPath": "/uLOmOF5IzWoyrgIF5MfUnh5pa1X.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 769,
+    "title": "GoodFellas",
+    "year": 1990,
+    "genreIds": [
+      18,
+      80
+    ],
+    "voteAverage": 8.454,
+    "posterPath": "/9OkCLM73MIU2CrKZbqiT8Ln1wY2.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 280,
+    "title": "Terminator 2: Judgment Day",
+    "year": 1991,
+    "genreIds": [
+      28,
+      53,
+      878
+    ],
+    "voteAverage": 8.154,
+    "posterPath": "/jFTVD4XoWQTcg7wdyJKa8PEds5q.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 637,
+    "title": "Life Is Beautiful",
+    "year": 1997,
+    "genreIds": [
+      35,
+      18
+    ],
+    "voteAverage": 8.439,
+    "posterPath": "/6tEJnof1DKWPnl5lzkjf0FVv7oB.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 489,
+    "title": "Good Will Hunting",
+    "year": 1997,
+    "genreIds": [
+      18
+    ],
+    "voteAverage": 8.162,
+    "posterPath": "/z2FnLKpFi1HPO7BEJxdkv6hpJSU.jpg"
+  },
+  {
+    "era": "90s",
+    "tmdbId": 162,
+    "title": "Edward Scissorhands",
+    "year": 1990,
+    "genreIds": [
+      14,
+      18,
+      10749
+    ],
+    "voteAverage": 7.72,
+    "posterPath": "/e0FqKFvGPdQNWG8tF9cZBtev9Em.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 155,
+    "title": "The Dark Knight",
+    "year": 2008,
+    "genreIds": [
+      28,
+      80,
+      53
+    ],
+    "voteAverage": 8.532,
+    "posterPath": "/qJ2tW6WMUDux911r6m7haRef0WH.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 19995,
+    "title": "Avatar",
+    "year": 2009,
+    "genreIds": [
+      878,
+      28,
+      12
+    ],
+    "voteAverage": 7.608,
+    "posterPath": "/gKY6q7SjCkAU6FqvqWybDYgUKIF.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 671,
+    "title": "Harry Potter and the Philosopher's Stone",
+    "year": 2001,
+    "genreIds": [
+      12,
+      14
+    ],
+    "voteAverage": 7.899,
+    "posterPath": "/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 1726,
+    "title": "Iron Man",
+    "year": 2008,
+    "genreIds": [
+      28,
+      878,
+      12
+    ],
+    "voteAverage": 7.662,
+    "posterPath": "/78lPtwv72eTNqFW9COBYI0dWDJa.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 120,
+    "title": "The Lord of the Rings: The Fellowship of the Ring",
+    "year": 2001,
+    "genreIds": [
+      12,
+      14,
+      28
+    ],
+    "voteAverage": 8.437,
+    "posterPath": "/6oom5QYQ2yQTMJIbnvbkBL9cHo6.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 122,
+    "title": "The Lord of the Rings: The Return of the King",
+    "year": 2003,
+    "genreIds": [
+      12,
+      14,
+      28
+    ],
+    "voteAverage": 8.5,
+    "posterPath": "/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 16869,
+    "title": "Inglourious Basterds",
+    "year": 2009,
+    "genreIds": [
+      18,
+      53,
+      10752
+    ],
+    "voteAverage": 8.217,
+    "posterPath": "/aupnPtagH9JVBuMrGEanf4iqXEQ.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 121,
+    "title": "The Lord of the Rings: The Two Towers",
+    "year": 2002,
+    "genreIds": [
+      12,
+      14,
+      28
+    ],
+    "voteAverage": 8.4,
+    "posterPath": "/5VTN0pR8gcqV3EPUHHfMGnJYN9L.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 672,
+    "title": "Harry Potter and the Chamber of Secrets",
+    "year": 2002,
+    "genreIds": [
+      12,
+      14
+    ],
+    "voteAverage": 7.706,
+    "posterPath": "/sdEOH0992YZ0QSxgXNIGLq1ToUi.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 673,
+    "title": "Harry Potter and the Prisoner of Azkaban",
+    "year": 2004,
+    "genreIds": [
+      12,
+      14
+    ],
+    "voteAverage": 8.009,
+    "posterPath": "/aWxwnYoe8p2d2fcxOqtvAtJ72Rw.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 272,
+    "title": "Batman Begins",
+    "year": 2005,
+    "genreIds": [
+      18,
+      80,
+      28
+    ],
+    "voteAverage": 7.728,
+    "posterPath": "/sPX89Td70IDDjVr85jdSBb4rWGr.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 22,
+    "title": "Pirates of the Caribbean: The Curse of the Black Pearl",
+    "year": 2003,
+    "genreIds": [
+      12,
+      14,
+      28
+    ],
+    "voteAverage": 7.828,
+    "posterPath": "/poHwCZeWzJCShH7tOjg8RIoyjcw.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 674,
+    "title": "Harry Potter and the Goblet of Fire",
+    "year": 2005,
+    "genreIds": [
+      12,
+      14
+    ],
+    "voteAverage": 7.803,
+    "posterPath": "/fECBtHlr0RB3foNHDiCBXeg9Bv9.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 14160,
+    "title": "Up",
+    "year": 2009,
+    "genreIds": [
+      16,
+      35,
+      10751,
+      12
+    ],
+    "voteAverage": 7.962,
+    "posterPath": "/mFvoEwSfLqbcWwFsDjQebn9bzFe.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 98,
+    "title": "Gladiator",
+    "year": 2000,
+    "genreIds": [
+      28,
+      18,
+      12
+    ],
+    "voteAverage": 8.227,
+    "posterPath": "/wN2xWp1eIwCKOD0BHTcErTBv1Uq.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 675,
+    "title": "Harry Potter and the Order of the Phoenix",
+    "year": 2007,
+    "genreIds": [
+      12,
+      14
+    ],
+    "voteAverage": 7.673,
+    "posterPath": "/5aOyriWkPec0zUDxmHFP9qMmBaj.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 767,
+    "title": "Harry Potter and the Half-Blood Prince",
+    "year": 2009,
+    "genreIds": [
+      12,
+      14
+    ],
+    "voteAverage": 7.681,
+    "posterPath": "/z7uo9zmQdQwU5ZJHFpv2Upl30i1.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 557,
+    "title": "Spider-Man",
+    "year": 2002,
+    "genreIds": [
+      28,
+      878
+    ],
+    "voteAverage": 7.334,
+    "posterPath": "/kjdJntyBeEvqm9w97QGBdxPptzj.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 12,
+    "title": "Finding Nemo",
+    "year": 2003,
+    "genreIds": [
+      16,
+      10751,
+      12
+    ],
+    "voteAverage": 7.82,
+    "posterPath": "/5lc6nQc0VhWFYFbNv016xze8Jvy.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 10681,
+    "title": "WALL·E",
+    "year": 2008,
+    "genreIds": [
+      16,
+      10751,
+      878
+    ],
+    "voteAverage": 8.115,
+    "posterPath": "/hbhFnRzzg6ZDmm8YAmxBnQpQIPh.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 585,
+    "title": "Monsters, Inc.",
+    "year": 2001,
+    "genreIds": [
+      16,
+      35,
+      10751,
+      14
+    ],
+    "voteAverage": 7.853,
+    "posterPath": "/wFSpyMsp7H0ttERbxY7Trlv8xry.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 24,
+    "title": "Kill Bill: Vol. 1",
+    "year": 2003,
+    "genreIds": [
+      28,
+      80
+    ],
+    "voteAverage": 7.973,
+    "posterPath": "/v7TaX8kXMXs5yFFGR41guUDNcnB.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 9806,
+    "title": "The Incredibles",
+    "year": 2004,
+    "genreIds": [
+      28,
+      12,
+      16,
+      10751
+    ],
+    "voteAverage": 7.726,
+    "posterPath": "/2LqaLgk4Z226KkgPJuiOQ58wvrm.jpg"
+  },
+  {
+    "era": "00s",
+    "tmdbId": 808,
+    "title": "Shrek",
+    "year": 2001,
+    "genreIds": [
+      16,
+      35,
+      14,
+      12,
+      10751
+    ],
+    "voteAverage": 7.768,
+    "posterPath": "/iB64vpL3dIObOtMZgX3RqdVdQDc.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 157336,
+    "title": "Interstellar",
+    "year": 2014,
+    "genreIds": [
+      12,
+      18,
+      878
+    ],
+    "voteAverage": 8.48,
+    "posterPath": "/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 27205,
+    "title": "Inception",
+    "year": 2010,
+    "genreIds": [
+      28,
+      878,
+      12
+    ],
+    "voteAverage": 8.372,
+    "posterPath": "/xlaY2zyzMfkhk0HSC5VUwzoZPU1.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 24428,
+    "title": "The Avengers",
+    "year": 2012,
+    "genreIds": [
+      878,
+      28,
+      12
+    ],
+    "voteAverage": 8.052,
+    "posterPath": "/RYMX2wcKCBAr24UyPD7xwmjaTn.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 293660,
+    "title": "Deadpool",
+    "year": 2016,
+    "genreIds": [
+      28,
+      12,
+      35
+    ],
+    "voteAverage": 7.625,
+    "posterPath": "/3E53WEZJqP6aM84D8CckXx4pIHw.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 299536,
+    "title": "Avengers: Infinity War",
+    "year": 2018,
+    "genreIds": [
+      12,
+      28,
+      878
+    ],
+    "voteAverage": 8.238,
+    "posterPath": "/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 118340,
+    "title": "Guardians of the Galaxy",
+    "year": 2014,
+    "genreIds": [
+      28,
+      878,
+      12
+    ],
+    "voteAverage": 7.906,
+    "posterPath": "/r7vmZjiyZw9rpJMQJdXpjgiCOk9.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 68718,
+    "title": "Django Unchained",
+    "year": 2012,
+    "genreIds": [
+      18,
+      37
+    ],
+    "voteAverage": 8.192,
+    "posterPath": "/7oWY8VDWW7thTzWh3OKYRkWUlD5.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 299534,
+    "title": "Avengers: Endgame",
+    "year": 2019,
+    "genreIds": [
+      12,
+      878,
+      28
+    ],
+    "voteAverage": 8.238,
+    "posterPath": "/ulzhLuWrPK07P1YkdWQLZnQh1JL.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 475557,
+    "title": "Joker",
+    "year": 2019,
+    "genreIds": [
+      80,
+      53,
+      18
+    ],
+    "voteAverage": 8.123,
+    "posterPath": "/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 106646,
+    "title": "The Wolf of Wall Street",
+    "year": 2013,
+    "genreIds": [
+      80,
+      18,
+      35
+    ],
+    "voteAverage": 8.028,
+    "posterPath": "/kW9LmvYHAaS9iA0tHmZVq8hQYoq.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 11324,
+    "title": "Shutter Island",
+    "year": 2010,
+    "genreIds": [
+      18,
+      53,
+      9648
+    ],
+    "voteAverage": 8.198,
+    "posterPath": "/nrmXQ0zcZUL8jFLrakWc90IR8z9.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 99861,
+    "title": "Avengers: Age of Ultron",
+    "year": 2015,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.274,
+    "posterPath": "/4ssDuvEDkSArWEdyBl2X5EHvYKU.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 49026,
+    "title": "The Dark Knight Rises",
+    "year": 2012,
+    "genreIds": [
+      28,
+      80,
+      18,
+      53
+    ],
+    "voteAverage": 7.795,
+    "posterPath": "/hr0L2aueqlP2BYUblTTjmtn0hw4.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 76341,
+    "title": "Mad Max: Fury Road",
+    "year": 2015,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.635,
+    "posterPath": "/hA2ple9q4qnwxp3hKVNhroipsir.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 271110,
+    "title": "Captain America: Civil War",
+    "year": 2016,
+    "genreIds": [
+      12,
+      28,
+      878
+    ],
+    "voteAverage": 7.449,
+    "posterPath": "/rAGiXaUfPzY7CDEyNKUofk3Kw2e.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 284054,
+    "title": "Black Panther",
+    "year": 2018,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.364,
+    "posterPath": "/uxzzxijgPIY7slzFvMotPv8wjKA.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 150540,
+    "title": "Inside Out",
+    "year": 2015,
+    "genreIds": [
+      16,
+      10751,
+      12,
+      18,
+      35
+    ],
+    "voteAverage": 7.908,
+    "posterPath": "/2H1TmgdfNtsKlU9jKdeNyYL5y8T.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 284052,
+    "title": "Doctor Strange",
+    "year": 2016,
+    "genreIds": [
+      14,
+      12,
+      28
+    ],
+    "voteAverage": 7.423,
+    "posterPath": "/xf8PbyQcR5ucXErmZNzdKR0s8ya.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 70160,
+    "title": "The Hunger Games",
+    "year": 2012,
+    "genreIds": [
+      878,
+      12,
+      28,
+      53
+    ],
+    "voteAverage": 7.224,
+    "posterPath": "/yXCbOiVDCxO71zI7cuwBRXdftq8.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 315635,
+    "title": "Spider-Man: Homecoming",
+    "year": 2017,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.331,
+    "posterPath": "/c24sv2weTHPsmDa7jEMN0m2P3RT.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 283995,
+    "title": "Guardians of the Galaxy Vol. 2",
+    "year": 2017,
+    "genreIds": [
+      878,
+      12,
+      28
+    ],
+    "voteAverage": 7.61,
+    "posterPath": "/y4MBh0EjBlMuOzv9axM4qJlmhzz.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 1771,
+    "title": "Captain America: The First Avenger",
+    "year": 2011,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.009,
+    "posterPath": "/vSNxAJTlD0r02V9sPYpOjqDZXUK.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 284053,
+    "title": "Thor: Ragnarok",
+    "year": 2017,
+    "genreIds": [
+      28,
+      878,
+      35
+    ],
+    "voteAverage": 7.582,
+    "posterPath": "/rzRwTcFvttcN1ZpX2xv4j3tSdJu.jpg"
+  },
+  {
+    "era": "10s",
+    "tmdbId": 12445,
+    "title": "Harry Potter and the Deathly Hallows: Part 2",
+    "year": 2011,
+    "genreIds": [
+      12,
+      14
+    ],
+    "voteAverage": 8.079,
+    "posterPath": "/c54HpQmuwXjHq2C9wmoACjxoom3.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 634649,
+    "title": "Spider-Man: No Way Home",
+    "year": 2021,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.934,
+    "posterPath": "/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 438631,
+    "title": "Dune",
+    "year": 2021,
+    "genreIds": [
+      878,
+      12
+    ],
+    "voteAverage": 7.781,
+    "posterPath": "/gDzOcq0pfeCeqMBwKIJlSmQpjkZ.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 76600,
+    "title": "Avatar: The Way of Water",
+    "year": 2022,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.594,
+    "posterPath": "/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 414906,
+    "title": "The Batman",
+    "year": 2022,
+    "genreIds": [
+      80,
+      9648,
+      53
+    ],
+    "voteAverage": 7.662,
+    "posterPath": "/74xTEgt7R36Fpooo50r9T25onhq.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 872585,
+    "title": "Oppenheimer",
+    "year": 2023,
+    "genreIds": [
+      18,
+      36
+    ],
+    "voteAverage": 8.025,
+    "posterPath": "/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 508442,
+    "title": "Soul",
+    "year": 2020,
+    "genreIds": [
+      16,
+      10751,
+      18,
+      10402,
+      14
+    ],
+    "voteAverage": 8.091,
+    "posterPath": "/6jmppcaubzLF8wkXM36ganVISCo.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 497698,
+    "title": "Black Widow",
+    "year": 2021,
+    "genreIds": [
+      28,
+      12,
+      878
+    ],
+    "voteAverage": 7.166,
+    "posterPath": "/qAZ0pzat24kLdO3o8ejmbLxyOac.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 577922,
+    "title": "Tenet",
+    "year": 2020,
+    "genreIds": [
+      28,
+      53,
+      878
+    ],
+    "voteAverage": 7.176,
+    "posterPath": "/aCIFMriQh8rvhxpN1IWGgvH0Tlg.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 361743,
+    "title": "Top Gun: Maverick",
+    "year": 2022,
+    "genreIds": [
+      28,
+      18
+    ],
+    "voteAverage": 8.159,
+    "posterPath": "/n0YuM4f5lvGAP6MAW2kBIzugXnc.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 791373,
+    "title": "Zack Snyder's Justice League",
+    "year": 2021,
+    "genreIds": [
+      28,
+      12,
+      14
+    ],
+    "voteAverage": 8.087,
+    "posterPath": "/tnAuB8q5vv7Ax9UAEje5Xi4BXik.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 502356,
+    "title": "The Super Mario Bros. Movie",
+    "year": 2023,
+    "genreIds": [
+      10751,
+      35,
+      12,
+      14,
+      16
+    ],
+    "voteAverage": 7.603,
+    "posterPath": "/qNBAXBIQlnOThrVvA6mA2B5ggV6.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 399566,
+    "title": "Godzilla vs. Kong",
+    "year": 2021,
+    "genreIds": [
+      28,
+      878,
+      12
+    ],
+    "voteAverage": 7.534,
+    "posterPath": "/pgqgaUx1cJb5oZQQ5v0tNARCeBp.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 566525,
+    "title": "Shang-Chi and the Legend of the Ten Rings",
+    "year": 2021,
+    "genreIds": [
+      28,
+      12,
+      14
+    ],
+    "voteAverage": 7.494,
+    "posterPath": "/9f2Q0U3IOsLgrI2HkvldwSABZy5.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 454626,
+    "title": "Sonic the Hedgehog",
+    "year": 2020,
+    "genreIds": [
+      28,
+      878,
+      35,
+      10751
+    ],
+    "voteAverage": 7.281,
+    "posterPath": "/aQvJ5WPzZgYVDrxLX4R6cLJCEaQ.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 453395,
+    "title": "Doctor Strange in the Multiverse of Madness",
+    "year": 2022,
+    "genreIds": [
+      14,
+      28,
+      12
+    ],
+    "voteAverage": 7.232,
+    "posterPath": "/ddJcSKbcp4rKZTmuyWaMhuwcfMz.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 568124,
+    "title": "Encanto",
+    "year": 2021,
+    "genreIds": [
+      16,
+      35,
+      10751,
+      14
+    ],
+    "voteAverage": 7.567,
+    "posterPath": "/4j0PNHkMr5ax3IA8tjtxcmPU3QT.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 337404,
+    "title": "Cruella",
+    "year": 2021,
+    "genreIds": [
+      35,
+      80,
+      18
+    ],
+    "voteAverage": 7.971,
+    "posterPath": "/hjS9mH8KvRiGHgjk6VUZH7OT0Ng.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 550988,
+    "title": "Free Guy",
+    "year": 2021,
+    "genreIds": [
+      35,
+      12,
+      878
+    ],
+    "voteAverage": 7.451,
+    "posterPath": "/dxraF0qPr1OEgJk17ltQTO84kQF.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 436969,
+    "title": "The Suicide Squad",
+    "year": 2021,
+    "genreIds": [
+      28,
+      35,
+      12
+    ],
+    "voteAverage": 7.458,
+    "posterPath": "/q61qEyssk2ku3okWICKArlAdhBn.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 646380,
+    "title": "Don't Look Up",
+    "year": 2021,
+    "genreIds": [
+      35,
+      878,
+      18
+    ],
+    "voteAverage": 7.063,
+    "posterPath": "/th4E1yqsE8DGpAseLiUrI60Hf8V.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 508943,
+    "title": "Luca",
+    "year": 2021,
+    "genreIds": [
+      16,
+      10751,
+      14,
+      18,
+      35
+    ],
+    "voteAverage": 7.781,
+    "posterPath": "/9x4i9uKGXt8IiiIF5Ey0DIoY738.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 315162,
+    "title": "Puss in Boots: The Last Wish",
+    "year": 2022,
+    "genreIds": [
+      16,
+      12,
+      14,
+      35,
+      10751
+    ],
+    "voteAverage": 8.21,
+    "posterPath": "/kuf6dutpsT0vSVehic3EZIqkOBt.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 533535,
+    "title": "Deadpool & Wolverine",
+    "year": 2024,
+    "genreIds": [
+      28,
+      35,
+      878
+    ],
+    "voteAverage": 7.575,
+    "posterPath": "/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg"
+  },
+  {
+    "era": "20s",
+    "tmdbId": 38700,
+    "title": "Bad Boys for Life",
+    "year": 2020,
+    "genreIds": [
+      53,
+      28,
+      80
+    ],
+    "voteAverage": 7.112,
+    "posterPath": "/y95lQLnuNKdPAzw9F9Ab8kJ80c3.jpg"
+  }
+]

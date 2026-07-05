@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 
 import { Fonts } from '@/constants/theme';
 import { useStatsColors, type StatsV2ColorTokens } from '@/constants/stats-v2-theme';
@@ -12,6 +11,7 @@ import { useEffectiveColorScheme } from '@/lib/theme-context';
 import { usePremium } from '@/hooks/use-premium';
 import { useRatingPersonality } from '@/hooks/use-rating-personality';
 import { INSIGHTS_THRESHOLD } from '@/components/stats-v2/going-deeper';
+import { Gated } from '@/components/stats-v2/gated-section';
 import { ContentContainer } from '@/components/content-container';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { DivergenceRow, RatingPersonality } from '@/lib/rating-personality';
@@ -109,43 +109,6 @@ function DeltaChip({ delta }: { delta: number }) {
         {up ? '+' : ''}
         {delta.toFixed(1)}
       </Text>
-    </View>
-  );
-}
-
-/** Gated wrapper — blurs children behind a centered "Unlock" pill for free
- *  users; renders children as-is for members. */
-function Gated({
-  gated,
-  c,
-  scheme,
-  children,
-}: {
-  gated: boolean;
-  c: StatsV2ColorTokens;
-  scheme: 'light' | 'dark';
-  children: React.ReactNode;
-}) {
-  if (!gated) return <>{children}</>;
-  return (
-    <View style={styles.gatedWrap}>
-      <View pointerEvents="none">{children}</View>
-      {/* dimezisBlurView: without it Android renders a translucent tint, not a
-          blur, and the gated content stays legible — see journey/[id].tsx. */}
-      <BlurView
-        intensity={55}
-        tint={scheme === 'light' ? 'light' : 'dark'}
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.gatedOverlay} pointerEvents="none">
-        <View style={[styles.lockPill, { backgroundColor: c.card, borderColor: c.line }]}>
-          <Ionicons name="lock-closed" size={14} color={c.gold} />
-          <Text maxFontSizeMultiplier={1.2} style={[styles.lockPillText, { color: c.gold }]}>
-            Unlock with PocketStubs+
-          </Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -809,36 +772,13 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
 
-  // ── Gated overlay ───────────────────────────────────────────────────────
-  gatedWrap: {
-    position: 'relative',
-    // Clip the BlurView to the card radius — unclipped it paints a hard-edged
-    // square and the blur bleed reads as oversized smudges.
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
+  // ── Gated card layout ───────────────────────────────────────────────────
+  // While gated, `Gated` (components/stats-v2/gated-section.tsx) owns the
+  // bottom margin — a margin on the card too would extend the wrapper (child
+  // margins grow the parent) and the blur would paint a frosted strip past
+  // the card edge.
   cardInGate: {
     marginBottom: 0,
-  },
-  gatedOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lockPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  lockPillText: {
-    fontFamily: Fonts.inter.bold,
-    fontSize: 13,
-    lineHeight: 16,
   },
 
   // ── See Plans ───────────────────────────────────────────────────────────
