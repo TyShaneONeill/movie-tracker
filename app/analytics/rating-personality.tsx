@@ -26,8 +26,11 @@ const NEGATIVE = '#fb7185'; // rose-400 — negative delta (matches design hando
  * the "Where you part ways" divergence rows.
  *
  * Gating (member vs free) uses `usePremium()`:
- *   • Free  → the distribution + divergence sections are blurred behind a lock
- *             pill; a "See Plans" button routes to /upgrade (same as the
+ *   • Free  → the distribution + divergence sections render PLACEHOLDER data
+ *             (a canned histogram + skeleton rows) behind the blur + lock
+ *             pill — the user's real gated content is never mounted, so it
+ *             can't be read even where expo-blur renders weakly (Android).
+ *             A "See Plans" button routes to /upgrade (same as the
  *             ranked-detail paywall). Verdict + "The numbers" stay visible as a
  *             teaser (matching the mockup, which only blurs the proof).
  *   • Member → full content.
@@ -234,7 +237,7 @@ function Content({
       </Text>
       <Gated gated={gated} c={c} scheme={scheme}>
         <View style={[styles.card, styles.distCard, { backgroundColor: c.card, borderColor: c.line }]}>
-          <Distribution c={c} rp={rp} />
+          <Distribution c={c} dist={gated ? PLACEHOLDER_DIST : rp.dist} />
         </View>
       </Gated>
 
@@ -246,7 +249,9 @@ function Content({
         Your biggest gaps from the PocketStubs consensus.
       </Text>
       <Gated gated={gated} c={c} scheme={scheme}>
-        {rp.hasDivergenceData ? (
+        {gated ? (
+          <PlaceholderDiverge c={c} />
+        ) : rp.hasDivergenceData ? (
           <View>
             {rp.generous.length > 0 && (
               <>
@@ -333,8 +338,15 @@ function VerdictScale({
   );
 }
 
-function Distribution({ c, rp }: { c: StatsV2ColorTokens; rp: RatingPersonality }) {
-  const max = Math.max(1, ...rp.dist.you, ...rp.dist.community);
+/** Canned histogram shown to free users under the paywall blur — deliberately
+ *  plausible-looking, never the user's real data (see gating note up top). */
+const PLACEHOLDER_DIST: RatingPersonality['dist'] = {
+  you: [0, 0, 1, 1, 2, 4, 5, 7, 4, 2],
+  community: [1, 1, 2, 3, 5, 7, 8, 6, 4, 2],
+};
+
+function Distribution({ c, dist }: { c: StatsV2ColorTokens; dist: RatingPersonality['dist'] }) {
+  const max = Math.max(1, ...dist.you, ...dist.community);
   return (
     <View>
       <View style={styles.legend}>
@@ -352,8 +364,8 @@ function Distribution({ c, rp }: { c: StatsV2ColorTokens; rp: RatingPersonality 
         </View>
       </View>
       <View style={styles.bars}>
-        {rp.dist.you.map((yv, i) => {
-          const cv = rp.dist.community[i] ?? 0;
+        {dist.you.map((yv, i) => {
+          const cv = dist.community[i] ?? 0;
           return (
             <View key={i} style={styles.barCol}>
               <View style={styles.barPair}>
@@ -371,6 +383,46 @@ function Distribution({ c, rp }: { c: StatsV2ColorTokens; rp: RatingPersonality 
           );
         })}
       </View>
+    </View>
+  );
+}
+
+/** Skeleton stand-ins for the divergence rows shown to free users — real rows
+ *  are never mounted while gated, so nothing legible sits under a weak blur. */
+function PlaceholderDiverge({ c }: { c: StatsV2ColorTokens }) {
+  return (
+    <View>
+      <View style={styles.divergeGroupHeader}>
+        <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
+        <Text maxFontSizeMultiplier={1.2} style={[styles.divergeGroupText, { color: '#10b981' }]}>
+          More generous than the crowd
+        </Text>
+      </View>
+      {[0, 1].map((i) => (
+        <PlaceholderDivergeRow key={`pgen-${i}`} c={c} />
+      ))}
+      <View style={[styles.divergeGroupHeader, styles.divergeGroupSpaced]}>
+        <View style={[styles.dot, { backgroundColor: NEGATIVE }]} />
+        <Text maxFontSizeMultiplier={1.2} style={[styles.divergeGroupText, { color: NEGATIVE }]}>
+          Tougher than the crowd
+        </Text>
+      </View>
+      {[0, 1].map((i) => (
+        <PlaceholderDivergeRow key={`ptuf-${i}`} c={c} />
+      ))}
+    </View>
+  );
+}
+
+function PlaceholderDivergeRow({ c }: { c: StatsV2ColorTokens }) {
+  return (
+    <View style={[styles.divergeRow, { borderBottomColor: c.line }]}>
+      <View style={[styles.divergePoster, { backgroundColor: c.cardHi }]} />
+      <View style={styles.divergeInfo}>
+        <View style={[styles.skelBar, styles.skelTitle, { backgroundColor: c.cardHi }]} />
+        <View style={[styles.skelBar, styles.skelMeta, { backgroundColor: c.cardHi }]} />
+      </View>
+      <View style={[styles.skelBar, styles.skelChip, { backgroundColor: c.cardHi }]} />
     </View>
   );
 }
@@ -715,6 +767,23 @@ const styles = StyleSheet.create({
   divergeMono: {
     fontFamily: Fonts.mono.bold,
     fontSize: 12,
+  },
+  skelBar: {
+    borderRadius: 4,
+  },
+  skelTitle: {
+    height: 12,
+    width: '70%',
+    marginBottom: 7,
+  },
+  skelMeta: {
+    height: 10,
+    width: '45%',
+  },
+  skelChip: {
+    height: 22,
+    width: 46,
+    borderRadius: 999,
   },
   emptyDiverge: {
     alignItems: 'center',
