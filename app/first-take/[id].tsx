@@ -278,7 +278,12 @@ export default function FirstTakeDetailScreen() {
             <Text style={styles.topBarTitle}>First Take</Text>
             {isOwn || firstTake.visibility === 'public' ? (
               <View style={styles.topBarActions}>
-                {isOwn && (
+                {/* Hide the edit affordance once the post is locked (grace
+                    window closed or it has engagement) — mirrors comments,
+                    which drop their Edit action when locked. handleEditPress
+                    keeps its own guard as a defensive fallback for the
+                    like/save race. */}
+                {isOwn && canEditPost(firstTake) && (
                   <Pressable
                     onPress={handleEditPress}
                     disabled={updateMutation.isPending}
