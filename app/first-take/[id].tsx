@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Keyboard, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
@@ -12,7 +12,7 @@ import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
-import type { FirstTake } from '@/lib/database.types';
+import type { FirstTake, ReviewVisibility } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
 import { EditedBadge } from '@/components/edited-badge';
@@ -21,6 +21,10 @@ import ViewShot from 'react-native-view-shot';
 import { ShareableFirstTakeCard } from '@/components/share/shareable-first-take-card';
 import { captureCard, shareFirstTake, shareFirstTakeUrl } from '@/lib/share-service';
 import { analytics } from '@/lib/analytics';
+import { FirstTakeModal } from '@/components/first-take-modal';
+import { updateFirstTake } from '@/lib/first-take-service';
+import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
+import { hapticImpact } from '@/lib/haptics';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -51,8 +55,10 @@ export default function FirstTakeDetailScreen() {
 
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const viewShotRef = useRef<ViewShot>(null);
+  const queryClient = useQueryClient();
 
   // Reviewer profile for the share card
   const { data: reviewerProfile } = useQuery({
@@ -92,6 +98,62 @@ export default function FirstTakeDetailScreen() {
   const isOwn = !!user && !!firstTake && firstTake.user_id === user.id;
   const needsFollowCheck =
     !!firstTake && firstTake.visibility === 'followers_only' && !isOwn;
+
+  // PS-12 edit path: update an existing First Take through the same service the
+  // create flow uses. The service stamps `edited_at` on content change and
+  // re-throws `edit_window_closed` when the DB grace-window trigger rejects it.
+  const updateMutation = useMutation({
+    mutationFn: (updates: {
+      quoteText: string;
+      isSpoiler: boolean;
+      rating: number | null;
+      visibility: ReviewVisibility;
+    }) => updateFirstTake(firstTake!.id, updates),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['firstTake', id], updated);
+      queryClient.invalidateQueries({ queryKey: ['firstTake', updated.user_id, updated.tmdb_id, updated.media_type] });
+      queryClient.invalidateQueries({ queryKey: ['first-takes', updated.user_id] });
+      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+    },
+  });
+
+  // Gate opening the editor: mirror the movie/tv review pattern. A First Take is
+  // editable only within the grace window and before any likes/comments; a locked
+  // take tells the user to delete & repost instead of opening a doomed editor.
+  const handleEditPress = () => {
+    if (!firstTake) return;
+    hapticImpact();
+    if (!canEditPost(firstTake)) {
+      Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
+      return;
+    }
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (data: {
+    rating: number;
+    quoteText: string;
+    isSpoiler: boolean;
+    visibility: ReviewVisibility;
+  }) => {
+    if (!firstTake) return;
+    try {
+      await updateMutation.mutateAsync({
+        quoteText: data.quoteText,
+        isSpoiler: data.isSpoiler,
+        rating: data.rating,
+        visibility: data.visibility,
+      });
+      setShowEditModal(false);
+    } catch (err) {
+      if (isEditWindowClosedError(err)) {
+        setShowEditModal(false);
+        Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
+      } else {
+        Alert.alert('Error', 'Failed to save your First Take. Please try again.');
+      }
+    }
+  };
 
   const { data: followsData, isLoading: followsLoading } = useQuery({
     queryKey: ['followCheck', user?.id, firstTake?.user_id],
@@ -214,14 +276,29 @@ export default function FirstTakeDetailScreen() {
               <Ionicons name="chevron-back" size={28} color={colors.text} />
             </Pressable>
             <Text style={styles.topBarTitle}>First Take</Text>
-            {firstTake.visibility === 'public' ? (
-              <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
-                {isSharing ? (
-                  <ActivityIndicator size="small" color={colors.text} />
-                ) : (
-                  <Ionicons name="share-outline" size={24} color={colors.text} />
+            {isOwn || firstTake.visibility === 'public' ? (
+              <View style={styles.topBarActions}>
+                {isOwn && (
+                  <Pressable
+                    onPress={handleEditPress}
+                    disabled={updateMutation.isPending}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit First Take"
+                  >
+                    <Ionicons name="pencil-outline" size={22} color={colors.text} />
+                  </Pressable>
                 )}
-              </Pressable>
+                {firstTake.visibility === 'public' && (
+                  <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
+                    {isSharing ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Ionicons name="share-outline" size={24} color={colors.text} />
+                    )}
+                  </Pressable>
+                )}
+              </View>
             ) : (
               <View style={{ width: 28 }} />
             )}
@@ -342,6 +419,25 @@ export default function FirstTakeDetailScreen() {
             />
           </ViewShot>
         )}
+
+        {/* Edit modal — own First Takes only, gated by the grace window */}
+        {isOwn && (
+          <FirstTakeModal
+            visible={showEditModal}
+            onClose={() => setShowEditModal(false)}
+            onSubmit={handleEditSubmit}
+            movieTitle={firstTake.movie_title}
+            moviePosterUrl={posterUri ?? undefined}
+            isSubmitting={updateMutation.isPending}
+            isEditing
+            initialValues={{
+              rating: firstTake.rating,
+              quoteText: firstTake.quote_text,
+              isSpoiler: firstTake.is_spoiler ?? false,
+              visibility: firstTake.visibility as ReviewVisibility,
+            }}
+          />
+        )}
       </SafeAreaView>
     </>
   );
@@ -369,6 +465,11 @@ function createStyles(colors: typeof Colors.dark) {
       height: 48,
       paddingHorizontal: Spacing.md,
       paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
+    },
+    topBarActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
     },
     topBarTitle: {
       ...Typography.body.lg,

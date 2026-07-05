@@ -31,6 +31,13 @@ const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
   { value: 'private', label: 'Private' },
 ];
 
+interface FirstTakeInitialValues {
+  rating: number | null;
+  quoteText: string;
+  isSpoiler: boolean;
+  visibility: ReviewVisibility;
+}
+
 interface FirstTakeModalProps {
   visible: boolean;
   onClose: () => void;
@@ -38,6 +45,10 @@ interface FirstTakeModalProps {
   movieTitle: string;
   moviePosterUrl?: string;
   isSubmitting?: boolean;
+  /** When provided, the modal opens pre-filled for editing an existing First Take. */
+  initialValues?: FirstTakeInitialValues | null;
+  /** Optional explicit edit flag; defaults to whether initialValues was passed. */
+  isEditing?: boolean;
 }
 
 export function FirstTakeModal({
@@ -47,22 +58,33 @@ export function FirstTakeModal({
   movieTitle,
   moviePosterUrl,
   isSubmitting = false,
+  initialValues,
+  isEditing: isEditingProp,
 }: FirstTakeModalProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
-  const [rating, setRating] = useState<number>(5);
-  const [quoteText, setQuoteText] = useState('');
-  const [isSpoiler, setIsSpoiler] = useState(false);
-  const [visibility, setVisibility] = useState<ReviewVisibility>(preferences?.reviewVisibility ?? 'public');
+  const isEditing = isEditingProp ?? !!initialValues;
+  const [rating, setRating] = useState<number>(initialValues?.rating ?? 5);
+  const [quoteText, setQuoteText] = useState(initialValues?.quoteText ?? '');
+  const [isSpoiler, setIsSpoiler] = useState(initialValues?.isSpoiler ?? false);
+  const [visibility, setVisibility] = useState<ReviewVisibility>(
+    initialValues?.visibility ?? preferences?.reviewVisibility ?? 'public'
+  );
 
-  // Sync visibility default when preferences load
+  // Reset form when the modal opens: pre-fill from initialValues for edit,
+  // otherwise fall back to create defaults. Keyed on `visible` + `initialValues`
+  // so a subsequent CREATE doesn't leak the previous EDIT's values, and so the
+  // preferences visibility default populates once it loads.
   useEffect(() => {
-    if (preferences?.reviewVisibility) {
-      setVisibility(preferences.reviewVisibility);
+    if (visible) {
+      setRating(initialValues?.rating ?? 5);
+      setQuoteText(initialValues?.quoteText ?? '');
+      setIsSpoiler(initialValues?.isSpoiler ?? false);
+      setVisibility(initialValues?.visibility ?? preferences?.reviewVisibility ?? 'public');
     }
-  }, [preferences?.reviewVisibility]);
+  }, [visible, initialValues, preferences?.reviewVisibility]);
 
   const canSubmit = (rating > 0 || quoteText.trim().length > 0) && !isSubmitting;
   const charCount = quoteText.length;
@@ -81,7 +103,7 @@ export function FirstTakeModal({
 
     Toast.show({
       type: 'success',
-      text1: 'First Take posted!',
+      text1: isEditing ? 'First Take updated!' : 'First Take posted!',
       visibilityTime: 2000,
     });
     hapticNotification(NotificationFeedbackType.Success);
@@ -139,7 +161,7 @@ export function FirstTakeModal({
                   <Text style={styles.movieTitle} numberOfLines={2}>
                     {movieTitle}
                   </Text>
-                  <Text style={styles.subtitle}>Your First Take</Text>
+                  <Text style={styles.subtitle}>{isEditing ? 'Edit First Take' : 'Your First Take'}</Text>
                 </View>
                 <Pressable
                   style={({ pressed }) => [
@@ -269,7 +291,7 @@ export function FirstTakeModal({
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={[styles.submitButtonText, !canSubmit && styles.submitButtonTextDisabled]}>
-                    Post First Take
+                    {isEditing ? 'Save' : 'Post First Take'}
                   </Text>
                 )}
               </Pressable>
