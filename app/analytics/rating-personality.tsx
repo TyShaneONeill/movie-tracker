@@ -133,7 +133,7 @@ function Gated({
       {/* dimezisBlurView: without it Android renders a translucent tint, not a
           blur, and the gated content stays legible — see journey/[id].tsx. */}
       <BlurView
-        intensity={40}
+        intensity={55}
         tint={scheme === 'light' ? 'light' : 'dark'}
         experimentalBlurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
@@ -236,7 +236,17 @@ function Content({
         HOW YOUR SCORES FALL
       </Text>
       <Gated gated={gated} c={c} scheme={scheme}>
-        <View style={[styles.card, styles.distCard, { backgroundColor: c.card, borderColor: c.line }]}>
+        {/* While gated the wrapper owns the bottom margin — a margin on the
+            card would extend the wrapper (child margins grow the parent) and
+            the blur would paint a frosted strip past the card edge. */}
+        <View
+          style={[
+            styles.card,
+            styles.distCard,
+            gated && styles.cardInGate,
+            { backgroundColor: c.card, borderColor: c.line },
+          ]}
+        >
           <Distribution c={c} dist={gated ? PLACEHOLDER_DIST : rp.dist} />
         </View>
       </Gated>
@@ -802,6 +812,14 @@ const styles = StyleSheet.create({
   // ── Gated overlay ───────────────────────────────────────────────────────
   gatedWrap: {
     position: 'relative',
+    // Clip the BlurView to the card radius — unclipped it paints a hard-edged
+    // square and the blur bleed reads as oversized smudges.
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  cardInGate: {
+    marginBottom: 0,
   },
   gatedOverlay: {
     ...StyleSheet.absoluteFillObject,
