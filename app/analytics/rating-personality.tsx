@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 2,
+    paddingHorizontal: 16, // match stats-v2-screen contentContainer
     paddingBottom: 120,
   },
 
