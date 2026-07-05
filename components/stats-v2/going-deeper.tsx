@@ -81,6 +81,7 @@ export const GOING_DEEPER_FEATURES: GoingDeeperFeature[] = [
     title: 'Blind Spots',
     blurb: 'Genres and eras you under-watch — with a nudge toward a hidden gem.',
     buildable: true,
+    route: '/analytics/blind-spots',
   },
   {
     key: 'context-split',
