@@ -43,6 +43,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { ReviewModal } from '@/components/review-modal';
+import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { TrailerModal } from '@/components/modals/trailer-modal';
@@ -455,6 +456,14 @@ export default function MovieDetailScreen() {
     }
 
     requireAuth(() => {
+      // PS-12 edit grace window: editing an EXISTING review is only allowed
+      // within 15 min of posting and before any likes/comments. Creating a new
+      // review is always allowed. When a locked review exists, don't open the
+      // edit modal — tell the user to delete & repost instead.
+      if (hasReview && existingReview && !canEditPost(existingReview)) {
+        Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
+        return;
+      }
       setShowReviewModal(true);
     }, 'Sign in to write reviews');
   };
@@ -498,8 +507,13 @@ export default function MovieDetailScreen() {
         });
       }
       setShowReviewModal(false);
-    } catch {
-      Toast.show({ type: 'error', text1: 'Failed to save your review', visibilityTime: 3000 });
+    } catch (err) {
+      if (isEditWindowClosedError(err)) {
+        setShowReviewModal(false);
+        Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
+      } else {
+        Toast.show({ type: 'error', text1: 'Failed to save your review', visibilityTime: 3000 });
+      }
     }
   };
 

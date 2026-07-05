@@ -15,6 +15,7 @@ import { formatRelativeTime } from '@/lib/utils';
 import type { FirstTake } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
+import { EditedBadge } from '@/components/edited-badge';
 import { ContentContainer } from '@/components/content-container';
 import ViewShot from 'react-native-view-shot';
 import { ShareableFirstTakeCard } from '@/components/share/shareable-first-take-card';
@@ -254,8 +255,11 @@ export default function FirstTakeDetailScreen() {
                   {firstTake.movie_title}
                 </Text>
                 <Text style={styles.timeText}>
-                  {formatRelativeTime(firstTake.created_at ?? '')}
+                  Posted {formatRelativeTime(firstTake.created_at ?? '')}
                 </Text>
+                <View style={styles.editedRow}>
+                  <EditedBadge editedAt={firstTake.edited_at} createdAt={firstTake.created_at} />
+                </View>
               </View>
 
               {firstTake.rating != null && firstTake.rating > 0 ? (
@@ -407,6 +411,10 @@ function createStyles(colors: typeof Colors.dark) {
       ...Typography.body.sm,
       color: colors.textSecondary,
       marginTop: Spacing.xs,
+    },
+    editedRow: {
+      marginTop: Spacing.xs,
+      alignSelf: 'flex-start',
     },
     ratingBadge: {
       width: 56,

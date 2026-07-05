@@ -10,6 +10,7 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
 import { LikeButton } from '@/components/like-button';
 import { LikedByIndicator } from '@/components/liked-by-indicator';
+import { EditedBadge } from '@/components/edited-badge';
 
 export interface ReviewCardProps {
   id: string;
@@ -22,6 +23,7 @@ export interface ReviewCardProps {
   isRewatch: boolean;
   visibility?: string;
   createdAt: string;
+  editedAt?: string | null;
   likeCount?: number;
   isLiked?: boolean;
   onPress: () => void;
@@ -56,6 +58,7 @@ export function ReviewCard({
   isRewatch,
   visibility,
   createdAt,
+  editedAt,
   likeCount,
   isLiked,
   onPress,
@@ -117,9 +120,10 @@ export function ReviewCard({
           <Text style={styles.movieTitle} numberOfLines={1}>
             {movieTitle}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
             <Text style={styles.time}>{formatRelativeTime(createdAt)}</Text>
             <Ionicons name={getVisibilityIcon(visibility) as any} size={12} color={colors.textTertiary} />
+            <EditedBadge editedAt={editedAt} compact />
           </View>
         </View>
         <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(rating, colors.tint) }]}>

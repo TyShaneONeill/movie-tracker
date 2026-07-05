@@ -45,6 +45,24 @@ export function formatRelativeTime(dateString: string): string {
 }
 
 /**
+ * Format a date string as an absolute, human-readable timestamp including the
+ * time — e.g. "Jan 15, 2026, 3:04 PM". Used for the "Posted … · Edited …"
+ * detail tooltip. Returns '' for an unparseable/empty input.
+ */
+export function formatFullTimestamp(dateString: string | null | undefined): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
  * Returns true if the given release date is in the future (i.e. movie has not yet been released).
  * Returns false if release date is null, undefined, or already past.
  */

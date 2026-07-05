@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Review, ReviewInsert, ReviewUpdate, ReviewVisibility } from './database.types';
+import { REVIEW_CONTENT_FIELDS, contentChanged } from './edited-provenance';
 
 export interface CreateReviewData {
   tmdbId: number;
@@ -157,6 +158,27 @@ export async function updateReview(
     updated_at: new Date().toISOString(),
   };
 
+  // Stamp `edited_at` ONLY when genuine content changed (title/text/rating/
+  // spoiler). Visibility- or rewatch-only edits leave edited_at untouched.
+  // `updateData` already holds the normalized values exactly as they'll be
+  // stored, so we compare those against the current row.
+  const incomingContent: Record<string, unknown> = {};
+  for (const field of REVIEW_CONTENT_FIELDS) {
+    if (field in updateData) {
+      incomingContent[field] = (updateData as Record<string, unknown>)[field];
+    }
+  }
+  if (Object.keys(incomingContent).length > 0) {
+    const { data: current } = await supabase
+      .from('reviews')
+      .select('title, review_text, rating, is_spoiler')
+      .eq('id', reviewId)
+      .single();
+    if (contentChanged(current, incomingContent, REVIEW_CONTENT_FIELDS)) {
+      updateData.edited_at = new Date().toISOString();
+    }
+  }
+
   const { data, error } = (await (supabase
     .from('reviews') as any)
     .update(updateData)
@@ -165,6 +187,15 @@ export async function updateReview(
     .single()) as { data: Review; error: any };
 
   if (error) {
+    // The edit-grace-window trigger (PS-12) rejects locked content edits with
+    // HINT='edit_window_closed' and a friendly MESSAGE. Re-throw with the marker
+    // in the message so `isEditWindowClosedError` can detect it upstream.
+    if (
+      error?.hint === 'edit_window_closed' ||
+      String(error?.message ?? '').includes('edit_window_closed')
+    ) {
+      throw new Error('edit_window_closed');
+    }
     throw new Error(error.message || 'Failed to update review');
   }
 

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { FirstTake, FirstTakeInsert, FirstTakeUpdate, FirstTakeMediaType, ReviewVisibility } from './database.types';
+import { FIRST_TAKE_CONTENT_FIELDS, contentChanged } from './edited-provenance';
 
 export interface CreateFirstTakeData {
   tmdbId: number;
@@ -90,12 +91,32 @@ export async function updateFirstTake(
 ): Promise<FirstTake> {
   const updateData: FirstTakeUpdate = {
     ...(updates.reactionEmoji !== undefined && { reaction_emoji: updates.reactionEmoji }),
-    ...(updates.quoteText !== undefined && { quote_text: updates.quoteText }),
+    ...(updates.quoteText !== undefined && { quote_text: updates.quoteText.trim() }),
     ...(updates.isSpoiler !== undefined && { is_spoiler: updates.isSpoiler }),
     ...(updates.rating !== undefined && { rating: updates.rating }),
     ...(updates.visibility !== undefined && { visibility: updates.visibility }),
     updated_at: new Date().toISOString(),
   };
+
+  // Stamp `edited_at` ONLY when genuine content changed (quote/rating/emoji/
+  // spoiler). A visibility-only edit leaves edited_at untouched. `updateData`
+  // holds the normalized values as they'll be stored, so compare those.
+  const incomingContent: Record<string, unknown> = {};
+  for (const field of FIRST_TAKE_CONTENT_FIELDS) {
+    if (field in updateData) {
+      incomingContent[field] = (updateData as Record<string, unknown>)[field];
+    }
+  }
+  if (Object.keys(incomingContent).length > 0) {
+    const { data: current } = await supabase
+      .from('first_takes')
+      .select('quote_text, rating, reaction_emoji, is_spoiler')
+      .eq('id', firstTakeId)
+      .single();
+    if (contentChanged(current, incomingContent, FIRST_TAKE_CONTENT_FIELDS)) {
+      updateData.edited_at = new Date().toISOString();
+    }
+  }
 
   const { data, error } = (await (supabase
     .from('first_takes') as any)
@@ -105,6 +126,15 @@ export async function updateFirstTake(
     .single()) as { data: FirstTake; error: any };
 
   if (error) {
+    // The edit-grace-window trigger (PS-12) rejects locked content edits with
+    // HINT='edit_window_closed' and a friendly MESSAGE. Re-throw with the marker
+    // in the message so `isEditWindowClosedError` can detect it upstream.
+    if (
+      error?.hint === 'edit_window_closed' ||
+      String(error?.message ?? '').includes('edit_window_closed')
+    ) {
+      throw new Error('edit_window_closed');
+    }
     throw new Error(error.message || 'Failed to update first take');
   }
 

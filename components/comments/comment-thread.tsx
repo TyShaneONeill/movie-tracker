@@ -27,6 +27,7 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
     addComment,
     isAdding,
     deleteComment: deleteCommentFn,
+    editComment: editCommentFn,
     reportComment: reportCommentFn,
     likeComment: likeCommentFn,
     currentUserId,
@@ -87,6 +88,13 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
       }
     },
     [deleteCommentFn]
+  );
+
+  const handleEdit = useCallback(
+    async (commentId: string, body: string) => {
+      await editCommentFn({ commentId, body });
+    },
+    [editCommentFn]
   );
 
   const handleReport = useCallback(
@@ -158,6 +166,7 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
                 currentUserId={currentUserId}
                 onReply={handleReply}
                 onDelete={handleDelete}
+                onEdit={handleEdit}
                 onReport={handleReport}
                 onLike={handleLike}
                 onUserPress={handleUserPress}
@@ -171,6 +180,7 @@ export function CommentThread({ targetType, targetId }: CommentThreadProps) {
                   currentUserId={currentUserId}
                   isReply
                   onDelete={handleDelete}
+                  onEdit={handleEdit}
                   onReport={handleReport}
                   onLike={handleLike}
                   onUserPress={handleUserPress}

@@ -36,6 +36,7 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     comment_count: 0,
     created_at: minutesAgo(5),
     updated_at: minutesAgo(5),
+    edited_at: null,
   },
   {
     id: '2',
@@ -59,6 +60,7 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     comment_count: 0,
     created_at: hoursAgo(3),
     updated_at: hoursAgo(3),
+    edited_at: null,
   },
   {
     id: '3',
@@ -82,6 +84,7 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     comment_count: 0,
     created_at: daysAgo(1),
     updated_at: daysAgo(1),
+    edited_at: null,
   },
   {
     id: '4',
@@ -105,6 +108,7 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     comment_count: 0,
     created_at: daysAgo(3),
     updated_at: daysAgo(3),
+    edited_at: null,
   },
   {
     id: '5',
@@ -128,5 +132,6 @@ export const MOCK_FIRST_TAKES: FirstTake[] = [
     comment_count: 0,
     created_at: daysAgo(7),
     updated_at: daysAgo(7),
+    edited_at: null,
   },
 ];

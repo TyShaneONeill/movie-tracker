@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { LikeButton } from '@/components/like-button';
+import { EditedBadge } from '@/components/edited-badge';
 
 interface FeedItemCardProps {
   /**
@@ -37,6 +38,12 @@ interface FeedItemCardProps {
    * Timestamp text (e.g., "watched 2h ago")
    */
   timestamp: string;
+
+  /**
+   * ISO date string when the post's content was last edited, or null if never.
+   * When set, an "Edited {date}" badge is shown next to the timestamp.
+   */
+  editedAt?: string | null;
 
   /**
    * Movie title
@@ -144,6 +151,7 @@ export function FeedItemCard({
   userName,
   userAvatarUrl,
   timestamp,
+  editedAt,
   movieTitle,
   moviePosterUrl,
   rating,
@@ -295,6 +303,7 @@ export function FeedItemCard({
         <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
           {timestamp}
         </Text>
+        {editedAt && <EditedBadge editedAt={editedAt} compact />}
         {!isCurrentUser && onReport && (
           <Pressable
             onPress={onReport}

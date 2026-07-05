@@ -302,6 +302,7 @@ export default function UserProfileScreen() {
             quote={take.quote_text}
             rating={take.rating}
             createdAt={take.created_at ?? ''}
+            editedAt={take.edited_at}
             isLatest={index === 0}
             onPress={() => router.push(take.media_type === 'tv_show' ? `/tv/${take.tmdb_id}` : `/movie/${take.tmdb_id}`)}
           />
@@ -347,6 +348,7 @@ export default function UserProfileScreen() {
             isRewatch={review.is_rewatch}
             visibility={review.visibility}
             createdAt={review.created_at}
+            editedAt={review.edited_at}
             onPress={() => router.push(`/review/${review.id}`)}
           />
         ))}
