@@ -174,8 +174,11 @@ function Content({
       <Text maxFontSizeMultiplier={1.3} style={[styles.eyebrow, styles.sectionEyebrow, { color: c.ter }]}>
         COVERAGE BY ERA
       </Text>
+      {/* While gated the Gated wrapper owns the bottom margin — a margin on
+          the card would grow the wrapper and the blur would paint a frosted
+          strip past the card edge (same rule as rating-personality). */}
       <Gated gated={gated} c={c} scheme={scheme}>
-        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.line }]}>
+        <View style={[styles.card, gated && styles.cardInGate, { backgroundColor: c.card, borderColor: c.line }]}>
           <EraCoverageBars c={c} eras={gated ? PLACEHOLDER_ERAS : bs.eras} />
         </View>
       </Gated>
@@ -185,7 +188,7 @@ function Content({
         GENRES YOU SKIP
       </Text>
       <Gated gated={gated} c={c} scheme={scheme}>
-        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.line }]}>
+        <View style={[styles.card, gated && styles.cardInGate, { backgroundColor: c.card, borderColor: c.line }]}>
           <GenreGapRows c={c} genres={gated ? PLACEHOLDER_GENRES : bs.genreGaps} />
         </View>
       </Gated>
@@ -418,6 +421,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     marginBottom: 16,
+  },
+  cardInGate: {
+    marginBottom: 0,
   },
   eyebrow: {
     fontFamily: Fonts.mono.regular,
