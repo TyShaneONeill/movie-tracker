@@ -27,7 +27,7 @@ const ENGAGED_EVENTS = [
   "onboarding:step", "onboarding:complete", "premium:upgrade_view", "premium:subscribe",
 ];
 
-// Internal/test accounts excluded from the engaged metric (founder + E2E).
+// Internal/test accounts excluded from the legacy engaged metric (founder + E2E).
 const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g"];
 
 interface HogQLResult {
@@ -110,9 +110,20 @@ Deno.serve(async (req: Request) => {
     const notInternal =
       `(person.properties.email IS NULL OR person.properties.email NOT IN (${internalEmailList}))`;
 
+    // Clean active-user definition (PRD "Analytics Instrumentation Fix"): `app:session_start`
+    // fires once per real session on every platform (Android/iOS/iPadOS/web), so a distinct
+    // person_id count over it is the canonical DAU/MAU, replacing the event-allowlist proxy.
+    // `is_internal` is a Boolean person property — most persons never had it set, and in HogQL
+    // `NULL != true` filters the row OUT, so the exclusion must treat NULL as "not internal"
+    // explicitly rather than relying on `!= true` alone.
+    const notInternalPerson =
+      "(person.properties.is_internal IS NULL OR person.properties.is_internal != true)";
+
     const [
       signups,
-      engaged,
+      activeUsers,
+      mau30d,
+      engagedLegacy,
       appOpens,
       webVisitors,
       moviesAdded,
@@ -128,7 +139,15 @@ Deno.serve(async (req: Request) => {
       query(
         "SELECT count() FROM events WHERE event = 'auth:sign_up' AND timestamp >= now() - toIntervalDay(1)",
       ),
-      // Engaged active users (the real metric).
+      // Clean headline DAU — distinct real sessions in the last 24h, excl. internal.
+      query(
+        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(1) AND ${notInternalPerson}`,
+      ),
+      // Clean rolling 30-day MAU — same definition, wider window, for the Mo-4/Mo-6 plan gates.
+      query(
+        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(30) AND ${notInternalPerson}`,
+      ),
+      // Legacy event-allowlist engaged metric — kept ~2 weeks for cross-checking against the clean definition above, then remove.
       query(
         `SELECT count(DISTINCT person_id) FROM events WHERE timestamp >= now() - toIntervalDay(1) AND event IN (${engagedEventList}) AND ${notInternal}`,
       ),
@@ -182,7 +201,10 @@ Deno.serve(async (req: Request) => {
       color: 0xE11D48,
       fields: [
         { name: "👤 Signups", value: String(signups), inline: true },
-        { name: "🎟️ Active (engaged)", value: String(engaged), inline: true },
+        { name: "📱 Active Users", value: String(activeUsers), inline: true },
+        { name: "\u200b", value: "\u200b", inline: true },
+        { name: "📆 MAU (30d)", value: String(mau30d), inline: true },
+        { name: "🎟️ Engaged (legacy def)", value: String(engagedLegacy), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
         { name: "🔓 App opens", value: String(appOpens), inline: true },
         { name: "🌐 Web visitors", value: String(webVisitors), inline: true },
@@ -208,7 +230,7 @@ Deno.serve(async (req: Request) => {
         { name: "📝 First Takes", value: String(firstTakes), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
       ],
-      footer: { text: "PocketStubs · PostHog · Active = engaged in-app actions (excl. internal)" },
+      footer: { text: "PocketStubs · PostHog · Active = distinct app:session_start users, 24h (excl. internal)" },
       timestamp: new Date().toISOString(),
     };
 
@@ -231,7 +253,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(
-      `[post-daily-metrics] Digest posted — signups=${signups} engaged=${engaged} appOpens=${appOpens} webVisitors=${webVisitors} moviesAdded=${moviesAdded} tvUpdates=${tvUpdates} scans=${scanAttempts}/${scanSuccess} ai=${aiGenerations} upgrades=${upgrades} paywallHits=${paywallHits} follows=${follows} firstTakes=${firstTakes}`,
+      `[post-daily-metrics] Digest posted — signups=${signups} activeUsers=${activeUsers} mau30d=${mau30d} engagedLegacy=${engagedLegacy} appOpens=${appOpens} webVisitors=${webVisitors} moviesAdded=${moviesAdded} tvUpdates=${tvUpdates} scans=${scanAttempts}/${scanSuccess} ai=${aiGenerations} upgrades=${upgrades} paywallHits=${paywallHits} follows=${follows} firstTakes=${firstTakes}`,
     );
 
     return new Response(JSON.stringify({ ok: true }), {
