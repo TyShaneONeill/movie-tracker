@@ -113,11 +113,16 @@ Deno.serve(async (req: Request) => {
     // Clean active-user definition (PRD "Analytics Instrumentation Fix"): `app:session_start`
     // fires once per real session on every platform (Android/iOS/iPadOS/web), so a distinct
     // person_id count over it is the canonical DAU/MAU, replacing the event-allowlist proxy.
-    // `is_internal` is a Boolean person property — most persons never had it set, and in HogQL
-    // `NULL != true` filters the row OUT, so the exclusion must treat NULL as "not internal"
-    // explicitly rather than relying on `!= true` alone.
+    // `is_internal` is a Boolean person property, but under person-on-events its value on
+    // `events.person.properties.*` reflects what was set AT INGESTION TIME per row — an
+    // internal person can have some session_start events tagged is_internal=true and others
+    // (same day, same person) with it unset, since identity merges and property backfills
+    // don't rewrite historical rows. A row-level `events.person.properties.is_internal != true`
+    // filter only drops the tagged rows, not the person, so they still surface in
+    // count(DISTINCT person_id) via their other rows. Excluding by person_id against the
+    // `persons` table's current property value removes the person from the count entirely.
     const notInternalPerson =
-      "(person.properties.is_internal IS NULL OR person.properties.is_internal != true)";
+      "person_id NOT IN (SELECT id FROM persons WHERE properties.is_internal = true)";
 
     const [
       signups,
