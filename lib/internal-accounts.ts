@@ -8,7 +8,7 @@
 // Keep this list in sync with INTERNAL_EMAILS in post-daily-metrics/index.ts
 // until every active account has been tagged (then the digest can rely solely
 // on the property).
-export const INTERNAL_EMAILS = ['tyoneill97@gmail.com', 'g@g.g'];
+export const INTERNAL_EMAILS = ['tyoneill97@gmail.com', 'g@g.g', 'tyshaneoneill@gmail.com'];
 
 /** True if the email belongs to a founder/test account excluded from metrics. */
 export function isInternalEmail(email?: string | null): boolean {

@@ -27,8 +27,9 @@ const ENGAGED_EVENTS = [
   "onboarding:step", "onboarding:complete", "premium:upgrade_view", "premium:subscribe",
 ];
 
-// Internal/test accounts excluded from the legacy engaged metric (founder + E2E).
-const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g"];
+// Internal/test accounts excluded from analytics (founder + E2E). Keep in sync with
+// lib/internal-accounts.ts, which tags `is_internal` on the PostHog person at identify time.
+const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g", "tyshaneoneill@gmail.com"];
 
 interface HogQLResult {
   results?: Array<Array<number>>;
@@ -121,8 +122,10 @@ Deno.serve(async (req: Request) => {
     // filter only drops the tagged rows, not the person, so they still surface in
     // count(DISTINCT person_id) via their other rows. Excluding by person_id against the
     // `persons` table's current property value removes the person from the count entirely.
+    // Belt-and-braces: also exclude by email, since an account can go un-tagged until the
+    // client build carrying the current INTERNAL_EMAILS list ships (see lib/internal-accounts.ts).
     const notInternalPerson =
-      "person_id NOT IN (SELECT id FROM persons WHERE properties.is_internal = true)";
+      `person_id NOT IN (SELECT id FROM persons WHERE properties.is_internal = true OR properties.email IN (${internalEmailList}))`;
 
     const [
       signups,

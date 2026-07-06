@@ -4,6 +4,7 @@ describe('isInternalEmail', () => {
   it('matches known internal/test accounts', () => {
     expect(isInternalEmail('tyoneill97@gmail.com')).toBe(true);
     expect(isInternalEmail('g@g.g')).toBe(true);
+    expect(isInternalEmail('tyshaneoneill@gmail.com')).toBe(true);
   });
 
   it('is case- and whitespace-insensitive', () => {
