@@ -27,8 +27,9 @@ const ENGAGED_EVENTS = [
   "onboarding:step", "onboarding:complete", "premium:upgrade_view", "premium:subscribe",
 ];
 
-// Internal/test accounts excluded from the engaged metric (founder + E2E).
-const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g"];
+// Internal/test accounts excluded from analytics (founder + E2E). Keep in sync with
+// lib/internal-accounts.ts, which tags `is_internal` on the PostHog person at identify time.
+const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g", "tyshaneoneill@gmail.com"];
 
 interface HogQLResult {
   results?: Array<Array<number>>;
@@ -110,9 +111,27 @@ Deno.serve(async (req: Request) => {
     const notInternal =
       `(person.properties.email IS NULL OR person.properties.email NOT IN (${internalEmailList}))`;
 
+    // Clean active-user definition (PRD "Analytics Instrumentation Fix"): `app:session_start`
+    // fires once per real session on every platform (Android/iOS/iPadOS/web), so a distinct
+    // person_id count over it is the canonical DAU/MAU, replacing the event-allowlist proxy.
+    // `is_internal` is a Boolean person property, but under person-on-events its value on
+    // `events.person.properties.*` reflects what was set AT INGESTION TIME per row — an
+    // internal person can have some session_start events tagged is_internal=true and others
+    // (same day, same person) with it unset, since identity merges and property backfills
+    // don't rewrite historical rows. A row-level `events.person.properties.is_internal != true`
+    // filter only drops the tagged rows, not the person, so they still surface in
+    // count(DISTINCT person_id) via their other rows. Excluding by person_id against the
+    // `persons` table's current property value removes the person from the count entirely.
+    // Belt-and-braces: also exclude by email, since an account can go un-tagged until the
+    // client build carrying the current INTERNAL_EMAILS list ships (see lib/internal-accounts.ts).
+    const notInternalPerson =
+      `person_id NOT IN (SELECT id FROM persons WHERE properties.is_internal = true OR properties.email IN (${internalEmailList}))`;
+
     const [
       signups,
-      engaged,
+      activeUsers,
+      mau30d,
+      engagedLegacy,
       appOpens,
       webVisitors,
       moviesAdded,
@@ -128,7 +147,15 @@ Deno.serve(async (req: Request) => {
       query(
         "SELECT count() FROM events WHERE event = 'auth:sign_up' AND timestamp >= now() - toIntervalDay(1)",
       ),
-      // Engaged active users (the real metric).
+      // Clean headline DAU — distinct real sessions in the last 24h, excl. internal.
+      query(
+        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(1) AND ${notInternalPerson}`,
+      ),
+      // Clean rolling 30-day MAU — same definition, wider window, for the Mo-4/Mo-6 plan gates.
+      query(
+        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(30) AND ${notInternalPerson}`,
+      ),
+      // Legacy event-allowlist engaged metric — kept ~2 weeks for cross-checking against the clean definition above, then remove.
       query(
         `SELECT count(DISTINCT person_id) FROM events WHERE timestamp >= now() - toIntervalDay(1) AND event IN (${engagedEventList}) AND ${notInternal}`,
       ),
@@ -182,7 +209,10 @@ Deno.serve(async (req: Request) => {
       color: 0xE11D48,
       fields: [
         { name: "👤 Signups", value: String(signups), inline: true },
-        { name: "🎟️ Active (engaged)", value: String(engaged), inline: true },
+        { name: "📱 Active Users", value: String(activeUsers), inline: true },
+        { name: "\u200b", value: "\u200b", inline: true },
+        { name: "📆 MAU (30d)", value: String(mau30d), inline: true },
+        { name: "🎟️ Engaged (legacy def)", value: String(engagedLegacy), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
         { name: "🔓 App opens", value: String(appOpens), inline: true },
         { name: "🌐 Web visitors", value: String(webVisitors), inline: true },
@@ -208,7 +238,7 @@ Deno.serve(async (req: Request) => {
         { name: "📝 First Takes", value: String(firstTakes), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
       ],
-      footer: { text: "PocketStubs · PostHog · Active = engaged in-app actions (excl. internal)" },
+      footer: { text: "PocketStubs · PostHog · Active = distinct app:session_start users, 24h (excl. internal)" },
       timestamp: new Date().toISOString(),
     };
 
@@ -231,7 +261,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(
-      `[post-daily-metrics] Digest posted — signups=${signups} engaged=${engaged} appOpens=${appOpens} webVisitors=${webVisitors} moviesAdded=${moviesAdded} tvUpdates=${tvUpdates} scans=${scanAttempts}/${scanSuccess} ai=${aiGenerations} upgrades=${upgrades} paywallHits=${paywallHits} follows=${follows} firstTakes=${firstTakes}`,
+      `[post-daily-metrics] Digest posted — signups=${signups} activeUsers=${activeUsers} mau30d=${mau30d} engagedLegacy=${engagedLegacy} appOpens=${appOpens} webVisitors=${webVisitors} moviesAdded=${moviesAdded} tvUpdates=${tvUpdates} scans=${scanAttempts}/${scanSuccess} ai=${aiGenerations} upgrades=${upgrades} paywallHits=${paywallHits} follows=${follows} firstTakes=${firstTakes}`,
     );
 
     return new Response(JSON.stringify({ ok: true }), {
