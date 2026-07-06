@@ -24,6 +24,7 @@ import { analytics } from '@/lib/analytics';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { updateFirstTake } from '@/lib/first-take-service';
 import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
+import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
 import { hapticImpact } from '@/lib/haptics';
 
 function getRatingColor(rating: number, tintColor: string): string {
@@ -38,6 +39,8 @@ export default function FirstTakeDetailScreen() {
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { user } = useAuth();
+  // PS-12 (D1): every edit affordance is gated behind the `social_editing` flag.
+  const socialEditingEnabled = useSocialEditingEnabled();
 
   const { data: firstTake, isLoading } = useQuery({
     queryKey: ['firstTake', id],
@@ -117,21 +120,19 @@ export default function FirstTakeDetailScreen() {
     },
   });
 
-  // Gate opening the editor: mirror the movie/tv review pattern. A First Take is
-  // editable only within the grace window and before any likes/comments; a locked
-  // take tells the user to delete & repost instead of opening a doomed editor.
+  // PS-12 (D2): the editor OPENS even when the post is locked — only the CONTENT
+  // fields are disabled inside (visibility stays editable). `contentLocked` is
+  // derived from `canEditPost`. The DB grace-window trigger remains the real
+  // guarantee; `isEditWindowClosedError` in handleEditSubmit is the race
+  // fallback if a save is rejected.
   const handleEditPress = () => {
     if (!firstTake) return;
     hapticImpact();
-    if (!canEditPost(firstTake)) {
-      Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
-      return;
-    }
     setShowEditModal(true);
   };
 
   const handleEditSubmit = async (data: {
-    rating: number;
+    rating: number | null;
     quoteText: string;
     isSpoiler: boolean;
     visibility: ReviewVisibility;
@@ -278,12 +279,11 @@ export default function FirstTakeDetailScreen() {
             <Text style={styles.topBarTitle}>First Take</Text>
             {isOwn || firstTake.visibility === 'public' ? (
               <View style={styles.topBarActions}>
-                {/* Hide the edit affordance once the post is locked (grace
-                    window closed or it has engagement) — mirrors comments,
-                    which drop their Edit action when locked. handleEditPress
-                    keeps its own guard as a defensive fallback for the
-                    like/save race. */}
-                {isOwn && canEditPost(firstTake) && (
+                {/* PS-12: the pencil shows for the owner whenever `social_editing`
+                    is ON — even on a locked post. Tapping opens a content-locked
+                    editor (visibility still editable). The flag OFF removes the
+                    affordance entirely (app behaves as if editing doesn't exist). */}
+                {isOwn && socialEditingEnabled && (
                   <Pressable
                     onPress={handleEditPress}
                     disabled={updateMutation.isPending}
@@ -425,8 +425,10 @@ export default function FirstTakeDetailScreen() {
           </ViewShot>
         )}
 
-        {/* Edit modal — own First Takes only, gated by the grace window */}
-        {isOwn && (
+        {/* Edit modal — own First Takes only, behind the social_editing flag.
+            When the post is locked, only content is disabled; visibility stays
+            editable (PS-12 D2). */}
+        {isOwn && socialEditingEnabled && (
           <FirstTakeModal
             visible={showEditModal}
             onClose={() => setShowEditModal(false)}
@@ -435,6 +437,7 @@ export default function FirstTakeDetailScreen() {
             moviePosterUrl={posterUri ?? undefined}
             isSubmitting={updateMutation.isPending}
             isEditing
+            contentLocked={!canEditPost(firstTake)}
             initialValues={{
               rating: firstTake.rating,
               quoteText: firstTake.quote_text,

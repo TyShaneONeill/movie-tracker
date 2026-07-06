@@ -9,6 +9,7 @@ import { formatRelativeTime } from '@/lib/utils';
 import { EditedBadge } from '@/components/edited-badge';
 import { COMMENT_MAX_LENGTH, validateCommentBody } from '@/lib/edited-provenance';
 import { canEditComment, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
+import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
 import type { CommentItem as CommentItemType } from '@/lib/comment-service';
 
 interface CommentItemProps {
@@ -43,6 +44,8 @@ export function CommentItem({
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const isOwnComment = currentUserId === comment.commenter.userId;
+  // PS-12 (D1): the comment Edit action only appears when `social_editing` is ON.
+  const socialEditingEnabled = useSocialEditingEnabled();
   // PS-12 edit grace window: content is editable only within 15 min of posting
   // AND before any engagement. Mirrors the DB trigger; keep in lockstep.
   const isEditable = canEditComment({
@@ -104,7 +107,7 @@ export function CommentItem({
       options.push({ text: 'Reply', onPress: () => onReply(comment.id, comment.commenter.username) });
     }
 
-    if (isOwnComment && onEdit && isEditable) {
+    if (isOwnComment && onEdit && isEditable && socialEditingEnabled) {
       options.push({ text: 'Edit', onPress: startEditing });
     }
 

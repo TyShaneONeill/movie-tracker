@@ -44,6 +44,7 @@ import { Typography } from '@/constants/typography';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { ReviewModal } from '@/components/review-modal';
 import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
+import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { TrailerModal } from '@/components/modals/trailer-modal';
@@ -99,6 +100,8 @@ export default function MovieDetailScreen() {
   // Modal state for First Take and Review
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  // PS-12 (D1): review editing is gated behind the `social_editing` flag.
+  const socialEditingEnabled = useSocialEditingEnabled();
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
@@ -406,7 +409,7 @@ export default function MovieDetailScreen() {
   };
 
   const handleFirstTakeSubmit = async (data: {
-    rating: number;
+    rating: number | null;
     quoteText: string;
     isSpoiler: boolean;
     visibility: import('@/lib/database.types').ReviewVisibility;
@@ -456,12 +459,13 @@ export default function MovieDetailScreen() {
     }
 
     requireAuth(() => {
-      // PS-12 edit grace window: editing an EXISTING review is only allowed
-      // within 15 min of posting and before any likes/comments. Creating a new
-      // review is always allowed. When a locked review exists, don't open the
-      // edit modal — tell the user to delete & repost instead.
-      if (hasReview && existingReview && !canEditPost(existingReview)) {
-        Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
+      // PS-12 (D1): editing an EXISTING review is gated behind `social_editing`.
+      // Creating a new review is always allowed. When the flag is OFF and the
+      // user already has a review, there is no edit affordance — do nothing
+      // (behave as pre-PS-12, minus edit). When the flag is ON the editor opens
+      // even for a locked review; only the CONTENT fields are disabled inside
+      // (PS-12 D2), so visibility stays editable.
+      if (hasReview && existingReview && !socialEditingEnabled) {
         return;
       }
       setShowReviewModal(true);
@@ -923,6 +927,7 @@ export default function MovieDetailScreen() {
           isSpoiler: existingReview.is_spoiler,
           visibility: existingReview.visibility as 'public' | 'followers_only' | 'private',
         } : null}
+        contentLocked={!!existingReview && !canEditPost(existingReview)}
         isSubmitting={isCreatingReview || isUpdatingReview}
       />
 

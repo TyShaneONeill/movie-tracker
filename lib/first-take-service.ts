@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import type { FirstTake, FirstTakeInsert, FirstTakeUpdate, FirstTakeMediaType, ReviewVisibility } from './database.types';
-import { FIRST_TAKE_CONTENT_FIELDS, contentChanged } from './edited-provenance';
 
 export interface CreateFirstTakeData {
   tmdbId: number;
@@ -98,26 +97,10 @@ export async function updateFirstTake(
     updated_at: new Date().toISOString(),
   };
 
-  // Stamp `edited_at` ONLY when genuine content changed (quote/rating/emoji/
-  // spoiler). A visibility-only edit leaves edited_at untouched. `updateData`
-  // holds the normalized values as they'll be stored, so compare those.
-  const incomingContent: Record<string, unknown> = {};
-  for (const field of FIRST_TAKE_CONTENT_FIELDS) {
-    if (field in updateData) {
-      incomingContent[field] = (updateData as Record<string, unknown>)[field];
-    }
-  }
-  if (Object.keys(incomingContent).length > 0) {
-    const { data: current } = await supabase
-      .from('first_takes')
-      .select('quote_text, rating, reaction_emoji, is_spoiler')
-      .eq('id', firstTakeId)
-      .single();
-    if (contentChanged(current, incomingContent, FIRST_TAKE_CONTENT_FIELDS)) {
-      updateData.edited_at = new Date().toISOString();
-    }
-  }
-
+  // `edited_at` is stamped SERVER-SIDE by the DB trigger on genuine content
+  // change (quote/rating/emoji/spoiler); a visibility-only edit leaves it
+  // untouched. The client no longer fetches-and-compares — it just sends the
+  // update.
   const { data, error } = (await (supabase
     .from('first_takes') as any)
     .update(updateData)

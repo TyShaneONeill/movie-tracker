@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import type { Review, ReviewInsert, ReviewUpdate, ReviewVisibility } from './database.types';
-import { REVIEW_CONTENT_FIELDS, contentChanged } from './edited-provenance';
 
 export interface CreateReviewData {
   tmdbId: number;
@@ -158,27 +157,10 @@ export async function updateReview(
     updated_at: new Date().toISOString(),
   };
 
-  // Stamp `edited_at` ONLY when genuine content changed (title/text/rating/
-  // spoiler). Visibility- or rewatch-only edits leave edited_at untouched.
-  // `updateData` already holds the normalized values exactly as they'll be
-  // stored, so we compare those against the current row.
-  const incomingContent: Record<string, unknown> = {};
-  for (const field of REVIEW_CONTENT_FIELDS) {
-    if (field in updateData) {
-      incomingContent[field] = (updateData as Record<string, unknown>)[field];
-    }
-  }
-  if (Object.keys(incomingContent).length > 0) {
-    const { data: current } = await supabase
-      .from('reviews')
-      .select('title, review_text, rating, is_spoiler')
-      .eq('id', reviewId)
-      .single();
-    if (contentChanged(current, incomingContent, REVIEW_CONTENT_FIELDS)) {
-      updateData.edited_at = new Date().toISOString();
-    }
-  }
-
+  // `edited_at` is stamped SERVER-SIDE by the DB trigger on genuine content
+  // change (title/text/rating/spoiler); visibility-only edits leave it
+  // untouched. The client no longer fetches-and-compares — it just sends the
+  // update.
   const { data, error } = (await (supabase
     .from('reviews') as any)
     .update(updateData)

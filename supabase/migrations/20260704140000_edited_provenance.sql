@@ -55,19 +55,16 @@ COMMENT ON COLUMN "public"."review_comments"."edited_at" IS
 -- new row) are pinned to the author. USING alone would act as the implicit
 -- WITH CHECK, but we state both explicitly for clarity and to guarantee an
 -- author can never reassign a comment to another user_id.
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM "pg_policies"
-    WHERE "schemaname" = 'public'
-      AND "tablename" = 'review_comments'
-      AND "policyname" = 'review_comments_update_own'
-  ) THEN
-    CREATE POLICY "review_comments_update_own"
-      ON "public"."review_comments"
-      FOR UPDATE
-      TO "authenticated"
-      USING ("auth"."uid"() = "user_id")
-      WITH CHECK ("auth"."uid"() = "user_id");
-  END IF;
-END $$;
+--
+-- `is_hidden = false` (both clauses): a moderation-hidden comment cannot be
+-- edited via the direct PostgREST path, and an author cannot flip is_hidden.
+-- Without this, the RLS UPDATE grant would let a client bypass the
+-- update-comment edge fn's is_hidden + rate-limit checks (security finding #3).
+-- Moderation itself runs as service_role and bypasses RLS, so it is unaffected.
+DROP POLICY IF EXISTS "review_comments_update_own" ON "public"."review_comments";
+CREATE POLICY "review_comments_update_own"
+  ON "public"."review_comments"
+  FOR UPDATE
+  TO "authenticated"
+  USING ("auth"."uid"() = "user_id" AND COALESCE("is_hidden", false) = false)
+  WITH CHECK ("auth"."uid"() = "user_id" AND COALESCE("is_hidden", false) = false);

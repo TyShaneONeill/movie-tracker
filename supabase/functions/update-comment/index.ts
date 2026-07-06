@@ -150,6 +150,21 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (updateError || !updated) {
+      // Race: the comment may have been liked/aged between the ownership check
+      // above and this update, firing the DB grace-window trigger. The trigger
+      // raises with HINT='edit_window_closed' — map that to a friendly 403
+      // (same shape as the pre-check lock branch) instead of a generic 500.
+      const triggerHint = (updateError as { hint?: string } | null)?.hint ?? '';
+      const triggerMessage = updateError?.message ?? '';
+      if (triggerHint === 'edit_window_closed' || triggerMessage.includes('edit_window_closed')) {
+        return new Response(
+          JSON.stringify({
+            error: 'This comment can no longer be edited — the edit window has closed or it already has activity.',
+            code: 'edit_window_closed',
+          }),
+          { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
       console.error('[update-comment] Update error:', updateError);
       throw new Error('Failed to update comment');
     }
