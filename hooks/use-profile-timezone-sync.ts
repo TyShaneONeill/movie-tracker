@@ -12,7 +12,11 @@ import { captureException } from '@/lib/sentry';
  */
 export function useProfileTimezoneSync(): void {
   const { user } = useAuth();
-  const syncedRef = useRef(false);
+  // PS-15 PR 2 (#625 LOW): keyed by userId, not a plain boolean — a
+  // same-device account switch (sign out, sign in as someone else) must
+  // re-sync for the new user rather than staying permanently debounced
+  // against the previous session.
+  const syncedForUserIdRef = useRef<string | null>(null);
 
   const sync = useCallback(async (userId: string) => {
     let deviceTimezone: string | null = null;
@@ -46,8 +50,8 @@ export function useProfileTimezoneSync(): void {
   }, []);
 
   useEffect(() => {
-    if (!user || syncedRef.current) return;
-    syncedRef.current = true;
+    if (!user || syncedForUserIdRef.current === user.id) return;
+    syncedForUserIdRef.current = user.id;
     void sync(user.id);
   }, [user, sync]);
 }

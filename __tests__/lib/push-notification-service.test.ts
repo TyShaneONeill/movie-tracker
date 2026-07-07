@@ -438,11 +438,45 @@ describe('syncPushPermissionState', () => {
     expect(analytics.track).toHaveBeenCalledWith('push:permission_changed', {
       from: 'undetermined',
       to: 'granted',
+      initial: false,
     });
     expect(mockAsyncStorageSetItem).toHaveBeenCalledWith(
       'push.last_known_permission',
       'granted'
     );
+  });
+
+  it('sets initial:true on the first-ever capture (from:null), without suppressing the event', async () => {
+    const { analytics } = require('@/lib/analytics');
+    mockGetPermissionsAsync.mockResolvedValueOnce({ status: 'granted' });
+    mockAsyncStorageGetItem.mockResolvedValueOnce(null);
+
+    await syncPushPermissionState();
+
+    expect(analytics.track).toHaveBeenCalledWith('push:permission_changed', {
+      from: null,
+      to: 'granted',
+      initial: true,
+    });
+  });
+
+  it('single-flights concurrent calls so a mount + foreground race fires push:permission_changed only once', async () => {
+    const { analytics } = require('@/lib/analytics');
+    mockGetPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    mockAsyncStorageGetItem.mockResolvedValue('undetermined');
+
+    const [statusA, statusB] = await Promise.all([
+      syncPushPermissionState(),
+      syncPushPermissionState(),
+    ]);
+
+    expect(statusA).toBe('granted');
+    expect(statusB).toBe('granted');
+    const changedCalls = analytics.track.mock.calls.filter(
+      ([event]: [string]) => event === 'push:permission_changed'
+    );
+    expect(changedCalls).toHaveLength(1);
+    expect(mockAsyncStorageSetItem).toHaveBeenCalledTimes(1);
   });
 
   it('does not fire push:permission_changed when the value is unchanged', async () => {

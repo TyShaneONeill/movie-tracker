@@ -105,6 +105,33 @@ describe('useProfileTimezoneSync', () => {
     expect(mockFrom.mock.calls.length).toBe(callsAfterFirst);
   });
 
+  it('re-syncs on a same-device account switch (ref keyed by userId, not a plain boolean)', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'user-1' } });
+    mockSelectChain({ data: { timezone: null }, error: null });
+    mockUpdateChain({ error: null });
+
+    const { rerender } = renderHook(() => useProfileTimezoneSync());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const callsAfterFirstUser = mockFrom.mock.calls.length;
+    expect(callsAfterFirstUser).toBeGreaterThan(0);
+
+    // Switch to a different user on the same device (sign out / sign in as someone else).
+    mockUseAuth.mockReturnValue({ user: { id: 'user-2' } });
+    mockSelectChain({ data: { timezone: null }, error: null });
+    mockUpdateChain({ error: null });
+    rerender(undefined);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The new user must trigger a fresh sync, not stay debounced against user-1.
+    expect(mockFrom.mock.calls.length).toBeGreaterThan(callsAfterFirstUser);
+  });
+
   it('reports to Sentry when the read fails, without throwing', async () => {
     mockUseAuth.mockReturnValue({ user: { id: 'user-1' } });
     mockSelectChain({ data: null, error: new Error('db unavailable') });
