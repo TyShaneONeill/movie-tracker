@@ -70,3 +70,22 @@ export function usePopcornMotionEnabled(): boolean {
   if (envOverride === 'false') return false;
   return Platform.OS === 'ios' && flagOn && !reduceMotion;
 }
+
+/**
+ * Returns true when the daily_hooks retention surfaces (PS-15) should be
+ * active — currently just the notification priming sheet. Combines the
+ * PostHog flag `daily_hooks` and an env-var dev override
+ * (EXPO_PUBLIC_DAILY_HOOKS_OVERRIDE = "true" | "false"), mirroring
+ * usePopcornMotionEnabled above.
+ *
+ * Fails closed: `useFeatureFlag`'s `enabled` is false while the flag is still
+ * loading (value undefined), so an unresolved flag never lets the gate open.
+ */
+export function useDailyHooksEnabled(): boolean {
+  const { enabled: flagOn } = useFeatureFlag('daily_hooks');
+  const envOverride = process.env.EXPO_PUBLIC_DAILY_HOOKS_OVERRIDE;
+
+  if (envOverride === 'true') return true;
+  if (envOverride === 'false') return false;
+  return flagOn;
+}
