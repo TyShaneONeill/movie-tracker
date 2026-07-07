@@ -42,6 +42,7 @@ describe('NOTIFICATION_FEATURE_DEFAULTS', () => {
       release_reminders: true,
       tv_episode_reminders: true,
       day2_bridge: true,
+      weekly_recap: true,
     });
   });
 });

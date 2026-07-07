@@ -19,7 +19,8 @@ import { supabase } from './supabase';
 export type NotificationFeature =
   | 'release_reminders'
   | 'tv_episode_reminders'
-  | 'day2_bridge';
+  | 'day2_bridge'
+  | 'weekly_recap';
 
 /**
  * Default enabled-state per feature when no `notification_preferences` row
@@ -28,11 +29,15 @@ export type NotificationFeature =
  *
  * `day2_bridge` (PS-15 PR 1) is ON by default per Ty's 2026-07-06 decision —
  * OS permission still gates delivery either way.
+ * `weekly_recap` (PS-15 PR 2) is ON by default for the same reason — it's a
+ * positive-reinforcement digest, not a re-engagement nudge, and only sends
+ * to users with qualifying activity that week.
  */
 export const NOTIFICATION_FEATURE_DEFAULTS: Record<NotificationFeature, boolean> = {
   release_reminders: true,
   tv_episode_reminders: true,
   day2_bridge: true,
+  weekly_recap: true,
 };
 
 export async function getNotificationPreference(

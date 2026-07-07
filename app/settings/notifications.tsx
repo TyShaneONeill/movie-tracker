@@ -186,6 +186,13 @@ export default function NotificationsSettingsScreen() {
               description="One nudge, a couple days after you join, about what's on your watchlist."
               colors={colors}
             />
+            {/* DRAFT copy — Content Queue review pending (PS-15 PR 2, 2026-07-07) */}
+            <FeatureToggleRow
+              feature="weekly_recap"
+              title="Weekly recap"
+              description="A Sunday summary of what you watched, logged, and wrote this week."
+              colors={colors}
+            />
           </View>
         )}
 

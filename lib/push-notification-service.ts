@@ -34,6 +34,14 @@ export async function getPermissionStatus(): Promise<PushPermissionStatus> {
 
 const PUSH_PERMISSION_STORAGE_KEY = 'push.last_known_permission';
 
+// Single-flight guard (PS-15 PR 2): the mount-effect and foreground-listener
+// callers in use-push-notifications.ts can both invoke this within ~5ms of
+// each other on a real device. Without this, both read AsyncStorage before
+// either writes, so both see the same stale `lastKnown` and both fire
+// `push:permission_changed` for the same transition. A second concurrent
+// call now awaits the first call's in-flight promise instead of re-running.
+let inFlightSync: Promise<PushPermissionStatus> | null = null;
+
 /**
  * Check current permission status (never prompts — wraps getPermissionStatus),
  * sync the `push_permission` person property, and fire `push:permission_changed`
@@ -41,6 +49,14 @@ const PUSH_PERMISSION_STORAGE_KEY = 'push.last_known_permission';
  * PS-15 PR 0 — call on app foreground/init, not just once at cold start.
  */
 export async function syncPushPermissionState(): Promise<PushPermissionStatus> {
+  if (inFlightSync) return inFlightSync;
+  inFlightSync = performPushPermissionSync().finally(() => {
+    inFlightSync = null;
+  });
+  return inFlightSync;
+}
+
+async function performPushPermissionSync(): Promise<PushPermissionStatus> {
   const status = await getPermissionStatus();
 
   analytics.setPersonProperties({ push_permission: status });
@@ -51,6 +67,10 @@ export async function syncPushPermissionState(): Promise<PushPermissionStatus> {
       analytics.track('push:permission_changed', {
         from: lastKnown,
         to: status,
+        // PS-15 PR 2 (#625 LOW): the first-ever capture fires with
+        // from:null — flag it so funnels can exclude it from "changed"
+        // counts without suppressing the useful initial-state data.
+        initial: lastKnown === null,
       });
       await AsyncStorage.setItem(PUSH_PERMISSION_STORAGE_KEY, status);
     }
