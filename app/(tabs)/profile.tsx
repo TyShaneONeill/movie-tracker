@@ -758,9 +758,14 @@ export default function ProfileScreen() {
                 </View>
                 {/* Achievements Row */}
                 {renderAchievementsRow()}
-                {/* PS-15 PR 3: punch-card streak (renders nothing when streak_spine off) */}
-                <StreakPunchCard />
             </Animated.View>
+
+            {/* PS-15 PR 3: punch-card streak. Rendered OUTSIDE the collapsing
+                header — that Animated.View clamps to HEADER_MAX_HEIGHT (350) with
+                overflow:'hidden', which clipped the card off the bottom (hidden
+                behind the stat-tab bar). Here it scrolls as normal content above
+                the tab bar. Renders nothing when streak_spine is off. */}
+            <StreakPunchCard />
 
             {/* Combined Stat-Tab Bar */}
             <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -1197,9 +1202,11 @@ export default function ProfileScreen() {
                         </View>
                         {/* Achievements Row */}
                         {renderAchievementsRow()}
-                        {/* PS-15 PR 3: punch-card streak (renders nothing when streak_spine off) */}
-                        <StreakPunchCard />
                     </Animated.View>
+
+                    {/* PS-15 PR 3: punch-card streak — outside the collapsing
+                        header (see native path note); scrolls above the tab bar. */}
+                    <StreakPunchCard />
 
                     {/* Combined Stat-Tab Bar (CSS sticky on web) */}
                     <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }, isWeb && styles.statTabBarSticky]}>
