@@ -13,6 +13,7 @@ jest.mock('@/lib/notification-preferences-service', () => ({
   NOTIFICATION_FEATURE_DEFAULTS: {
     release_reminders: true,
     tv_episode_reminders: true,
+    day2_bridge: true,
   },
 }));
 jest.mock('@/hooks/use-push-notifications', () => ({
@@ -102,6 +103,26 @@ describe('NotificationsSettingsScreen — granted permission', () => {
     expect(release.props.accessibilityState.checked).toBe(true);
     expect(tv.props.accessibilityState.checked).toBe(true);
   }, 15000);
+
+  it('renders the day2_bridge toggle defaulting ON when no DB row exists (PS-15 PR 1)', async () => {
+    getPrefMock.mockResolvedValue(null);
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const dayTwoBridge = await findByLabelText('Day-2 nudge', {}, { timeout: 8000 });
+    expect(dayTwoBridge.props.accessibilityState.checked).toBe(true);
+  }, 15000);
+
+  it('toggling day2_bridge OFF calls setNotificationPreference and fires analytics', async () => {
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const dayTwoBridge = await findByLabelText('Day-2 nudge');
+    fireEvent(dayTwoBridge, 'valueChange', false);
+    await waitFor(() =>
+      expect(setPrefMock).toHaveBeenCalledWith('day2_bridge', false)
+    );
+    expect(trackSpy).toHaveBeenCalledWith('notifications:toggle_changed', {
+      feature: 'day2_bridge',
+      enabled: false,
+    });
+  });
 
   it('toggling release_reminders ON calls setNotificationPreference and fires analytics', async () => {
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });

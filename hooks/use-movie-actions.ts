@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { useNotificationPriming } from '@/lib/notification-priming-context';
 import { analytics } from '@/lib/analytics';
 import { usePopcornEarn } from './use-popcorn-earn';
 import {
@@ -44,6 +45,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
+  const { triggerFirstWinCheck } = useNotificationPriming();
   const { earn } = usePopcornEarn();
 
   // Query to check if movie is in user's watchlist
@@ -134,6 +136,8 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
     },
     onSuccess: (_data, variables) => {
       analytics.track('movie:watchlist_add', { tmdb_id: variables.movie.id });
+      // PS-15 PR 1: first-win moment for the notification priming sheet.
+      triggerFirstWinCheck();
     },
   });
 

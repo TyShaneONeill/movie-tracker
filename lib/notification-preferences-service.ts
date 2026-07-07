@@ -16,16 +16,23 @@
 
 import { supabase } from './supabase';
 
-export type NotificationFeature = 'release_reminders' | 'tv_episode_reminders';
+export type NotificationFeature =
+  | 'release_reminders'
+  | 'tv_episode_reminders'
+  | 'day2_bridge';
 
 /**
  * Default enabled-state per feature when no `notification_preferences` row
  * exists for the user. Must match the `send-push-notification` edge
  * function's absent-row behavior — see the mirroring comment there.
+ *
+ * `day2_bridge` (PS-15 PR 1) is ON by default per Ty's 2026-07-06 decision —
+ * OS permission still gates delivery either way.
  */
 export const NOTIFICATION_FEATURE_DEFAULTS: Record<NotificationFeature, boolean> = {
   release_reminders: true,
   tv_episode_reminders: true,
+  day2_bridge: true,
 };
 
 export async function getNotificationPreference(

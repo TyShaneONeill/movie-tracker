@@ -49,6 +49,7 @@ import { AdsProvider } from '@/lib/ads-context';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { BugReportRoot } from '@/components/BugReportRoot';
 import { AchievementProvider } from '@/lib/achievement-context';
+import { NotificationPrimingProvider } from '@/lib/notification-priming-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { TourProvider } from '@/lib/onboarding/tour-context';
 import { TourOverlay } from '@/components/coachmark/tour-overlay';
@@ -444,13 +445,15 @@ export default function RootLayout() {
                     <ThemeProvider>
                       <PremiumProvider>
                         <AchievementProvider>
-                          <TourProvider>
-                            <ErrorBoundary>
-                              <BugReportRoot>
-                                <RootLayoutNav />
-                              </BugReportRoot>
-                            </ErrorBoundary>
-                          </TourProvider>
+                          <NotificationPrimingProvider>
+                            <TourProvider>
+                              <ErrorBoundary>
+                                <BugReportRoot>
+                                  <RootLayoutNav />
+                                </BugReportRoot>
+                              </ErrorBoundary>
+                            </TourProvider>
+                          </NotificationPrimingProvider>
                         </AchievementProvider>
                       </PremiumProvider>
                     </ThemeProvider>

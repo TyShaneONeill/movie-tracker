@@ -179,6 +179,13 @@ export default function NotificationsSettingsScreen() {
               description="Get notified when new episodes drop on shows you're watching."
               colors={colors}
             />
+            {/* DRAFT copy — Content Queue review pending (PS-15 PR 1, 2026-07-06) */}
+            <FeatureToggleRow
+              feature="day2_bridge"
+              title="Day-2 nudge"
+              description="One nudge, a couple days after you join, about what's on your watchlist."
+              colors={colors}
+            />
           </View>
         )}
 

@@ -29,19 +29,34 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
-      "get_pending_release_reminders"
+    const { data: dayOfData, error: dayOfError } = await supabaseAdmin.rpc(
+      "get_pending_release_reminders",
+      { p_days_before: 0 }
     );
 
-    if (rpcError) {
-      console.error("[send-release-reminders] RPC error:", rpcError);
+    if (dayOfError) {
+      console.error("[send-release-reminders] RPC error (day_of):", dayOfError);
       return new Response(
-        JSON.stringify({ error: rpcError.message }),
+        JSON.stringify({ error: dayOfError.message }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const reminders = (rpcData ?? []) as PendingReminder[];
+    // PS-15 PR 1 — component C: "opens tomorrow" day-before nudge, additive to
+    // the existing day-of path above. Non-blocking: a failure here must not
+    // take down the already-shipped day-of sends.
+    const { data: dayBeforeData, error: dayBeforeError } = await supabaseAdmin.rpc(
+      "get_pending_release_reminders",
+      { p_days_before: 1 }
+    );
+    if (dayBeforeError) {
+      console.error("[send-release-reminders] RPC error (day_before):", dayBeforeError);
+    }
+
+    const reminders = [
+      ...((dayOfData ?? []) as PendingReminder[]),
+      ...((dayBeforeData ?? []) as PendingReminder[]),
+    ];
     if (reminders.length === 0) {
       const empty: Result = { candidates: 0, groups: 0, sent: 0, errors: 0 };
       return new Response(
