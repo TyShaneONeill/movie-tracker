@@ -31,6 +31,10 @@ const ENGAGED_EVENTS = [
 // lib/internal-accounts.ts, which tags `is_internal` on the PostHog person at identify time.
 const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g", "tyshaneoneill@gmail.com"];
 
+// Stock emulator/simulator device names — Google Play pre-launch reports, CI, and local sims.
+// Keep in sync with the PostHog project-level filter if one is added.
+const EMULATOR_DEVICE_NAMES = ["sdk_gphone64_arm64", "sdk_gphone64_x86_64", "Simulator iOS"];
+
 interface HogQLResult {
   results?: Array<Array<number>>;
 }
@@ -127,6 +131,15 @@ Deno.serve(async (req: Request) => {
     const notInternalPerson =
       `person_id NOT IN (SELECT id FROM persons WHERE properties.is_internal = true OR properties.email IN (${internalEmailList}))`;
 
+    // Device-farm exclusion (burned 2026-07-07): Google Play pre-launch reports and CI runs
+    // create real-looking persons from stock emulator images — ~100 of them inflated the
+    // Jun 29-30 cohort and pushed "clean MAU" from 24 to 126. `$device_name` is an event-time
+    // fact, so a row-level filter IS correct here (unlike is_internal above): an emulator-only
+    // persona has no surviving rows and drops out of count(DISTINCT person_id), while a real
+    // user's real-device sessions still count.
+    const notEmulatorDevice =
+      `(properties.$device_name IS NULL OR properties.$device_name NOT IN (${EMULATOR_DEVICE_NAMES.map((d) => `'${d}'`).join(",")}))`;
+
     const [
       signups,
       activeUsers,
@@ -147,13 +160,13 @@ Deno.serve(async (req: Request) => {
       query(
         "SELECT count() FROM events WHERE event = 'auth:sign_up' AND timestamp >= now() - toIntervalDay(1)",
       ),
-      // Clean headline DAU — distinct real sessions in the last 24h, excl. internal.
+      // Clean headline DAU — distinct real sessions in the last 24h, excl. internal + emulator devices.
       query(
-        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(1) AND ${notInternalPerson}`,
+        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(1) AND ${notInternalPerson} AND ${notEmulatorDevice}`,
       ),
       // Clean rolling 30-day MAU — same definition, wider window, for the Mo-4/Mo-6 plan gates.
       query(
-        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(30) AND ${notInternalPerson}`,
+        `SELECT count(DISTINCT person_id) FROM events WHERE event = 'app:session_start' AND timestamp >= now() - toIntervalDay(30) AND ${notInternalPerson} AND ${notEmulatorDevice}`,
       ),
       // Legacy event-allowlist engaged metric — kept ~2 weeks for cross-checking against the clean definition above, then remove.
       query(
@@ -238,7 +251,7 @@ Deno.serve(async (req: Request) => {
         { name: "📝 First Takes", value: String(firstTakes), inline: true },
         { name: "\u200b", value: "\u200b", inline: true },
       ],
-      footer: { text: "PocketStubs · PostHog · Active = distinct app:session_start users, 24h (excl. internal)" },
+      footer: { text: "PocketStubs · PostHog · Active = distinct app:session_start users, 24h (excl. internal & emulators)" },
       timestamp: new Date().toISOString(),
     };
 
