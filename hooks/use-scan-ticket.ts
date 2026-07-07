@@ -8,6 +8,7 @@ import { processExtractedTickets } from '@/lib/ticket-processor';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useNotificationPriming } from '@/lib/notification-priming-context';
 
 // Debug flag - set to true to enable detailed logging
 const DEBUG_AUTH = __DEV__;
@@ -155,6 +156,7 @@ export function useScanTicket(): UseScanTicketResult {
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<ScanTicketErrorType | null>(null);
   const { preferences } = useUserPreferences();
+  const { triggerFirstWinCheck } = useNotificationPriming();
 
   const clearError = useCallback(() => {
     setError(null);
@@ -491,10 +493,16 @@ export function useScanTicket(): UseScanTicketResult {
       }
 
       // Track success for each matched ticket
+      let hadSuccess = false;
       for (const ticket of processedTickets) {
         if (ticket.tmdbMatch?.movie?.id) {
           analytics.track('scan:success', { tmdb_id: ticket.tmdbMatch.movie.id });
+          hadSuccess = true;
         }
+      }
+      if (hadSuccess) {
+        // PS-15 PR 1: first-win moment for the notification priming sheet.
+        triggerFirstWinCheck();
       }
 
       return {
@@ -524,7 +532,7 @@ export function useScanTicket(): UseScanTicketResult {
     } finally {
       setIsScanning(false);
     }
-  }, [error]);
+  }, [error, triggerFirstWinCheck]);
 
   return {
     scanTicket,

@@ -45,6 +45,10 @@ jest.mock('@/hooks/use-user-preferences', () => ({
   useUserPreferences: () => ({ preferences: null }),
 }));
 
+jest.mock('@/lib/notification-priming-context', () => ({
+  useNotificationPriming: () => ({ triggerFirstWinCheck: jest.fn() }),
+}));
+
 import { useScanTicket, ScanTicketError, isScanTicketError } from '@/hooks/use-scan-ticket';
 
 function sessionOk() {

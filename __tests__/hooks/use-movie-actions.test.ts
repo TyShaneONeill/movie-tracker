@@ -14,6 +14,10 @@ jest.mock('@/lib/achievement-context', () => ({
   useAchievementCheck: () => ({ triggerAchievementCheck: jest.fn() }),
 }));
 
+jest.mock('@/lib/notification-priming-context', () => ({
+  useNotificationPriming: () => ({ triggerFirstWinCheck: jest.fn() }),
+}));
+
 jest.mock('@/hooks/use-popcorn-earn', () => ({
   usePopcornEarn: () => ({ earn: jest.fn() }),
 }));

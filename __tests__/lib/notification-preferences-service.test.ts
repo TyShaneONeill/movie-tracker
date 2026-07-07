@@ -41,6 +41,7 @@ describe('NOTIFICATION_FEATURE_DEFAULTS', () => {
     expect(NOTIFICATION_FEATURE_DEFAULTS).toEqual({
       release_reminders: true,
       tv_episode_reminders: true,
+      day2_bridge: true,
     });
   });
 });

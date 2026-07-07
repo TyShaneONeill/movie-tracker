@@ -23,6 +23,7 @@ describe('groupRemindersByMovie', () => {
         url: '/movie/12345',
         tmdb_id: 12345,
         category: 'theatrical',
+        variant: 'day_of',
         feature: 'release_reminders',
       },
       feature: 'release_reminders',
@@ -80,5 +81,39 @@ describe('groupRemindersByMovie', () => {
     const result = groupRemindersByMovie(reminders);
     expect(result).toHaveLength(1);
     expect(result[0].user_ids).toEqual(['u3', 'u1', 'u2']);
+  });
+
+  // PS-15 PR 1 — component C: "opens tomorrow" day-before variant.
+  describe('day_before variant', () => {
+    it('defaults to day_of when variant is omitted (back-compat)', () => {
+      const reminders: PendingReminder[] = [
+        { user_id: 'u1', tmdb_id: 1, category: 'theatrical', title: 'X' },
+      ];
+      expect(groupRemindersByMovie(reminders)[0].data.variant).toBe('day_of');
+    });
+
+    it('builds a theatrical "opens tomorrow" title for day_before', () => {
+      const reminders: PendingReminder[] = [
+        { user_id: 'u1', tmdb_id: 1, category: 'theatrical', title: 'Dune: Part Two', variant: 'day_before' },
+      ];
+      expect(groupRemindersByMovie(reminders)[0].title).toBe('🎬 Dune: Part Two — opens tomorrow');
+    });
+
+    it('builds a streaming "streaming tomorrow" title for day_before', () => {
+      const reminders: PendingReminder[] = [
+        { user_id: 'u1', tmdb_id: 1, category: 'streaming', title: 'Some Series', variant: 'day_before' },
+      ];
+      expect(groupRemindersByMovie(reminders)[0].title).toBe('🍿 Some Series — streaming tomorrow');
+    });
+
+    it('separates the same user+movie+category across day_of and day_before into two payloads', () => {
+      const reminders: PendingReminder[] = [
+        { user_id: 'u1', tmdb_id: 1, category: 'theatrical', title: 'X', variant: 'day_of' },
+        { user_id: 'u1', tmdb_id: 1, category: 'theatrical', title: 'X', variant: 'day_before' },
+      ];
+      const result = groupRemindersByMovie(reminders);
+      expect(result).toHaveLength(2);
+      expect(result.map(p => p.data.variant).sort()).toEqual(['day_before', 'day_of']);
+    });
   });
 });
