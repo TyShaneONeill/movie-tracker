@@ -31,9 +31,16 @@ const ENGAGED_EVENTS = [
 // lib/internal-accounts.ts, which tags `is_internal` on the PostHog person at identify time.
 const INTERNAL_EMAILS = ["tyoneill97@gmail.com", "g@g.g", "tyshaneoneill@gmail.com"];
 
-// Stock emulator/simulator device names — Google Play pre-launch reports, CI, and local sims.
+// Stock emulator/simulator device-name PATTERNS (ILIKE) — Google Play pre-launch reports, CI,
+// and local sims. Patterns, not exact names: device farms rotate images (arm64/x86_64/legacy),
+// and an exact denylist silently re-inflates when a new image appears.
 // Keep in sync with the PostHog project-level filter if one is added.
-const EMULATOR_DEVICE_NAMES = ["sdk_gphone64_arm64", "sdk_gphone64_x86_64", "Simulator iOS"];
+const EMULATOR_DEVICE_PATTERNS = [
+  "sdk_gphone%", // modern AVD images (sdk_gphone64_arm64, sdk_gphone64_x86_64, ...)
+  "%Simulator%", // iOS Simulator ("Simulator iOS")
+  "Android SDK built for%", // legacy AVD images
+  "generic_x86%", // legacy generic images
+];
 
 interface HogQLResult {
   results?: Array<Array<number>>;
@@ -137,8 +144,9 @@ Deno.serve(async (req: Request) => {
     // fact, so a row-level filter IS correct here (unlike is_internal above): an emulator-only
     // persona has no surviving rows and drops out of count(DISTINCT person_id), while a real
     // user's real-device sessions still count.
-    const notEmulatorDevice =
-      `(properties.$device_name IS NULL OR properties.$device_name NOT IN (${EMULATOR_DEVICE_NAMES.map((d) => `'${d}'`).join(",")}))`;
+    const notEmulatorDevice = `(properties.$device_name IS NULL OR NOT (${
+      EMULATOR_DEVICE_PATTERNS.map((p) => `properties.$device_name ILIKE '${p}'`).join(" OR ")
+    }))`;
 
     const [
       signups,
