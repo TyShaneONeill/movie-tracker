@@ -193,6 +193,14 @@ export default function NotificationsSettingsScreen() {
               description="A Sunday summary of what you watched, logged, and wrote this week."
               colors={colors}
             />
+            {/* DRAFT copy — Content Queue review pending (PS-15 PR 3, 2026-07-07).
+                Default OFF (opt-in) — see NOTIFICATION_FEATURE_DEFAULTS. */}
+            <FeatureToggleRow
+              feature="streak_at_risk"
+              title="Streak reminders"
+              description="An evening nudge when your daily streak is about to lapse."
+              colors={colors}
+            />
           </View>
         )}
 

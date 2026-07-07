@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { syncWidgetCache } from './widget-cache';
+import { maybeRecordActivity } from './streak-service';
 import type {
   SearchTvShowsResponse,
   TMDBTvShow,
@@ -349,6 +350,9 @@ export async function markEpisodeWatched(
   }
 
   void syncWidgetCache();
+  // PS-15 PR 3: logging an episode is a qualifying action (episode-status).
+  // Gated + fire-and-forget; this service path has no React context.
+  void maybeRecordActivity('tv_status');
 
   // Extract flipped from the RPC jsonb return. Defensive fallback: null
   // response (e.g., legacy void-returning migration not yet applied in

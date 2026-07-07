@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { useStreak } from '@/lib/streak-context';
 import { analytics } from '@/lib/analytics';
 import { usePopcornEarn } from './use-popcorn-earn';
 import {
@@ -33,6 +34,7 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
+  const { recordActivity } = useStreak();
   const { earn } = usePopcornEarn();
 
   // Query to check if a First Take exists for this movie
@@ -55,6 +57,8 @@ export function useFirstTakeActions(tmdbId: number, mediaType: FirstTakeMediaTyp
         has_quote: !!variables.quoteText,
         media_type: variables.mediaType ?? 'movie',
       });
+      // PS-15 PR 3: a first take is a qualifying (earn-eligible) log/rating.
+      recordActivity('first_take');
       // Invalidate the single movie's first take query
       queryClient.invalidateQueries({ queryKey: ['firstTake', user?.id, tmdbId, mediaType] });
       // Invalidate the profile's first takes feed

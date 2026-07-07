@@ -18,6 +18,10 @@ jest.mock('@/lib/notification-priming-context', () => ({
   useNotificationPriming: () => ({ triggerFirstWinCheck: jest.fn() }),
 }));
 
+jest.mock('@/lib/streak-context', () => ({
+  useStreak: () => ({ recordActivity: jest.fn(), streakVersion: 0 }),
+}));
+
 jest.mock('@/hooks/use-popcorn-earn', () => ({
   usePopcornEarn: () => ({ earn: jest.fn() }),
 }));

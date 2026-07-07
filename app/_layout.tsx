@@ -50,6 +50,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { BugReportRoot } from '@/components/BugReportRoot';
 import { AchievementProvider } from '@/lib/achievement-context';
 import { NotificationPrimingProvider } from '@/lib/notification-priming-context';
+import { StreakProvider } from '@/lib/streak-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { TourProvider } from '@/lib/onboarding/tour-context';
 import { TourOverlay } from '@/components/coachmark/tour-overlay';
@@ -446,13 +447,15 @@ export default function RootLayout() {
                       <PremiumProvider>
                         <AchievementProvider>
                           <NotificationPrimingProvider>
-                            <TourProvider>
-                              <ErrorBoundary>
-                                <BugReportRoot>
-                                  <RootLayoutNav />
-                                </BugReportRoot>
-                              </ErrorBoundary>
-                            </TourProvider>
+                            <StreakProvider>
+                              <TourProvider>
+                                <ErrorBoundary>
+                                  <BugReportRoot>
+                                    <RootLayoutNav />
+                                  </BugReportRoot>
+                                </ErrorBoundary>
+                              </TourProvider>
+                            </StreakProvider>
                           </NotificationPrimingProvider>
                         </AchievementProvider>
                       </PremiumProvider>

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { useStreak } from '@/lib/streak-context';
 import {
   createReview,
   getReviewByTmdbId,
@@ -32,6 +33,7 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
+  const { recordActivity } = useStreak();
 
   // Query to check if a review exists for this movie
   const { data: existingReview, isLoading: isLoadingReview } = useQuery({
@@ -54,6 +56,8 @@ export function useReviewActions(tmdbId: number, mediaType: string = 'movie'): U
         is_rewatch: !!variables.isRewatch,
         visibility: variables.visibility ?? 'public',
       });
+      // PS-15 PR 3: a review is a qualifying (earn-eligible) log/rating.
+      recordActivity('review');
       queryClient.invalidateQueries({ queryKey: ['review', user?.id, tmdbId, mediaType] });
       queryClient.invalidateQueries({ queryKey: ['movieReviews', tmdbId] });
       queryClient.invalidateQueries({ queryKey: ['friendsRatings', tmdbId] });

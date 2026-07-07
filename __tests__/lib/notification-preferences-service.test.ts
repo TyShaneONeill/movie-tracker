@@ -37,12 +37,15 @@ beforeEach(() => {
 });
 
 describe('NOTIFICATION_FEATURE_DEFAULTS', () => {
-  it('defaults every feature to enabled, matching send-push-notification\'s absent-row behavior', () => {
+  it('defaults the informational features to enabled (absent-row = enabled), streak_at_risk to opt-in OFF', () => {
     expect(NOTIFICATION_FEATURE_DEFAULTS).toEqual({
       release_reminders: true,
       tv_episode_reminders: true,
       day2_bridge: true,
       weekly_recap: true,
+      // PS-15 PR 3: loss-framed evening nudge is opt-in; opt-in is also enforced
+      // server-side in get_streak_at_risk_candidates (explicit enabled=true row).
+      streak_at_risk: false,
     });
   });
 });

@@ -9,6 +9,7 @@ import type { TMDBMovie } from '@/lib/tmdb.types';
 import { analytics } from '@/lib/analytics';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useNotificationPriming } from '@/lib/notification-priming-context';
+import { useStreak } from '@/lib/streak-context';
 
 // Debug flag - set to true to enable detailed logging
 const DEBUG_AUTH = __DEV__;
@@ -157,6 +158,7 @@ export function useScanTicket(): UseScanTicketResult {
   const [errorType, setErrorType] = useState<ScanTicketErrorType | null>(null);
   const { preferences } = useUserPreferences();
   const { triggerFirstWinCheck } = useNotificationPriming();
+  const { recordActivity } = useStreak();
 
   const clearError = useCallback(() => {
     setError(null);
@@ -503,6 +505,9 @@ export function useScanTicket(): UseScanTicketResult {
       if (hadSuccess) {
         // PS-15 PR 1: first-win moment for the notification priming sheet.
         triggerFirstWinCheck();
+        // PS-15 PR 3: a successful scan is a qualifying (earn-eligible) action,
+        // recorded once per scan regardless of how many tickets matched.
+        recordActivity('scan');
       }
 
       return {

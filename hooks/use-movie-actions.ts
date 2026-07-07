@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { useNotificationPriming } from '@/lib/notification-priming-context';
+import { useStreak } from '@/lib/streak-context';
 import { analytics } from '@/lib/analytics';
 import { usePopcornEarn } from './use-popcorn-earn';
 import {
@@ -46,6 +47,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
   const { triggerFirstWinCheck } = useNotificationPriming();
+  const { recordActivity } = useStreak();
   const { earn } = usePopcornEarn();
 
   // Query to check if movie is in user's watchlist
@@ -138,6 +140,8 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
       analytics.track('movie:watchlist_add', { tmdb_id: variables.movie.id });
       // PS-15 PR 1: first-win moment for the notification priming sheet.
       triggerFirstWinCheck();
+      // PS-15 PR 3: a watched add is a "log", a plain add is a watchlist add.
+      recordActivity(variables.status === 'watched' ? 'log' : 'watchlist_add');
     },
   });
 
@@ -215,6 +219,10 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
         triggerAchievementCheck();
         earn('mark_watched', `movie:${tmdbId}`);
       }
+    },
+    onSuccess: (_data, newStatus) => {
+      // PS-15 PR 3: marking a movie watched is a qualifying "log".
+      if (newStatus === 'watched') recordActivity('log');
     },
   });
 

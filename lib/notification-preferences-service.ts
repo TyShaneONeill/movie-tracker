@@ -20,7 +20,8 @@ export type NotificationFeature =
   | 'release_reminders'
   | 'tv_episode_reminders'
   | 'day2_bridge'
-  | 'weekly_recap';
+  | 'weekly_recap'
+  | 'streak_at_risk';
 
 /**
  * Default enabled-state per feature when no `notification_preferences` row
@@ -32,12 +33,19 @@ export type NotificationFeature =
  * `weekly_recap` (PS-15 PR 2) is ON by default for the same reason — it's a
  * positive-reinforcement digest, not a re-engagement nudge, and only sends
  * to users with qualifying activity that week.
+ * `streak_at_risk` (PS-15 PR 3) is OFF by default (opt-in) per Ty's 2026-07-06
+ * instruction — it's a loss-framed evening nudge, so users must turn it on.
+ * Opt-in is ALSO enforced server-side: get_streak_at_risk_candidates requires
+ * an explicit enabled=true row, so the send-push-notification absent-row =
+ * enabled default never sends this to a user who hasn't toggled it on. The UI
+ * default here (OFF) and delivery therefore agree.
  */
 export const NOTIFICATION_FEATURE_DEFAULTS: Record<NotificationFeature, boolean> = {
   release_reminders: true,
   tv_episode_reminders: true,
   day2_bridge: true,
   weekly_recap: true,
+  streak_at_risk: false,
 };
 
 export async function getNotificationPreference(

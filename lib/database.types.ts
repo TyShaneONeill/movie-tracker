@@ -1541,6 +1541,30 @@ export type Database = {
           },
         ]
       }
+      user_activity_days: {
+        Row: {
+          action_count: number
+          created_at: string
+          first_action: string
+          local_date: string
+          user_id: string
+        }
+        Insert: {
+          action_count?: number
+          created_at?: string
+          first_action: string
+          local_date: string
+          user_id: string
+        }
+        Update: {
+          action_count?: number
+          created_at?: string
+          first_action?: string
+          local_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_episode_watches: {
         Row: {
           created_at: string | null
@@ -1820,6 +1844,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_streaks: {
+        Row: {
+          current_streak: number
+          last_activity_date: string | null
+          last_earn_date: string | null
+          longest_streak: number
+          rain_checks: number
+          rain_checks_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_streak?: number
+          last_activity_date?: string | null
+          last_earn_date?: string | null
+          longest_streak?: number
+          rain_checks?: number
+          rain_checks_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_streak?: number
+          last_activity_date?: string | null
+          last_earn_date?: string | null
+          longest_streak?: number
+          rain_checks?: number
+          rain_checks_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_streaming_services: {
         Row: {
@@ -2276,6 +2333,10 @@ export type Database = {
       reorder_list_movies: {
         Args: { p_list_id: string; p_ordered_tmdb_ids: number[] }
         Returns: undefined
+      }
+      record_user_activity: {
+        Args: { p_action: string }
+        Returns: Json
       }
       submit_feature_request: {
         Args: {
