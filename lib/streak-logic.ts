@@ -94,10 +94,18 @@ export function applyActivity(
     } else {
       const gap = daysBetween(prev.lastActivityDate, today); // >= 1
       const missed = gap - 1;
-      covered = Math.min(missed, rain);
-      rain -= covered;
-      used += covered;
-      current = covered >= missed ? current + 1 : 1;
+      if (missed <= rain) {
+        // Bridged (or consecutive): consume exactly the checks that saved it.
+        covered = missed;
+        rain -= covered;
+        used += covered;
+        current = current + 1;
+      } else {
+        // Uncovered gap: checks couldn't have saved it — streak resets but
+        // banked checks are KEPT (refund semantics). MUST stay in lockstep
+        // with record_user_activity in 20260707150100_record_user_activity_rpc.sql.
+        current = 1;
+      }
       advanced = true;
     }
   }

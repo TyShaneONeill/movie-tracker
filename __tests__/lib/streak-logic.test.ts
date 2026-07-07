@@ -76,21 +76,23 @@ describe('applyActivity — gap coverage combinations', () => {
     expect(t.rainCheckConsumed).toBe(true);
   });
 
-  it('2 missed days with 1 banked → 1 uncovered, streak resets to 1', () => {
+  it('2 missed days with 1 banked → uncovered, streak resets to 1 and checks are REFUNDED', () => {
     const prev = snap({ currentStreak: 5, longestStreak: 9, lastActivityDate: '2026-07-04', rainChecks: 1 });
     const t = applyActivity(prev, 'comment', '2026-07-07');
     expect(t.next.currentStreak).toBe(1);
-    expect(t.next.rainChecks).toBe(0);
-    expect(t.next.rainChecksUsed).toBe(1);
+    expect(t.next.rainChecks).toBe(1); // kept — couldn't have saved the streak
+    expect(t.next.rainChecksUsed).toBe(0);
+    expect(t.rainCheckConsumed).toBe(false);
     expect(t.next.longestStreak).toBe(9); // monotonic — unchanged by reset
   });
 
-  it('3 missed days with 2 banked → 1 uncovered, streak resets to 1', () => {
+  it('3 missed days with 2 banked → uncovered, streak resets to 1 and checks are REFUNDED', () => {
     const prev = snap({ currentStreak: 12, longestStreak: 12, lastActivityDate: '2026-07-03', rainChecks: 2 });
     const t = applyActivity(prev, 'comment', '2026-07-07');
     expect(t.next.currentStreak).toBe(1);
-    expect(t.next.rainChecks).toBe(0);
-    expect(t.next.rainChecksUsed).toBe(2);
+    expect(t.next.rainChecks).toBe(2); // kept — couldn't have saved the streak
+    expect(t.next.rainChecksUsed).toBe(0);
+    expect(t.rainCheckConsumed).toBe(false);
   });
 
   it('2 missed days with 2 banked → fully covered, advances', () => {

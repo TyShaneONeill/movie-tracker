@@ -14,10 +14,11 @@
 -- STREAK SEMANTICS (locked in the ADR, 2026-07-06):
 --   * gap = local_today - last_activity_date (>= 1 once we're past same-day).
 --   * missed = gap - 1 fully-skipped days.
---   * covered = min(missed, banked rain_checks); those rain checks are consumed
---     (rain_checks_used incremented) to bridge the gap.
---   * if covered >= missed the streak advances (+1); otherwise it resets to 1.
---     A consecutive day is just the missed=0 case → always advances.
+--   * if missed <= banked rain_checks the streak advances (+1) and exactly
+--     `missed` checks are consumed (rain_checks_used incremented) to bridge it.
+--   * otherwise the streak resets to 1 and the banked checks are KEPT — refund
+--     semantics (Ty, 2026-07-07): checks that couldn't have saved the streak
+--     are never burned. A consecutive day is the missed=0 case → always advances.
 --   * longest_streak is monotonic.
 -- Idempotent per (user, local_date): a second+ call the same local day only
 -- bumps action_count and possibly earns the day's rain check — it never
@@ -108,13 +109,17 @@ BEGIN
     ELSE
       v_gap := v_today - v_row.last_activity_date;      -- >= 1
       v_missed := v_gap - 1;                            -- fully-skipped days
-      v_covered := LEAST(v_missed, v_rain);
-      v_rain := v_rain - v_covered;
-      v_used := v_used + v_covered;
-      IF v_covered >= v_missed THEN
-        v_current := v_current + 1;                     -- bridged (or consecutive)
+      IF v_missed <= v_rain THEN
+        -- Bridged (or consecutive): consume exactly the checks that saved it.
+        v_covered := v_missed;
+        v_rain := v_rain - v_covered;
+        v_used := v_used + v_covered;
+        v_current := v_current + 1;
       ELSE
-        v_current := 1;                                 -- uncovered gap → reset
+        -- Uncovered gap: checks couldn't have saved it — streak resets but the
+        -- banked checks are KEPT (refund semantics, Ty 2026-07-07). Matches
+        -- reconcile_user_streaks, which also never touches rain_checks.
+        v_current := 1;
       END IF;
       v_advanced := true;
     END IF;
