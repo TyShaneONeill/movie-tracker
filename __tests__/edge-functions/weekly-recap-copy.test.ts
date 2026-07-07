@@ -5,12 +5,13 @@ import {
 } from '../../supabase/functions/send-weekly-recap/weekly-recap-copy';
 
 describe('buildWeeklyRecapBody', () => {
-  it('joins all three activity counts with the example wording', () => {
+  it('joins films, episodes, first takes, and reviews with the example wording', () => {
     const candidate: WeeklyRecapCandidate = {
       user_id: 'u1',
       films_watched: 3,
       episodes_logged: 5,
-      takes_created: 1,
+      first_takes_count: 1,
+      reviews_count: 0,
       top_genre: null,
     };
     expect(buildWeeklyRecapBody(candidate)).toBe(
@@ -23,11 +24,12 @@ describe('buildWeeklyRecapBody', () => {
       user_id: 'u1',
       films_watched: 1,
       episodes_logged: 1,
-      takes_created: 1,
+      first_takes_count: 1,
+      reviews_count: 1,
       top_genre: null,
     };
     expect(buildWeeklyRecapBody(candidate)).toBe(
-      '1 film, 1 episode, 1 first take — your week in film.'
+      '1 film, 1 episode, 1 first take, 1 review — your week in film.'
     );
   });
 
@@ -36,10 +38,37 @@ describe('buildWeeklyRecapBody', () => {
       user_id: 'u1',
       films_watched: 2,
       episodes_logged: 0,
-      takes_created: 0,
+      first_takes_count: 0,
+      reviews_count: 0,
       top_genre: null,
     };
     expect(buildWeeklyRecapBody(candidate)).toBe('2 films — your week in film.');
+  });
+
+  it('renders reviews-only activity as "N reviews", not mislabeled as first takes', () => {
+    const candidate: WeeklyRecapCandidate = {
+      user_id: 'u1',
+      films_watched: 0,
+      episodes_logged: 0,
+      first_takes_count: 0,
+      reviews_count: 2,
+      top_genre: null,
+    };
+    expect(buildWeeklyRecapBody(candidate)).toBe('2 reviews — your week in film.');
+  });
+
+  it('renders both first takes and reviews as distinct counts when a user has both', () => {
+    const candidate: WeeklyRecapCandidate = {
+      user_id: 'u1',
+      films_watched: 0,
+      episodes_logged: 0,
+      first_takes_count: 2,
+      reviews_count: 1,
+      top_genre: null,
+    };
+    expect(buildWeeklyRecapBody(candidate)).toBe(
+      '2 first takes, 1 review — your week in film.'
+    );
   });
 
   it('appends a top_genre suffix when present', () => {
@@ -47,7 +76,8 @@ describe('buildWeeklyRecapBody', () => {
       user_id: 'u1',
       films_watched: 2,
       episodes_logged: 0,
-      takes_created: 0,
+      first_takes_count: 0,
+      reviews_count: 0,
       top_genre: 'Horror',
     };
     expect(buildWeeklyRecapBody(candidate)).toBe(
@@ -60,7 +90,8 @@ describe('buildWeeklyRecapBody', () => {
       user_id: 'u1',
       films_watched: 0,
       episodes_logged: 0,
-      takes_created: 0,
+      first_takes_count: 0,
+      reviews_count: 0,
       top_genre: 'Sci-Fi',
     };
     expect(buildWeeklyRecapBody(candidate)).toBe(
@@ -73,7 +104,8 @@ describe('buildWeeklyRecapBody', () => {
       user_id: 'u1',
       films_watched: 0,
       episodes_logged: 0,
-      takes_created: 0,
+      first_takes_count: 0,
+      reviews_count: 0,
       top_genre: null,
     };
     expect(buildWeeklyRecapBody(candidate)).toBe('Your week in film — see the recap.');
@@ -87,8 +119,8 @@ describe('buildWeeklyRecapPayloads', () => {
 
   it('builds one payload per candidate, not grouped', () => {
     const candidates: WeeklyRecapCandidate[] = [
-      { user_id: 'u1', films_watched: 1, episodes_logged: 0, takes_created: 0, top_genre: null },
-      { user_id: 'u2', films_watched: 1, episodes_logged: 0, takes_created: 0, top_genre: null },
+      { user_id: 'u1', films_watched: 1, episodes_logged: 0, first_takes_count: 0, reviews_count: 0, top_genre: null },
+      { user_id: 'u2', films_watched: 1, episodes_logged: 0, first_takes_count: 0, reviews_count: 0, top_genre: null },
     ];
     const result = buildWeeklyRecapPayloads(candidates);
     expect(result).toHaveLength(2);
@@ -98,7 +130,7 @@ describe('buildWeeklyRecapPayloads', () => {
 
   it('sets feature=weekly_recap, channel_id=digest, and the analytics deep link on every payload', () => {
     const candidates: WeeklyRecapCandidate[] = [
-      { user_id: 'u1', films_watched: 1, episodes_logged: 0, takes_created: 0, top_genre: null },
+      { user_id: 'u1', films_watched: 1, episodes_logged: 0, first_takes_count: 0, reviews_count: 0, top_genre: null },
     ];
     const result = buildWeeklyRecapPayloads(candidates);
     expect(result[0].feature).toBe('weekly_recap');

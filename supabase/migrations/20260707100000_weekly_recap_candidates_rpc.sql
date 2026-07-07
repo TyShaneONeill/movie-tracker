@@ -14,7 +14,18 @@
 -- a TV episode, created a first take/review, commented, or scanned a ticket.
 -- "Rated" is not a separate signal here — ratings live on first_takes.rating
 -- / reviews.rating, so a rating always co-occurs with a first-take/review
--- creation already counted in takes_created.
+-- creation already counted in first_takes_count/reviews_count.
+--
+-- episodes_logged counts user_episode_watches rows (watch-events), not
+-- distinct episodes — a re-watch logged this week counts again. Intentional:
+-- "logged" tracks activity, matching total_episodes_watched's semantics in
+-- get_user_stats_summary, not a unique-episode tally.
+--
+-- first_takes_count and reviews_count are returned separately (not summed)
+-- so the edge function can render "N first takes" / "N reviews" copy
+-- correctly for a reviews-only user — a combined count previously
+-- mislabeled every candidate's activity as "first takes" regardless of
+-- which one they actually created (code review, 2026-07-07, pre-apply).
 --
 -- Mirrors get_pending_day2_bridge_candidates's hardening pattern exactly
 -- (20260706140000_day2_bridge_candidates_rpc.sql):
@@ -36,7 +47,8 @@ CREATE OR REPLACE FUNCTION "public"."get_weekly_recap_candidates"()
         "user_id" "uuid",
         "films_watched" bigint,
         "episodes_logged" bigint,
-        "takes_created" bigint,
+        "first_takes_count" bigint,
+        "reviews_count" bigint,
         "top_genre" "text"
     )
     LANGUAGE "sql" SECURITY DEFINER
@@ -87,18 +99,15 @@ CREATE OR REPLACE FUNCTION "public"."get_weekly_recap_candidates"()
           AND uew.created_at >= now() - interval '7 days'
       ) AS episodes_logged,
       (
-        (
-          SELECT count(*) FROM public.first_takes ft
-          WHERE ft.user_id = u.user_id
-            AND ft.created_at >= now() - interval '7 days'
-        )
-        +
-        (
-          SELECT count(*) FROM public.reviews r
-          WHERE r.user_id = u.user_id
-            AND r.created_at >= now() - interval '7 days'
-        )
-      ) AS takes_created,
+        SELECT count(*) FROM public.first_takes ft
+        WHERE ft.user_id = u.user_id
+          AND ft.created_at >= now() - interval '7 days'
+      ) AS first_takes_count,
+      (
+        SELECT count(*) FROM public.reviews r
+        WHERE r.user_id = u.user_id
+          AND r.created_at >= now() - interval '7 days'
+      ) AS reviews_count,
       (
         SELECT count(*) FROM public.review_comments rc
         WHERE rc.user_id = u.user_id
@@ -125,12 +134,13 @@ CREATE OR REPLACE FUNCTION "public"."get_weekly_recap_candidates"()
       ) AS top_genre
     FROM eligible_users u
   )
-  SELECT a.user_id, a.films_watched, a.episodes_logged, a.takes_created, a.top_genre
+  SELECT a.user_id, a.films_watched, a.episodes_logged, a.first_takes_count, a.reviews_count, a.top_genre
   FROM activity a
   WHERE a.films_watched > 0
      OR a.watchlist_adds > 0
      OR a.episodes_logged > 0
-     OR a.takes_created > 0
+     OR a.first_takes_count > 0
+     OR a.reviews_count > 0
      OR a.comments_created > 0
      OR a.scans > 0;
 $$;

@@ -20,7 +20,11 @@ export interface WeeklyRecapCandidate {
   user_id: string;
   films_watched: number;
   episodes_logged: number;
-  takes_created: number;
+  /** First takes and reviews are counted separately, not summed — a
+   * reviews-only user must see "N reviews", not be mislabeled "N first
+   * takes" (code review, 2026-07-07). */
+  first_takes_count: number;
+  reviews_count: number;
   /** Present only when the trailing-7-day activity has an identifiable top genre. */
   top_genre: string | null;
 }
@@ -54,7 +58,8 @@ export function buildWeeklyRecapBody(candidate: WeeklyRecapCandidate): string {
   const parts: string[] = [];
   if (candidate.films_watched > 0) parts.push(pluralize(candidate.films_watched, 'film'));
   if (candidate.episodes_logged > 0) parts.push(pluralize(candidate.episodes_logged, 'episode'));
-  if (candidate.takes_created > 0) parts.push(pluralize(candidate.takes_created, 'first take'));
+  if (candidate.first_takes_count > 0) parts.push(pluralize(candidate.first_takes_count, 'first take'));
+  if (candidate.reviews_count > 0) parts.push(pluralize(candidate.reviews_count, 'review'));
 
   if (parts.length === 0) {
     return candidate.top_genre
