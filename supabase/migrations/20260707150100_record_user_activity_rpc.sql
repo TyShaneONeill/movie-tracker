@@ -180,7 +180,7 @@ $$;
 
 ALTER FUNCTION "public"."record_user_activity"("p_action" "text") OWNER TO "postgres";
 
-COMMENT ON FUNCTION "public"."record_user_activity"("p_action" "text") IS 'Records a qualifying action for auth.uid() on their local calendar day (profiles.timezone), advances/resets the streak (consuming banked rain checks for gaps), earns rain checks for core creation actions (cap 2), and returns the new streak state as jsonb. Idempotent per local day. PS-15 PR 3.';
+COMMENT ON FUNCTION "public"."record_user_activity"("p_action" "text") IS 'Records a qualifying action for auth.uid() on their local calendar day (profiles.timezone), advances/resets the streak (consuming banked rain checks only to bridge coverable gaps; unsaveable gaps keep banked checks), earns rain checks for core creation actions (cap 2), and returns the new streak state as jsonb. Idempotent per local day. PS-15 PR 3.';
 
 REVOKE ALL ON FUNCTION "public"."record_user_activity"("p_action" "text") FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION "public"."record_user_activity"("p_action" "text") FROM "anon";
