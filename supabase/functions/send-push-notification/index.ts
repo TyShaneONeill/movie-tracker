@@ -52,7 +52,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 2. Check per-user notification preferences
+    // 2. Check per-user notification preferences.
+    // A user with no row for this feature is NOT in `disabledUsers` below, so
+    // absent = enabled. This must match the client's default-resolution —
+    // see NOTIFICATION_FEATURE_DEFAULTS in lib/notification-preferences-service.ts
+    // (PS-15 PR 0). Do not change this behavior without updating that constant.
     const { data: prefs } = await supabaseAdmin
       .from('notification_preferences')
       .select('user_id, enabled')

@@ -4,7 +4,14 @@ import React from 'react';
 import { useNotificationPreference } from '@/hooks/use-notification-preferences';
 import * as service from '@/lib/notification-preferences-service';
 
-jest.mock('@/lib/notification-preferences-service');
+jest.mock('@/lib/notification-preferences-service', () => ({
+  getNotificationPreference: jest.fn(),
+  setNotificationPreference: jest.fn(),
+  NOTIFICATION_FEATURE_DEFAULTS: {
+    release_reminders: true,
+    tv_episode_reminders: true,
+  },
+}));
 
 const getMock = service.getNotificationPreference as jest.Mock;
 const setMock = service.setNotificationPreference as jest.Mock;
@@ -44,6 +51,16 @@ describe('useNotificationPreference', () => {
       { wrapper }
     );
     await waitFor(() => expect(result.current.enabled).toBe(false));
+  });
+
+  it('resolves an absent row (null) through NOTIFICATION_FEATURE_DEFAULTS, not a hardcoded false', async () => {
+    getMock.mockResolvedValue(null);
+    const { result } = renderHook(
+      () => useNotificationPreference('release_reminders'),
+      { wrapper }
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.enabled).toBe(true);
   });
 
   it('setEnabled invokes the service and refreshes the query', async () => {

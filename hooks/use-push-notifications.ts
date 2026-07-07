@@ -10,6 +10,7 @@ import {
   configureNotificationHandler,
   handleNotificationResponse,
   getPermissionStatus,
+  syncPushPermissionState,
   type PushPermissionStatus,
 } from '@/lib/push-notification-service';
 
@@ -68,10 +69,12 @@ export function usePushNotifications(): UsePushNotificationsResult {
     };
   }, [isAvailable]);
 
-  // Check permission status on mount and when user changes
+  // Check permission status on mount and when user changes. Also syncs the
+  // `push_permission` person property + fires `push:permission_changed` when
+  // the value differs from last-known (PS-15 PR 0).
   useEffect(() => {
     if (!isAvailable) return;
-    getPermissionStatus().then(setPermissionStatus);
+    syncPushPermissionState().then(setPermissionStatus);
   }, [isAvailable, user?.id]);
 
   // Re-check permission status whenever the app returns to the foreground —
@@ -80,7 +83,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
     if (!isAvailable) return;
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        getPermissionStatus().then(setPermissionStatus);
+        syncPushPermissionState().then(setPermissionStatus);
       }
     });
     return () => sub.remove();

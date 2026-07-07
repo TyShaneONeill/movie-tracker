@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { analytics } from './analytics';
 
@@ -28,6 +29,36 @@ interface RegisterTokenResult {
 export async function getPermissionStatus(): Promise<PushPermissionStatus> {
   if (Platform.OS === 'web') return 'denied'; // Web push not supported
   const { status } = await Notifications.getPermissionsAsync();
+  return status;
+}
+
+const PUSH_PERMISSION_STORAGE_KEY = 'push.last_known_permission';
+
+/**
+ * Check current permission status (never prompts — wraps getPermissionStatus),
+ * sync the `push_permission` person property, and fire `push:permission_changed`
+ * when it differs from the last-known value persisted in AsyncStorage.
+ * PS-15 PR 0 — call on app foreground/init, not just once at cold start.
+ */
+export async function syncPushPermissionState(): Promise<PushPermissionStatus> {
+  const status = await getPermissionStatus();
+
+  analytics.setPersonProperties({ push_permission: status });
+
+  try {
+    const lastKnown = await AsyncStorage.getItem(PUSH_PERMISSION_STORAGE_KEY);
+    if (lastKnown !== status) {
+      analytics.track('push:permission_changed', {
+        from: lastKnown,
+        to: status,
+      });
+      await AsyncStorage.setItem(PUSH_PERMISSION_STORAGE_KEY, status);
+    }
+  } catch {
+    // AsyncStorage unavailable — skip the changed-event dedup for this check;
+    // the person property above is already set regardless.
+  }
+
   return status;
 }
 
@@ -260,13 +291,21 @@ export function handleNotificationResponse(
   response: Notifications.NotificationResponse
 ): void {
   const data = response.notification.request.content.data;
+  const url = getNotificationUrl(response.notification);
+
+  // Fires for every tapped push, regardless of feature — makes
+  // "notification-triggered session" measurable (PS-15 PR 0).
+  analytics.track('push:open', {
+    feature: data && typeof data.feature === 'string' ? data.feature : null,
+    has_url: url !== null,
+  });
+
   if (data && data.feature === 'release_reminders') {
     analytics.track('release_reminder:tapped', {
       tmdb_id: typeof data.tmdb_id === 'number' ? data.tmdb_id : null,
       category: typeof data.category === 'string' ? data.category : null,
     });
   }
-  const url = getNotificationUrl(response.notification);
   if (url) {
     setTimeout(() => {
       router.push(url as any);
