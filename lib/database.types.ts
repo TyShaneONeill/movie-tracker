@@ -677,6 +677,7 @@ export type Database = {
           show_continue_watching: boolean
           theme_preference: string | null
           tier_expires_at: string | null
+          timezone: string | null
           updated_at: string
           username: string | null
         }
@@ -705,6 +706,7 @@ export type Database = {
           show_continue_watching?: boolean
           theme_preference?: string | null
           tier_expires_at?: string | null
+          timezone?: string | null
           updated_at?: string
           username?: string | null
         }
@@ -733,6 +735,7 @@ export type Database = {
           show_continue_watching?: boolean
           theme_preference?: string | null
           tier_expires_at?: string | null
+          timezone?: string | null
           updated_at?: string
           username?: string | null
         }

@@ -1,6 +1,7 @@
 import {
   getNotificationPreference,
   setNotificationPreference,
+  NOTIFICATION_FEATURE_DEFAULTS,
 } from '@/lib/notification-preferences-service';
 import { supabase } from '@/lib/supabase';
 
@@ -33,6 +34,15 @@ function mockUpsertChain(upsertResult: { error: any }) {
 beforeEach(() => {
   jest.clearAllMocks();
   getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+});
+
+describe('NOTIFICATION_FEATURE_DEFAULTS', () => {
+  it('defaults every feature to enabled, matching send-push-notification\'s absent-row behavior', () => {
+    expect(NOTIFICATION_FEATURE_DEFAULTS).toEqual({
+      release_reminders: true,
+      tv_episode_reminders: true,
+    });
+  });
 });
 
 describe('getNotificationPreference', () => {

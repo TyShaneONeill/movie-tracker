@@ -30,6 +30,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/lib/analytics', () => ({
   analytics: {
     track: jest.fn(),
+    setPersonProperties: jest.fn(),
   },
 }));
 
@@ -42,6 +43,8 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// @react-native-async-storage/async-storage is mocked globally in __tests__/setup.ts
+
 // ============================================================================
 // Imports (after mocks)
 // ============================================================================
@@ -50,6 +53,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -58,6 +62,7 @@ import {
   unregisterPushToken,
   handleNotificationResponse,
   getNotificationUrl,
+  syncPushPermissionState,
 } from '@/lib/push-notification-service';
 
 // ============================================================================
@@ -71,6 +76,8 @@ const mockGetExpoPushTokenAsync = Notifications.getExpoPushTokenAsync as jest.Mo
 const mockSupabaseFrom = supabase.from as jest.Mock;
 const mockSupabaseGetUser = supabase.auth.getUser as jest.Mock;
 const mockRouterPush = router.push as jest.Mock;
+const mockAsyncStorageGetItem = AsyncStorage.getItem as jest.Mock;
+const mockAsyncStorageSetItem = AsyncStorage.setItem as jest.Mock;
 
 // ============================================================================
 // Helpers
@@ -370,5 +377,96 @@ describe('handleNotificationResponse', () => {
       tmdb_id: 12345,
       category: 'theatrical',
     });
+  });
+
+  it('emits push:open for every tapped push, with feature + has_url', () => {
+    const { analytics } = require('@/lib/analytics');
+    const trackSpy = analytics.track as jest.Mock;
+    trackSpy.mockClear();
+
+    const response = makeNotificationResponse({
+      url: '/movie/12345',
+      feature: 'release_reminders',
+    });
+    handleNotificationResponse(response);
+
+    expect(trackSpy).toHaveBeenCalledWith('push:open', {
+      feature: 'release_reminders',
+      has_url: true,
+    });
+  });
+
+  it('emits push:open with feature=null and has_url=false when data has neither', () => {
+    const { analytics } = require('@/lib/analytics');
+    const trackSpy = analytics.track as jest.Mock;
+    trackSpy.mockClear();
+
+    const response = makeNotificationResponse({});
+    handleNotificationResponse(response);
+
+    expect(trackSpy).toHaveBeenCalledWith('push:open', {
+      feature: null,
+      has_url: false,
+    });
+  });
+});
+
+describe('syncPushPermissionState', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (Platform as any).OS = 'ios';
+  });
+
+  it('sets the push_permission person property to the current status', async () => {
+    const { analytics } = require('@/lib/analytics');
+    mockGetPermissionsAsync.mockResolvedValueOnce({ status: 'granted' });
+    mockAsyncStorageGetItem.mockResolvedValueOnce('granted');
+
+    const status = await syncPushPermissionState();
+
+    expect(status).toBe('granted');
+    expect(analytics.setPersonProperties).toHaveBeenCalledWith({ push_permission: 'granted' });
+  });
+
+  it('fires push:permission_changed and persists the new value when it differs from last-known', async () => {
+    const { analytics } = require('@/lib/analytics');
+    mockGetPermissionsAsync.mockResolvedValueOnce({ status: 'granted' });
+    mockAsyncStorageGetItem.mockResolvedValueOnce('undetermined');
+
+    await syncPushPermissionState();
+
+    expect(analytics.track).toHaveBeenCalledWith('push:permission_changed', {
+      from: 'undetermined',
+      to: 'granted',
+    });
+    expect(mockAsyncStorageSetItem).toHaveBeenCalledWith(
+      'push.last_known_permission',
+      'granted'
+    );
+  });
+
+  it('does not fire push:permission_changed when the value is unchanged', async () => {
+    const { analytics } = require('@/lib/analytics');
+    mockGetPermissionsAsync.mockResolvedValueOnce({ status: 'denied' });
+    mockAsyncStorageGetItem.mockResolvedValueOnce('denied');
+
+    await syncPushPermissionState();
+
+    expect(analytics.track).not.toHaveBeenCalledWith(
+      'push:permission_changed',
+      expect.anything()
+    );
+    expect(mockAsyncStorageSetItem).not.toHaveBeenCalled();
+  });
+
+  it('still sets the person property when AsyncStorage throws', async () => {
+    const { analytics } = require('@/lib/analytics');
+    mockGetPermissionsAsync.mockResolvedValueOnce({ status: 'granted' });
+    mockAsyncStorageGetItem.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    const status = await syncPushPermissionState();
+
+    expect(status).toBe('granted');
+    expect(analytics.setPersonProperties).toHaveBeenCalledWith({ push_permission: 'granted' });
   });
 });

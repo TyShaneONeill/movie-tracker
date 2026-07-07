@@ -10,6 +10,10 @@ import * as analyticsModule from '@/lib/analytics';
 jest.mock('@/lib/notification-preferences-service', () => ({
   getNotificationPreference: jest.fn(),
   setNotificationPreference: jest.fn(),
+  NOTIFICATION_FEATURE_DEFAULTS: {
+    release_reminders: true,
+    tv_episode_reminders: true,
+  },
 }));
 jest.mock('@/hooks/use-push-notifications', () => ({
   usePushNotifications: jest.fn(),
@@ -90,13 +94,13 @@ describe('NotificationsSettingsScreen — granted permission', () => {
     });
   });
 
-  it('renders both per-feature toggles defaulting OFF when no DB rows exist', async () => {
+  it('renders both per-feature toggles defaulting ON when no DB rows exist (PS-15 PR 0: matches delivery, which already sends to absent rows)', async () => {
     getPrefMock.mockResolvedValue(null);
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
     const release = await findByLabelText('Release reminders', {}, { timeout: 8000 });
     const tv = await findByLabelText('TV episode reminders');
-    expect(release.props.accessibilityState.checked).toBe(false);
-    expect(tv.props.accessibilityState.checked).toBe(false);
+    expect(release.props.accessibilityState.checked).toBe(true);
+    expect(tv.props.accessibilityState.checked).toBe(true);
   }, 15000);
 
   it('toggling release_reminders ON calls setNotificationPreference and fires analytics', async () => {

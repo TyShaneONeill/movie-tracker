@@ -59,6 +59,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useWidgetSync } from '@/hooks/use-widget-sync';
 import { useAiCreditRecovery } from '@/hooks/use-ai-credit-recovery';
 import { useAuthTokenSync } from '@/hooks/use-auth-token-sync';
+import { useProfileTimezoneSync } from '@/hooks/use-profile-timezone-sync';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -297,6 +298,7 @@ function RootLayoutNav() {
   useWidgetSync();
   useAuthTokenSync();
   useAiCreditRecovery();
+  useProfileTimezoneSync();
 
   useEffect(() => {
     setBg(Colors[effectiveTheme].background);
