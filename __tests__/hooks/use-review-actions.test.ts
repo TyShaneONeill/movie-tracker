@@ -23,6 +23,10 @@ jest.mock('@/lib/achievement-context', () => ({
   useAchievementCheck: () => ({ triggerAchievementCheck: jest.fn() }),
 }));
 
+jest.mock('@/lib/streak-context', () => ({
+  useStreak: () => ({ recordActivity: jest.fn(), streakVersion: 0 }),
+}));
+
 const mockTrack = jest.fn();
 jest.mock('@/lib/analytics', () => ({
   analytics: {

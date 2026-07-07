@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { useStreak } from '@/lib/streak-context';
 import { usePopcornEarn } from '@/hooks/use-popcorn-earn';
 import { analytics } from '@/lib/analytics';
 import {
@@ -41,6 +42,7 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { triggerAchievementCheck } = useAchievementCheck();
+  const { recordActivity } = useStreak();
   const { earn } = usePopcornEarn();
 
   // Query to check if show is in user's library
@@ -125,6 +127,8 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
         status: variables.status,
         name: variables.show.name,
       });
+      // PS-15 PR 3: a TV status change is a qualifying (non-earn) action.
+      recordActivity('tv_status');
     },
   });
 
@@ -209,6 +213,8 @@ export function useTvShowActions(tmdbId: number): UseTvShowActionsResult {
         status: newStatus,
         name: currentShow?.name ?? undefined,
       });
+      // PS-15 PR 3: a TV status change is a qualifying (non-earn) action.
+      recordActivity('tv_status');
     },
   });
 

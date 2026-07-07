@@ -89,3 +89,22 @@ export function useDailyHooksEnabled(): boolean {
   if (envOverride === 'false') return false;
   return flagOn;
 }
+
+/**
+ * Returns true when the punch-card streak spine (PS-15 PR 3) should be active —
+ * activity recording, the profile punch card, and the streak settings toggle.
+ *
+ * SEPARATE flag from `daily_hooks` (@100% since 2026-07-07 for the priming
+ * sheet): the streak spine ships dark for Ty-only device validation first,
+ * then widens — same rollout playbook as the priming sheet. Env override
+ * EXPO_PUBLIC_STREAK_SPINE_OVERRIDE = "true" | "false" for dev. Fails closed
+ * while the flag is loading, like useDailyHooksEnabled.
+ */
+export function useStreakSpineEnabled(): boolean {
+  const { enabled: flagOn } = useFeatureFlag('streak_spine');
+  const envOverride = process.env.EXPO_PUBLIC_STREAK_SPINE_OVERRIDE;
+
+  if (envOverride === 'true') return true;
+  if (envOverride === 'false') return false;
+  return flagOn;
+}

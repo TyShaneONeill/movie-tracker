@@ -12,6 +12,7 @@ import {
 } from '@/lib/comment-service';
 import { analytics } from '@/lib/analytics';
 import { usePopcornEarn } from './use-popcorn-earn';
+import { useStreak } from '@/lib/streak-context';
 
 interface UseCommentsParams {
   targetType: 'review' | 'first_take';
@@ -27,6 +28,7 @@ export function useComments({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { earn } = usePopcornEarn();
+  const { recordActivity } = useStreak();
 
   const queryKey = ['comments', targetType, targetId];
 
@@ -58,6 +60,8 @@ export function useComments({
         review_id: targetId,
         is_reply: !!variables.parentCommentId,
       });
+      // PS-15 PR 3: commenting is a qualifying (non-earn) action.
+      recordActivity('comment');
       earn('comment', newComment.id);
       queryClient.invalidateQueries({ queryKey });
       // Invalidate review queries to update comment counts

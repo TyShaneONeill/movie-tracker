@@ -16,6 +16,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ContentContainer } from '@/components/content-container';
+import { StreakPunchCard } from '@/components/streak/streak-punch-card';
 import { useAds } from '@/lib/ads-context';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import {
@@ -757,6 +758,8 @@ export default function ProfileScreen() {
                 </View>
                 {/* Achievements Row */}
                 {renderAchievementsRow()}
+                {/* PS-15 PR 3: punch-card streak (renders nothing when streak_spine off) */}
+                <StreakPunchCard />
             </Animated.View>
 
             {/* Combined Stat-Tab Bar */}
@@ -1194,6 +1197,8 @@ export default function ProfileScreen() {
                         </View>
                         {/* Achievements Row */}
                         {renderAchievementsRow()}
+                        {/* PS-15 PR 3: punch-card streak (renders nothing when streak_spine off) */}
+                        <StreakPunchCard />
                     </Animated.View>
 
                     {/* Combined Stat-Tab Bar (CSS sticky on web) */}

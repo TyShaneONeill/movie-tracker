@@ -49,6 +49,10 @@ jest.mock('@/lib/notification-priming-context', () => ({
   useNotificationPriming: () => ({ triggerFirstWinCheck: jest.fn() }),
 }));
 
+jest.mock('@/lib/streak-context', () => ({
+  useStreak: () => ({ recordActivity: jest.fn(), streakVersion: 0 }),
+}));
+
 import { useScanTicket, ScanTicketError, isScanTicketError } from '@/hooks/use-scan-ticket';
 
 function sessionOk() {
