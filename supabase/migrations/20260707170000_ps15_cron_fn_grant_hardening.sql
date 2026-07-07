@@ -27,4 +27,8 @@ REVOKE EXECUTE ON FUNCTION "public"."get_streak_at_risk_candidates"() FROM "anon
 REVOKE EXECUTE ON FUNCTION "public"."reconcile_user_streaks"() FROM "anon", "authenticated";
 
 -- SP1-era sibling with the same shape (cron-only, service-role caller).
-REVOKE EXECUTE ON FUNCTION "public"."get_pending_release_reminders"() FROM "anon", "authenticated";
+-- NOTE the (integer) signature: 20260706130000 DROPPED the zero-arg overload
+-- and re-created it as (p_days_before integer DEFAULT 0) — REVOKE matches the
+-- DECLARED signature exactly, and a stale () here would abort this whole
+-- migration transaction (caught in cold review, PR #630).
+REVOKE EXECUTE ON FUNCTION "public"."get_pending_release_reminders"(integer) FROM "anon", "authenticated";
