@@ -240,6 +240,7 @@ export type Database = {
         Row: {
           comment_count: number | null
           created_at: string | null
+          edited_at: string | null
           episode_number: number | null
           id: string
           is_rewatch: boolean | null
@@ -262,6 +263,7 @@ export type Database = {
         Insert: {
           comment_count?: number | null
           created_at?: string | null
+          edited_at?: string | null
           episode_number?: number | null
           id?: string
           is_rewatch?: boolean | null
@@ -284,6 +286,7 @@ export type Database = {
         Update: {
           comment_count?: number | null
           created_at?: string | null
+          edited_at?: string | null
           episode_number?: number | null
           id?: string
           is_rewatch?: boolean | null
@@ -919,6 +922,7 @@ export type Database = {
         Row: {
           body: string
           created_at: string | null
+          edited_at: string | null
           first_take_id: string | null
           id: string
           is_hidden: boolean | null
@@ -928,11 +932,13 @@ export type Database = {
           parent_comment_id: string | null
           report_count: number | null
           review_id: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
           body: string
           created_at?: string | null
+          edited_at?: string | null
           first_take_id?: string | null
           id?: string
           is_hidden?: boolean | null
@@ -942,11 +948,13 @@ export type Database = {
           parent_comment_id?: string | null
           report_count?: number | null
           review_id?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
           body?: string
           created_at?: string | null
+          edited_at?: string | null
           first_take_id?: string | null
           id?: string
           is_hidden?: boolean | null
@@ -956,6 +964,7 @@ export type Database = {
           parent_comment_id?: string | null
           report_count?: number | null
           review_id?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1025,6 +1034,7 @@ export type Database = {
         Row: {
           comment_count: number | null
           created_at: string
+          edited_at: string | null
           id: string
           is_rewatch: boolean
           is_spoiler: boolean
@@ -1043,6 +1053,7 @@ export type Database = {
         Insert: {
           comment_count?: number | null
           created_at?: string
+          edited_at?: string | null
           id?: string
           is_rewatch?: boolean
           is_spoiler?: boolean
@@ -1061,6 +1072,7 @@ export type Database = {
         Update: {
           comment_count?: number | null
           created_at?: string
+          edited_at?: string | null
           id?: string
           is_rewatch?: boolean
           is_spoiler?: boolean

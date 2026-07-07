@@ -12,6 +12,7 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
+import { EditedBadge } from '@/components/edited-badge';
 
 interface FirstTakeCardProps {
   /**
@@ -45,6 +46,11 @@ interface FirstTakeCardProps {
   createdAt: string;
 
   /**
+   * ISO date string when the take's content was last edited, or null if never.
+   */
+  editedAt?: string | null;
+
+  /**
    * Whether this is the latest (most recent) take
    * Shows gold left border when true
    */
@@ -68,6 +74,7 @@ export function FirstTakeCard({
   quote,
   rating,
   createdAt,
+  editedAt,
   isLatest = false,
   onPress,
   style,
@@ -109,9 +116,12 @@ export function FirstTakeCard({
             >
               {movieTitle}
             </Text>
-            <Text style={[styles.timestamp, { color: colors.textSecondary }]}>
-              {formatRelativeTime(createdAt)}
-            </Text>
+            <View style={styles.metaRow}>
+              <Text style={[styles.timestamp, { color: colors.textSecondary }]}>
+                {formatRelativeTime(createdAt)}
+              </Text>
+              <EditedBadge editedAt={editedAt} compact />
+            </View>
           </View>
         </View>
         {rating != null && rating > 0 ? (
@@ -164,9 +174,15 @@ const styles = StyleSheet.create({
     ...Typography.body.base,
     fontWeight: '600',
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: 2,
+    flexWrap: 'wrap',
+  },
   timestamp: {
     ...Typography.body.xs,
-    marginTop: 2,
   },
   emoji: {
     fontSize: 24,

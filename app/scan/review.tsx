@@ -237,7 +237,7 @@ export default function TicketReviewScreen() {
 
   // Handle First Take modal submission
   const handleFirstTakeSubmit = useCallback(async (data: {
-    rating: number;
+    rating: number | null;
     quoteText: string;
     isSpoiler: boolean;
   }) => {

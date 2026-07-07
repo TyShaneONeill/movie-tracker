@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -31,13 +31,31 @@ const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
   { value: 'private', label: 'Private' },
 ];
 
+interface FirstTakeInitialValues {
+  rating: number | null;
+  quoteText: string;
+  isSpoiler: boolean;
+  visibility: ReviewVisibility;
+}
+
 interface FirstTakeModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { rating: number; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility }) => Promise<void>;
+  onSubmit: (data: { rating: number | null; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility }) => Promise<void>;
   movieTitle: string;
   moviePosterUrl?: string;
   isSubmitting?: boolean;
+  /** When provided, the modal opens pre-filled for editing an existing First Take. */
+  initialValues?: FirstTakeInitialValues | null;
+  /** Optional explicit edit flag; defaults to whether initialValues was passed. */
+  isEditing?: boolean;
+  /**
+   * PS-12: when true the post's CONTENT is locked (grace window closed or it has
+   * engagement). Content inputs (rating/quote/spoiler) become read-only, but
+   * visibility stays editable so the owner can still change who sees it. On Save
+   * the content fields are sent unchanged, so the DB trigger accepts the edit.
+   */
+  contentLocked?: boolean;
 }
 
 export function FirstTakeModal({
@@ -47,24 +65,45 @@ export function FirstTakeModal({
   movieTitle,
   moviePosterUrl,
   isSubmitting = false,
+  initialValues,
+  isEditing: isEditingProp,
+  contentLocked = false,
 }: FirstTakeModalProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
-  const [rating, setRating] = useState<number>(5);
-  const [quoteText, setQuoteText] = useState('');
-  const [isSpoiler, setIsSpoiler] = useState(false);
-  const [visibility, setVisibility] = useState<ReviewVisibility>(preferences?.reviewVisibility ?? 'public');
+  const isEditing = isEditingProp ?? !!initialValues;
+  // Preserve a null/absent rating on the EDIT path — a rating-less First Take
+  // must NOT be coerced to 5 (that would stamp an edit the user never made).
+  // The CREATE path (no initialValues) keeps the historical default of 5.
+  const [rating, setRating] = useState<number | null>(initialValues ? initialValues.rating : 5);
+  const [quoteText, setQuoteText] = useState(initialValues?.quoteText ?? '');
+  const [isSpoiler, setIsSpoiler] = useState(initialValues?.isSpoiler ?? false);
+  const [visibility, setVisibility] = useState<ReviewVisibility>(
+    initialValues?.visibility ?? preferences?.reviewVisibility ?? 'public'
+  );
 
-  // Sync visibility default when preferences load
+  // Reset the form ONLY on the false→true `visible` transition (tracked via a
+  // ref). Keying the reset on the inline `initialValues` object wiped an
+  // in-progress edit whenever the parent re-rendered (e.g. a react-query
+  // refetch produced a new object identity). We still re-pull `initialValues`
+  // and the preferences default inside the guard so an actual open reflects the
+  // latest values.
+  const prevVisibleRef = useRef(false);
   useEffect(() => {
-    if (preferences?.reviewVisibility) {
-      setVisibility(preferences.reviewVisibility);
+    if (visible && !prevVisibleRef.current) {
+      setRating(initialValues ? initialValues.rating : 5);
+      setQuoteText(initialValues?.quoteText ?? '');
+      setIsSpoiler(initialValues?.isSpoiler ?? false);
+      setVisibility(initialValues?.visibility ?? preferences?.reviewVisibility ?? 'public');
     }
-  }, [preferences?.reviewVisibility]);
+    prevVisibleRef.current = visible;
+  }, [visible, initialValues, preferences?.reviewVisibility]);
 
-  const canSubmit = (rating > 0 || quoteText.trim().length > 0) && !isSubmitting;
+  // When content is locked the user can still save a visibility-only change, so
+  // the button stays enabled regardless of the (read-only) content values.
+  const canSubmit = (contentLocked || (rating ?? 0) > 0 || quoteText.trim().length > 0) && !isSubmitting;
   const charCount = quoteText.length;
   const isNearLimit = charCount > 120;
 
@@ -81,11 +120,12 @@ export function FirstTakeModal({
 
     Toast.show({
       type: 'success',
-      text1: 'First Take posted!',
+      text1: isEditing ? 'First Take updated!' : 'First Take posted!',
       visibilityTime: 2000,
     });
     hapticNotification(NotificationFeedbackType.Success);
-    // Reset state after successful submit
+    // Reset state after successful submit (create defaults; a subsequent open
+    // re-pulls initialValues via the visible-transition effect).
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
@@ -139,7 +179,7 @@ export function FirstTakeModal({
                   <Text style={styles.movieTitle} numberOfLines={2}>
                     {movieTitle}
                   </Text>
-                  <Text style={styles.subtitle}>Your First Take</Text>
+                  <Text style={styles.subtitle}>{isEditing ? 'Edit First Take' : 'Your First Take'}</Text>
                 </View>
                 <Pressable
                   style={({ pressed }) => [
@@ -152,14 +192,23 @@ export function FirstTakeModal({
                 </Pressable>
               </View>
 
+              {/* Content-locked note — visibility stays editable */}
+              {contentLocked && (
+                <View style={styles.lockNote}>
+                  <Text style={styles.lockNoteText}>
+                    Editing is locked — you can still change who sees this.
+                  </Text>
+                </View>
+              )}
+
               {/* Rating Section */}
-              <View style={styles.ratingSection}>
+              <View style={[styles.ratingSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Rating</Text>
 
                 <View style={styles.ratingWrapper}>
                   {/* Large Rating Display */}
                   <View style={styles.ratingDisplay}>
-                    <Text style={styles.ratingValue}>{formatRating(rating)}</Text>
+                    <Text style={styles.ratingValue}>{rating === null ? '–' : formatRating(rating)}</Text>
                     <Text style={styles.ratingMax}>/ 10</Text>
                   </View>
 
@@ -170,7 +219,8 @@ export function FirstTakeModal({
                       minimumValue={0}
                       maximumValue={10}
                       step={0.1}
-                      value={rating}
+                      value={rating ?? 5}
+                      disabled={contentLocked}
                       onValueChange={(value) => setRating(Math.max(1, value))}
                       minimumTrackTintColor={colors.tint}
                       maximumTrackTintColor={colors.backgroundSecondary}
@@ -188,7 +238,7 @@ export function FirstTakeModal({
               </View>
 
               {/* Text Input Section */}
-              <View style={styles.inputSection}>
+              <View style={[styles.inputSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Your Thoughts</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
@@ -197,6 +247,7 @@ export function FirstTakeModal({
                     placeholderTextColor={colors.textTertiary}
                     value={quoteText}
                     onChangeText={(text) => setQuoteText(text.slice(0, MAX_QUOTE_LENGTH))}
+                    editable={!contentLocked}
                     multiline
                     maxLength={MAX_QUOTE_LENGTH}
                     textAlignVertical="top"
@@ -208,7 +259,7 @@ export function FirstTakeModal({
               </View>
 
               {/* Spoiler Toggle */}
-              <View style={styles.spoilerRow}>
+              <View style={[styles.spoilerRow, contentLocked && styles.lockedField]}>
                 <View style={styles.spoilerLeft}>
                   {/* Warning Icon */}
                   <View style={styles.warningIcon}>
@@ -222,6 +273,7 @@ export function FirstTakeModal({
                 <ToggleSwitch
                   value={isSpoiler}
                   onValueChange={setIsSpoiler}
+                  disabled={contentLocked}
                   activeColor={colors.tint}
                 />
               </View>
@@ -269,7 +321,7 @@ export function FirstTakeModal({
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={[styles.submitButtonText, !canSubmit && styles.submitButtonTextDisabled]}>
-                    Post First Take
+                    {isEditing ? 'Save' : 'Post First Take'}
                   </Text>
                 )}
               </Pressable>
@@ -304,6 +356,23 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     content: {
       padding: Spacing.lg,
+    },
+
+    // Content-lock note + dimmed read-only fields
+    lockNote: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.md,
+      marginBottom: Spacing.lg,
+    },
+    lockNoteText: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+    lockedField: {
+      opacity: 0.5,
     },
 
     // Header Styles

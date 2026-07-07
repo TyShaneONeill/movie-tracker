@@ -90,13 +90,17 @@ export async function updateFirstTake(
 ): Promise<FirstTake> {
   const updateData: FirstTakeUpdate = {
     ...(updates.reactionEmoji !== undefined && { reaction_emoji: updates.reactionEmoji }),
-    ...(updates.quoteText !== undefined && { quote_text: updates.quoteText }),
+    ...(updates.quoteText !== undefined && { quote_text: updates.quoteText.trim() }),
     ...(updates.isSpoiler !== undefined && { is_spoiler: updates.isSpoiler }),
     ...(updates.rating !== undefined && { rating: updates.rating }),
     ...(updates.visibility !== undefined && { visibility: updates.visibility }),
     updated_at: new Date().toISOString(),
   };
 
+  // `edited_at` is stamped SERVER-SIDE by the DB trigger on genuine content
+  // change (quote/rating/emoji/spoiler); a visibility-only edit leaves it
+  // untouched. The client no longer fetches-and-compares — it just sends the
+  // update.
   const { data, error } = (await (supabase
     .from('first_takes') as any)
     .update(updateData)
@@ -105,6 +109,15 @@ export async function updateFirstTake(
     .single()) as { data: FirstTake; error: any };
 
   if (error) {
+    // The edit-grace-window trigger (PS-12) rejects locked content edits with
+    // HINT='edit_window_closed' and a friendly MESSAGE. Re-throw with the marker
+    // in the message so `isEditWindowClosedError` can detect it upstream.
+    if (
+      error?.hint === 'edit_window_closed' ||
+      String(error?.message ?? '').includes('edit_window_closed')
+    ) {
+      throw new Error('edit_window_closed');
+    }
     throw new Error(error.message || 'Failed to update first take');
   }
 

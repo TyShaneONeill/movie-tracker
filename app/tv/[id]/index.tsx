@@ -47,6 +47,8 @@ import { Typography } from '@/constants/typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { ReviewModal } from '@/components/review-modal';
+import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
+import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
 import { CommunityReviews } from '@/components/movie-detail/community-reviews';
 import { TvShowStatusActions } from '@/components/tv-show-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
@@ -269,6 +271,8 @@ export default function TvShowDetailScreen() {
   // Modal state
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  // PS-12 (D1): review editing is gated behind the `social_editing` flag.
+  const socialEditingEnabled = useSocialEditingEnabled();
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
@@ -452,6 +456,15 @@ export default function TvShowDetailScreen() {
   const handleReview = () => {
     hapticImpact();
     requireAuth(() => {
+      // PS-12 (D1): editing an EXISTING review is gated behind `social_editing`.
+      // Creating a new review is always allowed. When the flag is OFF and the
+      // user already has a review, there is no edit affordance — do nothing
+      // (behave as pre-PS-12, minus edit). When the flag is ON the editor opens
+      // even for a locked review; only the CONTENT fields are disabled inside
+      // (PS-12 D2), so visibility stays editable.
+      if (hasReview && existingReview && !socialEditingEnabled) {
+        return;
+      }
       setShowReviewModal(true);
     }, 'Sign in to write reviews');
   };
@@ -488,8 +501,13 @@ export default function TvShowDetailScreen() {
         });
       }
       setShowReviewModal(false);
-    } catch {
-      Toast.show({ type: 'error', text1: 'Failed to save your review', visibilityTime: 3000 });
+    } catch (err) {
+      if (isEditWindowClosedError(err)) {
+        setShowReviewModal(false);
+        Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
+      } else {
+        Toast.show({ type: 'error', text1: 'Failed to save your review', visibilityTime: 3000 });
+      }
     }
   };
 
@@ -682,7 +700,7 @@ export default function TvShowDetailScreen() {
   };
 
   const handleFirstTakeSubmit = async (data: {
-    rating: number;
+    rating: number | null;
     quoteText: string;
     isSpoiler: boolean;
   }) => {
@@ -1183,6 +1201,7 @@ export default function TvShowDetailScreen() {
           isSpoiler: existingReview.is_spoiler,
           visibility: existingReview.visibility as 'public' | 'followers_only' | 'private',
         } : null}
+        contentLocked={!!existingReview && !canEditPost(existingReview)}
         isSubmitting={isCreatingReview || isUpdatingReview}
       />
 

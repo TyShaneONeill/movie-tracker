@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Keyboard, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
@@ -12,14 +12,20 @@ import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
-import type { FirstTake } from '@/lib/database.types';
+import type { FirstTake, ReviewVisibility } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
+import { EditedBadge } from '@/components/edited-badge';
 import { ContentContainer } from '@/components/content-container';
 import ViewShot from 'react-native-view-shot';
 import { ShareableFirstTakeCard } from '@/components/share/shareable-first-take-card';
 import { captureCard, shareFirstTake, shareFirstTakeUrl } from '@/lib/share-service';
 import { analytics } from '@/lib/analytics';
+import { FirstTakeModal } from '@/components/first-take-modal';
+import { updateFirstTake } from '@/lib/first-take-service';
+import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
+import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
+import { hapticImpact } from '@/lib/haptics';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -33,6 +39,8 @@ export default function FirstTakeDetailScreen() {
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { user } = useAuth();
+  // PS-12 (D1): every edit affordance is gated behind the `social_editing` flag.
+  const socialEditingEnabled = useSocialEditingEnabled();
 
   const { data: firstTake, isLoading } = useQuery({
     queryKey: ['firstTake', id],
@@ -50,8 +58,10 @@ export default function FirstTakeDetailScreen() {
 
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const viewShotRef = useRef<ViewShot>(null);
+  const queryClient = useQueryClient();
 
   // Reviewer profile for the share card
   const { data: reviewerProfile } = useQuery({
@@ -91,6 +101,60 @@ export default function FirstTakeDetailScreen() {
   const isOwn = !!user && !!firstTake && firstTake.user_id === user.id;
   const needsFollowCheck =
     !!firstTake && firstTake.visibility === 'followers_only' && !isOwn;
+
+  // PS-12 edit path: update an existing First Take through the same service the
+  // create flow uses. The service stamps `edited_at` on content change and
+  // re-throws `edit_window_closed` when the DB grace-window trigger rejects it.
+  const updateMutation = useMutation({
+    mutationFn: (updates: {
+      quoteText: string;
+      isSpoiler: boolean;
+      rating: number | null;
+      visibility: ReviewVisibility;
+    }) => updateFirstTake(firstTake!.id, updates),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['firstTake', id], updated);
+      queryClient.invalidateQueries({ queryKey: ['firstTake', updated.user_id, updated.tmdb_id, updated.media_type] });
+      queryClient.invalidateQueries({ queryKey: ['first-takes', updated.user_id] });
+      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+    },
+  });
+
+  // PS-12 (D2): the editor OPENS even when the post is locked — only the CONTENT
+  // fields are disabled inside (visibility stays editable). `contentLocked` is
+  // derived from `canEditPost`. The DB grace-window trigger remains the real
+  // guarantee; `isEditWindowClosedError` in handleEditSubmit is the race
+  // fallback if a save is rejected.
+  const handleEditPress = () => {
+    if (!firstTake) return;
+    hapticImpact();
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (data: {
+    rating: number | null;
+    quoteText: string;
+    isSpoiler: boolean;
+    visibility: ReviewVisibility;
+  }) => {
+    if (!firstTake) return;
+    try {
+      await updateMutation.mutateAsync({
+        quoteText: data.quoteText,
+        isSpoiler: data.isSpoiler,
+        rating: data.rating,
+        visibility: data.visibility,
+      });
+      setShowEditModal(false);
+    } catch (err) {
+      if (isEditWindowClosedError(err)) {
+        setShowEditModal(false);
+        Alert.alert('Cannot edit', EDIT_WINDOW_CLOSED_MESSAGE);
+      } else {
+        Alert.alert('Error', 'Failed to save your First Take. Please try again.');
+      }
+    }
+  };
 
   const { data: followsData, isLoading: followsLoading } = useQuery({
     queryKey: ['followCheck', user?.id, firstTake?.user_id],
@@ -213,14 +277,33 @@ export default function FirstTakeDetailScreen() {
               <Ionicons name="chevron-back" size={28} color={colors.text} />
             </Pressable>
             <Text style={styles.topBarTitle}>First Take</Text>
-            {firstTake.visibility === 'public' ? (
-              <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
-                {isSharing ? (
-                  <ActivityIndicator size="small" color={colors.text} />
-                ) : (
-                  <Ionicons name="share-outline" size={24} color={colors.text} />
+            {isOwn || firstTake.visibility === 'public' ? (
+              <View style={styles.topBarActions}>
+                {/* PS-12: the pencil shows for the owner whenever `social_editing`
+                    is ON — even on a locked post. Tapping opens a content-locked
+                    editor (visibility still editable). The flag OFF removes the
+                    affordance entirely (app behaves as if editing doesn't exist). */}
+                {isOwn && socialEditingEnabled && (
+                  <Pressable
+                    onPress={handleEditPress}
+                    disabled={updateMutation.isPending}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit First Take"
+                  >
+                    <Ionicons name="pencil-outline" size={22} color={colors.text} />
+                  </Pressable>
                 )}
-              </Pressable>
+                {firstTake.visibility === 'public' && (
+                  <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
+                    {isSharing ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Ionicons name="share-outline" size={24} color={colors.text} />
+                    )}
+                  </Pressable>
+                )}
+              </View>
             ) : (
               <View style={{ width: 28 }} />
             )}
@@ -254,8 +337,11 @@ export default function FirstTakeDetailScreen() {
                   {firstTake.movie_title}
                 </Text>
                 <Text style={styles.timeText}>
-                  {formatRelativeTime(firstTake.created_at ?? '')}
+                  Posted {formatRelativeTime(firstTake.created_at ?? '')}
                 </Text>
+                <View style={styles.editedRow}>
+                  <EditedBadge editedAt={firstTake.edited_at} createdAt={firstTake.created_at} />
+                </View>
               </View>
 
               {firstTake.rating != null && firstTake.rating > 0 ? (
@@ -338,6 +424,28 @@ export default function FirstTakeDetailScreen() {
             />
           </ViewShot>
         )}
+
+        {/* Edit modal — own First Takes only, behind the social_editing flag.
+            When the post is locked, only content is disabled; visibility stays
+            editable (PS-12 D2). */}
+        {isOwn && socialEditingEnabled && (
+          <FirstTakeModal
+            visible={showEditModal}
+            onClose={() => setShowEditModal(false)}
+            onSubmit={handleEditSubmit}
+            movieTitle={firstTake.movie_title}
+            moviePosterUrl={posterUri ?? undefined}
+            isSubmitting={updateMutation.isPending}
+            isEditing
+            contentLocked={!canEditPost(firstTake)}
+            initialValues={{
+              rating: firstTake.rating,
+              quoteText: firstTake.quote_text,
+              isSpoiler: firstTake.is_spoiler ?? false,
+              visibility: firstTake.visibility as ReviewVisibility,
+            }}
+          />
+        )}
       </SafeAreaView>
     </>
   );
@@ -365,6 +473,11 @@ function createStyles(colors: typeof Colors.dark) {
       height: 48,
       paddingHorizontal: Spacing.md,
       paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
+    },
+    topBarActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
     },
     topBarTitle: {
       ...Typography.body.lg,
@@ -407,6 +520,10 @@ function createStyles(colors: typeof Colors.dark) {
       ...Typography.body.sm,
       color: colors.textSecondary,
       marginTop: Spacing.xs,
+    },
+    editedRow: {
+      marginTop: Spacing.xs,
+      alignSelf: 'flex-start',
     },
     ratingBadge: {
       width: 56,

@@ -5,9 +5,10 @@ import {
   addComment,
   reportComment,
   deleteComment,
+  updateComment as updateCommentService,
   likeComment as likeCommentService,
   type CommentsResponse,
-  type CommentLikeResponse,
+  type UpdatedComment,
 } from '@/lib/comment-service';
 import { analytics } from '@/lib/analytics';
 import { usePopcornEarn } from './use-popcorn-earn';
@@ -76,6 +77,47 @@ export function useComments({
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: ({ commentId, body }: { commentId: string; body: string }) =>
+      updateCommentService(commentId, body),
+    // Optimistic update: reflect the new body + edited_at immediately.
+    onMutate: async ({ commentId, body }: { commentId: string; body: string }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<CommentsResponse>(queryKey);
+      const nowIso = new Date().toISOString();
+
+      queryClient.setQueryData<CommentsResponse>(queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          comments: updateCommentBody(old.comments, commentId, body.trim(), nowIso),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+    onSuccess: (updated: UpdatedComment) => {
+      // Reconcile with the server-returned row (canonical body + edited_at).
+      queryClient.setQueryData<CommentsResponse>(queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          comments: updateCommentBody(
+            old.comments,
+            updated.id,
+            updated.body,
+            updated.editedAt,
+          ),
+        };
+      });
+    },
+  });
+
   const reportMutation = useMutation({
     mutationFn: ({ commentId, reason }: { commentId: string; reason?: string }) =>
       reportComment(commentId, reason),
@@ -125,12 +167,31 @@ export function useComments({
     isAdding: addMutation.isPending,
     deleteComment: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending,
+    editComment: editMutation.mutateAsync,
+    isEditing: editMutation.isPending,
     reportComment: reportMutation.mutateAsync,
     isReporting: reportMutation.isPending,
     likeComment: likeMutation.mutateAsync,
     isLiking: likeMutation.isPending,
     currentUserId: user?.id,
   };
+}
+
+function updateCommentBody(
+  comments: CommentsResponse['comments'],
+  commentId: string,
+  body: string,
+  editedAt: string | null,
+): CommentsResponse['comments'] {
+  return comments.map((c) => {
+    if (c.id === commentId) {
+      return { ...c, body, editedAt };
+    }
+    return {
+      ...c,
+      replies: updateCommentBody(c.replies, commentId, body, editedAt),
+    };
+  });
 }
 
 function updateCommentLike(comments: CommentsResponse['comments'], commentId: string): CommentsResponse['comments'] {

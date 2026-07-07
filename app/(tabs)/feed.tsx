@@ -202,6 +202,7 @@ function AuthenticatedFeed() {
           userName={feed.userDisplayName ?? 'Anonymous'}
           userAvatarUrl={feed.userAvatarUrl ?? ''}
           timestamp={formatRelativeTime(feed.createdAt ?? '')}
+          editedAt={feed.editedAt}
           movieTitle={feed.movieTitle}
           moviePosterUrl={getTMDBImageUrl(feed.posterPath, 'w185') ?? ''}
           rating={feed.rating}

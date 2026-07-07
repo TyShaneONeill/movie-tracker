@@ -44,6 +44,8 @@ export interface ActivityFeedItem {
   targetReviewId?: string;
   targetReviewTitle?: string;
   targetReviewAuthorName?: string;
+  // Provenance — ISO timestamp of the last content edit, or null if never edited
+  editedAt?: string | null;
 }
 
 /** Shape returned by the JOINed Supabase query */
@@ -59,6 +61,7 @@ export interface FirstTakeWithProfile {
   visibility: ReviewVisibility;
   created_at: string | null;
   media_type: string | null;
+  edited_at: string | null;
   profiles: {
     full_name: string | null;
     username: string | null;
@@ -68,7 +71,7 @@ export interface FirstTakeWithProfile {
 
 /** The JOINed select string used by both hooks */
 export const ACTIVITY_FEED_SELECT =
-  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, profiles(full_name, username, avatar_url)';
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, profiles(full_name, username, avatar_url)';
 
 /** Map a JOINed row to an ActivityFeedItem */
 export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
@@ -88,6 +91,7 @@ export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
       row.profiles?.full_name || row.profiles?.username || 'Anonymous',
     userAvatarUrl: row.profiles?.avatar_url ?? null,
     activityType: 'first_take',
+    editedAt: row.edited_at,
   };
 }
 
@@ -105,6 +109,7 @@ export interface ReviewWithProfile {
   visibility: ReviewVisibility;
   created_at: string | null;
   like_count: number;
+  edited_at: string | null;
   profiles: {
     full_name: string | null;
     username: string | null;
@@ -114,7 +119,7 @@ export interface ReviewWithProfile {
 
 /** The JOINed select string for review feed queries */
 export const REVIEW_FEED_SELECT =
-  'id, user_id, tmdb_id, movie_title, poster_path, rating, title, review_text, is_spoiler, visibility, created_at, like_count, profiles(full_name, username, avatar_url)';
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, title, review_text, is_spoiler, visibility, created_at, like_count, edited_at, profiles(full_name, username, avatar_url)';
 
 /** Map a review row to an ActivityFeedItem */
 export function mapReviewToFeedItem(row: ReviewWithProfile): ActivityFeedItem {
@@ -135,6 +140,7 @@ export function mapReviewToFeedItem(row: ReviewWithProfile): ActivityFeedItem {
     userAvatarUrl: row.profiles?.avatar_url ?? null,
     activityType: 'review',
     reviewTitle: row.title,
+    editedAt: row.edited_at,
   };
 }
 

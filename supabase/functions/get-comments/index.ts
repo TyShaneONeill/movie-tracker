@@ -23,6 +23,7 @@ interface CommentRow {
   report_count: number;
   is_hidden: boolean;
   created_at: string;
+  edited_at: string | null;
   user_id: string;
   like_count: number;
   liked_by_author: boolean;
@@ -41,6 +42,7 @@ interface CommentResponse {
   isSpoiler: boolean;
   isHidden: boolean;
   createdAt: string;
+  editedAt: string | null;
   likeCount: number;
   likedByAuthor: boolean;
   isLikedByMe: boolean;
@@ -75,6 +77,7 @@ function buildCommentTree(
       isSpoiler: c.is_spoiler,
       isHidden,
       createdAt: c.created_at,
+      editedAt: c.edited_at ?? null,
       likeCount: c.like_count,
       likedByAuthor: c.liked_by_author,
       isLikedByMe: likedCommentIds.has(c.id),
@@ -167,7 +170,7 @@ Deno.serve(async (req: Request) => {
     // Get comments (without profile join to avoid FK issues)
     const { data: comments, error: commentsError } = await adminClient
       .from('review_comments')
-      .select('id, body, is_spoiler, parent_comment_id, report_count, is_hidden, created_at, user_id, like_count, liked_by_author')
+      .select('id, body, is_spoiler, parent_comment_id, report_count, is_hidden, created_at, edited_at, user_id, like_count, liked_by_author')
       .eq(column, target_id)
       .order('created_at', { ascending: true });
 

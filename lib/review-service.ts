@@ -157,6 +157,10 @@ export async function updateReview(
     updated_at: new Date().toISOString(),
   };
 
+  // `edited_at` is stamped SERVER-SIDE by the DB trigger on genuine content
+  // change (title/text/rating/spoiler); visibility-only edits leave it
+  // untouched. The client no longer fetches-and-compares — it just sends the
+  // update.
   const { data, error } = (await (supabase
     .from('reviews') as any)
     .update(updateData)
@@ -165,6 +169,15 @@ export async function updateReview(
     .single()) as { data: Review; error: any };
 
   if (error) {
+    // The edit-grace-window trigger (PS-12) rejects locked content edits with
+    // HINT='edit_window_closed' and a friendly MESSAGE. Re-throw with the marker
+    // in the message so `isEditWindowClosedError` can detect it upstream.
+    if (
+      error?.hint === 'edit_window_closed' ||
+      String(error?.message ?? '').includes('edit_window_closed')
+    ) {
+      throw new Error('edit_window_closed');
+    }
     throw new Error(error.message || 'Failed to update review');
   }
 

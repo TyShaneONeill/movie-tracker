@@ -57,6 +57,13 @@ interface ReviewModalProps {
   initialRating?: number;
   existingReview?: ExistingReviewData | null;
   isSubmitting?: boolean;
+  /**
+   * PS-12: when true the review's CONTENT is locked (grace window closed or it
+   * has engagement). Content inputs (rating/title/text/spoiler) become
+   * read-only while visibility stays editable so the owner can still change who
+   * sees it. Content is sent unchanged on Save, so the DB trigger accepts it.
+   */
+  contentLocked?: boolean;
 }
 
 export function ReviewModal({
@@ -68,6 +75,7 @@ export function ReviewModal({
   initialRating,
   existingReview,
   isSubmitting = false,
+  contentLocked = false,
 }: ReviewModalProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -93,7 +101,11 @@ export function ReviewModal({
     }
   }, [visible, existingReview, initialRating, preferences?.reviewVisibility]);
 
-  const canSubmit = rating > 0 && reviewText.trim().length > 0 && title.trim().length > 0 && !isSubmitting;
+  // When content is locked the user can still save a visibility-only change, so
+  // the button stays enabled regardless of the (read-only) content values.
+  const canSubmit =
+    (contentLocked || (rating > 0 && reviewText.trim().length > 0 && title.trim().length > 0)) &&
+    !isSubmitting;
   const charCount = reviewText.length;
   const isNearLimit = charCount > MAX_REVIEW_TEXT_LENGTH - 200;
 
@@ -171,8 +183,17 @@ export function ReviewModal({
                 </Pressable>
               </View>
 
+              {/* Content-locked note — visibility stays editable */}
+              {contentLocked && (
+                <View style={styles.lockNote}>
+                  <Text style={styles.lockNoteText}>
+                    Editing is locked — you can still change who sees this.
+                  </Text>
+                </View>
+              )}
+
               {/* Rating Section */}
-              <View style={styles.ratingSection}>
+              <View style={[styles.ratingSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Rating</Text>
 
                 <View style={styles.ratingWrapper}>
@@ -188,6 +209,7 @@ export function ReviewModal({
                       maximumValue={10}
                       step={0.1}
                       value={rating}
+                      disabled={contentLocked}
                       onValueChange={(value) => setRating(Math.round(value * 10) / 10)}
                       minimumTrackTintColor={colors.tint}
                       maximumTrackTintColor={colors.backgroundSecondary}
@@ -204,7 +226,7 @@ export function ReviewModal({
               </View>
 
               {/* Title */}
-              <View style={styles.inputSection}>
+              <View style={[styles.inputSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Title</Text>
                 <TextInput
                   style={styles.titleInput}
@@ -212,12 +234,13 @@ export function ReviewModal({
                   placeholderTextColor={colors.textTertiary}
                   value={title}
                   onChangeText={(text) => setTitle(text.slice(0, MAX_TITLE_LENGTH))}
+                  editable={!contentLocked}
                   maxLength={MAX_TITLE_LENGTH}
                 />
               </View>
 
               {/* Review Text */}
-              <View style={styles.inputSection}>
+              <View style={[styles.inputSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Your Review</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
@@ -226,6 +249,7 @@ export function ReviewModal({
                     placeholderTextColor={colors.textTertiary}
                     value={reviewText}
                     onChangeText={(text) => setReviewText(text.slice(0, MAX_REVIEW_TEXT_LENGTH))}
+                    editable={!contentLocked}
                     multiline
                     maxLength={MAX_REVIEW_TEXT_LENGTH}
                     textAlignVertical="top"
@@ -237,7 +261,7 @@ export function ReviewModal({
               </View>
 
               {/* Spoiler Toggle */}
-              <View style={styles.toggleRow}>
+              <View style={[styles.toggleRow, contentLocked && styles.lockedField]}>
                 <View style={styles.toggleLeft}>
                   <View style={styles.toggleIcon}>
                     <Text style={styles.toggleIconText}>⚠</Text>
@@ -250,6 +274,7 @@ export function ReviewModal({
                 <ToggleSwitch
                   value={isSpoiler}
                   onValueChange={setIsSpoiler}
+                  disabled={contentLocked}
                   activeColor={colors.tint}
                 />
               </View>
@@ -332,6 +357,23 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     content: {
       padding: Spacing.lg,
+    },
+
+    // Content-lock note + dimmed read-only fields
+    lockNote: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.md,
+      marginBottom: Spacing.lg,
+    },
+    lockNoteText: {
+      ...Typography.body.sm,
+      color: colors.textSecondary,
+    },
+    lockedField: {
+      opacity: 0.5,
     },
 
     // Header

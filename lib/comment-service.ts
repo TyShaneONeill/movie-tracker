@@ -17,11 +17,21 @@ export interface CommentItem {
   isSpoiler: boolean;
   isHidden: boolean;
   createdAt: string;
+  /** Set only when the author edited the body; null otherwise. */
+  editedAt: string | null;
   likeCount: number;
   likedByAuthor: boolean;
   isLikedByMe: boolean;
   commenter: CommenterInfo;
   replies: CommentItem[];
+}
+
+export interface UpdatedComment {
+  id: string;
+  body: string;
+  isSpoiler: boolean;
+  editedAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface CommentsResponse {
@@ -105,6 +115,49 @@ export async function addComment(
 
   if (!data) {
     throw new Error('No data returned from add comment');
+  }
+
+  return data;
+}
+
+/**
+ * Edit own comment body (author-only, enforced by the edge function + RLS).
+ * Sets edited_at server-side and returns the updated row.
+ */
+export async function updateComment(
+  commentId: string,
+  body: string
+): Promise<UpdatedComment> {
+  const { data, error } = await supabase.functions.invoke<UpdatedComment>(
+    'update-comment',
+    { body: { comment_id: commentId, body } }
+  );
+
+  if (error) {
+    // The edge fn / DB trigger (PS-12) reject a locked content edit. supabase-js
+    // wraps a non-2xx as FunctionsHttpError with a generic message, so pull the
+    // JSON body and surface the `edit_window_closed` marker when present.
+    let errorBody: any = null;
+    try {
+      const anyErr = error as any;
+      if (typeof anyErr.context?.json === 'function') {
+        errorBody = await anyErr.context.json();
+      } else if (typeof anyErr.context?.body === 'string') {
+        errorBody = JSON.parse(anyErr.context.body);
+      }
+    } catch {
+      // body not readable — fall through to the generic message
+    }
+
+    const marker = `${errorBody?.code ?? ''} ${errorBody?.error ?? ''} ${error.message ?? ''}`;
+    if (marker.includes('edit_window_closed')) {
+      throw new Error('edit_window_closed');
+    }
+    throw new Error(errorBody?.error || error.message || 'Failed to update comment');
+  }
+
+  if (!data) {
+    throw new Error('No data returned from update comment');
   }
 
   return data;
