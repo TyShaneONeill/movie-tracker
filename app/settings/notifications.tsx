@@ -20,6 +20,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { hapticImpact } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
 import type { NotificationFeature } from '@/lib/notification-preferences-service';
+import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
 
 /**
  * Open the OS-level settings page for the app so the user can change the
@@ -101,6 +102,7 @@ export default function NotificationsSettingsScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { permissionStatus, requestPermission, isAvailable } = usePushNotifications();
+  const streakSpineEnabled = useStreakSpineEnabled();
 
   const handleMasterToggle = async (next: boolean) => {
     hapticImpact();
@@ -194,13 +196,17 @@ export default function NotificationsSettingsScreen() {
               colors={colors}
             />
             {/* DRAFT copy — Content Queue review pending (PS-15 PR 3, 2026-07-07).
-                Default OFF (opt-in) — see NOTIFICATION_FEATURE_DEFAULTS. */}
-            <FeatureToggleRow
-              feature="streak_at_risk"
-              title="Streak reminders"
-              description="An evening nudge when your daily streak is about to lapse."
-              colors={colors}
-            />
+                Default OFF (opt-in) — see NOTIFICATION_FEATURE_DEFAULTS.
+                Hidden until streak_spine widens: the toggle must not reveal the
+                streak feature before Ty device-validates it. */}
+            {streakSpineEnabled && (
+              <FeatureToggleRow
+                feature="streak_at_risk"
+                title="Streak reminders"
+                description="An evening nudge when your daily streak is about to lapse."
+                colors={colors}
+              />
+            )}
           </View>
         )}
 

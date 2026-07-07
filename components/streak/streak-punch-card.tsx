@@ -5,7 +5,7 @@
  * ("Day 12 — you logged a movie"), a 7-day punch row (a punched stub per day
  * with activity), a banked rain-check indicator, and milestone chips
  * (3/7/30/100). Reuses the PerforatedEdge primitive for the tear line. Renders
- * NOTHING when the daily_hooks flag is off.
+ * NOTHING when the streak_spine flag is off.
  *
  * Milestone celebrations are fired from StreakProvider on the recording call,
  * not here — this surface is display-only. Liveness is computed client-side
@@ -19,7 +19,7 @@ import { PerforatedEdge } from '@/components/ui/perforated-edge';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { useDailyHooksEnabled } from '@/hooks/use-feature-flag';
+import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
 import { useStreak } from '@/lib/streak-context';
 import { getStreakCard, type StreakCard } from '@/lib/streak-service';
 import { MILESTONES } from '@/lib/streak-logic';
@@ -59,7 +59,7 @@ function last7Dates(today: string): string[] {
 }
 
 export function StreakPunchCard() {
-  const dailyHooksEnabled = useDailyHooksEnabled();
+  const streakSpineEnabled = useStreakSpineEnabled();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { streakVersion } = useStreak();
@@ -73,12 +73,12 @@ export function StreakPunchCard() {
   }, []);
 
   useEffect(() => {
-    if (!dailyHooksEnabled) return;
+    if (!streakSpineEnabled) return;
     void load();
-  }, [dailyHooksEnabled, load, streakVersion]);
+  }, [streakSpineEnabled, load, streakVersion]);
 
   // Flag off, still loading, or no data → render nothing.
-  if (!dailyHooksEnabled || !loaded || !card) return null;
+  if (!streakSpineEnabled || !loaded || !card) return null;
 
   const { snapshot, activityDays, localDate, effectiveStreak } = card;
   const activeDates = new Set(activityDays.map((a) => a.local_date));

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { AchievementCelebration } from '@/components/achievement-celebration';
-import { useDailyHooksEnabled } from '@/hooks/use-feature-flag';
+import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
 import { recordUserActivity, type StreakAction } from './streak-service';
 
 /**
@@ -11,7 +11,8 @@ import { recordUserActivity, type StreakAction } from './streak-service';
  * celebration UI. `streakVersion` bumps after every recorded action so the
  * profile punch card can refetch without a manual refresh.
  *
- * Gated on daily_hooks: when off, recordActivity is a no-op and nothing is
+ * Gated on streak_spine (separate from daily_hooks — Ty-only until
+ * device-validated): when off, recordActivity is a no-op and nothing is
  * written or shown.
  */
 
@@ -58,14 +59,14 @@ function milestoneCelebration(milestone: number): MilestoneCelebration {
 }
 
 export function StreakProvider({ children }: { children: React.ReactNode }) {
-  const dailyHooksEnabled = useDailyHooksEnabled();
+  const streakSpineEnabled = useStreakSpineEnabled();
   const [celebration, setCelebration] = useState<MilestoneCelebration | null>(null);
   const [streakVersion, setStreakVersion] = useState(0);
 
   const recordActivity = useCallback(
     (action: StreakAction) => {
-      // Gate before the write — nothing is recorded while daily_hooks is dark.
-      if (!dailyHooksEnabled) return;
+      // Gate before the write — nothing is recorded while streak_spine is dark.
+      if (!streakSpineEnabled) return;
       recordUserActivity(action)
         .then((result) => {
           if (!result) return;
@@ -76,7 +77,7 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
         })
         .catch(() => {});
     },
-    [dailyHooksEnabled]
+    [streakSpineEnabled]
   );
 
   return (

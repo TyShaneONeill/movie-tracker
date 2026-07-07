@@ -6,7 +6,7 @@
  * server-side (profiles.timezone); the client only derives its own local date
  * for display liveness.
  *
- * Gating: `maybeRecordActivity` no-ops unless the daily_hooks feature is on
+ * Gating: `maybeRecordActivity` no-ops unless the streak_spine feature is on
  * (flag or env override), so nothing is written while the feature is dark —
  * mirroring lib/notification-priming-context.tsx.
  */
@@ -64,15 +64,19 @@ export interface StreakCard {
 const ACTIVITY_DAYS_WINDOW = 14;
 
 /**
- * Non-hook gate mirroring useDailyHooksEnabled (hooks/use-feature-flag.ts) so
+ * Non-hook gate mirroring useStreakSpineEnabled (hooks/use-feature-flag.ts) so
  * service-layer callers (e.g. episode logging) can gate identically without a
  * React context.
+ *
+ * `streak_spine` is a SEPARATE flag from `daily_hooks` (which is @100% since
+ * 2026-07-07 for the priming sheet): the punch card must be device-validated
+ * Ty-only before anyone sees it — same rollout playbook as PR 1.
  */
-export function dailyHooksEnabledNow(): boolean {
-  const envOverride = process.env.EXPO_PUBLIC_DAILY_HOOKS_OVERRIDE;
+export function streakSpineEnabledNow(): boolean {
+  const envOverride = process.env.EXPO_PUBLIC_STREAK_SPINE_OVERRIDE;
   if (envOverride === 'true') return true;
   if (envOverride === 'false') return false;
-  const value = analytics.getFeatureFlag('daily_hooks');
+  const value = analytics.getFeatureFlag('streak_spine');
   return value === true || (typeof value === 'string' && value !== 'false');
 }
 
@@ -95,11 +99,11 @@ export async function recordUserActivity(
   }
 }
 
-/** Gated variant for callers without React context; no-ops when daily_hooks is off. */
+/** Gated variant for callers without React context; no-ops when streak_spine is off. */
 export async function maybeRecordActivity(
   action: StreakAction
 ): Promise<StreakRpcResult | null> {
-  if (!dailyHooksEnabledNow()) return null;
+  if (!streakSpineEnabledNow()) return null;
   return recordUserActivity(action);
 }
 

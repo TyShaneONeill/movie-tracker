@@ -758,7 +758,7 @@ export default function ProfileScreen() {
                 </View>
                 {/* Achievements Row */}
                 {renderAchievementsRow()}
-                {/* PS-15 PR 3: punch-card streak (renders nothing when daily_hooks off) */}
+                {/* PS-15 PR 3: punch-card streak (renders nothing when streak_spine off) */}
                 <StreakPunchCard />
             </Animated.View>
 
@@ -1197,7 +1197,7 @@ export default function ProfileScreen() {
                         </View>
                         {/* Achievements Row */}
                         {renderAchievementsRow()}
-                        {/* PS-15 PR 3: punch-card streak (renders nothing when daily_hooks off) */}
+                        {/* PS-15 PR 3: punch-card streak (renders nothing when streak_spine off) */}
                         <StreakPunchCard />
                     </Animated.View>
 
