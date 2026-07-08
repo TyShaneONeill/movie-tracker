@@ -186,7 +186,14 @@ export default function FirstTakeDetailScreen() {
           onPress: async () => {
             try {
               await deleteMutation.mutateAsync();
-              router.back();
+              // Deep-link cold starts land here as the stack root (notification
+              // taps) — back() would no-op and strand the user on the deleted
+              // take. Same canGoBack guard as notifications.tsx.
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/(tabs)/feed');
+              }
               Toast.show({ type: 'success', text1: 'First Take deleted' });
             } catch {
               Toast.show({ type: 'error', text1: 'Failed to delete First Take' });
