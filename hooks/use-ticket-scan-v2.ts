@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { analytics } from '@/lib/analytics';
 
 export const TICKET_SCAN_V2_FLAG = 'ticket_scan_v2';
@@ -12,6 +13,30 @@ export type TicketScanVariant = 'v1' | 'v2';
 // LITERAL `process.env.EXPO_PUBLIC_*` access, so this must be read literally at
 // module load (a dynamic lookup would silently be undefined in a prod bundle).
 const ENV_OVERRIDE = process.env.EXPO_PUBLIC_TICKET_SCAN_V2_OVERRIDE;
+
+// CAPABILITY GATE (not a version gate): Scan v2 needs the ExpoCamera NATIVE
+// module, which only exists in binaries built >= 1.5.1. On older binaries
+// (iOS 1.5.0 b32) merely evaluating `expo-camera` throws
+// "Cannot find native module 'ExpoCamera'" and crashes the Scan tab — burned
+// 2026-07-07 on two real devices. requireOptionalNativeModule returns null
+// instead of throwing, so this is safe to probe at module scope. When the
+// module is absent, the variant is ALWAYS v1 — no flag state, rollout
+// percentage, or env override may produce v2 on a binary that cannot run it.
+let hasCameraCache: boolean | null = null;
+export function hasExpoCameraModule(): boolean {
+  if (hasCameraCache === null) {
+    try {
+      hasCameraCache = requireOptionalNativeModule('ExpoCamera') != null;
+    } catch {
+      hasCameraCache = false;
+    }
+  }
+  return hasCameraCache;
+}
+/** Test-only: clears the memoized native-module probe. */
+export function __resetExpoCameraProbeForTests(): void {
+  hasCameraCache = null;
+}
 
 /**
  * Resolves which Ticket Scan flow a user should see.
@@ -37,6 +62,7 @@ export function useTicketScanV2(): { variant: TicketScanVariant; resolving: bool
   );
 
   useEffect(() => {
+    if (!hasExpoCameraModule()) return; // v1 is forced; the flag value is irrelevant
     if (ENV_OVERRIDE !== undefined) return; // override wins; skip PostHog polling
     if (!resolving) return;
 
@@ -62,6 +88,10 @@ export function useTicketScanV2(): { variant: TicketScanVariant; resolving: bool
       clearInterval(interval);
     };
   }, [resolving]);
+
+  // The capability gate outranks everything, including the env override — a
+  // QA override must not be able to crash a binary that lacks the module.
+  if (!hasExpoCameraModule()) return { variant: 'v1', resolving: false };
 
   if (ENV_OVERRIDE === 'true') return { variant: 'v2', resolving: false };
   if (ENV_OVERRIDE === 'false') return { variant: 'v1', resolving: false };
