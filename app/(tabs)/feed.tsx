@@ -215,11 +215,12 @@ function AuthenticatedFeed() {
           userId={feed.userId}
           onUserPress={() => router.push(`/user/${feed.userId}`)}
           onReviewTextPress={() => {
-            analytics.track('feed:item_tap', { item_type: feed.activityType, target: 'review_text', tmdb_id: feed.tmdbId });
-            if (feed.activityType === 'review') {
+            const isReview = feed.activityType === 'review';
+            analytics.track('feed:item_tap', { item_type: feed.activityType, target: isReview ? 'review_text' : 'first_take', tmdb_id: feed.tmdbId });
+            if (isReview) {
               router.push(`/review/${feed.id}`);
             } else {
-              router.push({ pathname: '/user/[id]', params: { id: feed.userId, tab: 'first-takes' } });
+              router.push(`/first-take/${feed.id}`);
             }
           }}
           onReport={isOwn ? undefined : () => {

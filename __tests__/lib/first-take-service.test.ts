@@ -1,4 +1,4 @@
-import { createFirstTake } from '@/lib/first-take-service';
+import { createFirstTake, deleteFirstTake } from '@/lib/first-take-service';
 
 // Mock supabase before importing the module
 jest.mock('@/lib/supabase', () => ({
@@ -77,5 +77,27 @@ describe('createFirstTake', () => {
   it('accepts valid quote text', async () => {
     const result = await createFirstTake('user-1', makeCreateData());
     expect(result).toBeDefined();
+  });
+});
+
+describe('deleteFirstTake', () => {
+  it('deletes the first take by id', async () => {
+    const { supabase } = require('@/lib/supabase');
+    const mockEq = jest.fn(() => Promise.resolve({ error: null }));
+    const mockDelete = jest.fn(() => ({ eq: mockEq }));
+    (supabase.from as jest.Mock).mockReturnValue({ delete: mockDelete });
+
+    await deleteFirstTake('ft-1');
+
+    expect(supabase.from).toHaveBeenCalledWith('first_takes');
+    expect(mockEq).toHaveBeenCalledWith('id', 'ft-1');
+  });
+
+  it('throws when the delete fails', async () => {
+    const { supabase } = require('@/lib/supabase');
+    const mockEq = jest.fn(() => Promise.resolve({ error: { message: 'nope' } }));
+    (supabase.from as jest.Mock).mockReturnValue({ delete: jest.fn(() => ({ eq: mockEq })) });
+
+    await expect(deleteFirstTake('ft-1')).rejects.toThrow('nope');
   });
 });
