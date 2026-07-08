@@ -22,10 +22,12 @@ import { ShareableFirstTakeCard } from '@/components/share/shareable-first-take-
 import { captureCard, shareFirstTake, shareFirstTakeUrl } from '@/lib/share-service';
 import { analytics } from '@/lib/analytics';
 import { FirstTakeModal } from '@/components/first-take-modal';
-import { updateFirstTake } from '@/lib/first-take-service';
+import { updateFirstTake, deleteFirstTake } from '@/lib/first-take-service';
 import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
 import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
 import { hapticImpact } from '@/lib/haptics';
+import { ActionSheet } from '@/components/ui/action-sheet';
+import Toast from 'react-native-toast-message';
 
 function getRatingColor(rating: number, tintColor: string): string {
   if (rating >= 8) return '#22C55E';
@@ -59,6 +61,7 @@ export default function FirstTakeDetailScreen() {
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const viewShotRef = useRef<ViewShot>(null);
   const queryClient = useQueryClient();
@@ -154,6 +157,51 @@ export default function FirstTakeDetailScreen() {
         Alert.alert('Error', 'Failed to save your First Take. Please try again.');
       }
     }
+  };
+
+  // Delete path: deletion is table stakes for an owner, so it is NOT gated by the
+  // `social_editing` flag (unlike edit). RLS enforces owner-only deletes server-side.
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteFirstTake(firstTake!.id),
+    onSuccess: () => {
+      if (firstTake) {
+        queryClient.invalidateQueries({ queryKey: ['firstTake', firstTake.user_id, firstTake.tmdb_id, firstTake.media_type] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['first-takes', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['profileStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+    },
+  });
+
+  const handleDeletePress = () => {
+    if (!firstTake) return;
+    Alert.alert(
+      'Delete this First Take?',
+      "This can't be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMutation.mutateAsync();
+              // Deep-link cold starts land here as the stack root (notification
+              // taps) — back() would no-op and strand the user on the deleted
+              // take. Same canGoBack guard as notifications.tsx.
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/(tabs)/feed');
+              }
+              Toast.show({ type: 'success', text1: 'First Take deleted' });
+            } catch {
+              Toast.show({ type: 'error', text1: 'Failed to delete First Take' });
+            }
+          },
+        },
+      ]
+    );
   };
 
   const { data: followsData, isLoading: followsLoading } = useQuery({
@@ -279,21 +327,6 @@ export default function FirstTakeDetailScreen() {
             <Text style={styles.topBarTitle}>First Take</Text>
             {isOwn || firstTake.visibility === 'public' ? (
               <View style={styles.topBarActions}>
-                {/* PS-12: the pencil shows for the owner whenever `social_editing`
-                    is ON — even on a locked post. Tapping opens a content-locked
-                    editor (visibility still editable). The flag OFF removes the
-                    affordance entirely (app behaves as if editing doesn't exist). */}
-                {isOwn && socialEditingEnabled && (
-                  <Pressable
-                    onPress={handleEditPress}
-                    disabled={updateMutation.isPending}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit First Take"
-                  >
-                    <Ionicons name="pencil-outline" size={22} color={colors.text} />
-                  </Pressable>
-                )}
                 {firstTake.visibility === 'public' && (
                   <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
                     {isSharing ? (
@@ -301,6 +334,21 @@ export default function FirstTakeDetailScreen() {
                     ) : (
                       <Ionicons name="share-outline" size={24} color={colors.text} />
                     )}
+                  </Pressable>
+                )}
+                {/* PS-12: the owner's edit/delete actions live behind a "⋯" menu.
+                    Edit stays gated by `social_editing` (opens the content-locked
+                    editor — visibility still editable when locked); Delete is
+                    always offered on own posts. Non-owners get no menu here. */}
+                {isOwn && (
+                  <Pressable
+                    onPress={() => setMenuVisible(true)}
+                    disabled={updateMutation.isPending || deleteMutation.isPending}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="More options"
+                  >
+                    <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
                   </Pressable>
                 )}
               </View>
@@ -423,6 +471,20 @@ export default function FirstTakeDetailScreen() {
               isRewatch={firstTake.is_rewatch ?? undefined}
             />
           </ViewShot>
+        )}
+
+        {/* Owner "⋯" menu — Edit (flag-gated) + Delete (always). */}
+        {isOwn && (
+          <ActionSheet
+            visible={menuVisible}
+            onClose={() => setMenuVisible(false)}
+            options={[
+              ...(socialEditingEnabled
+                ? [{ label: 'Edit', onPress: handleEditPress }]
+                : []),
+              { label: 'Delete', onPress: handleDeletePress, destructive: true },
+            ]}
+          />
         )}
 
         {/* Edit modal — own First Takes only, behind the social_editing flag.

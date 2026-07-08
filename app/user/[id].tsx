@@ -304,7 +304,7 @@ export default function UserProfileScreen() {
             createdAt={take.created_at ?? ''}
             editedAt={take.edited_at}
             isLatest={index === 0}
-            onPress={() => router.push(take.media_type === 'tv_show' ? `/tv/${take.tmdb_id}` : `/movie/${take.tmdb_id}`)}
+            onPress={() => router.push(`/first-take/${take.id}`)}
           />
         ))}
       </View>
