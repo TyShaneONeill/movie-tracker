@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { usePremium } from '@/hooks/use-premium';
 import { computeTasteInsights, type TasteInsights, type UserMovieRow } from '@/lib/taste-profile';
 
 /**
@@ -24,7 +25,14 @@ import { computeTasteInsights, type TasteInsights, type UserMovieRow } from '@/l
  * Staleness (no cache row, or 10+ more movies logged since the cache was
  * generated — see `computeStaleness` in lib/taste-profile.ts) triggers ONE
  * automatic call to the edge function per mount, guarded by a ref so a slow
- * or failed regeneration never loops.
+ * or failed regeneration never loops. Taste Profile has no free-tier trial —
+ * BOTH the auto-trigger and the manual `regenerate()` are gated on
+ * `usePremium()` here (not just in the screen's UI/blur), because the query
+ * itself (and therefore staleness) is computed regardless of tier so the
+ * screen can show the correct "Almost there" vs gated state to free users
+ * too. Without this a free user's mount would silently fire a real,
+ * rate-limited, billed OpenAI/TMDB call for a card they can't even see. The
+ * edge function also checks tier server-side as defense in depth.
  */
 
 interface GenerateTasteSummaryResponse {
@@ -100,6 +108,7 @@ async function regenerateTasteSummary(accessToken: string): Promise<GenerateTast
 
 export function useTasteInsights() {
   const { user } = useAuth();
+  const { isPremium } = usePremium();
   const queryClient = useQueryClient();
   const hasAutoRegenerated = useRef(false);
 
@@ -128,21 +137,32 @@ export function useTasteInsights() {
 
   const { isPending: isRegenerating, mutate: triggerRegenerate } = regenerate;
 
+  // Manual trigger — never fires for a non-premium user (the screen already
+  // hides the button behind Gated's pointerEvents="none", this is the
+  // belt-and-braces backstop; the edge fn is the real enforcement).
+  const regenerateIfPremium = useCallback(() => {
+    if (!isPremium) return;
+    triggerRegenerate();
+  }, [isPremium, triggerRegenerate]);
+
   // Invalidation = staleness check, client-side trigger (per PS-22 brief):
   // once loaded, if the profile is stale, auto-call the edge fn ONCE per
   // mount — guarded by a ref so a slow/failed regeneration never loops.
+  // Gated on isPremium too: while premium status is still resolving it
+  // defaults false, so this correctly skips until `isPremium` flips to true
+  // (re-running this effect) rather than ever firing for a free user.
   useEffect(() => {
-    if (!query.data?.stale || hasAutoRegenerated.current || isRegenerating) return;
+    if (!isPremium || !query.data?.stale || hasAutoRegenerated.current || isRegenerating) return;
     hasAutoRegenerated.current = true;
     triggerRegenerate();
-  }, [query.data?.stale, isRegenerating, triggerRegenerate]);
+  }, [isPremium, query.data?.stale, isRegenerating, triggerRegenerate]);
 
   return {
     data: query.data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
-    regenerate: triggerRegenerate,
+    regenerate: regenerateIfPremium,
     isRegenerating,
     regenerateError: regenerate.error,
   };

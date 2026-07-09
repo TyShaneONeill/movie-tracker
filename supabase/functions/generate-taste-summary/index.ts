@@ -107,6 +107,12 @@ async function fetchCredits(tmdbId: number, apiKey: string): Promise<TMDBCredits
   }
 }
 
+// TMDB credits are fetched in small batches rather than one unbounded
+// Promise.all over up to MAX_MOVIES_FOR_CREDITS ids — keeps us well clear of
+// TMDB's rate limits on a user with a big library. Individual failures are
+// silently skipped (fetchCredits returns null), not retried.
+const CREDITS_BATCH_SIZE = 8;
+
 async function computeDirectorsAndStudio(
   movies: UserMovieRow[],
   apiKey: string,
@@ -115,7 +121,12 @@ async function computeDirectorsAndStudio(
     .sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime())
     .slice(0, MAX_MOVIES_FOR_CREDITS);
 
-  const results = await Promise.all(sample.map((m) => fetchCredits(m.tmdb_id, apiKey)));
+  const results: (TMDBCreditsResponse | null)[] = [];
+  for (let i = 0; i < sample.length; i += CREDITS_BATCH_SIZE) {
+    const batch = sample.slice(i, i + CREDITS_BATCH_SIZE);
+    const batchResults = await Promise.all(batch.map((m) => fetchCredits(m.tmdb_id, apiKey)));
+    results.push(...batchResults);
+  }
 
   const directorCounts = new Map<string, number>();
   const studioCounts = new Map<string, number>();
@@ -183,8 +194,10 @@ async function generateTasteRead(aggregatesText: string, apiKey: string): Promis
           },
           { role: 'user', content: aggregatesText },
         ],
-        max_tokens: 200,
-        temperature: 0.7,
+        // max_completion_tokens (not max_tokens) — newer model families reject
+        // the older param name. temperature omitted: newer families reject a
+        // non-default value too, and the default is fine for this copy.
+        max_completion_tokens: 200,
       }),
       signal: controller.signal,
     });
@@ -251,13 +264,29 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Rate limit: 5 regenerations per day (dev-tier bypass handled atomically
-    // by check_rate_limit). Fail closed: deny if DB is down to prevent
-    // unmetered OpenAI/TMDB spend.
-    const rateLimited = await enforceRateLimit(user.id, 'taste_profile_summary', 5, 86400, req, { failClosed: true });
-    if (rateLimited) return rateLimited;
-
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Taste Profile is fully premium-gated (no free-tier trial, unlike
+    // generate-journey-art) — the UI never mounts a real Regenerate control
+    // for free users, but that's a client-side guard only. Defense in depth:
+    // reject non-premium tiers here too, BEFORE the rate limit / movies query
+    // / any TMDB or OpenAI spend. Mirrors lib/premium-service.ts's DB-tier
+    // mapping ('plus'/'premium' legacy alias/'dev' = premium; anything else
+    // is free).
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('account_tier')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const accountTier = profile?.account_tier ?? 'free';
+    const isPremiumTier = accountTier === 'plus' || accountTier === 'premium' || accountTier === 'dev';
+    if (!isPremiumTier) {
+      return new Response(
+        JSON.stringify({ error: 'PocketStubs+ required for Taste Profile regeneration.' }),
+        { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
 
     const { data: movieRows, error: moviesError } = await supabaseAdmin
       .from('user_movies')
@@ -277,6 +306,13 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
+
+    // Rate limit: 5 regenerations per day (dev-tier bypass handled atomically
+    // by check_rate_limit). Checked AFTER the min-movies threshold so a call
+    // that was always going to 400 doesn't burn a daily token. Fail closed:
+    // deny if DB is down to prevent unmetered OpenAI/TMDB spend.
+    const rateLimited = await enforceRateLimit(user.id, 'taste_profile_summary', 5, 86400, req, { failClosed: true });
+    if (rateLimited) return rateLimited;
 
     const spendCheck = await checkDailyAiSpend(supabaseAdmin);
     if (!spendCheck.allowed) {
