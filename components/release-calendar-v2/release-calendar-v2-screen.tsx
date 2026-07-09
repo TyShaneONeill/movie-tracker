@@ -1,8 +1,14 @@
 /**
- * Release Calendar Screen
- * Full-screen view showing monthly calendar with movie release dates.
- * Users can navigate months, select days, filter by release type,
- * and tap movies to view details.
+ * Release Calendar v2 Screen
+ * Results-first layout (mock Variant B, locked 2026-07-09): always-visible
+ * filter chips + release list own the screen; the calendar is a docked
+ * bottom sheet (week strip / month grid). Behind the `release_calendar_v2`
+ * flag — see hooks/use-release-calendar-v2.ts.
+ *
+ * Data wiring intentionally mirrors app/release-calendar.tsx (v1) rather
+ * than sharing a hook, matching the stats_v2 precedent (StatsV2Screen also
+ * re-derives its own state instead of importing from AnalyticsV1Screen) —
+ * keeps v1's file byte-identical when the flag is off.
  */
 
 import { useState, useMemo, useCallback } from 'react';
@@ -20,7 +26,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import CalendarGrid from '@/components/calendar/calendar-grid';
 import { ReleaseDayList } from '@/components/calendar/release-day-list';
 import { useReleaseCalendar, useWatchlistIds } from '@/hooks/use-release-calendar';
 import { useCalendarFilters, FILTER_CHIPS } from '@/hooks/use-calendar-filters';
@@ -36,25 +41,12 @@ import { addMovieToLibrary, removeMovieFromLibrary } from '@/lib/movie-service';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import { scoreRelease } from '@/lib/taste-profile-service';
 import type { TMDBMovie } from '@/lib/tmdb.types';
-import {
-  filterDatesByWatchlist,
-  filterDayReleases,
-} from '@/lib/calendar-filters';
-import { useReleaseCalendarV2 } from '@/hooks/use-release-calendar-v2';
-import { ReleaseCalendarV2Screen } from '@/components/release-calendar-v2/release-calendar-v2-screen';
+import { filterDatesByWatchlist, filterDayReleases } from '@/lib/calendar-filters';
+import { formatDayHeader } from '@/lib/release-calendar-week';
+import { FilterChipRow } from './filter-chip-row';
+import { ReleaseCalendarDock } from './release-calendar-dock';
 
-export default function ReleaseCalendarScreen() {
-  const { variant, resolving } = useReleaseCalendarV2();
-  const { effectiveTheme } = useTheme();
-  const colors = Colors[effectiveTheme];
-  // Hold a neutral screen while PostHog resolves the flag so testers don't see
-  // v1 flash and snap to v2 (same gate as app/(tabs)/analytics.tsx).
-  if (resolving) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
-  if (variant === 'v2') return <ReleaseCalendarV2Screen />;
-  return <ReleaseCalendarV1Screen />;
-}
-
-function ReleaseCalendarV1Screen() {
+export function ReleaseCalendarV2Screen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
@@ -62,7 +54,7 @@ function ReleaseCalendarV1Screen() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1); // 1-12
-  const [selectedDate, setSelectedDate] = useState<string | null>(
+  const [selectedDate, setSelectedDate] = useState<string>(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   );
 
@@ -73,11 +65,11 @@ function ReleaseCalendarV1Screen() {
   const { requireAuth, isLoginPromptVisible, loginPromptMessage, hideLoginPrompt } = useRequireAuth();
   const queryClient = useQueryClient();
 
-  // Filter state (hydration, persistence, and helpers extracted to hook)
+  // Filter state (same hook as v1)
   const { filterTypes, watchlistOnly, setWatchlistOnly, toggleFilterChip, isChipActive } =
     useCalendarFilters(user);
 
-  // Data fetching
+  // Data fetching — same month-window hooks as v1, no backend changes.
   const { data, isLoading } = useReleaseCalendar({ month, year });
   const { data: watchlistIds } = useWatchlistIds(!!user);
   const { data: tasteProfile } = useTasteProfile();
@@ -89,10 +81,9 @@ function ReleaseCalendarV1Screen() {
       if (isOnWatchlist) {
         await removeMovieFromLibrary(user.id, tmdbId);
       } else {
-        // Find the CalendarRelease from current data to construct a TMDBMovie
         const release = data?.days
-          .flatMap(d => d.releases)
-          .find(r => r.tmdb_id === tmdbId);
+          .flatMap((d) => d.releases)
+          .find((r) => r.tmdb_id === tmdbId);
         if (!release) throw new Error('Release not found');
 
         const movie: TMDBMovie = {
@@ -130,7 +121,7 @@ function ReleaseCalendarV1Screen() {
       .map((d) => d.date);
   }, [data, watchlistIds]);
 
-  // Dates with releases respecting the watchlistOnly filter (drives red dots)
+  // Dates with releases respecting the watchlistOnly filter (drives dots)
   const filteredDatesWithReleases = useMemo(
     () =>
       filterDatesByWatchlist(
@@ -153,7 +144,7 @@ function ReleaseCalendarV1Screen() {
     return scores;
   }, [tasteProfile, selectedDayReleases]);
 
-  // Dates with taste-matched releases (for golden dots on calendar)
+  // Dates with taste-matched releases (for golden dots on the dock)
   const personalizedDates = useMemo(() => {
     if (!tasteProfile || !data) return [];
     return data.days
@@ -172,9 +163,9 @@ function ReleaseCalendarV1Screen() {
     router.push(`/movie/${tmdbId}`);
   }, []);
 
-  // Month navigation. Default selectedDate to today when navigating to the
-  // current month, otherwise the 1st of the new month — both keep the day-list
-  // header rendering a valid date instead of "Invalid Date NaN" from a null.
+  // Month navigation from the expanded dock — same semantics as v1's
+  // handleMonthChange: default selectedDate to today when landing on the
+  // current month, else the 1st, so the day header always has a valid date.
   const handleMonthChange = useCallback((newYear: number, newMonth: number) => {
     setYear(newYear);
     setMonth(newMonth);
@@ -187,21 +178,41 @@ function ReleaseCalendarV1Screen() {
     setSelectedDate(`${newYear}-${mm}-${dd}`);
   }, []);
 
+  // Selecting a day (week-strip tap, month-grid tap, or ±1 week paging) keeps
+  // the loaded month window in sync with whichever month the selection lands
+  // in — crossing a month boundary triggers the existing useReleaseCalendar
+  // load for that month. Data behavior is otherwise unchanged from v1.
+  const handleSelectDate = useCallback((date: string) => {
+    setSelectedDate(date);
+    const [y, m] = date.split('-').map(Number);
+    setYear(y);
+    setMonth(m);
+  }, []);
+
   // Toggle watchlist for a release
-  const handleToggleWatchlist = useCallback((tmdbId: number) => {
-    // Gate for guests like the detail screens do — without this, a logged-out
-    // tap fires the mutation which throws 'Not authenticated' with no prompt.
-    requireAuth(() => {
-      const isOnWatchlist = watchlistIds?.has(tmdbId) ?? false;
-      watchlistMutation.mutate({ tmdbId, isOnWatchlist });
-    }, 'Sign in to manage your watchlist');
-  }, [requireAuth, watchlistIds, watchlistMutation]);
+  const handleToggleWatchlist = useCallback(
+    (tmdbId: number) => {
+      requireAuth(() => {
+        const isOnWatchlist = watchlistIds?.has(tmdbId) ?? false;
+        watchlistMutation.mutate({ tmdbId, isOnWatchlist });
+      }, 'Sign in to manage your watchlist');
+    },
+    [requireAuth, watchlistIds, watchlistMutation]
+  );
 
   // True when watchlistOnly is on but the user has zero watchlist items
   const watchlistOnlyEmpty = watchlistOnly && (watchlistIds?.size ?? 0) === 0;
 
+  // No count header while the initial load is in flight — ReleaseDayList's
+  // own skeleton takes over instead (same as v1, which shows no header there).
+  const dayHeaderText = isLoading ? null : formatDayHeader(selectedDate, selectedDayReleases.length);
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+      testID="release-calendar-v2-screen"
+    >
       <ContentContainer style={{ flex: 1 }}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -230,26 +241,27 @@ function ReleaseCalendarV1Screen() {
           </Pressable>
         </View>
 
-        {/* Calendar Grid */}
-        <CalendarGrid
-          year={year}
-          month={month}
-          selectedDate={selectedDate}
-          datesWithReleases={filteredDatesWithReleases}
-          watchlistDates={watchlistDates}
-          personalizedDates={personalizedDates}
-          onSelectDate={setSelectedDate}
-          onMonthChange={handleMonthChange}
-          isLoading={isLoading}
+        {/* Always-visible filter chips */}
+        <FilterChipRow
+          watchlistOnly={watchlistOnly}
+          onToggleWatchlistOnly={() => setWatchlistOnly(!watchlistOnly)}
+          isChipActive={isChipActive}
+          onToggleChip={toggleFilterChip}
+          showWatchlistChip={!!user}
         />
 
-        {/* Divider */}
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-        {/* Release List */}
+        {/* Results — day header with count, then the release list */}
         <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
+          {dayHeaderText && (
+            <Text
+              style={[styles.dayHeader, { color: colors.textSecondary }]}
+              testID="release-calendar-v2-day-header"
+            >
+              {dayHeaderText}
+            </Text>
+          )}
           <ReleaseDayList
-            date={selectedDate || ''}
+            date={selectedDate}
             releases={selectedDayReleases}
             watchlistIds={watchlistIds ?? new Set()}
             onMoviePress={handleMoviePress}
@@ -257,11 +269,26 @@ function ReleaseCalendarV1Screen() {
             tasteScores={tasteScores}
             isLoading={isLoading}
             watchlistOnlyEmpty={watchlistOnlyEmpty}
+            hideHeader
           />
         </ScrollView>
       </ContentContainer>
 
-      {/* Filter Bottom Sheet — positioned within page layout, not a Modal */}
+      {/* Docked calendar — week strip / month grid, pinned below the results */}
+      <ReleaseCalendarDock
+        year={year}
+        month={month}
+        selectedDate={selectedDate}
+        datesWithReleases={filteredDatesWithReleases}
+        watchlistDates={watchlistDates}
+        personalizedDates={personalizedDates}
+        isLoading={isLoading}
+        onSelectDate={handleSelectDate}
+        onMonthChange={handleMonthChange}
+      />
+
+      {/* Filter Bottom Sheet — same full-filter panel as v1 (gear icon),
+          duplicated here (not shared) so v1's file stays byte-identical. */}
       {showFilters && (
         <>
           <Pressable
@@ -269,7 +296,6 @@ function ReleaseCalendarV1Screen() {
             onPress={() => setShowFilters(false)}
           />
           <View style={[styles.modalPanel, { backgroundColor: colors.card }]}>
-            {/* Panel Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 Filters
@@ -284,7 +310,6 @@ function ReleaseCalendarV1Screen() {
               </Pressable>
             </View>
 
-            {/* Watchlist Only Section — auth-gated */}
             {user && (
               <View style={styles.switchRow}>
                 <Text style={[styles.switchLabel, { color: colors.text }]}>
@@ -299,13 +324,12 @@ function ReleaseCalendarV1Screen() {
               </View>
             )}
 
-            {/* Release Type Section */}
             <Text style={[styles.filterSectionTitle, { color: colors.textSecondary }]}>
               Release Type
             </Text>
 
             <View style={styles.chipContainer}>
-              {FILTER_CHIPS.map(chip => {
+              {FILTER_CHIPS.map((chip) => {
                 const active = isChipActive(chip);
                 return (
                   <Pressable
@@ -336,7 +360,6 @@ function ReleaseCalendarV1Screen() {
               })}
             </View>
 
-            {/* Done Button — filters auto-persist on change; this just dismisses the sheet */}
             <Pressable
               onPress={() => setShowFilters(false)}
               style={[styles.applyButton, { backgroundColor: colors.tint }]}
@@ -363,7 +386,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -384,12 +406,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
 
-  // Divider
-  divider: {
-    height: StyleSheet.hairlineWidth,
+  dayHeader: {
+    ...Typography.body.smMedium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
 
-  // Scroll area for releases
   scrollArea: {
     flex: 1,
   },
@@ -397,7 +422,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
 
-  // Filter sheet (absolutely positioned within the page)
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -425,7 +449,6 @@ const styles = StyleSheet.create({
     ...Typography.display.h4,
   },
 
-  // Filter chips
   filterSectionTitle: {
     ...Typography.body.smMedium,
     textTransform: 'uppercase',
@@ -447,7 +470,6 @@ const styles = StyleSheet.create({
     ...Typography.body.smMedium,
   },
 
-  // Apply button
   applyButton: {
     paddingVertical: 14,
     borderRadius: BorderRadius.md,
@@ -458,7 +480,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  // Watchlist-only switch row
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

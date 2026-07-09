@@ -1,0 +1,167 @@
+<title>Release Calendar Redesign — Mock</title>
+<style>
+  :root{
+    --bg:#f2f2f4; --card:#ffffff; --text:#17171a; --muted:#6f6f78;
+    --border:#e6e6ea; --brand:#e42a4e; --brand-soft:#fde8ec;
+    --gold:#d97706; --emerald:#0e9f6e; --chipbg:#f6f6f8;
+    --phone-bg:#f7f7f9; --shadow:0 18px 40px rgba(20,20,30,.14);
+  }
+  @media (prefers-color-scheme: dark){:root{
+    --bg:#0e0e11; --card:#17171b; --text:#f4f4f6; --muted:#9a9aa4;
+    --border:#26262c; --brand:#f0435f; --brand-soft:#3a1520;
+    --chipbg:#1f1f24; --phone-bg:#101013; --shadow:0 18px 40px rgba(0,0,0,.5);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0e0e11; --card:#17171b; --text:#f4f4f6; --muted:#9a9aa4;
+    --border:#26262c; --brand:#f0435f; --brand-soft:#3a1520;
+    --chipbg:#1f1f24; --phone-bg:#101013; --shadow:0 18px 40px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"]{
+    --bg:#f2f2f4; --card:#ffffff; --text:#17171a; --muted:#6f6f78;
+    --border:#e6e6ea; --brand:#e42a4e; --brand-soft:#fde8ec;
+    --chipbg:#f6f6f8; --phone-bg:#f7f7f9; --shadow:0 18px 40px rgba(20,20,30,.14);
+  }
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Rounded",Seravek,"Nunito",system-ui,sans-serif;margin:0;padding:32px 20px 64px;}
+  .wrap{max-width:1060px;margin:0 auto;}
+  h1{font-size:clamp(22px,3.4vw,30px);margin:0 0 6px;text-wrap:balance;}
+  .sub{color:var(--muted);margin:0 0 36px;max-width:64ch;line-height:1.5;}
+  .variants{display:flex;gap:44px;flex-wrap:wrap;justify-content:center;}
+  .variant{display:flex;flex-direction:column;gap:14px;align-items:center;}
+  .vlabel{font-weight:800;font-size:15px;}
+  .vnote{color:var(--muted);font-size:13px;max-width:300px;line-height:1.5;text-align:center;}
+  .badge{display:inline-block;background:var(--brand-soft);color:var(--brand);font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:4px 10px;margin-right:6px;}
+
+  /* phone */
+  .phone{width:320px;height:660px;background:var(--phone-bg);border:1px solid var(--border);border-radius:34px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;position:relative;}
+  .p-head{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px;}
+  .p-head .ttl{font-weight:800;font-size:17px;}
+  .icon{width:30px;height:30px;border-radius:99px;background:var(--card);border:1px solid var(--border);display:grid;place-items:center;font-size:13px;color:var(--text);}
+  .chips{display:flex;gap:6px;padding:0 14px 10px;flex-wrap:nowrap;overflow:hidden;}
+  .chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:99px;background:var(--chipbg);border:1px solid var(--border);color:var(--muted);white-space:nowrap;}
+  .chip.on{background:var(--brand);border-color:var(--brand);color:#fff;}
+
+  /* results list (top) */
+  .results{flex:1;overflow:hidden;padding:2px 14px 8px;display:flex;flex-direction:column;gap:8px;}
+  .dayhdr{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:6px 2px 0;}
+  .rel{display:flex;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:8px;align-items:center;}
+  .poster{width:44px;height:64px;border-radius:8px;flex:none;background:linear-gradient(135deg,#7b8794,#404853);}
+  .poster.p2{background:linear-gradient(135deg,#5b3954,#1e2a48)}
+  .poster.p3{background:linear-gradient(135deg,#9a4a2e,#3c1f14)}
+  .poster.p4{background:linear-gradient(135deg,#2e6b5e,#12241f)}
+  .rmeta{flex:1;min-width:0;}
+  .rt{font-weight:800;font-size:13.5px;line-height:1.25;}
+  .rs{color:var(--muted);font-size:11.5px;margin-top:3px;}
+  .match{color:var(--emerald);font-weight:700;font-size:11px;margin-top:3px;}
+  .wl{width:28px;height:28px;border-radius:99px;border:1px solid var(--border);display:grid;place-items:center;color:var(--brand);font-size:14px;flex:none;}
+  .wl.on{background:var(--brand);border-color:var(--brand);color:#fff;}
+
+  /* docked calendar (bottom) */
+  .dock{background:var(--card);border-top:1px solid var(--border);border-radius:22px 22px 0 0;padding:10px 14px 14px;box-shadow:0 -8px 24px rgba(0,0,0,.08);}
+  .grab{width:38px;height:4px;border-radius:99px;background:var(--border);margin:0 auto 8px;}
+  .mrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .mname{font-weight:800;font-size:14px;}
+  .mnav{display:flex;gap:6px;}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10.5px;text-align:center;}
+  .dow{color:var(--muted);font-weight:700;padding:2px 0;}
+  .d{padding:6px 0;border-radius:9px;position:relative;color:var(--text);}
+  .d.dim{color:var(--muted);opacity:.45;}
+  .d.sel{background:var(--brand);color:#fff;font-weight:800;}
+  .d .dot{position:absolute;left:50%;transform:translateX(-50%);bottom:2px;width:4px;height:4px;border-radius:99px;background:var(--brand);}
+  .d.sel .dot{background:#fff;}
+  .d .dot.g{background:var(--gold);}
+  /* week strip variant */
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;}
+  .wd{padding:7px 0 9px;border-radius:12px;position:relative;font-size:11px;}
+  .wd b{display:block;font-size:13px;margin-top:2px;}
+  .wd.sel{background:var(--brand);color:#fff;}
+  .wd .dot{position:absolute;left:50%;transform:translateX(-50%);bottom:3px;width:4px;height:4px;border-radius:99px;background:var(--brand);}
+  .wd.sel .dot{background:#fff;}
+  .expand{text-align:center;color:var(--muted);font-size:11px;font-weight:700;margin-top:7px;}
+
+  .notes{margin-top:44px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px 24px;}
+  .notes h2{font-size:16px;margin:0 0 10px;}
+  .notes ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.65;font-size:13.5px;}
+  .notes li strong{color:var(--text);}
+</style>
+<div class="wrap">
+  <h1>Release Calendar v2 — Variant B (locked 2026-07-09)</h1>
+  <p class="sub">Results own the screen; the calendar is a docked bottom sheet with two snap points: a <strong>week strip</strong> (default) and the <strong>full month grid</strong> (pull up). Arrows and swipes navigate at the visible granularity — week in strip view, month in the expanded grid.</p>
+
+  <div class="variants">
+    <!-- STATE 1: WEEK STRIP (default) -->
+    <div class="variant">
+      <div><span class="badge">B1</span><span class="vlabel">Default — week strip docked</span></div>
+      <div class="phone">
+        <div class="p-head"><div class="icon">‹</div><div class="ttl">Release Calendar</div><div class="icon">⚙</div></div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">My watchlist</span><span class="chip">For you</span><span class="chip">Theaters</span><span class="chip">Strea…</span></div>
+        <div class="results">
+          <div class="dayhdr">Fri · July 17 · 4 releases</div>
+          <div class="rel"><div class="poster"></div><div class="rmeta"><div class="rt">The Odyssey</div><div class="rs">Adventure · Theaters</div><div class="match">★ 92% taste match</div></div><div class="wl on">✓</div></div>
+          <div class="rel"><div class="poster p2"></div><div class="rmeta"><div class="rt">Midnight Static</div><div class="rs">Horror · Theaters</div></div><div class="wl">+</div></div>
+          <div class="rel"><div class="poster p3"></div><div class="rmeta"><div class="rt">The Long Con</div><div class="rs">Crime · Streaming</div><div class="match">★ 81% taste match</div></div><div class="wl">+</div></div>
+          <div class="rel"><div class="poster p4"></div><div class="rmeta"><div class="rt">Papercut</div><div class="rs">Drama · Limited</div></div><div class="wl">+</div></div>
+          <div class="rel"><div class="poster"></div><div class="rmeta"><div class="rt">Second Sun</div><div class="rs">Sci-Fi · Streaming</div></div><div class="wl">+</div></div>
+        </div>
+        <div class="dock">
+          <div class="grab"></div>
+          <div class="mrow"><div class="icon">‹</div><div class="mname">July 2026</div><div class="icon">›</div></div>
+          <div class="week">
+            <div class="wd">Sun<b>12</b></div><div class="wd">Mon<b>13</b></div><div class="wd">Tue<b>14</b></div><div class="wd">Wed<b>15</b></div><div class="wd">Thu<b>16</b></div><div class="wd sel">Fri<b>17</b><span class="dot"></span></div><div class="wd">Sat<b>18</b></div>
+          </div>
+          <div class="expand">⌃ &nbsp;Pull up for month</div>
+        </div>
+      </div>
+      <p class="vnote">Default state. ‹ › and strip swipes move one <strong>week</strong>; the month label follows automatically when a week crosses the boundary.</p>
+    </div>
+
+    <!-- STATE 2: EXPANDED MONTH -->
+    <div class="variant">
+      <div><span class="badge">B2</span><span class="vlabel">Expanded — pull up for month</span></div>
+      <div class="phone">
+        <div class="p-head"><div class="icon">‹</div><div class="ttl">Release Calendar</div><div class="icon">⚙</div></div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">My watchlist</span><span class="chip">For you</span><span class="chip">Theaters</span><span class="chip">Strea…</span></div>
+        <div class="results">
+          <div class="dayhdr">Fri · July 17 · 4 releases</div>
+          <div class="rel"><div class="poster"></div><div class="rmeta"><div class="rt">The Odyssey</div><div class="rs">Adventure · Theaters</div><div class="match">★ 92% taste match</div></div><div class="wl on">✓</div></div>
+          <div class="rel"><div class="poster p2"></div><div class="rmeta"><div class="rt">Midnight Static</div><div class="rs">Horror · Theaters</div></div><div class="wl">+</div></div>
+        </div>
+        <div class="dock">
+          <div class="grab"></div>
+          <div class="mrow"><div class="icon">‹</div><div class="mname">July 2026</div><div class="icon">›</div></div>
+          <div class="cal">
+            <div class="dow">S</div><div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+            <div class="d dim">28</div><div class="d dim">29</div><div class="d dim">30</div><div class="d">1<span class="dot"></span></div><div class="d">2</div><div class="d">3<span class="dot"></span></div><div class="d">4</div>
+            <div class="d">5</div><div class="d">6</div><div class="d">7</div><div class="d">8<span class="dot g"></span></div><div class="d">9</div><div class="d">10<span class="dot"></span></div><div class="d">11</div>
+            <div class="d">12</div><div class="d">13</div><div class="d">14</div><div class="d">15</div><div class="d">16</div><div class="d sel">17<span class="dot"></span></div><div class="d">18</div>
+            <div class="d">19</div><div class="d">20</div><div class="d">21</div><div class="d">22<span class="dot g"></span></div><div class="d">23</div><div class="d">24<span class="dot"></span></div><div class="d">25</div>
+            <div class="d">26</div><div class="d">27</div><div class="d">28</div><div class="d">29</div><div class="d">30</div><div class="d">31<span class="dot"></span></div><div class="d dim">1</div>
+          </div>
+          <div class="expand">⌄ &nbsp;Swipe down for week view</div>
+        </div>
+      </div>
+      <p class="vnote">Expanded snap point for scanning far ahead. ‹ › move one <strong>month</strong> here. Tap any day → dock snaps back to week view centered on it, results swap above.</p>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h2>Interaction spec (for the build brief)</h2>
+    <ul>
+      <li><strong>Dock = bottom sheet with two snap points</strong> (week strip / full month). Drag handle + spring animation; respects reduce-motion.</li>
+      <li><strong>Arrows navigate the visible granularity</strong>: week-strip view → ±1 week (month label follows the week); expanded month → ±1 month.</li>
+      <li><strong>Strip swipe</strong> pages by week. <strong>Day tap</strong> (either state) selects the day, swaps the results list, and — from expanded — snaps back down to week view.</li>
+      <li><strong>Selected day</strong> is always visible in the strip (auto-center on selection or week change).</li>
+      <li><strong>Data behavior unchanged</strong>: month-window fetching stays as-is (week strip is a view over the loaded month; crossing a month boundary triggers the existing month load).</li>
+    </ul>
+  </div>
+
+  <div class="notes">
+    <h2>Shared decisions (both variants)</h2>
+    <ul>
+      <li><strong>Filters move from a hidden sheet to always-visible chips</strong> under the header — one tap instead of two, and state is glanceable. The ⚙ icon keeps the full filter sheet for the long tail.</li>
+      <li><strong>Day header shows the count</strong> ("4 releases") so scanning between days has feedback even before the list settles.</li>
+      <li><strong>Taste-match line</strong> reuses the existing personalization scores (top picks bubble up — Track B #1 relevance work slots in here).</li>
+      <li><strong>Dot semantics kept</strong>: brand dot = releases, gold dot = watchlist titles. Selected day inverts.</li>
+      <li>Dock is a real bottom sheet: drag handle, spring to snap points. Calendar never scrolls away — it's pinned, per the roadmap note.</li>
+    </ul>
+  </div>
+</div>

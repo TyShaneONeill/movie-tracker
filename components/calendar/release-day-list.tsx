@@ -30,6 +30,12 @@ interface ReleaseDayListProps {
    * user has zero watchlist items.
    */
   watchlistOnlyEmpty?: boolean;
+  /**
+   * Release Calendar v2 renders its own day header (with a release count)
+   * above this list, so it suppresses this component's internal one.
+   * Defaults to false — v1's header rendering is unchanged.
+   */
+  hideHeader?: boolean;
 }
 
 /** Release type grouping configuration */
@@ -83,6 +89,7 @@ export function ReleaseDayList({
   tasteScores,
   isLoading = false,
   watchlistOnlyEmpty = false,
+  hideHeader = false,
 }: ReleaseDayListProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -120,9 +127,11 @@ export function ReleaseDayList({
   if (releases.length === 0) {
     return (
       <View style={styles.wrapper}>
-        <Text style={[styles.dateHeader, { color: colors.text }]}>
-          {dateHeader}
-        </Text>
+        {!hideHeader && (
+          <Text style={[styles.dateHeader, { color: colors.text }]}>
+            {dateHeader}
+          </Text>
+        )}
         <View style={styles.emptyContainer}>
           <Ionicons
             name="calendar-outline"
@@ -145,9 +154,11 @@ export function ReleaseDayList({
   return (
     <View style={styles.wrapper}>
       {/* Date Header */}
-      <Text style={[styles.dateHeader, { color: colors.text }]}>
-        {dateHeader}
-      </Text>
+      {!hideHeader && (
+        <Text style={[styles.dateHeader, { color: colors.text }]}>
+          {dateHeader}
+        </Text>
+      )}
 
       {/* Grouped Sections */}
       {groupedReleases.map((group) => (
