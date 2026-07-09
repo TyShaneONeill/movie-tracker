@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { usePremium } from '@/hooks/use-premium';
+import { captureException } from '@/lib/sentry';
 import { computeTasteInsights, type TasteInsights, type UserMovieRow } from '@/lib/taste-profile';
 
 /**
@@ -40,6 +41,20 @@ interface GenerateTasteSummaryResponse {
   summary?: string;
   error?: string;
 }
+
+/** User-safe copy for the AI card's error state. The raw server/network
+ *  message is NEVER rendered — on staging it once showed
+ *  "Missing API configuration - ensure OPENAI_API_KEY and TMDB_API_KEY are
+ *  set" verbatim to a real user. Every non-429 failure collapses to
+ *  GENERIC_REGENERATE_MESSAGE; the raw detail is only logged (see
+ *  RegenerateError.detail + the mutation's onError below). */
+export const RATE_LIMIT_REGENERATE_MESSAGE = "You've used today's regenerations — try again tomorrow.";
+export const GENERIC_REGENERATE_MESSAGE = "Couldn't refresh your taste read — try again in a bit.";
+
+/** Thrown by regenerateTasteSummary / the mutationFn. `.message` is always
+ *  the user-safe copy above — safe to render directly. `.detail` carries the
+ *  raw server/network message for logging ONLY; never render `.detail`. */
+type RegenerateError = Error & { detail?: string };
 
 async function fetchTasteInsights(userId: string): Promise<TasteInsights> {
   const [moviesRes, cacheRes] = await Promise.all([
@@ -93,14 +108,18 @@ async function regenerateTasteSummary(accessToken: string): Promise<GenerateTast
     }
 
     if (httpStatus === 429) {
-      throw new Error("You've used today's regenerations — try again tomorrow.");
+      throw new Error(RATE_LIMIT_REGENERATE_MESSAGE);
     }
 
-    throw new Error(errorBody?.error || error.message || 'Failed to regenerate your taste profile');
+    const e: RegenerateError = new Error(GENERIC_REGENERATE_MESSAGE);
+    e.detail = errorBody?.error || error.message || 'unknown edge function error';
+    throw e;
   }
 
   if (!data?.success) {
-    throw new Error(data?.error || 'Failed to regenerate your taste profile');
+    const e: RegenerateError = new Error(GENERIC_REGENERATE_MESSAGE);
+    e.detail = data?.error || 'edge function returned success: false with no error';
+    throw e;
   }
 
   return data;
@@ -126,12 +145,23 @@ export function useTasteInsights() {
     mutationFn: async () => {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session) {
-        throw new Error('Not authenticated');
+        const e: RegenerateError = new Error(GENERIC_REGENERATE_MESSAGE);
+        e.detail = sessionError?.message || 'no active session';
+        throw e;
       }
       return regenerateTasteSummary(sessionData.session.access_token);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasteInsights', user?.id] });
+    },
+    onError: (error: Error) => {
+      // `.message` (what the UI renders) is always the friendly copy above —
+      // the raw server/network detail is reported here for debugging only,
+      // never rendered.
+      captureException(error, {
+        context: 'generate-taste-summary',
+        detail: (error as RegenerateError).detail,
+      });
     },
   });
 

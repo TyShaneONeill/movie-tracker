@@ -28,8 +28,17 @@ jest.mock('@/hooks/use-premium', () => ({
   usePremium: () => mockUsePremium(),
 }));
 
-import { useTasteInsights } from '@/hooks/use-taste-insights';
+jest.mock('@/lib/sentry', () => ({
+  captureException: jest.fn(),
+}));
+
+import {
+  useTasteInsights,
+  RATE_LIMIT_REGENERATE_MESSAGE,
+  GENERIC_REGENERATE_MESSAGE,
+} from '@/hooks/use-taste-insights';
 import { supabase } from '@/lib/supabase';
+import { captureException } from '@/lib/sentry';
 
 const mockFrom = supabase.from as jest.Mock;
 const mockInvoke = supabase.functions.invoke as jest.Mock;
@@ -165,5 +174,89 @@ describe('useTasteInsights — premium gating (PS-22 review P1-2)', () => {
     });
 
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('useTasteInsights — error copy never leaks server/config detail (PS-22 review tag-along)', () => {
+  const FRESH_CACHE = {
+    summary: 'You gravitate toward drama.',
+    aggregates: { topDirectors: [], topStudio: null },
+    logs_count_at_generation: SIX_MOVIES.length, // fresh, so no auto-trigger fires first
+    generated_at: '2026-07-01T00:00:00.000Z',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUsePremium.mockReturnValue({ isPremium: true });
+    mockMoviesAndCache(SIX_MOVIES, FRESH_CACHE);
+  });
+
+  it('maps a raw non-429 edge function error to generic friendly copy, never rendering the raw message', async () => {
+    // The exact staging incident: a raw config error containing env var names.
+    const RAW_MESSAGE = 'Missing API configuration - ensure OPENAI_API_KEY and TMDB_API_KEY are set';
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Edge Function returned a non-2xx status code',
+        status: 500,
+        context: { status: 500, json: jest.fn().mockResolvedValue({ error: RAW_MESSAGE }) },
+      },
+    });
+
+    const { wrapper } = createTestHarness();
+    const { result } = renderHook(() => useTasteInsights(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    await act(async () => {
+      result.current.regenerate();
+    });
+
+    await waitFor(() => expect(result.current.regenerateError).not.toBeNull());
+    expect(result.current.regenerateError?.message).toBe(GENERIC_REGENERATE_MESSAGE);
+    expect(result.current.regenerateError?.message).not.toContain('OPENAI_API_KEY');
+    expect(result.current.regenerateError?.message).not.toContain('TMDB_API_KEY');
+
+    // The raw detail is still reported for debugging, just never rendered.
+    expect(captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: GENERIC_REGENERATE_MESSAGE }),
+      expect.objectContaining({ context: 'generate-taste-summary', detail: RAW_MESSAGE })
+    );
+  });
+
+  it('still shows the specific rate-limit message for a 429', async () => {
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'non-2xx', status: 429, context: { status: 429 } },
+    });
+
+    const { wrapper } = createTestHarness();
+    const { result } = renderHook(() => useTasteInsights(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    await act(async () => {
+      result.current.regenerate();
+    });
+
+    await waitFor(() => expect(result.current.regenerateError).not.toBeNull());
+    expect(result.current.regenerateError?.message).toBe(RATE_LIMIT_REGENERATE_MESSAGE);
+  });
+
+  it('maps a data.success === false response (raw error string) to generic friendly copy', async () => {
+    const RAW_MESSAGE = 'Failed to save taste profile: relation "taste_profile_cache" does not exist';
+    mockInvoke.mockResolvedValue({ data: { success: false, error: RAW_MESSAGE }, error: null });
+
+    const { wrapper } = createTestHarness();
+    const { result } = renderHook(() => useTasteInsights(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    await act(async () => {
+      result.current.regenerate();
+    });
+
+    await waitFor(() => expect(result.current.regenerateError).not.toBeNull());
+    expect(result.current.regenerateError?.message).toBe(GENERIC_REGENERATE_MESSAGE);
   });
 });
