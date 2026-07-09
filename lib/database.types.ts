@@ -1197,6 +1197,34 @@ export type Database = {
         }
         Relationships: []
       }
+      // Hand-added (PS-22, migration 20260708200000_taste_profile_cache.sql)
+      // — not yet applied to the linked project, so `supabase gen types`
+      // doesn't know about it. Re-generate and drop this comment once
+      // deployed (see memory: supabase gen types wipes custom edits).
+      taste_profile_cache: {
+        Row: {
+          aggregates: Json
+          generated_at: string
+          logs_count_at_generation: number
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          aggregates: Json
+          generated_at?: string
+          logs_count_at_generation: number
+          summary: string
+          user_id: string
+        }
+        Update: {
+          aggregates?: Json
+          generated_at?: string
+          logs_count_at_generation?: number
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       theater_visits: {
         Row: {
           auditorium: string | null

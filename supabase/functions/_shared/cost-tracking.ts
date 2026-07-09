@@ -9,6 +9,10 @@ export const AI_COST_ESTIMATES = {
   'gemini-2.5-flash-lite': 0.002,
   'gemini-3.5-flash': 0.02,
   'gpt-image-1.5': 0.08,
+  // Mini-tier text model (generate-taste-summary, PS-22) — chat/completions,
+  // short prompt (~150 input tokens of aggregates) + a 2-3 sentence
+  // completion (~120 output tokens). Estimate, not a billed-invoice figure.
+  'gpt-5-mini': 0.0003,
 } as const;
 
 /** Fallback per-call estimate when a model isn't in AI_COST_ESTIMATES (e.g. a GEMINI_MODEL override). */

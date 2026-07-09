@@ -62,6 +62,7 @@ export const GOING_DEEPER_FEATURES: GoingDeeperFeature[] = [
     title: 'Taste Profile',
     blurb: 'Your most-watched directors, actors and decades — surfaced automatically.',
     buildable: true,
+    route: '/analytics/taste-profile',
   },
   {
     key: 'streaks',
