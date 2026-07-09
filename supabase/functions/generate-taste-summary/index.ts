@@ -197,7 +197,15 @@ async function generateTasteRead(aggregatesText: string, apiKey: string): Promis
         // max_completion_tokens (not max_tokens) — newer model families reject
         // the older param name. temperature omitted: newer families reject a
         // non-default value too, and the default is fine for this copy.
-        max_completion_tokens: 200,
+        //
+        // Reasoning-family models (gpt-5-*) spend completion tokens on hidden
+        // reasoning BEFORE emitting content — a tight cap gets fully consumed
+        // by reasoning and returns EMPTY content with finish_reason "length"
+        // (burned in prod 2026-07-09, first live call). reasoning_effort
+        // "minimal" makes the model behave like a non-reasoning one (right for
+        // 3-sentence copy) and the raised cap leaves headroom either way.
+        max_completion_tokens: 1024,
+        reasoning_effort: 'minimal',
       }),
       signal: controller.signal,
     });
@@ -209,7 +217,10 @@ async function generateTasteRead(aggregatesText: string, apiKey: string): Promis
 
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error('No summary returned from OpenAI');
+    if (!content) {
+      const finishReason = result.choices?.[0]?.finish_reason ?? 'unknown';
+      throw new Error(`No summary returned from OpenAI (finish_reason: ${finishReason})`);
+    }
     return content;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
