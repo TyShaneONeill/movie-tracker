@@ -15,9 +15,11 @@ interface SendFollowRequestBody {
 // ============================================================================
 // Main Handler
 //
-// Notifications-only — the follow_request row is inserted client-side.
-// This function creates the in-app notification and sends the push.
-// Called fire-and-forget; a 401 (web race condition) is silently dropped.
+// Push-only — the follow_request row is inserted client-side, and the in-app
+// notification is written by the trg_follow_requests_create_notification DB
+// trigger on that insert (migration 20260710120100). This function only sends
+// the push. Called fire-and-forget; a 401 (web race condition) is silently
+// dropped — the in-app card is already guaranteed by the trigger.
 // ============================================================================
 
 Deno.serve(async (req: Request) => {
@@ -92,33 +94,9 @@ Deno.serve(async (req: Request) => {
 
     const requesterName = profile?.full_name ?? profile?.username ?? 'Someone';
 
-    // Look up the follow_request row created by the client
-    const { data: followRequest } = await adminClient
-      .from('follow_requests')
-      .select('id')
-      .eq('requester_id', user.id)
-      .eq('target_id', target_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Create in-app notification for the target
-    const { error: notifError } = await adminClient
-      .from('notifications')
-      .insert({
-        user_id: target_id,
-        actor_id: user.id,
-        type: 'follow_request',
-        data: {
-          requester_id: user.id,
-          follow_request_id: followRequest?.id ?? null,
-        },
-        read: false,
-      });
-
-    if (notifError) {
-      console.error('[send-follow-request] Notification insert error:', notifError);
-    }
+    // In-app notification is written by the `trg_follow_requests_create_notification`
+    // DB trigger (create_follow_request_notification) on the follow_requests
+    // insert — this fn is push-only. See migration 20260710120100.
 
     // Fire-and-forget push notification to target
     try {

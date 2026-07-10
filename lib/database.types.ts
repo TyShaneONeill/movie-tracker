@@ -2118,6 +2118,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_follow_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       award_popcorn_retroactive: {
         Args: { p_user_id: string }
         Returns: number
