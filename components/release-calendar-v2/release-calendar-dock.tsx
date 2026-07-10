@@ -24,9 +24,18 @@ import {
 } from '@/lib/release-calendar-week';
 import { WeekStrip } from './week-strip';
 
-// Rough week-strip vs. month-grid heights as a percentage of screen height.
-// Not pixel-tuned against a device yet — flag for the emulator QA pass.
-const SNAP_POINTS = ['20%', '52%'];
+// Collapsed (week-strip) snap height in pixels. Fixed rather than a
+// percentage so the results list (release-calendar-v2-screen.tsx) can derive
+// its bottom-clearance padding from this exact same constant — the dock
+// renders as an absolute overlay (not in normal flex flow), so without this
+// shared source of truth the two values could silently drift apart and the
+// last list item would scroll behind the dock again. Still an estimate
+// pending device QA (see PR notes).
+export const WEEK_SNAP_HEIGHT = 150;
+
+// Expanded (month-grid) snap height stays a percentage — it doesn't need to
+// be shared with anything outside this component.
+const SNAP_POINTS = [WEEK_SNAP_HEIGHT, '52%'];
 
 interface ReleaseCalendarDockProps {
   year: number;
