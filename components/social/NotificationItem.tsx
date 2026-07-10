@@ -85,6 +85,8 @@ function getNotificationMessage(
       return `${actorName} followed you`;
     case 'follow_request':
       return `${actorName} wants to follow you`;
+    case 'follow_accepted':
+      return `${actorName} accepted your follow request`;
     case 'like_first_take': {
       const movieTitle = data.movie_title as string | undefined;
       return movieTitle
