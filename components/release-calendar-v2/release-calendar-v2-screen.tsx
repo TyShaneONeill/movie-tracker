@@ -20,7 +20,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -43,7 +43,7 @@ import type { TMDBMovie } from '@/lib/tmdb.types';
 import { filterDatesByWatchlist, filterDayReleases } from '@/lib/calendar-filters';
 import { formatDayHeader } from '@/lib/release-calendar-week';
 import { FilterChipRow } from './filter-chip-row';
-import { ReleaseCalendarDock, WEEK_SNAP_HEIGHT } from './release-calendar-dock';
+import { ReleaseCalendarDock, useDockCollapsedHeight } from './release-calendar-dock';
 
 export function ReleaseCalendarV2Screen() {
   const { effectiveTheme } = useTheme();
@@ -59,14 +59,13 @@ export function ReleaseCalendarV2Screen() {
 
   // Bottom clearance for the results list so its last item can scroll fully
   // above the docked calendar, which renders as an absolute overlay (not in
-  // normal flex flow) and would otherwise cover it. Derived from the same
-  // WEEK_SNAP_HEIGHT constant that defines the dock's collapsed snap point,
-  // so the two can't drift apart — plus the bottom safe-area inset (home
-  // indicator). Deliberately static (collapsed-state height only): the
-  // expanded month grid temporarily covering more of the list is standard
-  // bottom-sheet behavior, not re-padded on snap changes.
-  const insets = useSafeAreaInsets();
-  const dockClearance = WEEK_SNAP_HEIGHT + insets.bottom;
+  // normal flex flow) and would otherwise cover it. useDockCollapsedHeight is
+  // the SAME hook release-calendar-dock.tsx uses for its own collapsed snap
+  // point (base height + bottom safe-area inset), so the two values can
+  // never drift apart. Deliberately static (collapsed-state height only):
+  // the expanded month grid temporarily covering more of the list is
+  // standard bottom-sheet behavior, not re-padded on snap changes.
+  const dockClearance = useDockCollapsedHeight();
 
   // Auth & query client
   const { user } = useAuth();

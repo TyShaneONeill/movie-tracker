@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ReleaseCalendarScreen from '@/app/release-calendar';
 import { useReleaseCalendarV2 } from '@/hooks/use-release-calendar-v2';
-import { WEEK_SNAP_HEIGHT } from '@/components/release-calendar-v2/release-calendar-dock';
+import { WEEK_SNAP_BASE_HEIGHT } from '@/components/release-calendar-v2/release-calendar-dock';
 
 // Mock @expo/vector-icons — pulls in expo-asset which isn't in transformIgnorePatterns.
 jest.mock('@expo/vector-icons', () => {
@@ -156,12 +156,15 @@ describe('ReleaseCalendarScreen release_calendar_v2 gate', () => {
     // Back button remains — the header still has a single, balanced action.
     expect(getByLabelText('Go back')).toBeTruthy();
 
-    // Results list clears the docked calendar: bottom padding is derived
-    // from the dock's own WEEK_SNAP_HEIGHT constant plus the (mocked) bottom
-    // safe-area inset, so the last card can scroll fully above the dock.
+    // Results list clears the docked calendar: bottom padding comes from
+    // useDockCollapsedHeight() — the SAME hook the dock uses for its own
+    // collapsed snap point (base height + the mocked bottom safe-area
+    // inset) — so the last card can scroll fully above the dock, and the
+    // dock's "Pull up for month" hint clears the inset too (Android gesture
+    // bar / iOS home indicator).
     const scroll = getByTestId('release-calendar-v2-results-scroll');
     expect(scroll.props.contentContainerStyle).toEqual({
-      paddingBottom: WEEK_SNAP_HEIGHT + MOCK_SAFE_AREA_BOTTOM_INSET,
+      paddingBottom: WEEK_SNAP_BASE_HEIGHT + MOCK_SAFE_AREA_BOTTOM_INSET,
     });
   });
 
