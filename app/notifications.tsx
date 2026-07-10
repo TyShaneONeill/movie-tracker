@@ -111,6 +111,35 @@ export default function NotificationsScreen() {
     enabled: actorIds.length > 0,
   });
 
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Marks everything read EXCEPT pending follow_request notifications — those
+  // still need an Accept/Decline decision, and viewing the screen shouldn't
+  // silently clear their badge while the decision is unmade (#9 audit
+  // finding). follow_request notifications are deleted outright once
+  // resolved (see cleanupRequestNotifications below), so any one still
+  // present is by definition still pending.
+  const markReadableNotificationsAsRead = useCallback(async () => {
+    if (!user) return;
+    const { error: markReadError } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+      .neq('type', 'follow_request');
+
+    if (markReadError) {
+      console.error('Failed to mark notifications as read:', markReadError);
+      return;
+    }
+
+    // Keep row dots visible for the current session (matches markAllAsRead's
+    // behavior) — clear on tap or on the next visit's refetch.
+    queryClient.invalidateQueries({ queryKey: ['notifications'], refetchType: 'none' });
+    queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+  }, [queryClient, user]);
+
   // Mark all as read once the list has rendered with data — rendered = seen.
   // A delayed timer here gets cancelled by the cleanup on quick back-out (and
   // reset by re-renders since markAllAsRead has unstable identity), which left
@@ -119,9 +148,9 @@ export default function NotificationsScreen() {
   useEffect(() => {
     if (!hasMarkedRef.current && unreadCount > 0 && !isLoading) {
       hasMarkedRef.current = true;
-      markAllAsRead();
+      markReadableNotificationsAsRead();
     }
-  }, [unreadCount, isLoading, markAllAsRead]);
+  }, [unreadCount, isLoading, markReadableNotificationsAsRead]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -219,8 +248,6 @@ export default function NotificationsScreen() {
   };
 
   // Follow request handling
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
   const { acceptRequest, declineRequest, isAccepting, isDeclining } = useFollowRequests();
 
   // Track which notification is currently being acted upon
