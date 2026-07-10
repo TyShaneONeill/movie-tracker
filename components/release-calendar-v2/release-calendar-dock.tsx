@@ -11,6 +11,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CalendarGrid from '@/components/calendar/calendar-grid';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
@@ -24,9 +25,30 @@ import {
 } from '@/lib/release-calendar-week';
 import { WeekStrip } from './week-strip';
 
-// Rough week-strip vs. month-grid heights as a percentage of screen height.
-// Not pixel-tuned against a device yet — flag for the emulator QA pass.
-const SNAP_POINTS = ['20%', '52%'];
+// Collapsed (week-strip) snap height in pixels, before the bottom safe-area
+// inset. Fixed rather than a bare percentage so useDockCollapsedHeight below
+// is deterministic. Still an estimate pending device QA (see PR notes).
+// Exported only so tests can assert against it without hardcoding a magic
+// number — production code should go through useDockCollapsedHeight.
+export const WEEK_SNAP_BASE_HEIGHT = 150;
+
+// Expanded (month-grid) snap height stays a percentage — it doesn't need to
+// account for the bottom inset the way the collapsed strip does.
+const EXPANDED_SNAP_POINT = '52%';
+
+/**
+ * Collapsed dock height, including the bottom safe-area inset (home
+ * indicator / Android gesture bar) so the "Pull up for month" hint never
+ * collides with it. Exported so release-calendar-v2-screen.tsx derives its
+ * results-list bottom padding from this exact same expression — the dock
+ * renders as an absolute overlay (not in normal flex flow), so without one
+ * shared source of truth the two values could silently drift apart and
+ * content would scroll behind the dock again.
+ */
+export function useDockCollapsedHeight(): number {
+  const insets = useSafeAreaInsets();
+  return WEEK_SNAP_BASE_HEIGHT + insets.bottom;
+}
 
 interface ReleaseCalendarDockProps {
   year: number;
@@ -55,6 +77,12 @@ export function ReleaseCalendarDock({
   const colors = Colors[effectiveTheme];
   const sheetRef = useRef<BottomSheet>(null);
   const [expanded, setExpanded] = useState(false);
+
+  const collapsedHeight = useDockCollapsedHeight();
+  const snapPoints = useMemo(
+    () => [collapsedHeight, EXPANDED_SNAP_POINT],
+    [collapsedHeight]
+  );
 
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const weekLabel = useMemo(
@@ -94,7 +122,7 @@ export function ReleaseCalendarDock({
     <BottomSheet
       ref={sheetRef}
       index={0}
-      snapPoints={SNAP_POINTS}
+      snapPoints={snapPoints}
       enableDynamicSizing={false}
       onChange={handleSheetChange}
       enablePanDownToClose={false}

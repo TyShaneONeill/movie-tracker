@@ -11,6 +11,13 @@ jest.mock('@expo/vector-icons', () => {
   return { Ionicons: View };
 });
 
+// useSafeAreaInsets() throws without a <SafeAreaProvider> in the tree, which
+// this test suite doesn't set up. Fixed inset keeps the snap-point math
+// deterministic (mirrors __tests__/app/release-calendar-v2-gate.test.tsx).
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 34, left: 0 }),
+}));
+
 // @gorhom/bottom-sheet drives real gesture/measurement APIs (getBoundingClientRect,
 // reanimated worklet timers) that aren't available in this jsdom test environment —
 // mirrors the codebase's existing pattern of mocking native-heavy libs in tests

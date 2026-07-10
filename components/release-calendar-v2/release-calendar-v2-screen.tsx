@@ -19,7 +19,6 @@ import {
   Pressable,
   StyleSheet,
   Platform,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,9 +27,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ReleaseDayList } from '@/components/calendar/release-day-list';
 import { useReleaseCalendar, useWatchlistIds } from '@/hooks/use-release-calendar';
-import { useCalendarFilters, FILTER_CHIPS } from '@/hooks/use-calendar-filters';
+import { useCalendarFilters } from '@/hooks/use-calendar-filters';
 import { ContentContainer } from '@/components/content-container';
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -44,7 +43,7 @@ import type { TMDBMovie } from '@/lib/tmdb.types';
 import { filterDatesByWatchlist, filterDayReleases } from '@/lib/calendar-filters';
 import { formatDayHeader } from '@/lib/release-calendar-week';
 import { FilterChipRow } from './filter-chip-row';
-import { ReleaseCalendarDock } from './release-calendar-dock';
+import { ReleaseCalendarDock, useDockCollapsedHeight } from './release-calendar-dock';
 
 export function ReleaseCalendarV2Screen() {
   const { effectiveTheme } = useTheme();
@@ -58,7 +57,15 @@ export function ReleaseCalendarV2Screen() {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   );
 
-  const [showFilters, setShowFilters] = useState(false);
+  // Bottom clearance for the results list so its last item can scroll fully
+  // above the docked calendar, which renders as an absolute overlay (not in
+  // normal flex flow) and would otherwise cover it. useDockCollapsedHeight is
+  // the SAME hook release-calendar-dock.tsx uses for its own collapsed snap
+  // point (base height + bottom safe-area inset), so the two values can
+  // never drift apart. Deliberately static (collapsed-state height only):
+  // the expanded month grid temporarily covering more of the list is
+  // standard bottom-sheet behavior, not re-padded on snap changes.
+  const dockClearance = useDockCollapsedHeight();
 
   // Auth & query client
   const { user } = useAuth();
@@ -230,15 +237,10 @@ export function ReleaseCalendarV2Screen() {
             Release Calendar
           </Text>
 
-          <Pressable
-            onPress={() => setShowFilters(true)}
-            style={styles.headerButton}
-            accessibilityRole="button"
-            accessibilityLabel="Open filters"
-            hitSlop={8}
-          >
-            <Ionicons name="options-outline" size={22} color={colors.text} />
-          </Pressable>
+          {/* Invisible spacer balancing the back button so the title stays
+              centered — the chip row below is the canonical filter UI in v2,
+              so there's no second header action (no redundant filter sheet). */}
+          <View style={styles.headerButton} />
         </View>
 
         {/* Always-visible filter chips */}
@@ -251,7 +253,11 @@ export function ReleaseCalendarV2Screen() {
         />
 
         {/* Results — day header with count, then the release list */}
-        <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={{ paddingBottom: dockClearance }}
+          testID="release-calendar-v2-results-scroll"
+        >
           {dayHeaderText && (
             <Text
               style={[styles.dayHeader, { color: colors.textSecondary }]}
@@ -286,91 +292,6 @@ export function ReleaseCalendarV2Screen() {
         onSelectDate={handleSelectDate}
         onMonthChange={handleMonthChange}
       />
-
-      {/* Filter Bottom Sheet — same full-filter panel as v1 (gear icon),
-          duplicated here (not shared) so v1's file stays byte-identical. */}
-      {showFilters && (
-        <>
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={() => setShowFilters(false)}
-          />
-          <View style={[styles.modalPanel, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Filters
-              </Text>
-              <Pressable
-                onPress={() => setShowFilters(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Close filters"
-                hitSlop={8}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </Pressable>
-            </View>
-
-            {user && (
-              <View style={styles.switchRow}>
-                <Text style={[styles.switchLabel, { color: colors.text }]}>
-                  Show only my watchlist
-                </Text>
-                <Switch
-                  value={watchlistOnly}
-                  onValueChange={setWatchlistOnly}
-                  trackColor={{ false: colors.backgroundSecondary, true: colors.tint }}
-                  accessibilityLabel="Show only releases in my watchlist"
-                />
-              </View>
-            )}
-
-            <Text style={[styles.filterSectionTitle, { color: colors.textSecondary }]}>
-              Release Type
-            </Text>
-
-            <View style={styles.chipContainer}>
-              {FILTER_CHIPS.map((chip) => {
-                const active = isChipActive(chip);
-                return (
-                  <Pressable
-                    key={chip.key}
-                    onPress={() => toggleFilterChip(chip)}
-                    style={[
-                      styles.chip,
-                      active
-                        ? { backgroundColor: colors.tint }
-                        : { backgroundColor: colors.backgroundSecondary },
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={`${chip.label} filter`}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        active
-                          ? { color: '#ffffff' }
-                          : { color: colors.textSecondary },
-                      ]}
-                    >
-                      {chip.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Pressable
-              onPress={() => setShowFilters(false)}
-              style={[styles.applyButton, { backgroundColor: colors.tint }]}
-              accessibilityRole="button"
-              accessibilityLabel="Close filters"
-            >
-              <Text style={styles.applyButtonText}>Done</Text>
-            </Pressable>
-          </View>
-        </>
-      )}
 
       <LoginPromptModal
         visible={isLoginPromptVisible}
@@ -416,79 +337,6 @@ const styles = StyleSheet.create({
   },
 
   scrollArea: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: Spacing.xxl,
-  },
-
-  modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 100,
-  },
-  modalPanel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xxl,
-    zIndex: 101,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.lg,
-  },
-  modalTitle: {
-    ...Typography.display.h4,
-  },
-
-  filterSectionTitle: {
-    ...Typography.body.smMedium,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: Spacing.md,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  chip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-  },
-  chipText: {
-    ...Typography.body.smMedium,
-  },
-
-  applyButton: {
-    paddingVertical: 14,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    ...Typography.button.primary,
-    color: '#ffffff',
-  },
-
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  switchLabel: {
-    ...Typography.body.base,
     flex: 1,
   },
 });
