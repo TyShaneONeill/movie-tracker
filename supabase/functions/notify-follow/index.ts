@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { enforceRateLimit } from '../_shared/rate-limit.ts';
 
 // ============================================================================
 // Types
@@ -54,6 +55,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Rate limit: 60 notifications per hour (mirrors send-follow-request)
+    const rateLimited = await enforceRateLimit(user.id, 'notify_follow', 60, 3600, req, { failClosed: true });
+    if (rateLimited) return rateLimited;
+
     // Parse request body
     const { following_id }: NotifyFollowBody = await req.json();
 
@@ -83,21 +88,8 @@ Deno.serve(async (req: Request) => {
 
     const followerName = profile?.full_name ?? profile?.username ?? 'Someone';
 
-    // Create in-app notification for the person being followed
-    const { error: notifError } = await adminClient
-      .from('notifications')
-      .insert({
-        user_id: following_id,
-        actor_id: user.id,
-        type: 'follow',
-        data: { follower_id: user.id },
-        read: false,
-      });
-
-    if (notifError) {
-      console.error('[notify-follow] Notification insert error:', notifError);
-      // Log but continue — push can still be attempted
-    }
+    // In-app notification is written by the `on_new_follow` DB trigger
+    // (create_follow_notification) on the `follows` insert — this fn is push-only.
 
     // Fire-and-forget push notification to the followed user
     try {
