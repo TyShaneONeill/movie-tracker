@@ -90,6 +90,7 @@ export default function NotificationsScreen() {
     error,
     markAsRead,
     markAllAsRead,
+    removeRequestCards,
     isMarkingAllAsRead,
     loadMore,
     hasMore,
@@ -257,6 +258,9 @@ export default function NotificationsScreen() {
   // cards happen when a request is cancelled and re-sent (issue #588).
   const cleanupRequestNotifications = useCallback(async (actorId: string) => {
     if (!user) return;
+    // Drop the card(s) from the cached pages first — instant in-place removal;
+    // the server delete + invalidations below are reconciliation.
+    removeRequestCards(actorId);
     await supabase
       .from('notifications')
       .delete()
@@ -265,7 +269,7 @@ export default function NotificationsScreen() {
       .eq('type', 'follow_request');
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
     queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
-  }, [queryClient, user]);
+  }, [queryClient, user, removeRequestCards]);
 
   const handleAcceptFollowRequest = useCallback(async (notification: Notification) => {
     if (!notification.actor_id || !user) return;

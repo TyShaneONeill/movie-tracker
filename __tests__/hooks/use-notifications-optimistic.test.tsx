@@ -107,3 +107,67 @@ describe('useNotifications — per-row optimistic mark-as-read (issue #580 devic
     resolveWrite();
   });
 });
+
+describe('useNotifications — removeRequestCards (in-place resolution of follow_request cards)', () => {
+  const req = (id: string, actorId: string) => ({
+    id,
+    user_id: 'user-1',
+    actor_id: actorId,
+    type: 'follow_request',
+    data: {},
+    read: false,
+    created_at: '2026-07-03T00:00:00Z',
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetUnreadCount.mockResolvedValue(3);
+    mockMarkAsRead.mockResolvedValue(undefined);
+    mockMarkAllAsRead.mockResolvedValue(undefined);
+  });
+
+  it('removes every follow_request card from the actor, synchronously, leaving other cards intact', async () => {
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-1'), req('r2', 'actor-1'), n('n1', false)],
+      hasMore: false,
+    });
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.notifications).toHaveLength(3));
+
+    // No server round-trip involved — pure cache surgery must drop both
+    // duplicate request cards from actor-1 (cancel + re-send, issue #588)
+    act(() => {
+      result.current.removeRequestCards('actor-1');
+    });
+
+    await waitFor(() => {
+      expect(result.current.notifications).toHaveLength(1);
+    });
+    expect(result.current.notifications[0].id).toBe('n1');
+  });
+
+  it('does not touch non-request cards from the same actor or requests from other actors', async () => {
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-1'), req('r2', 'actor-2'), n('n1', false)],
+      hasMore: false,
+    });
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.notifications).toHaveLength(3));
+
+    act(() => {
+      result.current.removeRequestCards('actor-1');
+    });
+
+    await waitFor(() => {
+      expect(result.current.notifications).toHaveLength(2);
+    });
+    const ids = result.current.notifications.map((x) => x.id).sort();
+    expect(ids).toEqual(['n1', 'r2']);
+  });
+});
