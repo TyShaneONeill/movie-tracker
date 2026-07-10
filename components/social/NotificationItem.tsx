@@ -170,9 +170,6 @@ export function NotificationItem({
   const relativeTime = formatRelativeTime(notification.created_at);
 
   const isFollowRequest = notification.type === 'follow_request';
-  const notificationData = (notification.data ?? {}) as Record<string, unknown>;
-  const isHandled = notificationData.handled === true;
-  const handledAction = notificationData.handled_action as string | undefined;
   const isActionInProgress = isAccepting || isDeclining;
 
   return (
@@ -227,7 +224,7 @@ export function NotificationItem({
           </ThemedText>
 
           {/* Follow Request Action Buttons */}
-          {isFollowRequest && !isHandled && (
+          {isFollowRequest && (
             <View style={styles.actionButtons}>
               <Pressable
                 style={[
@@ -270,22 +267,10 @@ export function NotificationItem({
             </View>
           )}
 
-          {/* Show handled state for already-processed follow requests */}
-          {isFollowRequest && isHandled && (
-            <ThemedText
-              style={[
-                Typography.body.xs,
-                styles.handledText,
-                { color: colors.textTertiary },
-              ]}
-            >
-              {handledAction === 'accepted' ? 'Accepted' : 'Declined'}
-            </ThemedText>
-          )}
         </View>
 
-        {/* Chevron (not shown for unhandled follow requests — actions take priority) */}
-        {!(isFollowRequest && !isHandled) && (
+        {/* Chevron (not shown for follow requests — actions take priority) */}
+        {!isFollowRequest && (
           <Ionicons
             name="chevron-forward"
             size={16}
@@ -380,10 +365,6 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
-  },
-  handledText: {
-    marginTop: Spacing.xs,
-    fontStyle: 'italic',
   },
 });
 
