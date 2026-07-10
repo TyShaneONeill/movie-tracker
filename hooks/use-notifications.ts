@@ -18,6 +18,7 @@ interface UseNotificationsResult {
   error: Error | null;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  removeRequestCards: (actorId: string) => void;
   isMarkingAsRead: boolean;
   isMarkingAllAsRead: boolean;
   loadMore: () => void;
@@ -104,6 +105,27 @@ export function useNotifications(): UseNotificationsResult {
     }
   };
 
+  // Drop every follow_request card from a requester out of all cached pages.
+  // Synchronous cache surgery so a resolved (accepted/declined/stale) card
+  // leaves the visible list immediately — the pages are read straight from the
+  // cache during render, so waiting on an invalidation refetch leaves the card
+  // on screen with live buttons until remount (second tap → "follow request
+  // not found" toast). Server delete + invalidation remain the reconciliation.
+  const removeRequestCards = (actorId: string) => {
+    const pages = queryClient.getQueriesData<{ notifications: Notification[]; hasMore: boolean }>({
+      queryKey: ['notifications', user?.id],
+    });
+    for (const [key, page] of pages) {
+      if (!page?.notifications.some((n) => n.type === 'follow_request' && n.actor_id === actorId)) continue;
+      queryClient.setQueryData(key, {
+        ...page,
+        notifications: page.notifications.filter(
+          (n) => !(n.type === 'follow_request' && n.actor_id === actorId)
+        ),
+      });
+    }
+  };
+
   // Mutation to mark a single notification as read
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId: string) => markAsReadService(notificationId),
@@ -177,6 +199,7 @@ export function useNotifications(): UseNotificationsResult {
       (markAllAsReadMutation.error as Error | null),
     markAsRead,
     markAllAsRead,
+    removeRequestCards,
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
     loadMore,
