@@ -52,61 +52,21 @@ export async function sendFollowRequest(
 }
 
 /**
- * Accept a follow request — deletes the request and creates a follow relationship.
+ * Accept a follow request via the atomic `accept_follow_request` RPC.
  *
- * Can be called with just requestId (will look up the request row) or with
- * all three arguments to skip the lookup.
+ * The RPC (SECURITY DEFINER) deletes the request row and creates the follow in
+ * one transaction, asserts the caller is the request target, block-checks both
+ * directions, and reconciles notifications (drops the wrong-party "followed
+ * you" card, notifies the requester their request was accepted). Replaces the
+ * old non-atomic client-side delete-then-insert.
  */
-export async function acceptFollowRequest(
-  requestId: string,
-  requesterId?: string,
-  targetId?: string
-): Promise<void> {
-  let resolvedRequesterId = requesterId;
-  let resolvedTargetId = targetId;
+export async function acceptFollowRequest(requestId: string): Promise<void> {
+  const { error } = await supabase.rpc('accept_follow_request', {
+    p_request_id: requestId,
+  });
 
-  // If requester/target not provided, look up the request row
-  if (!resolvedRequesterId || !resolvedTargetId) {
-    const { data: request, error: lookupError } = await supabase
-      .from('follow_requests')
-      .select('requester_id, target_id')
-      .eq('id', requestId)
-      .single();
-
-    if (lookupError || !request) {
-      throw new Error(lookupError?.message || 'Follow request not found');
-    }
-
-    resolvedRequesterId = request.requester_id;
-    resolvedTargetId = request.target_id;
-  }
-
-  // Delete the follow request
-  const { error: deleteError } = await supabase
-    .from('follow_requests')
-    .delete()
-    .eq('id', requestId);
-
-  if (deleteError) {
-    throw new Error(deleteError.message || 'Failed to accept follow request');
-  }
-
-  // Insert into follows
-  const followInsert: FollowInsert = {
-    follower_id: resolvedRequesterId,
-    following_id: resolvedTargetId,
-  };
-
-  const { error: followError } = await supabase
-    .from('follows')
-    .insert(followInsert);
-
-  if (followError) {
-    // If already following (edge case), don't treat as error
-    if (followError.code === '23505') {
-      return;
-    }
-    throw new Error(followError.message || 'Failed to create follow');
+  if (error) {
+    throw new Error(error.message || 'Failed to accept follow request');
   }
 }
 
