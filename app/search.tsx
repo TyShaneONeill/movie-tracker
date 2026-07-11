@@ -48,6 +48,8 @@ import { useNetwork } from '@/lib/network-context';
 import { analytics } from '@/lib/analytics';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { ContentContainer } from '@/components/content-container';
+import { useSearchV2 } from '@/hooks/use-search-v2';
+import { SearchV2Screen } from '@/components/search-v2/search-v2-screen';
 
 // SVG Icons
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
@@ -200,7 +202,22 @@ const TV_GENRES_DATA = [
 
 const MAX_APP_WIDTH = 768;
 
+/**
+ * Gate: `search_v2` (founder-only) renders the unified Search v2 experience;
+ * otherwise the legacy toggle-based screen renders untouched. Holds a neutral
+ * screen while PostHog resolves the flag so testers don't see v1 flash and snap
+ * to v2 — same gate as app/release-calendar.tsx.
+ */
 export default function SearchScreen() {
+  const { enabled, resolving } = useSearchV2();
+  const { effectiveTheme } = useTheme();
+  const colors = Colors[effectiveTheme];
+  if (resolving) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  if (enabled) return <SearchV2Screen />;
+  return <SearchV1Screen />;
+}
+
+function SearchV1Screen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { isOffline } = useNetwork();
