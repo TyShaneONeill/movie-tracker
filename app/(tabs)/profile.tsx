@@ -86,7 +86,9 @@ export default function ProfileScreen() {
     const cardWidth = useMemo(() => {
         const effectiveWidth = Math.min(screenWidth, MAX_CONTENT_WIDTH);
         const availableWidth = effectiveWidth - (Spacing.lg * 2);
-        return (availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+        // Floored to match app/user/[id].tsx — exact-fit fractional widths can
+        // wrap a manual flexWrap grid on some device widths (2026-07-11 bug).
+        return Math.floor((availableWidth - (GRID_GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT);
     }, [screenWidth]);
 
     // Animated scroll value

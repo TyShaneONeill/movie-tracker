@@ -111,7 +111,12 @@ export default function UserProfileScreen() {
   const cardWidth = useMemo(() => {
     const effectiveWidth = Math.min(screenWidth, MAX_CONTENT_WIDTH);
     const availableWidth = effectiveWidth - Spacing.lg * 2;
-    return (availableWidth - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
+    // Floor, don't exact-fit: the watchlist grid is a manual flexWrap row, and
+    // an exactly-filling fractional width (e.g. 125.333… on a 440pt screen)
+    // can round past the row on Yoga's pixel grid and wrap the third column
+    // (2-column watchlist bug, 2026-07-11). ≤2pt of slack is invisible;
+    // wrapping is not. FlatList numColumns (collection tab) is immune either way.
+    return Math.floor((availableWidth - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT);
   }, [screenWidth]);
 
   // Fetch user profile data — lazy-loads per active tab
