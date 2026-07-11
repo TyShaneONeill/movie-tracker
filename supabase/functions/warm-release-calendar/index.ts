@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/cron-auth.ts';
 import { selectBestTrailer, type TMDBVideosResponse } from '../_shared/select-best-trailer.ts';
+import { DEFAULT_MONTHS_AHEAD } from '../_shared/release-calendar-window.ts';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const MAX_DISCOVER_PAGES = 5;
@@ -21,6 +22,7 @@ interface DiscoverMovie {
   backdrop_path: string | null;
   genre_ids: number[];
   vote_average: number;
+  popularity: number;
 }
 
 interface ReleaseDateEntry {
@@ -42,6 +44,7 @@ interface ReleaseCalendarRow {
   backdrop_path: string | null;
   genre_ids: number[] | null;
   vote_average: number | null;
+  popularity: number | null;
   fetched_at: string;
   trailer_youtube_key: string | null;
 }
@@ -75,7 +78,7 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = (await req.json().catch(() => ({}))) as RequestBody;
-    const monthsAhead = Math.max(0, Math.min(6, body.months_ahead ?? 3));
+    const monthsAhead = Math.max(0, Math.min(6, body.months_ahead ?? DEFAULT_MONTHS_AHEAD));
     const region = (body.region ?? 'US').toUpperCase();
 
     const now = new Date();
@@ -144,6 +147,15 @@ Deno.serve(async (req: Request) => {
 
         for (const result of results) {
           if (!result) continue;
+          // Prevention invariant: never insert a title-less row. Discover
+          // always carries a title, but guard defensively so this writer can't
+          // create the null-title junk the cleanup migration removed.
+          if (!result.movie.title) {
+            console.warn(
+              `[warm-release-calendar] discover row ${result.movie.id} has no title — skipping`
+            );
+            continue;
+          }
           for (const entry of result.entries) {
             const releaseDate = entry.release_date.split('T')[0];
             if (releaseDate < startDate || releaseDate > endDate) continue;
@@ -162,6 +174,7 @@ Deno.serve(async (req: Request) => {
               // (null vs 0 distinguishes unrated films from 0-rated films).
               genre_ids: result.movie.genre_ids ?? null,
               vote_average: result.movie.vote_average ?? null,
+              popularity: result.movie.popularity ?? null,
               fetched_at: new Date().toISOString(),
               trailer_youtube_key: result.trailerKey,
             });
@@ -241,6 +254,7 @@ Deno.serve(async (req: Request) => {
         | 'backdrop_path'
         | 'genre_ids'
         | 'vote_average'
+        | 'popularity'
       >> = [];
 
       for (let r = 0; r < nullTitleRows.length; r += BATCH_SIZE) {
@@ -263,6 +277,7 @@ Deno.serve(async (req: Request) => {
                 backdrop_path: string | null;
                 genres: { id: number }[];
                 vote_average: number | null;
+                popularity: number | null;
               };
               if (!detail.title) return null; // empty title → still un-fixable
 
@@ -276,6 +291,10 @@ Deno.serve(async (req: Request) => {
                 backdrop_path: detail.backdrop_path,
                 genre_ids: detail.genres?.map((g) => g.id) ?? null,
                 vote_average: detail.vote_average ?? null,
+                // Backfill popularity while we have the detail in hand — the
+                // detail response carries it, so reconciled rows also get
+                // within-day ordering instead of sinking to NULLS LAST.
+                popularity: detail.popularity ?? null,
               };
             } catch (e) {
               console.error(

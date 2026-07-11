@@ -39,7 +39,10 @@ export async function getReleaseCalendar(
     .gte('release_date', startDate)
     .lte('release_date', endDate)
     .not('title', 'is', null)
-    .order('release_date', { ascending: true });
+    .order('release_date', { ascending: true })
+    // Within a day, surface the most relevant release first. NULLS LAST so
+    // legacy rows without a popularity score sink below scored ones.
+    .order('popularity', { ascending: false, nullsFirst: false });
 
   if (error) throw new Error(error.message || 'Failed to fetch release calendar');
 
