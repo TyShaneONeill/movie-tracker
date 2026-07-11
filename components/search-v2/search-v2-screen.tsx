@@ -19,9 +19,12 @@ import {
   Text,
   TextInput,
   ScrollView,
+  FlatList,
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -41,6 +44,7 @@ import { useTvShowSearch } from '@/hooks/use-tv-show-search';
 import { useUserSearch } from '@/hooks/use-user-search';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import { useRecentSearches, type RecentSearch } from '@/hooks/use-recent-searches';
+import { useDiscoverMovies } from '@/hooks/use-discover-movies';
 
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import type { TMDBMovie, TMDBTvShow, TMDBActor } from '@/lib/tmdb.types';
@@ -51,12 +55,18 @@ import {
   selectRescueTarget,
   rescueCopy,
   formatLedgerDate,
+  movieToResult,
   type SearchScope,
   type UnifiedResult,
 } from '@/lib/search-v2-logic';
+import { BROWSE_GENRES, COMPANY_SHELVES, genreSerial } from '@/lib/search-v2-shelves';
 import { ScopeChips } from './scope-chips';
 import { ResultRow } from './result-row';
 import { TearLine } from './tear-line';
+import { GenreStub } from './genre-stub';
+
+const MAX_APP_WIDTH = 768;
+const GRID_GAP = 10;
 
 const BackIcon = ({ color }: { color: string }) => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
@@ -82,14 +92,37 @@ export function SearchV2Screen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { isOffline } = useNetwork();
+  const { width: windowWidth } = useWindowDimensions();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
+  // Browse mode: a genre stub was pulled from the rack (idle state only).
+  const [browseGenre, setBrowseGenre] = useState<{ id: number; name: string } | null>(null);
+  // A curated studio shelf was tapped — surfaces a coming-soon note (see below).
+  const [comingSoonShelf, setComingSoonShelf] = useState<string | null>(null);
   const debouncedQuery = useDebouncedValue(searchQuery, 300);
   const trimmed = debouncedQuery.trim();
   const showResults = trimmed.length >= 2;
+  const browseActive = browseGenre !== null && !showResults;
 
   const { recentSearches, addRecentSearch } = useRecentSearches();
+
+  // Genre browse fans out through the existing discover-movies edge fn; results
+  // render as unified movie rows (Movies scope implied — no chips in browse).
+  const {
+    movies: browseMovies,
+    isLoading: browseLoading,
+    hasNextPage: browseHasNext,
+    isFetchingNextPage: browseFetchingNext,
+    fetchNextPage: fetchNextBrowsePage,
+  } = useDiscoverMovies({ genreId: browseGenre?.id ?? null, enabled: browseActive });
+  const browseResults = useMemo(() => browseMovies.map(movieToResult), [browseMovies]);
+
+  // 2-column grid tile width, matching the results padding (Spacing.md each side).
+  const tileWidth = useMemo(() => {
+    const containerWidth = Math.min(windowWidth, MAX_APP_WIDTH) - Spacing.md * 2;
+    return (containerWidth - GRID_GAP) / 2;
+  }, [windowWidth]);
 
   // Unified fan-out: titles + TV + people (actor-mode) run in parallel. People
   // is secondary — we don't block the results on it.
@@ -220,6 +253,26 @@ export function SearchV2Screen() {
     else router.push(`/movie/${search.tmdbId}`);
   }, []);
 
+  // Typing exits any browse/coming-soon state and returns to the query flow.
+  const handleQueryChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (text.length > 0) {
+      setBrowseGenre(null);
+      setComingSoonShelf(null);
+    }
+  }, []);
+
+  const handleGenrePress = useCallback((genre: { id: number; name: string }) => {
+    setComingSoonShelf(null);
+    setSearchQuery('');
+    setBrowseGenre(genre);
+    analytics.track('search:v2_browse', { genre_id: genre.id, genre_name: genre.name });
+  }, []);
+
+  const handleClearBrowse = useCallback(() => setBrowseGenre(null), []);
+
+  const handleShelfPress = useCallback((name: string) => setComingSoonShelf(name), []);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ContentContainer style={styles.flex}>
@@ -243,7 +296,7 @@ export function SearchV2Screen() {
                 placeholderTextColor={colors.textTertiary}
                 accessibilityLabel="Search titles, people, and lists"
                 value={searchQuery}
-                onChangeText={setSearchQuery}
+                onChangeText={handleQueryChange}
                 autoFocus
                 returnKeyType="search"
                 autoCorrect={false}
@@ -350,6 +403,60 @@ export function SearchV2Screen() {
               <EmptyBlock colors={colors} title="No results found" body="Try a different search term" />
             )}
           </ScrollView>
+        ) : browseActive ? (
+          <FlatList
+            style={styles.flex}
+            data={browseResults}
+            keyExtractor={(item) => item.key}
+            renderItem={({ item, index }) => (
+              <ResultRow result={item} onPress={openResult} isFirst={index === 0} />
+            )}
+            contentContainerStyle={styles.resultsContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <View style={styles.browseHeader}>
+                <Pressable
+                  onPress={handleClearBrowse}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to browse the archive"
+                  hitSlop={8}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                >
+                  <Text style={[styles.browseBack, { color: colors.tint }]}>← Browse</Text>
+                </Pressable>
+                <Text style={[styles.micro, styles.browseLabel, { color: colors.textTertiary }]}>
+                  {browseGenre?.name} · {genreSerial(browseGenre?.id ?? 0)}
+                </Text>
+              </View>
+            }
+            ListEmptyComponent={
+              browseLoading ? (
+                isOffline ? (
+                  <EmptyBlock
+                    colors={colors}
+                    title="You’re offline"
+                    body="Connect to the internet to browse"
+                  />
+                ) : (
+                  <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+                )
+              ) : (
+                <EmptyBlock colors={colors} title="No results found" body="Nothing on this shelf right now" />
+              )
+            }
+            onEndReached={() => {
+              if (browseHasNext && !browseFetchingNext) fetchNextBrowsePage();
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              browseFetchingNext ? (
+                <View style={styles.browseFooter}>
+                  <ActivityIndicator size="small" color={colors.tint} />
+                </View>
+              ) : null
+            }
+          />
         ) : (
           <ScrollView
             style={styles.flex}
@@ -357,7 +464,7 @@ export function SearchV2Screen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {recentSearches.length > 0 ? (
+            {recentSearches.length > 0 && (
               <>
                 <Text style={[styles.micro, { color: colors.textTertiary }]}>From your log</Text>
                 {recentSearches.map((search) => (
@@ -381,9 +488,42 @@ export function SearchV2Screen() {
                   </Pressable>
                 ))}
               </>
-            ) : (
-              <Text style={[styles.idleHint, { color: colors.textTertiary }]}>
-                Search titles, people, and lists
+            )}
+
+            <Text
+              style={[
+                styles.micro,
+                recentSearches.length > 0 && styles.rackLabelSpaced,
+                { color: colors.textTertiary },
+              ]}
+            >
+              Browse the archive
+            </Text>
+            <View style={styles.genreGrid}>
+              {BROWSE_GENRES.map((genre) => (
+                <GenreStub
+                  key={`g${genre.id}`}
+                  name={genre.name}
+                  serial={genreSerial(genre.id)}
+                  width={tileWidth}
+                  onPress={() => handleGenrePress(genre)}
+                  accessibilityLabel={`Browse ${genre.name}`}
+                />
+              ))}
+              {COMPANY_SHELVES.map((shelf) => (
+                <GenreStub
+                  key={`c${shelf.name}`}
+                  name={shelf.name}
+                  serial={shelf.serial}
+                  width={tileWidth}
+                  onPress={() => handleShelfPress(shelf.name)}
+                  accessibilityLabel={`${shelf.name}, curated shelf`}
+                />
+              ))}
+            </View>
+            {comingSoonShelf && (
+              <Text style={[styles.shelfNotice, { color: colors.textTertiary }]}>
+                {comingSoonShelf} — curated shelf coming soon
               </Text>
             )}
           </ScrollView>
@@ -521,8 +661,34 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontVariant: ['tabular-nums'],
   },
-  idleHint: {
-    fontSize: 13,
-    marginTop: Spacing.sm,
+  // Browse the archive rack
+  rackLabelSpaced: {
+    marginTop: 20,
+  },
+  genreGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+  },
+  shelfNotice: {
+    fontSize: 12.5,
+    marginTop: Spacing.md,
+    fontStyle: 'italic',
+  },
+  // Genre browse results
+  browseHeader: {
+    marginBottom: Spacing.sm,
+  },
+  browseBack: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  browseLabel: {
+    marginBottom: 4,
+  },
+  browseFooter: {
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
   },
 });
