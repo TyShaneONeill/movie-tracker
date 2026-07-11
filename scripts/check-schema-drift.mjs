@@ -39,6 +39,9 @@
  * SCOPE
  *   - Trigger / event-trigger functions are EXCLUDED: they are unreachable via
  *     PostgREST /rpc (matches the carve-out documented in 20260710093000).
+ *   - Guarantee is "no DIRECT anon/PUBLIC EXECUTE": a grant to a custom role
+ *     anon is a member of would not be caught. Not a Supabase pattern (anon has
+ *     no custom role memberships; creating one would itself be a red flag).
  *   - `authenticated`-EXECUTE is DELIBERATELY NOT audited — client RPCs
  *     legitimately need it (owner-scoped reads/writes). Auditing it would require
  *     guessing which fns are cron/service-only, and we don't invent heuristics.
@@ -62,7 +65,9 @@ const DISCORD_WEBHOOK = process.env.DISCORD_METRICS_WEBHOOK_URL; // optional ale
 // `name(identity args)` signature the audit emits. Suppressing an entry here is
 // a deliberate, reviewed exception — adding one REQUIRES a documented reason
 // (why anon/PUBLIC EXECUTE is safe for that specific function), because every
-// entry re-opens the exact hole this check exists to catch.
+// entry re-opens the exact hole this check exists to catch. Keys must match
+// pg_get_function_identity_arguments output exactly — a param rename breaks the
+// entry, which FAILS SAFE (extra alert, never a missed leak); update it then.
 //
 //   can_view_user_content(content_user_id uuid, content_visibility text)
 //     RLS privacy helper. SECURITY DEFINER + anon/PUBLIC EXECUTE by design: it
