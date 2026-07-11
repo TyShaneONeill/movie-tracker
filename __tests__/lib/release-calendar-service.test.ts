@@ -29,8 +29,8 @@ describe('getReleaseCalendar', () => {
     jest.clearAllMocks();
   });
 
-  it('queries release_calendar with correct month range + region + null filter', async () => {
-    chain.order.mockResolvedValueOnce({ data: [], error: null });
+  it('queries release_calendar with correct month range + region + null filter + ordering', async () => {
+    chain.order.mockReturnValueOnce(chain).mockResolvedValueOnce({ data: [], error: null });
 
     await getReleaseCalendar(4, 2026, 'US');
 
@@ -39,11 +39,13 @@ describe('getReleaseCalendar', () => {
     expect(chain.gte).toHaveBeenCalledWith('release_date', '2026-04-01');
     expect(chain.lte).toHaveBeenCalledWith('release_date', '2026-04-30');
     expect(chain.not).toHaveBeenCalledWith('title', 'is', null);
-    expect(chain.order).toHaveBeenCalledWith('release_date', { ascending: true });
+    // Date first, then popularity DESC NULLS LAST as the within-day tiebreak.
+    expect(chain.order).toHaveBeenNthCalledWith(1, 'release_date', { ascending: true });
+    expect(chain.order).toHaveBeenNthCalledWith(2, 'popularity', { ascending: false, nullsFirst: false });
   });
 
   it('groups rows by date into days', async () => {
-    chain.order.mockResolvedValueOnce({
+    chain.order.mockReturnValueOnce(chain).mockResolvedValueOnce({
       data: [
         { tmdb_id: 1, title: 'Movie A', poster_path: '/a.jpg', backdrop_path: null, genre_ids: [28], vote_average: 7.5, release_type: 3, release_date: '2026-04-29', certification: 'PG-13' },
         { tmdb_id: 2, title: 'Movie B', poster_path: null, backdrop_path: null, genre_ids: [], vote_average: 0, release_type: 3, release_date: '2026-04-29', certification: null },
@@ -65,7 +67,7 @@ describe('getReleaseCalendar', () => {
   });
 
   it('maps release_type integer to human label', async () => {
-    chain.order.mockResolvedValueOnce({
+    chain.order.mockReturnValueOnce(chain).mockResolvedValueOnce({
       data: [
         { tmdb_id: 1, title: 'Theatrical', poster_path: null, backdrop_path: null, genre_ids: [], vote_average: 0, release_type: 3, release_date: '2026-04-29', certification: null },
         { tmdb_id: 2, title: 'Digital', poster_path: null, backdrop_path: null, genre_ids: [], vote_average: 0, release_type: 4, release_date: '2026-04-29', certification: null },
@@ -80,12 +82,12 @@ describe('getReleaseCalendar', () => {
   });
 
   it('throws when supabase returns an error', async () => {
-    chain.order.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
+    chain.order.mockReturnValueOnce(chain).mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
     await expect(getReleaseCalendar(4, 2026)).rejects.toThrow('boom');
   });
 
   it('returns empty days when no rows returned', async () => {
-    chain.order.mockResolvedValueOnce({ data: [], error: null });
+    chain.order.mockReturnValueOnce(chain).mockResolvedValueOnce({ data: [], error: null });
     const result = await getReleaseCalendar(4, 2026);
     expect(result.days).toEqual([]);
     expect(result.dates_with_releases).toEqual([]);
@@ -95,7 +97,7 @@ describe('getReleaseCalendar', () => {
   it('coalesces null vote_average and genre_ids to defaults', async () => {
     // TMDB sometimes omits these fields; warming worker passes null through
     // (schema is nullable). Client defaults to 0 and [] at render time.
-    chain.order.mockResolvedValueOnce({
+    chain.order.mockReturnValueOnce(chain).mockResolvedValueOnce({
       data: [
         { tmdb_id: 1, title: 'Unrated Movie', poster_path: null, backdrop_path: null, genre_ids: null, vote_average: null, release_type: 3, release_date: '2026-04-29' },
       ],
