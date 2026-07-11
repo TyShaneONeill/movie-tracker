@@ -167,12 +167,24 @@ export default function NotificationsScreen() {
   // matter how cache updates interleave. Server durability = markAsRead.
   const [readOverrides, setReadOverrides] = useState<Set<string>>(() => new Set());
 
+  // Session-local overlay of resolved (accepted/declined/stale) request
+  // cards, by card id. The #646 cache surgery alone still lost a device race
+  // on iOS prod (card stayed with live buttons until remount) — same failure
+  // class as #580 above: an interleaved refetch can overwrite the patched
+  // cache. Filtering at render from React state cannot be defeated by any
+  // cache interleaving; a later re-request from the same actor gets a fresh
+  // card id and still renders. Server delete + cache surgery remain as the
+  // durable layers.
+  const [resolvedRequestCardIds, setResolvedRequestCardIds] = useState<Set<string>>(() => new Set());
+
   const displayNotifications = useMemo(
     () =>
-      notifications.map((n) =>
-        !n.read && readOverrides.has(n.id) ? { ...n, read: true } : n
-      ),
-    [notifications, readOverrides]
+      notifications
+        .filter((n) => !resolvedRequestCardIds.has(n.id))
+        .map((n) =>
+          !n.read && readOverrides.has(n.id) ? { ...n, read: true } : n
+        ),
+    [notifications, readOverrides, resolvedRequestCardIds]
   );
 
   const handleNotificationPress = (notification: Notification) => {
@@ -258,7 +270,18 @@ export default function NotificationsScreen() {
   // cards happen when a request is cancelled and re-sent (issue #588).
   const cleanupRequestNotifications = useCallback(async (actorId: string) => {
     if (!user) return;
-    // Drop the card(s) from the cached pages first — instant in-place removal;
+    // Overlay-hide the actor's visible request cards at render (React state —
+    // survives any cache interleaving; see resolvedRequestCardIds above)...
+    setResolvedRequestCardIds((prev) => {
+      const next = new Set(prev);
+      for (const n of notifications) {
+        if (n.type === 'follow_request' && n.actor_id === actorId) {
+          next.add(n.id);
+        }
+      }
+      return next;
+    });
+    // ...then drop them from the cached pages — instant cache convergence;
     // the server delete + invalidations below are reconciliation.
     removeRequestCards(actorId);
     await supabase
@@ -269,7 +292,7 @@ export default function NotificationsScreen() {
       .eq('type', 'follow_request');
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
     queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
-  }, [queryClient, user, removeRequestCards]);
+  }, [queryClient, user, removeRequestCards, notifications]);
 
   const handleAcceptFollowRequest = useCallback(async (notification: Notification) => {
     if (!notification.actor_id || !user) return;
