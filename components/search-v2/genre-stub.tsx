@@ -23,6 +23,10 @@ interface GenreStubProps {
   accessibilityLabel: string;
   /** Fixed tile width, set by the 2-column grid. */
   width: number;
+  /** Renders the stub visually inert (dimmed, no press feedback) for
+      coming-soon shelves — it should not look tappable (Ty, 2026-07-11).
+      onPress still fires so the coming-soon note can explain. */
+  disabled?: boolean;
 }
 
 const STUB_HEIGHT = 70;
@@ -30,7 +34,7 @@ const PUNCH = 9;
 // Fixed height → fixed perforation count (segment 3px + 3px gap ≈ 6px pitch).
 const PERF_SEGMENTS = Math.floor((STUB_HEIGHT - 12) / 6);
 
-export function GenreStub({ name, serial, onPress, accessibilityLabel, width }: GenreStubProps) {
+export function GenreStub({ name, serial, onPress, accessibilityLabel, width, disabled = false }: GenreStubProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
@@ -39,9 +43,15 @@ export function GenreStub({ name, serial, onPress, accessibilityLabel, width }: 
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.stub,
-        { width, backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.75 : 1 },
+        {
+          width,
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
+        },
       ]}
     >
       <View style={styles.edge}>
