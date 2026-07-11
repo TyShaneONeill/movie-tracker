@@ -60,6 +60,10 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 12,
     alignSelf: 'center',
+    // Clip the notch circles to the badge bounds: only the INNER half of each
+    // circle survives, rendering as a semicircular bite cut into the side —
+    // a stub, not a circle sitting on a rectangle (Ty device round 3).
+    overflow: 'hidden',
   },
   label: {
     fontSize: 9,
