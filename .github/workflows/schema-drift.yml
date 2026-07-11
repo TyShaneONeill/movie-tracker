@@ -4,6 +4,13 @@ name: Schema Drift Guard
 # the automated catch for a migration applied to one database but not the other
 # (burned 2026-07-07: the edited_at migration missed prod, broke every feed).
 #
+# ALSO fails when any SECURITY DEFINER function in schema public is anon/PUBLIC-
+# executable (checked against both prod and staging). That closes a privilege-
+# escalation class burned twice (2026-06-05, 2026-07-03): a REVOKE that omits
+# PUBLIC is a no-op, and new fns default to PUBLIC EXECUTE — a 2026-07-10 audit
+# found 5 live P1s. Intentional carve-outs live in DEFINER_EXECUTE_ALLOWLIST in
+# the script. See scripts/check-schema-drift.mjs for the full rationale.
+#
 # Requires repo secrets: SUPABASE_MANAGEMENT_TOKEN (reads both projects),
 # and optionally DISCORD_METRICS_WEBHOOK_URL for alerts.
 
