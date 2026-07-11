@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { hapticImpact } from '@/lib/haptics';
@@ -61,6 +62,14 @@ export default function HelpScreen() {
   };
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  // OTA fingerprint for support/diagnosis: which JS bundle is actually
+  // running. 'embedded' = the binary's built-in bundle (no OTA applied yet);
+  // in dev (Metro) there is no update id.
+  const otaLabel = __DEV__
+    ? 'dev'
+    : Updates.isEmbeddedLaunch
+      ? 'embedded'
+      : (Updates.updateId ?? 'unknown').slice(0, 8);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -172,7 +181,7 @@ export default function HelpScreen() {
           </View>
 
           <Text style={[Typography.body.sm, { color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.lg }]}>
-            Version {appVersion}
+            Version {appVersion} ({otaLabel})
           </Text>
         </ContentContainer>
       </ScrollView>
