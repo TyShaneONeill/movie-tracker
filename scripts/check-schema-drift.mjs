@@ -127,13 +127,9 @@ const PROD_ONLY_SOURCE_GAP_ALLOWLIST = new Set([
 ]);
 
 // Functions with repo source that are intentionally NOT deployed to prod.
-//   update-comment: present in repo + staging but not promoted to prod. Flagged
-//     for verification 2026-07-11 (add-comment IS on prod) — could be an
-//     unshipped feature or a missed prod deploy. Remove once its status is
-//     confirmed and it is either deployed or deleted.
-const REPO_ONLY_ALLOWLIST = new Set([
-  'update-comment',
-]);
+// (update-comment was here 2026-07-11: it turned out to be a missed prod
+// deploy of PS-12 #612 — deployed to prod same day, entry removed.)
+const REPO_ONLY_ALLOWLIST = new Set([]);
 
 // Each probe returns a sorted list of opaque identity strings for one object
 // class. Only public-schema DDL; no data. Keep these deterministic (ORDER BY).
