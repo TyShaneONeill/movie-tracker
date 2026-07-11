@@ -1,18 +1,23 @@
 /**
  * StubBadge — the signature type tag for Search v2 (Proposal 01.2).
  *
- * A bordered, uppercase, letter-spaced tag (MOVIE / TV / PERSON) with half-circle
- * notches cut into BOTH side edges at mid-height — the classic ticket-stub
- * silhouette. The notches are small circles filled with the SCREEN BACKGROUND
- * colour, positioned to overlap the left/right borders; a 1px ring in the badge
- * border colour completes the arc.
+ * A bordered, uppercase, letter-spaced tag (MOVIE / TV / PERSON) shaped like a
+ * ticket stub: semicircular notches die-cut into BOTH side edges at mid-height.
  *
- * `highlighted` (rose border + ink text) is reserved for the non-default type in
- * context — e.g. TV rows shown while the Movies scope is active in the rescue
- * state. Accent as information, never decoration.
+ * The outline is a single SVG path (measured via onLayout) — earlier attempts
+ * with border + overlaid circles failed because a View's border paints ON TOP
+ * of its children on both platforms, so the straight border always showed
+ * through the notch mouth (Ty device rounds 1-3). With the path, the border
+ * genuinely curves around the notches: a true cutout.
+ *
+ * `highlighted` (rose outline + ink text) is reserved for the non-default type
+ * in context — e.g. TV rows shown while the Movies scope is active in the
+ * rescue state. Accent as information, never decoration.
  */
 
-import { View, Text, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 
@@ -21,73 +26,81 @@ interface StubBadgeProps {
   highlighted?: boolean;
 }
 
-const NOTCH = 8;
+/** Notch radius (the die-cut half circles). */
+const NOTCH = 4;
+/** Corner radius of the stub. */
+const CORNER = 3;
+
+/**
+ * One closed path: rounded rect with an inward semicircular notch centered on
+ * each side edge. Clockwise from the top-left corner; the notch arcs bulge
+ * INTO the badge (sweep flags chosen so the arc midpoint sits inside). Edges
+ * inset by 0.5 so the 1px stroke isn't clipped by the SVG viewport.
+ */
+function stubPath(w: number, h: number): string {
+  const cy = h / 2;
+  return [
+    `M ${CORNER} 0.5`,
+    `H ${w - CORNER}`,
+    `A ${CORNER} ${CORNER} 0 0 1 ${w - 0.5} ${CORNER}`,
+    `V ${cy - NOTCH}`,
+    // right notch: down the chord, arc passing through (w - NOTCH, cy)
+    `A ${NOTCH} ${NOTCH} 0 0 0 ${w - 0.5} ${cy + NOTCH}`,
+    `V ${h - CORNER}`,
+    `A ${CORNER} ${CORNER} 0 0 1 ${w - CORNER} ${h - 0.5}`,
+    `H ${CORNER}`,
+    `A ${CORNER} ${CORNER} 0 0 1 0.5 ${h - CORNER}`,
+    `V ${cy + NOTCH}`,
+    // left notch: up the chord, arc passing through (NOTCH, cy)
+    `A ${NOTCH} ${NOTCH} 0 0 0 0.5 ${cy - NOTCH}`,
+    `V ${CORNER}`,
+    `A ${CORNER} ${CORNER} 0 0 1 ${CORNER} 0.5`,
+    'Z',
+  ].join(' ');
+}
 
 export function StubBadge({ label, highlighted = false }: StubBadgeProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
-  // Neutral border tracks the mock's stronger hairline; highlighted uses the rose accent.
   const borderColor = highlighted ? colors.tint : colors.border;
   const textColor = highlighted ? colors.text : colors.textSecondary;
-  const notch = {
-    backgroundColor: colors.background,
-    borderColor,
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (!size || Math.abs(size.w - width) > 0.5 || Math.abs(size.h - height) > 0.5) {
+      setSize({ w: width, h: height });
+    }
   };
 
   return (
-    <View style={[styles.badge, { borderColor }]}>
+    <View style={styles.badge} onLayout={onLayout}>
+      {size && (
+        <Svg
+          width={size.w}
+          height={size.h}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        >
+          <Path d={stubPath(size.w, size.h)} stroke={borderColor} strokeWidth={1} fill="none" />
+        </Svg>
+      )}
       <Text style={[styles.label, { color: textColor }]}>{label}</Text>
-      {/* Full-height centering rails — NO percentage insets. `top: '50%'` on an
-          absolutely-positioned child resolves inconsistently on iOS (new arch)
-          and dropped the notches to the bottom corners on device (Ty,
-          2026-07-11); a 0/0 rail + justifyContent:'center' is deterministic on
-          both platforms. */}
-      <View style={[styles.notchRail, styles.notchRailLeft]} pointerEvents="none">
-        <View style={[styles.notch, notch]} />
-      </View>
-      <View style={[styles.notchRail, styles.notchRailRight]} pointerEvents="none">
-        <View style={[styles.notch, notch]} />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
-    borderWidth: 1,
-    borderRadius: 3,
     paddingVertical: 5,
     paddingHorizontal: 12,
     alignSelf: 'center',
-    // Clip the notch circles to the badge bounds: only the INNER half of each
-    // circle survives, rendering as a semicircular bite cut into the side —
-    // a stub, not a circle sitting on a rectangle (Ty device round 3).
-    overflow: 'hidden',
   },
   label: {
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 1.3,
     textTransform: 'uppercase',
-  },
-  notchRail: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: NOTCH,
-    justifyContent: 'center',
-  },
-  notchRailLeft: {
-    left: -NOTCH / 2,
-  },
-  notchRailRight: {
-    right: -NOTCH / 2,
-  },
-  notch: {
-    width: NOTCH,
-    height: NOTCH,
-    borderRadius: NOTCH / 2,
-    borderWidth: 1,
   },
 });
