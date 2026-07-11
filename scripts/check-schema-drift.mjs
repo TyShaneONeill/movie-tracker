@@ -111,20 +111,16 @@ const DEFINER_EXECUTE_ALLOWLIST = new Set([
 // re-arms the check for that slug.
 
 // Functions ACTIVE on prod whose source is NOT yet recovered into the repo.
-// These are known SOURCE-LOSS gaps (same class as the 4 recovered 2026-07-11) —
-// FOLLOW-UP recovery targets, not permanent exceptions. Remove each slug from
-// this set as its source is downloaded from prod and committed. Any NEW prod
-// function absent from the repo (and not listed here) FAILS the check.
-const PROD_ONLY_SOURCE_GAP_ALLOWLIST = new Set([
-  'get-movie-details',
-  'get-movie-lists',
-  'get-person-details',
-  'get-release-calendar',
-  'get-season-episodes',
-  'get-streaming-providers',
-  'get-tv-show-lists',
-  'migrate-ai-art-to-storage', // one-shot migration script; still recover for the record
-]);
+// These are known SOURCE-LOSS gaps — FOLLOW-UP recovery targets, not permanent
+// exceptions. Remove each slug from this set as its source is downloaded from
+// prod and committed. Any NEW prod function absent from the repo (and not listed
+// here) FAILS the check.
+// (Emptied 2026-07-11: the 8 gaps found alongside the 4 search/discover proxies —
+// get-movie-details, get-movie-lists, get-person-details, get-release-calendar,
+// get-season-episodes, get-streaming-providers, get-tv-show-lists,
+// migrate-ai-art-to-storage — were all recovered from prod and committed the same
+// day. The repo is now the source of truth for every ACTIVE prod Edge Function.)
+const PROD_ONLY_SOURCE_GAP_ALLOWLIST = new Set([]);
 
 // Functions with repo source that are intentionally NOT deployed to prod.
 // (update-comment was here 2026-07-11: it turned out to be a missed prod
