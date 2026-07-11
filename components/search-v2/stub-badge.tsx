@@ -38,8 +38,17 @@ export function StubBadge({ label, highlighted = false }: StubBadgeProps) {
   return (
     <View style={[styles.badge, { borderColor }]}>
       <Text style={[styles.label, { color: textColor }]}>{label}</Text>
-      <View style={[styles.notch, styles.notchLeft, notch]} />
-      <View style={[styles.notch, styles.notchRight, notch]} />
+      {/* Full-height centering rails — NO percentage insets. `top: '50%'` on an
+          absolutely-positioned child resolves inconsistently on iOS (new arch)
+          and dropped the notches to the bottom corners on device (Ty,
+          2026-07-11); a 0/0 rail + justifyContent:'center' is deterministic on
+          both platforms. */}
+      <View style={[styles.notchRail, styles.notchRailLeft]} pointerEvents="none">
+        <View style={[styles.notch, notch]} />
+      </View>
+      <View style={[styles.notchRail, styles.notchRailRight]} pointerEvents="none">
+        <View style={[styles.notch, notch]} />
+      </View>
     </View>
   );
 }
@@ -58,19 +67,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     textTransform: 'uppercase',
   },
-  notch: {
+  notchRail: {
     position: 'absolute',
-    top: '50%',
+    top: 0,
+    bottom: 0,
+    width: NOTCH,
+    justifyContent: 'center',
+  },
+  notchRailLeft: {
+    left: -NOTCH / 2,
+  },
+  notchRailRight: {
+    right: -NOTCH / 2,
+  },
+  notch: {
     width: NOTCH,
     height: NOTCH,
     borderRadius: NOTCH / 2,
-    marginTop: -NOTCH / 2,
     borderWidth: 1,
-  },
-  notchLeft: {
-    left: -NOTCH / 2,
-  },
-  notchRight: {
-    right: -NOTCH / 2,
   },
 });

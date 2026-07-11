@@ -517,7 +517,8 @@ export function SearchV2Screen() {
                   serial={shelf.serial}
                   width={tileWidth}
                   onPress={() => handleShelfPress(shelf.name)}
-                  accessibilityLabel={`${shelf.name}, curated shelf`}
+                  accessibilityLabel={`${shelf.name}, curated shelf, coming soon`}
+                  disabled
                 />
               ))}
             </View>
