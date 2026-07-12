@@ -37,6 +37,8 @@ export interface ActivityFeedItem {
   userAvatarUrl: string | null;
   // Activity type discriminator
   activityType: 'first_take' | 'review' | 'comment';
+  // First-take-specific: rewatch flag (drives the Rewatch chip in Feed v2)
+  isRewatch?: boolean;
   // Review-specific fields
   reviewTitle?: string;
   // Comment-specific fields
@@ -62,6 +64,7 @@ export interface FirstTakeWithProfile {
   created_at: string | null;
   media_type: string | null;
   edited_at: string | null;
+  is_rewatch?: boolean | null;
   profiles: {
     full_name: string | null;
     username: string | null;
@@ -71,7 +74,7 @@ export interface FirstTakeWithProfile {
 
 /** The JOINed select string used by both hooks */
 export const ACTIVITY_FEED_SELECT =
-  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, profiles(full_name, username, avatar_url)';
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, is_rewatch, profiles(full_name, username, avatar_url)';
 
 /** Map a JOINed row to an ActivityFeedItem */
 export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
@@ -91,6 +94,7 @@ export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
       row.profiles?.full_name || row.profiles?.username || 'Anonymous',
     userAvatarUrl: row.profiles?.avatar_url ?? null,
     activityType: 'first_take',
+    isRewatch: row.is_rewatch ?? false,
     editedAt: row.edited_at,
   };
 }

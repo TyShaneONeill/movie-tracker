@@ -11,6 +11,7 @@ import {
   getFollowingIds,
   fetchFollowingFeed,
   fetchCommunityFeedPage,
+  fetchTopComments,
   getFeedLastSeen,
   updateFeedLastSeen,
   AD_INTERVAL,
@@ -365,6 +366,48 @@ describe('fetchCommunityFeedPage', () => {
 
     expect(result.nextCursor).toBeNull();
     expect(result.items).toHaveLength(5);
+  });
+});
+
+describe('fetchTopComments — block filtering (SELECT RLS ignores blocks)', () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    id: 'c', user_id: 'u', body: 'a comment', created_at: '2024-01-01',
+    is_spoiler: false, like_count: 1, review_id: 'r1', first_take_id: null, ...over,
+  });
+
+  it('skips a blocked commenter so the next-best non-blocked comment becomes top', async () => {
+    // Rows arrive like_count-ordered: the blocked user's is the most-liked.
+    const comments = mockSupabaseQuery({
+      data: [
+        row({ id: 'c-blocked', user_id: 'blk', body: 'blocked top', like_count: 10 }),
+        row({ id: 'c-ok', user_id: 'ok', body: 'legit top', like_count: 5 }),
+      ],
+      error: null,
+    });
+    const profiles = mockSupabaseQuery({
+      data: [{ id: 'ok', full_name: 'OK User', username: 'ok', avatar_url: null }],
+      error: null,
+    });
+    (supabase.from as jest.Mock).mockReturnValueOnce(comments).mockReturnValueOnce(profiles);
+
+    const map = await fetchTopComments([{ id: 'r1', activityType: 'review' }], ['blk']);
+
+    expect(map.get('r1')?.id).toBe('c-ok');
+    expect(map.get('r1')?.userId).toBe('ok');
+    expect(map.get('r1')?.commenterName).toBe('OK User');
+  });
+
+  it('yields no top comment when the only comment is by a blocked user', async () => {
+    const comments = mockSupabaseQuery({
+      data: [row({ id: 'c-blocked', user_id: 'blk', like_count: 3 })],
+      error: null,
+    });
+    // profiles is never queried — visibleRows is empty after the block filter.
+    (supabase.from as jest.Mock).mockReturnValueOnce(comments);
+
+    const map = await fetchTopComments([{ id: 'r1', activityType: 'review' }], ['blk']);
+
+    expect(map.has('r1')).toBe(false);
   });
 });
 
