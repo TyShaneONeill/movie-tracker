@@ -26,7 +26,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useNotifications } from '@/hooks/use-notifications';
 import { analytics } from '@/lib/analytics';
 import { useFeedV2Composed } from '@/hooks/use-feed-v2-composed';
-import { formatShortTime, type FeedV2Filter, type FeedV2Item } from '@/lib/feed-v2-logic';
+import { formatShortTime, selectFeedListData, type FeedV2Filter, type FeedV2Item } from '@/lib/feed-v2-logic';
 import { Perforation } from '@/components/first-takes-v2/perforation';
 import { NativeFeedAd } from '@/components/ads/native-feed-ad';
 import { ReportModal } from '@/components/moderation/report-modal';
@@ -161,10 +161,9 @@ export function FeedV2Screen({ resolving = false }: { resolving?: boolean }) {
   const hasRail = items.some((i) => i.kind === 'rail');
   const showEmptyInvite = !showSkeleton && !isError && !hasContent;
 
-  // While resolving we suppress the composed items so the skeleton owns the
-  // frame; on error we clear so the error state shows. Otherwise keep items when
-  // there's real content OR a rail to surface.
-  const data = showSkeleton || isError ? [] : hasContent || hasRail ? items : [];
+  // Blank only when there is genuinely nothing to show — a background error
+  // (isError ORs across queries) must NOT wipe already-loaded following content.
+  const data = selectFeedListData(items, { showSkeleton, isError });
 
   const ListHeader = useCallback(
     () =>

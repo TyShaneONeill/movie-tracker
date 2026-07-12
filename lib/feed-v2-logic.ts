@@ -333,3 +333,27 @@ export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
 function threadKey(thread: Thread): string {
   return thread.type === 'artifact' ? thread.item.id : thread.murmur.id;
 }
+
+/**
+ * The FlatList data the Feed v2 screen should render. Blanks (→ empty array,
+ * letting the empty/error/skeleton component own the frame) ONLY when there is
+ * genuinely nothing to show:
+ *   • while resolving/loading with no content (skeleton owns the frame), or
+ *   • a hard error with NO already-loaded content.
+ *
+ * `isError` from usePrioritizedFeed is an OR across several queries, so a
+ * background failure (e.g. the community page hard-fails) can flip it true while
+ * following content loaded fine. In that case we KEEP the loaded feed — matching
+ * the legacy feed, which never blanks good content on a background error. A rail
+ * with no artifact/murmur content is not "content", so an error with only a rail
+ * still surfaces the error state.
+ */
+export function selectFeedListData(
+  items: FeedV2Item[],
+  opts: { showSkeleton: boolean; isError: boolean }
+): FeedV2Item[] {
+  const hasContent = items.some((i) => i.kind === 'artifact' || i.kind === 'murmur');
+  const hasRail = items.some((i) => i.kind === 'rail');
+  if (opts.showSkeleton || (opts.isError && !hasContent)) return [];
+  return hasContent || hasRail ? items : [];
+}

@@ -3,6 +3,7 @@ import {
   dayBucket,
   formatShortTime,
   artifactVerb,
+  selectFeedListData,
   type TopComment,
   type FeedV2Item,
 } from '@/lib/feed-v2-logic';
@@ -83,6 +84,36 @@ describe('artifactVerb', () => {
   it('picks the verb by activity type', () => {
     expect(artifactVerb(makeArtifact({ activityType: 'first_take' }))).toBe('logged a first take');
     expect(artifactVerb(makeArtifact({ activityType: 'review' }))).toBe('wrote a review');
+  });
+});
+
+describe('selectFeedListData — a background error must not blank loaded content', () => {
+  const artifactItem: FeedV2Item = { kind: 'artifact', key: 'artifact-a1', item: makeArtifact({ id: 'a1' }) };
+  const railItem: FeedV2Item = { kind: 'rail', key: 'rail' };
+  const dayItem: FeedV2Item = { kind: 'day', key: 'day-today', label: 'Today' };
+
+  it('keeps loaded items when isError is true but content is present (partial failure)', () => {
+    const items = [dayItem, artifactItem];
+    expect(selectFeedListData(items, { showSkeleton: false, isError: true })).toEqual(items);
+  });
+
+  it('blanks to the error state when isError is true and there is no content', () => {
+    expect(selectFeedListData([], { showSkeleton: false, isError: true })).toEqual([]);
+    // A lone rail is not "content" — a hard error still surfaces the error state.
+    expect(selectFeedListData([railItem], { showSkeleton: false, isError: true })).toEqual([]);
+  });
+
+  it('blanks while the skeleton owns the frame', () => {
+    expect(selectFeedListData([dayItem, artifactItem], { showSkeleton: true, isError: false })).toEqual([]);
+  });
+
+  it('keeps a lone rail (empty-invite + rail branch) when not erroring', () => {
+    expect(selectFeedListData([railItem], { showSkeleton: false, isError: false })).toEqual([railItem]);
+  });
+
+  it('renders normally with content and no error', () => {
+    const items = [dayItem, artifactItem];
+    expect(selectFeedListData(items, { showSkeleton: false, isError: false })).toEqual(items);
   });
 });
 
