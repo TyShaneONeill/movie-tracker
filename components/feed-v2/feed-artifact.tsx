@@ -68,6 +68,7 @@ export function FeedArtifact({ item, timeLabel, isOwn = false, onReport }: FeedA
     <Text style={[styles.quote, { color: colors.text }]}>
       <Text style={{ color: colors.tint, fontWeight: '700' }}>{'“'}</Text>
       {item.quoteText}
+      <Text style={{ color: colors.tint, fontWeight: '700' }}>{'”'}</Text>
     </Text>
   );
   const bodySlot = item.isSpoiler ? (

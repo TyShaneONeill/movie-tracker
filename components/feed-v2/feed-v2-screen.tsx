@@ -108,7 +108,15 @@ export function FeedV2Screen({ resolving = false }: { resolving?: boolean }) {
         case 'murmur':
           return <MurmurLine murmur={item.murmur} />;
         case 'perf':
-          return <Perforation />;
+          // Own the perforation's breathing room here (Ty: dots read too close to
+          // the card above). The artifact card has no marginBottom, so the top
+          // pad restores the gap above; the following post's attribution supplies
+          // the ~14 below, landing balanced without compounding.
+          return (
+            <View style={styles.perfWrap}>
+              <Perforation />
+            </View>
+          );
         case 'rail':
           return <SharedTasteRail suggestions={suggestions} />;
         case 'ad':
@@ -299,5 +307,8 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: Spacing.lg,
     alignItems: 'center',
+  },
+  perfWrap: {
+    paddingTop: 12,
   },
 });
