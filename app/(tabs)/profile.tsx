@@ -34,6 +34,8 @@ import { ListCard } from '@/components/cards/list-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { FirstTakesTab } from '@/components/first-takes-v2/first-takes-tab';
 import { useFirstTakesV2 } from '@/hooks/use-first-takes-v2';
+import { ReviewsTab } from '@/components/reviews-v2/reviews-tab';
+import { useReviewsV2 } from '@/hooks/use-reviews-v2';
 import { ReviewCard } from '@/components/cards/review-card';
 import { CreateListModal } from '@/components/modals/create-list-modal';
 import { useQueryClient } from '@tanstack/react-query';
@@ -150,6 +152,8 @@ export default function ProfileScreen() {
 
     // First Takes v2 redesign gate (flag first_takes_v2, founder-only).
     const firstTakesV2 = useFirstTakesV2();
+    // Reviews v2 redesign gate (flag reviews_v2, founder-only).
+    const reviewsV2 = useReviewsV2();
 
     // Fetch user's reviews
     const {
@@ -852,6 +856,26 @@ export default function ProfileScreen() {
                 </View>
             );
         } else if (activeTab === 'reviews') {
+            // Redesign seam: while the flag resolves, render the v2 tab in its
+            // loading state (its own skeleton) rather than the legacy one — the
+            // parent wrapper is flush (see contentFlush) for both resolving and
+            // enabled, so there's no width jump when the flag lands. Fails closed
+            // to the byte-identical legacy branch below once the flag is off.
+            if (reviewsV2.resolving || reviewsV2.enabled) {
+                return (
+                    <ReviewsTab
+                        reviews={userReviews}
+                        loading={reviewsV2.resolving || reviewsLoading}
+                        error={reviewsError}
+                        isOwn
+                        onRetry={refetchReviews}
+                        onPressReview={(reviewId) => router.push(`/review/${reviewId}`)}
+                        onWriteReview={() => router.push('/search')}
+                        onDeleteReview={handleDeleteReview}
+                    />
+                );
+            }
+
             if (reviewsLoading) {
                 return renderFirstTakesSkeleton();
             }
@@ -1247,6 +1271,7 @@ export default function ProfileScreen() {
                     <View style={[
                         styles.content,
                         activeTab === 'first-takes' && (firstTakesV2.enabled || firstTakesV2.resolving) && styles.contentFlush,
+                        activeTab === 'reviews' && (reviewsV2.enabled || reviewsV2.resolving) && styles.contentFlush,
                     ]}>
                         {activeTab === 'collection' ? (
                             showingTv ? (

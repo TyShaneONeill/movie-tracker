@@ -88,7 +88,14 @@ export function FirstTakesSkeleton() {
   );
 }
 
-export function FirstTakesError({ onRetry }: { onRetry: () => void }) {
+export function FirstTakesError({
+  onRetry,
+  message = "We couldn't load these first takes.",
+}: {
+  onRetry: () => void;
+  /** Body copy — defaults to the First Takes phrasing; Reviews passes its own. */
+  message?: string;
+}) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   return (
@@ -96,7 +103,7 @@ export function FirstTakesError({ onRetry }: { onRetry: () => void }) {
       <Ionicons name="alert-circle-outline" size={48} color={colors.tint} />
       <Text style={[styles.emptyTitle, { color: colors.text }]}>Something went wrong</Text>
       <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
-        We couldn&apos;t load these first takes.
+        {message}
       </Text>
       <Pressable
         onPress={onRetry}

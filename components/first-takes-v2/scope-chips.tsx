@@ -16,9 +16,11 @@ interface FirstTakesScopeChipsProps {
   active: FirstTakesScope;
   counts: ScopeCounts;
   onChange: (scope: FirstTakesScope) => void;
+  /** Screen-reader noun for the count ("6 takes" / "6 reviews"). */
+  noun?: string;
 }
 
-export function FirstTakesScopeChips({ active, counts, onChange }: FirstTakesScopeChipsProps) {
+export function FirstTakesScopeChips({ active, counts, onChange, noun = 'takes' }: FirstTakesScopeChipsProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
@@ -42,7 +44,7 @@ export function FirstTakesScopeChips({ active, counts, onChange }: FirstTakesSco
             onPress={() => onChange(chip.scope)}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
-            accessibilityLabel={`${chip.label}, ${chip.count} takes`}
+            accessibilityLabel={`${chip.label}, ${chip.count} ${noun}`}
             style={({ pressed }) => [
               styles.chip,
               { borderColor: isActive ? colors.tint : colors.border, opacity: pressed ? 0.7 : 1 },
