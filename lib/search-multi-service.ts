@@ -29,17 +29,35 @@ export async function searchMulti(
   }
 
   // Graceful fallback: the consolidated fn is unavailable — fan out to the two
-  // dedicated fns exactly as the pre-consolidation client did.
-  const [movieRes, tvRes] = await Promise.all([
+  // dedicated fns. Settle them independently so a single-endpoint outage
+  // (e.g. TV search failing) still renders the other side's results instead of
+  // blanking everything; only when BOTH fail do we surface the error.
+  const [movieRes, tvRes] = await Promise.allSettled([
     searchMovies(query, page, 'title'),
     searchTvShows(query, page),
   ]);
 
+  if (movieRes.status === 'rejected' && tvRes.status === 'rejected') {
+    throw movieRes.reason;
+  }
+
+  const errors: { movies?: string; tvShows?: string } = {};
+  if (movieRes.status === 'rejected') {
+    errors.movies = movieRes.reason?.message || 'movie search failed';
+  }
+  if (tvRes.status === 'rejected') {
+    errors.tvShows = tvRes.reason?.message || 'tv search failed';
+  }
+
+  const movie = movieRes.status === 'fulfilled' ? movieRes.value : null;
+  const tv = tvRes.status === 'fulfilled' ? tvRes.value : null;
+
   return {
-    movies: movieRes.movies,
-    tvShows: tvRes.shows,
-    movieTotal: movieRes.totalResults,
-    tvTotal: tvRes.totalResults,
-    page: movieRes.page,
+    movies: movie?.movies ?? [],
+    tvShows: tv?.shows ?? [],
+    movieTotal: movie?.totalResults ?? 0,
+    tvTotal: tv?.totalResults ?? 0,
+    page: movie?.page ?? tv?.page ?? 1,
+    ...(Object.keys(errors).length ? { errors } : {}),
   };
 }

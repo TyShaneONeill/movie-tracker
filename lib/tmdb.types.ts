@@ -348,6 +348,12 @@ export interface SearchMultiResponse {
   movieTotal: number;
   tvTotal: number;
   page: number;
+  /**
+   * Present only when one side (movies or tvShows) failed but the other
+   * succeeded — lets the client tell "no matches" apart from "search
+   * unavailable". Absent when both sides succeed.
+   */
+  errors?: { movies?: string; tvShows?: string };
 }
 
 export interface TvShowDetailResponse {

@@ -44,26 +44,41 @@ Deno.serve(async (req)=>{
     tvUrl.searchParams.set('query', trimmed);
     tvUrl.searchParams.set('page', String(page));
     tvUrl.searchParams.set('include_adult', 'false');
-    const [movieResponse, tvResponse] = await Promise.all([
-      fetch(movieUrl.toString()),
-      fetch(tvUrl.toString())
+    // Partial-failure resilient: a single-endpoint TMDB outage must not blank
+    // the whole result set. Settle both independently; each side that succeeds
+    // is returned, each that fails contributes empty results + total 0 and is
+    // named in `errors` so the client can distinguish "no matches" from
+    // "search unavailable". Only when BOTH fail do we surface a 500.
+    const fetchJson = async (url)=>{
+      const r = await fetch(url);
+      if (!r.ok) {
+        throw new Error(`TMDB error ${r.status}`);
+      }
+      return await r.json();
+    };
+    const [movieResult, tvResult] = await Promise.allSettled([
+      fetchJson(movieUrl.toString()),
+      fetchJson(tvUrl.toString())
     ]);
-    if (!movieResponse.ok) {
-      throw new Error(`TMDB movie search error: ${movieResponse.status}`);
+    if (movieResult.status === 'rejected' && tvResult.status === 'rejected') {
+      throw new Error(`TMDB search failed (movies: ${movieResult.reason?.message}; tv: ${tvResult.reason?.message})`);
     }
-    if (!tvResponse.ok) {
-      throw new Error(`TMDB tv search error: ${tvResponse.status}`);
+    const movieData = movieResult.status === 'fulfilled' ? movieResult.value : null;
+    const tvData = tvResult.status === 'fulfilled' ? tvResult.value : null;
+    const errors = {};
+    if (movieResult.status === 'rejected') {
+      errors.movies = movieResult.reason?.message || 'movie search failed';
     }
-    const [movieData, tvData] = await Promise.all([
-      movieResponse.json(),
-      tvResponse.json()
-    ]);
+    if (tvResult.status === 'rejected') {
+      errors.tvShows = tvResult.reason?.message || 'tv search failed';
+    }
     const response = {
-      movies: movieData.results,
-      tvShows: tvData.results,
-      movieTotal: movieData.total_results,
-      tvTotal: tvData.total_results,
-      page: movieData.page
+      movies: movieData?.results ?? [],
+      tvShows: tvData?.results ?? [],
+      movieTotal: movieData?.total_results ?? 0,
+      tvTotal: tvData?.total_results ?? 0,
+      page: movieData?.page ?? tvData?.page ?? 1,
+      ...(Object.keys(errors).length ? { errors } : {})
     };
     return new Response(JSON.stringify(response), {
       headers: {

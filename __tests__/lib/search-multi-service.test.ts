@@ -116,5 +116,42 @@ describe('searchMulti', () => {
     expect(result.tvShows).toEqual(tvShows);
     expect(result.movieTotal).toBe(42);
     expect(result.tvTotal).toBe(7);
+    expect(result.errors).toBeUndefined();
+  });
+
+  it('fallback: one side failing still returns the other side (movies survive a TV outage)', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Function not found' } });
+    mockSearchMovies.mockResolvedValue({ movies, page: 1, totalPages: 3, totalResults: 42 });
+    mockSearchTvShows.mockRejectedValue(new Error('TMDB tv down'));
+
+    const result = await searchMulti('dune');
+
+    expect(result.movies).toEqual(movies);
+    expect(result.movieTotal).toBe(42);
+    expect(result.tvShows).toEqual([]);
+    expect(result.tvTotal).toBe(0);
+    expect(result.errors).toEqual({ tvShows: 'TMDB tv down' });
+  });
+
+  it('fallback: TV survives a movie-search outage', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Function not found' } });
+    mockSearchMovies.mockRejectedValue(new Error('TMDB movies down'));
+    mockSearchTvShows.mockResolvedValue({ shows: tvShows, page: 1, totalPages: 1, totalResults: 7 });
+
+    const result = await searchMulti('dune');
+
+    expect(result.tvShows).toEqual(tvShows);
+    expect(result.tvTotal).toBe(7);
+    expect(result.movies).toEqual([]);
+    expect(result.movieTotal).toBe(0);
+    expect(result.errors).toEqual({ movies: 'TMDB movies down' });
+  });
+
+  it('fallback: throws only when BOTH sides fail', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Function not found' } });
+    mockSearchMovies.mockRejectedValue(new Error('movies boom'));
+    mockSearchTvShows.mockRejectedValue(new Error('tv boom'));
+
+    await expect(searchMulti('dune')).rejects.toThrow('movies boom');
   });
 });

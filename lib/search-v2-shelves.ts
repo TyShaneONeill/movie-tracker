@@ -8,12 +8,12 @@
  *    ids are the real TMDB ids so the archival serial (Nº 878) is honest data —
  *    every id here is already used elsewhere in the app (app/search.tsx
  *    GENRES_DATA) or shown in the approved mock.
- *  - COMPANY_SHELVES: curated studio shelves. The existing discover infra only
- *    supports a genre param (the edge fn contract is `{ genreId, page }`), so
- *    these render as rack tiles but tapping surfaces a "coming soon" note — a
- *    company (`with_companies`) discover path would need an edge-fn change,
- *    which is out of scope for this PR. A24's id is verified from TMDB; Neon is
- *    intentionally omitted rather than guessed.
+ *  - COMPANY_SHELVES: curated studio shelves. Tapping runs a company discover
+ *    browse via the `discover-movies` edge fn's `with_companies` param
+ *    (`useDiscoverMovies({ companyIds })`). Against a production fn that
+ *    predates the param the call 400s and the tile degrades to a coming-soon
+ *    state (see the screen's browse error handling). A24's id is verified from
+ *    TMDB; Neon is intentionally omitted rather than guessed.
  */
 
 export interface BrowseGenre {
