@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Review } from '@/lib/database.types';
+import { resolveReviewVisibilities } from '@/lib/reviews-visibility';
 
 export type ReviewSortOption = 'recent' | 'popular' | 'highest' | 'lowest';
 export type ReviewMediaFilter = 'all' | 'movie' | 'tv_show';
@@ -35,9 +36,10 @@ async function fetchUserReviews(userId: string, viewerId?: string): Promise<Revi
     .eq('following_id', userId);
 
   const isFollowing = (count ?? 0) > 0;
-  const allowedVisibilities = isFollowing
-    ? ['public', 'followers_only']
-    : ['public'];
+  // Same visibility rule the profile tab-bar count resolves through, so the two
+  // can't disagree (#669). Non-owner branch => always a concrete array.
+  const allowedVisibilities =
+    resolveReviewVisibilities({ viewerId, targetUserId: userId, isFollowing }) ?? ['public'];
 
   const { data, error } = await supabase
     .from('reviews')

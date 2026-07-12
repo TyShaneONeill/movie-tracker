@@ -44,11 +44,15 @@ async function fetchOtherUserCounts(userId: string) {
       .from('first_takes')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId),
+    // No client visibility filter: let RLS scope which reviews the viewer may
+    // see (public + followers_only-when-following + own), exactly as the reviews
+    // LIST and the first_takes count already do. The old `.eq('visibility',
+    // 'public')` under-counted followers_only reviews for followers, so the tab
+    // read "6 REVIEWS" over a list of 8 (#669).
     supabase
       .from('reviews')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('visibility', 'public'),
+      .eq('user_id', userId),
     supabase
       .from('user_movies')
       .select('*', { count: 'exact', head: true })

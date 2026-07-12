@@ -115,7 +115,11 @@ async function fetchProfileStats(userId: string): Promise<ProfileStats> {
     supabase
       .from('first_takes')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      // Match the First Takes LIST (useFirstTakes), which only surfaces takes
+      // with a non-empty quote (`.like('quote_text', '_%')`). Without this the
+      // tab counter could exceed the list when empty-quote rows exist (#669 class).
+      .like('quote_text', '_%'),
     supabase
       .from('reviews')
       .select('*', { count: 'exact', head: true })
