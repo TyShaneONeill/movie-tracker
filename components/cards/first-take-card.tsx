@@ -57,6 +57,14 @@ interface FirstTakeCardProps {
   isLatest?: boolean;
 
   /**
+   * Whether the take is marked as a spoiler. When true the quote body is
+   * withheld behind a "Contains spoilers" placeholder (matching the feed's
+   * treatment) instead of being rendered in full. The rating/title/meta stay
+   * visible — a rating isn't a spoiler.
+   */
+  isSpoiler?: boolean;
+
+  /**
    * Callback when card is pressed
    */
   onPress: () => void;
@@ -76,6 +84,7 @@ export function FirstTakeCard({
   createdAt,
   editedAt,
   isLatest = false,
+  isSpoiler = false,
   onPress,
   style,
 }: FirstTakeCardProps) {
@@ -133,12 +142,17 @@ export function FirstTakeCard({
         )}
       </View>
 
-      {/* Quote */}
-      {!!quote?.trim() && (
-        <Text style={[styles.quote, { color: colors.text }]}>
-          &ldquo;{quote}&rdquo;
-        </Text>
-      )}
+      {/* Quote — withheld when the take is a spoiler (matches feed treatment) */}
+      {!!quote?.trim() &&
+        (isSpoiler ? (
+          <Text style={[styles.quote, { color: colors.textTertiary }]}>
+            Contains spoilers
+          </Text>
+        ) : (
+          <Text style={[styles.quote, { color: colors.text }]}>
+            &ldquo;{quote}&rdquo;
+          </Text>
+        ))}
     </Pressable>
   );
 }

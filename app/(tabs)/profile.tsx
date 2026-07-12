@@ -820,6 +820,7 @@ export default function ProfileScreen() {
                                 createdAt={take.created_at ?? ''}
                                 editedAt={take.edited_at}
                                 isLatest={index === 0}
+                                isSpoiler={take.is_spoiler ?? false}
                                 onPress={() => router.push(`/first-take/${take.id}`)}
                             />
                         </View>
