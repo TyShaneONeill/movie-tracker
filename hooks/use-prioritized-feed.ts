@@ -214,6 +214,10 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
 
   return {
     feedItems,
+    // Raw merged streams (additive — the legacy feed uses `feedItems` only).
+    // The Feed v2 composer re-groups these by day and attaches top comments.
+    followingItems,
+    communityItems,
     isLoading,
     isError,
     error,

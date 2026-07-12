@@ -42,7 +42,7 @@ function makeRow(overrides?: Partial<FirstTakeWithProfile>): FirstTakeWithProfil
 describe('ACTIVITY_FEED_SELECT', () => {
   it('is a single JOINed select string with profiles', () => {
     expect(ACTIVITY_FEED_SELECT).toBe(
-      'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, profiles(full_name, username, avatar_url)'
+      'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, is_rewatch, profiles(full_name, username, avatar_url)'
     );
   });
 });
@@ -66,6 +66,7 @@ describe('mapToFeedItem', () => {
       userDisplayName: 'John Doe',
       userAvatarUrl: 'https://example.com/avatar.jpg',
       activityType: 'first_take',
+      isRewatch: false,
       editedAt: null,
     });
   });

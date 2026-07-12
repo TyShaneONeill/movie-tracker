@@ -31,6 +31,8 @@ import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection
 import { ReportModal } from '@/components/moderation/report-modal';
 import { analytics } from '@/lib/analytics';
 import type { ReportTargetType } from '@/lib/report-service';
+import { useFeedV2 } from '@/hooks/use-feed-v2';
+import { FeedV2Screen } from '@/components/feed-v2/feed-v2-screen';
 
 const FEED_FILTERS: { value: FeedFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -43,7 +45,19 @@ function VerticalSeparator() {
   return <View style={{ height: Spacing.md }} />;
 }
 
+/**
+ * Flag gate seam (contract note G): the ONLY branch between legacy and v2. Fails
+ * closed — while `feed_v2` resolves, the v2 screen holds a neutral skeleton, then
+ * lands on v2 (enabled) or the legacy feed (disabled). The legacy path below is
+ * byte-identical to before this redesign.
+ */
 function AuthenticatedFeed() {
+  const { enabled, resolving } = useFeedV2();
+  if (resolving || enabled) return <FeedV2Screen resolving={resolving} />;
+  return <LegacyAuthenticatedFeed />;
+}
+
+function LegacyAuthenticatedFeed() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
