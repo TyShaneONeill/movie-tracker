@@ -269,7 +269,6 @@ export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
 
   threads.sort((a, b) => b.sortMs - a.sortMs);
 
-  const artifactGroupTotal = threads.filter((t) => t.type === 'artifact').length;
   const railMode: 'none' | 'top' | 'after-second' = !railEnabled
     ? 'none'
     : threads.length < 3
@@ -324,7 +323,7 @@ export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
 
   // Fallback: healthy feed with <2 artifact groups (e.g. mostly comments) —
   // append the rail rather than dropping it.
-  if (!railPlaced && railMode === 'after-second' && artifactGroupTotal >= 0) {
+  if (!railPlaced && railMode === 'after-second') {
     out.push({ kind: 'rail', key: 'rail' });
   }
 

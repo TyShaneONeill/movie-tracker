@@ -144,6 +144,15 @@ describe('buildFeedV2Items — rail placement (Decision 5)', () => {
     expect(items.filter((i) => i.kind === 'rail')).toHaveLength(1);
   });
 
+  it('yields a lone rail (no day header) when there is no content but suggestions exist', () => {
+    // This is what the screen turns into "lobby is quiet" invitation + rail.
+    const items = buildFeedV2Items({
+      followingItems: [], communityItems: [], topComments: new Map(),
+      railEnabled: true, filter: 'reviews', now: NOW,
+    });
+    expect(items).toEqual([{ kind: 'rail', key: 'rail' }]);
+  });
+
   it('omits the rail entirely when no suggestions exist', () => {
     const items = buildFeedV2Items({
       followingItems: [makeArtifact({ id: 'a1' })],

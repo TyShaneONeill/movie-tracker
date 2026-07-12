@@ -152,10 +152,25 @@ export function FeedV2Screen({ resolving = false }: { resolving?: boolean }) {
     );
   }, [isFetchingNextPage, colors.tint]);
 
-  // While resolving we intentionally suppress the composed items so the skeleton
-  // owns the frame; the flag then lands on v2 (keep items) or legacy (swapped out
-  // by the gate) with no flash of half-built content.
-  const data = showSkeleton ? [] : items;
+  // A build with no artifacts/murmurs can still carry a "Shared taste" rail
+  // (e.g. Reviews filter over first-takes-only friends). Show the "lobby is
+  // quiet" invitation in that case too — but KEEP the rail, since following its
+  // suggestions is exactly how an empty lobby fills. The invitation renders
+  // above the rail via the list header; when there's no rail either, the empty
+  // component carries it.
+  const hasRail = items.some((i) => i.kind === 'rail');
+  const showEmptyInvite = !showSkeleton && !isError && !hasContent;
+
+  // While resolving we suppress the composed items so the skeleton owns the
+  // frame; on error we clear so the error state shows. Otherwise keep items when
+  // there's real content OR a rail to surface.
+  const data = showSkeleton || isError ? [] : hasContent || hasRail ? items : [];
+
+  const ListHeader = useCallback(
+    () =>
+      showEmptyInvite && hasRail ? <FeedV2Empty onFindPeople={() => router.push('/search')} /> : null,
+    [showEmptyInvite, hasRail]
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -194,6 +209,7 @@ export function FeedV2Screen({ resolving = false }: { resolving?: boolean }) {
           data={data}
           keyExtractor={(item) => item.key}
           renderItem={renderItem}
+          ListHeaderComponent={ListHeader}
           ListFooterComponent={ListFooter}
           ListEmptyComponent={ListEmpty}
           contentContainerStyle={styles.content}

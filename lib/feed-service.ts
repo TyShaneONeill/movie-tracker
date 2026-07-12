@@ -292,10 +292,16 @@ interface RawTopCommentRow {
  * read (the same table `fetchFollowingComments` reads). Comments hidden by
  * moderation and replies (parent_comment_id set) are excluded.
  *
+ * `blockedIds` is applied CLIENT-SIDE: SELECT RLS ignores blocks, so a blocked
+ * user's comment can still be the most-liked row. Skipping blocked commenters
+ * during the per-artifact pick means the top NON-blocked comment surfaces (or
+ * none) — the standing "block-filter every new stream" check.
+ *
  * Returns a Map keyed by artifact id (first_take id or review id).
  */
 export async function fetchTopComments(
-  artifacts: { id: string; activityType: 'first_take' | 'review' | 'comment' }[]
+  artifacts: { id: string; activityType: 'first_take' | 'review' | 'comment' }[],
+  blockedIds: string[] = []
 ): Promise<Map<string, TopComment>> {
   const firstTakeIds = artifacts
     .filter((a) => a.activityType === 'first_take')
@@ -337,15 +343,21 @@ export async function fetchTopComments(
   const rows = (data ?? []) as RawTopCommentRow[];
   if (rows.length === 0) return result;
 
+  // Drop blocked commenters BEFORE the per-artifact pick so the next-best
+  // non-blocked comment (rows stay like_count-ordered) becomes the top.
+  const blockedSet = new Set(blockedIds);
+  const visibleRows = rows.filter((r) => !blockedSet.has(r.user_id));
+  if (visibleRows.length === 0) return result;
+
   // Batch-fetch commenter profiles (no FK from review_comments → profiles).
-  const commenterIds = [...new Set(rows.map((r) => r.user_id))];
+  const commenterIds = [...new Set(visibleRows.map((r) => r.user_id))];
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, full_name, username, avatar_url')
     .in('id', commenterIds);
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
-  for (const row of rows) {
+  for (const row of visibleRows) {
     const artifactId = row.first_take_id ?? row.review_id;
     if (!artifactId || result.has(artifactId)) continue; // first seen = top
     const profile = profileMap.get(row.user_id);

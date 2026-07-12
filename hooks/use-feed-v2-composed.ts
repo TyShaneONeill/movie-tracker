@@ -44,10 +44,13 @@ export function useFeedV2Composed(userId: string | undefined, filter: FeedV2Filt
     () => artifactRefs.map((a) => a.id).sort().join(','),
     [artifactRefs]
   );
+  // Blocks are applied inside fetchTopComments; include them in the key so the
+  // top comments refetch when the viewer blocks/unblocks someone.
+  const blockedKey = useMemo(() => [...blockedIds].sort().join(','), [blockedIds]);
 
   const topCommentsQuery = useQuery({
-    queryKey: ['feed-v2-top-comments', topCommentsKey],
-    queryFn: () => fetchTopComments(artifactRefs),
+    queryKey: ['feed-v2-top-comments', topCommentsKey, blockedKey],
+    queryFn: () => fetchTopComments(artifactRefs, blockedIds),
     enabled: artifactRefs.length > 0,
     staleTime: 60 * 1000,
   });
