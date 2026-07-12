@@ -279,7 +279,13 @@ export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
   if (railMode === 'top') out.push({ kind: 'rail', key: 'rail' });
 
   let currentDayKey: string | null = null;
-  let firstInDay = false;
+  // A perforation follows EVERY post (artifact group or standalone comment) —
+  // between two posts in a day AND before the next day label, so each day reads
+  // as a torn-off section. `pendingPerf` means "the previous post still needs its
+  // trailing perforation, emitted just before the next post/day". The last post
+  // never gets a trailing perf (nothing follows it). The rail/ad interludes sit
+  // flush under their group (no perf framing) — they're not posts.
+  let pendingPerf = false;
   let artifactGroupsEmitted = 0;
   let railPlaced = railMode !== 'after-second';
 
@@ -289,13 +295,13 @@ export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
       now
     );
     if (bucket.key !== currentDayKey) {
+      if (pendingPerf) out.push({ kind: 'perf', key: `perf-${bucket.key}` });
       out.push({ kind: 'day', key: bucket.key, label: bucket.label });
       currentDayKey = bucket.key;
-      firstInDay = true;
+    } else if (pendingPerf) {
+      out.push({ kind: 'perf', key: `perf-${threadKey(thread)}` });
     }
-
-    if (!firstInDay) out.push({ kind: 'perf', key: `perf-${threadKey(thread)}` });
-    firstInDay = false;
+    pendingPerf = false;
 
     if (thread.type === 'artifact') {
       out.push({ kind: 'artifact', key: `artifact-${thread.item.id}`, item: thread.item });
@@ -319,6 +325,7 @@ export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
     } else {
       out.push({ kind: 'murmur', key: `murmur-${thread.murmur.id}`, murmur: thread.murmur });
     }
+    pendingPerf = true;
   }
 
   // Fallback: healthy feed with <2 artifact groups (e.g. mostly comments) —

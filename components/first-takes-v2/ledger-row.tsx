@@ -30,6 +30,7 @@ export function LedgerRow({ take, onPress }: LedgerRowProps) {
     <Text style={[styles.quote, { color: colors.text }]} numberOfLines={3}>
       <Text style={{ color: colors.textTertiary }}>&ldquo;</Text>
       {take.quote_text}
+      <Text style={{ color: colors.textTertiary }}>&rdquo;</Text>
     </Text>
   );
 

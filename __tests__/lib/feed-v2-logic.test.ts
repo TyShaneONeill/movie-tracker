@@ -118,7 +118,7 @@ describe('selectFeedListData — a background error must not blank loaded conten
 });
 
 describe('buildFeedV2Items — day grouping', () => {
-  it('emits a day header per bucket and perforations between same-day groups', () => {
+  it('emits a day header per bucket and a perforation after EVERY post — including before the next day label', () => {
     const items = buildFeedV2Items({
       followingItems: [
         makeArtifact({ id: 'a1', createdAt: at(2026, 6, 12, 11) }),
@@ -132,10 +132,26 @@ describe('buildFeedV2Items — day grouping', () => {
       now: NOW,
     });
 
-    // Today header, a1, perf, a2, Yesterday header, a3 (no perf: first in its day)
-    expect(kinds(items)).toEqual(['day', 'artifact', 'perf', 'artifact', 'day', 'artifact']);
+    // Today, a1, perf, a2, perf (caps Today's section), Yesterday, a3 (last post: no
+    // trailing perf). Each day reads as a torn-off section.
+    expect(kinds(items)).toEqual(['day', 'artifact', 'perf', 'artifact', 'perf', 'day', 'artifact']);
     const days = items.filter((i) => i.kind === 'day') as Extract<FeedV2Item, { kind: 'day' }>[];
     expect(days.map((d) => d.label)).toEqual(['Today', 'Yesterday']);
+    // No trailing perforation after the final post.
+    expect(items[items.length - 1].kind).toBe('artifact');
+  });
+
+  it('places a perforation before a day label only when a prior post needs capping (never before the first day)', () => {
+    const items = buildFeedV2Items({
+      followingItems: [makeArtifact({ id: 'a1', createdAt: at(2026, 6, 12, 11) })],
+      communityItems: [],
+      topComments: new Map(),
+      railEnabled: false,
+      filter: 'all',
+      now: NOW,
+    });
+    // Single post: no leading perf before the first day, no trailing perf.
+    expect(kinds(items)).toEqual(['day', 'artifact']);
   });
 });
 
