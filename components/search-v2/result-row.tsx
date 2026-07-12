@@ -8,6 +8,7 @@
  * type in the active scope's context).
  */
 
+import { memo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
@@ -39,7 +40,7 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-export function ResultRow({ result, onPress, highlighted = false, isFirst = false }: ResultRowProps) {
+function ResultRowComponent({ result, onPress, highlighted = false, isFirst = false }: ResultRowProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const isPerson = result.scope === 'person';
@@ -95,6 +96,13 @@ export function ResultRow({ result, onPress, highlighted = false, isFirst = fals
     </Pressable>
   );
 }
+
+/**
+ * Memoized so the virtualized results/browse FlatLists don't rebuild every
+ * row's Svg StubBadge on unrelated re-renders. `onPress` is a stable useCallback
+ * at the call sites, so a shallow prop compare holds.
+ */
+export const ResultRow = memo(ResultRowComponent);
 
 const styles = StyleSheet.create({
   row: {

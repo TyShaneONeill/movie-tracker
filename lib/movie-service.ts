@@ -50,6 +50,35 @@ export async function discoverMoviesByGenre(
   return data;
 }
 
+/**
+ * Browse movies by TMDB production company (e.g. the Search v2 A24 shelf) via
+ * the `discover-movies` edge fn's optional `with_companies` param. Multiple ids
+ * are OR'd (comma-joined) per the TMDB contract. Throws when the fn errors —
+ * against a production fn that predates the param the fn 400s (genreId
+ * required), and the caller surfaces a graceful "coming soon" state.
+ */
+export async function discoverMoviesByCompany(
+  companyIds: number[],
+  page: number = 1
+): Promise<SearchMoviesResponse> {
+  const { data, error } = await supabase.functions.invoke<SearchMoviesResponse>(
+    'discover-movies',
+    {
+      body: { with_companies: companyIds.join(','), page },
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message || 'Failed to discover movies');
+  }
+
+  if (!data) {
+    throw new Error('No data returned from discover');
+  }
+
+  return data;
+}
+
 // Fetch movie details directly from TMDB (via Edge Function)
 async function fetchMovieDetailsFromTMDB(
   movieId: number
