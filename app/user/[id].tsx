@@ -293,16 +293,15 @@ export default function UserProfileScreen() {
 
   // Render first takes list
   const renderFirstTakes = () => {
-    // Redesign seam: hold a neutral frame while the flag resolves, then render
-    // v2 or fall through to the byte-identical legacy list (fails closed).
-    if (firstTakesV2.resolving) {
-      return <View style={styles.firstTakesContainer} />;
-    }
-    if (firstTakesV2.enabled) {
+    // Redesign seam: while the flag resolves, render the v2 tab in its loading
+    // state so the flush parent wrapper (see contentFlush) matches the enabled
+    // width — no jump when the flag lands. Fails closed to the byte-identical
+    // legacy list once the flag is off.
+    if (firstTakesV2.resolving || firstTakesV2.enabled) {
       return (
         <FirstTakesTab
           takes={firstTakes}
-          loading={firstTakesLoading}
+          loading={firstTakesV2.resolving || firstTakesLoading}
           error={firstTakesError}
           isOwn={user?.id === id}
           onRetry={refetchFirstTakes}
@@ -791,7 +790,13 @@ export default function UserProfileScreen() {
         >
           {renderListHeader()}
           <ContentContainer>
-            <View style={styles.content}>{renderScrollTabContent()}</View>
+            {/* First Takes v2 owns its 12pt inset; go flush (0) when it's active
+                so the parent 24pt + tab 12pt don't double to 36. Other tabs and
+                the legacy path keep styles.content untouched. */}
+            <View style={[
+              styles.content,
+              activeTab === 'first-takes' && (firstTakesV2.enabled || firstTakesV2.resolving) && styles.contentFlush,
+            ]}>{renderScrollTabContent()}</View>
           </ContentContainer>
         </ScrollView>
       )}
@@ -930,6 +935,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     minHeight: 400,
+  },
+  // First Takes v2 renders flush — the tab supplies its own 12pt inset, so the
+  // parent's horizontal padding is removed to avoid a doubled 36pt inset.
+  contentFlush: {
+    paddingHorizontal: 0,
   },
   // Grid Styles
   columnWrapper: {
