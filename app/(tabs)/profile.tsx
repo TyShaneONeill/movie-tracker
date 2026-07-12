@@ -795,17 +795,16 @@ export default function ProfileScreen() {
     // Render content for non-collection tabs (First Takes and Lists)
     const renderTabContent = () => {
         if (activeTab === 'first-takes') {
-            // Redesign seam: hold a neutral skeleton while the flag resolves so a
-            // tester never sees legacy flash then snap to v2 (fails closed to
-            // legacy). One gate — the legacy branch below is byte-identical off-flag.
-            if (firstTakesV2.resolving) {
-                return renderFirstTakesSkeleton();
-            }
-            if (firstTakesV2.enabled) {
+            // Redesign seam: while the flag resolves, render the v2 tab in its
+            // loading state (its own skeleton) rather than the legacy one — the
+            // parent wrapper is flush (see contentFlush) for both resolving and
+            // enabled, so there's no width jump when the flag lands. Fails closed
+            // to the byte-identical legacy branch below once the flag is off.
+            if (firstTakesV2.resolving || firstTakesV2.enabled) {
                 return (
                     <FirstTakesTab
                         takes={firstTakes ?? []}
-                        loading={takesLoading}
+                        loading={firstTakesV2.resolving || takesLoading}
                         error={takesError}
                         isOwn
                         onRetry={refetchTakes}
@@ -1241,8 +1240,14 @@ export default function ProfileScreen() {
                         {renderStatTabBar()}
                     </View>
 
-                    {/* Tab Content */}
-                    <View style={styles.content}>
+                    {/* Tab Content. First Takes v2 owns its own 12pt inset, so the
+                        wrapper goes flush (0) when it's active — otherwise the
+                        parent's 24pt + the tab's 12pt double up to 36. Legacy and
+                        every other tab keep styles.content untouched. */}
+                    <View style={[
+                        styles.content,
+                        activeTab === 'first-takes' && (firstTakesV2.enabled || firstTakesV2.resolving) && styles.contentFlush,
+                    ]}>
                         {activeTab === 'collection' ? (
                             showingTv ? (
                                 tvShowsLoading ? renderLoadingSkeleton() :
@@ -1480,6 +1485,11 @@ const styles = StyleSheet.create({
     content: {
         paddingHorizontal: Spacing.lg,
         minHeight: 400,
+    },
+    // First Takes v2 renders flush — the tab supplies its own 12pt inset, so the
+    // parent's horizontal padding is removed to avoid a doubled 36pt inset.
+    contentFlush: {
+        paddingHorizontal: 0,
     },
     // FlatList column wrapper for 3-column grid (native)
     columnWrapper: {
