@@ -40,7 +40,7 @@ import { UserSearchResult } from '@/components/social/UserSearchResult';
 
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useMovieSearch } from '@/hooks/use-movie-search';
-import { useTvShowSearch } from '@/hooks/use-tv-show-search';
+import { useSearchMulti } from '@/hooks/use-search-multi';
 import { useUserSearch } from '@/hooks/use-user-search';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import { useRecentSearches, type RecentSearch } from '@/hooks/use-recent-searches';
@@ -59,7 +59,7 @@ import {
   type SearchScope,
   type UnifiedResult,
 } from '@/lib/search-v2-logic';
-import { BROWSE_GENRES, COMPANY_SHELVES, genreSerial } from '@/lib/search-v2-shelves';
+import { BROWSE_GENRES, COMPANY_SHELVES, genreSerial, type CompanyShelf } from '@/lib/search-v2-shelves';
 import { ScopeChips } from './scope-chips';
 import { ResultRow } from './result-row';
 import { TearLine } from './tear-line';
@@ -67,6 +67,11 @@ import { GenreStub } from './genre-stub';
 
 const MAX_APP_WIDTH = 768;
 const GRID_GAP = 10;
+
+/** What the rack is browsing: a genre, or a curated studio (company) shelf. */
+type BrowseSource =
+  | { kind: 'genre'; id: number; name: string; serial: string }
+  | { kind: 'company'; companyIds: number[]; name: string; serial: string };
 
 const BackIcon = ({ color }: { color: string }) => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
@@ -96,26 +101,33 @@ export function SearchV2Screen() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
-  // Browse mode: a genre stub was pulled from the rack (idle state only).
-  const [browseGenre, setBrowseGenre] = useState<{ id: number; name: string } | null>(null);
-  // A curated studio shelf was tapped — surfaces a coming-soon note (see below).
-  const [comingSoonShelf, setComingSoonShelf] = useState<string | null>(null);
+  // Browse mode: a stub was pulled from the rack (idle state only) — a genre or
+  // a curated studio (company) shelf.
+  const [browseSource, setBrowseSource] = useState<BrowseSource | null>(null);
   const debouncedQuery = useDebouncedValue(searchQuery, 300);
   const trimmed = debouncedQuery.trim();
   const showResults = trimmed.length >= 2;
-  const browseActive = browseGenre !== null && !showResults;
+  const browseActive = browseSource !== null && !showResults;
 
   const { recentSearches, addRecentSearch } = useRecentSearches();
 
-  // Genre browse fans out through the existing discover-movies edge fn; results
-  // render as unified movie rows (Movies scope implied — no chips in browse).
+  // Browse fans out through the discover-movies edge fn — by genre, or by studio
+  // (company) for curated shelves; results render as unified movie rows (Movies
+  // scope implied — no chips in browse). Company browse needs the fn's
+  // `with_companies` param: against a production fn that predates it the call
+  // errors, and we fall back to a graceful coming-soon state (see below).
   const {
     movies: browseMovies,
     isLoading: browseLoading,
+    isError: browseError,
     hasNextPage: browseHasNext,
     isFetchingNextPage: browseFetchingNext,
     fetchNextPage: fetchNextBrowsePage,
-  } = useDiscoverMovies({ genreId: browseGenre?.id ?? null, enabled: browseActive });
+  } = useDiscoverMovies({
+    genreId: browseSource?.kind === 'genre' ? browseSource.id : null,
+    companyIds: browseSource?.kind === 'company' ? browseSource.companyIds : null,
+    enabled: browseActive,
+  });
   const browseResults = useMemo(() => browseMovies.map(movieToResult), [browseMovies]);
 
   // 2-column grid tile width, matching the results padding (Spacing.md each side).
@@ -124,14 +136,11 @@ export function SearchV2Screen() {
     return (containerWidth - GRID_GAP) / 2;
   }, [windowWidth]);
 
-  // Unified fan-out: titles + TV + people (actor-mode) run in parallel. People
-  // is secondary — we don't block the results on it.
-  const { movies, isLoading: moviesLoading } = useMovieSearch({
-    query: debouncedQuery,
-    searchType: 'title',
-    enabled: showResults,
-  });
-  const { shows, isLoading: tvLoading } = useTvShowSearch({
+  // Unified fan-out: titles + TV come from one consolidated call (search-multi,
+  // with a graceful fallback to the two dedicated fns baked into the service);
+  // people (actor-mode) runs in parallel and is secondary — we don't block the
+  // results on it.
+  const { movies, tvShows: shows, isLoading: multiLoading } = useSearchMulti({
     query: debouncedQuery,
     enabled: showResults,
   });
@@ -169,15 +178,15 @@ export function SearchV2Screen() {
     };
   }, [rescueTarget, scope, trimmed, results]);
 
-  const contentLoading = scope === 'user' ? usersLoading : moviesLoading || tvLoading;
+  const contentLoading = scope === 'user' ? usersLoading : multiLoading;
   const userCount = scope === 'user' && !usersLoading ? users.length : null;
 
   // Keep the existing movie:search event alive (fires on title results).
   useEffect(() => {
-    if (showResults && !moviesLoading) {
+    if (showResults && !multiLoading) {
       analytics.track('movie:search', { query: trimmed, result_count: movies.length });
     }
-  }, [trimmed, movies.length, moviesLoading, showResults]);
+  }, [trimmed, movies.length, multiLoading, showResults]);
 
   // Fire search:v2_rescue_shown once per (query, from, to).
   const lastRescueKey = useRef<string | null>(null);
@@ -247,31 +256,47 @@ export function SearchV2Screen() {
     [addRecentSearch]
   );
 
+  // Stable renderItem for the virtualized media list (see FlatList below).
+  const renderResultRow = useCallback(
+    ({ item, index }: { item: UnifiedResult; index: number }) => (
+      <ResultRow result={item} onPress={openResult} isFirst={index === 0} />
+    ),
+    [openResult]
+  );
+
   const handleRecentPress = useCallback((search: RecentSearch) => {
     if (search.type === 'tv') router.push(`/tv/${search.tmdbId}`);
     else if (search.type === 'person') router.push(`/person/${search.tmdbId}`);
     else router.push(`/movie/${search.tmdbId}`);
   }, []);
 
-  // Typing exits any browse/coming-soon state and returns to the query flow.
+  // Typing exits any browse state and returns to the query flow.
   const handleQueryChange = useCallback((text: string) => {
     setSearchQuery(text);
-    if (text.length > 0) {
-      setBrowseGenre(null);
-      setComingSoonShelf(null);
-    }
+    if (text.length > 0) setBrowseSource(null);
   }, []);
 
   const handleGenrePress = useCallback((genre: { id: number; name: string }) => {
-    setComingSoonShelf(null);
     setSearchQuery('');
-    setBrowseGenre(genre);
+    setBrowseSource({ kind: 'genre', id: genre.id, name: genre.name, serial: genreSerial(genre.id) });
     analytics.track('search:v2_browse', { genre_id: genre.id, genre_name: genre.name });
   }, []);
 
-  const handleClearBrowse = useCallback(() => setBrowseGenre(null), []);
+  const handleClearBrowse = useCallback(() => setBrowseSource(null), []);
 
-  const handleShelfPress = useCallback((name: string) => setComingSoonShelf(name), []);
+  const handleShelfPress = useCallback((shelf: CompanyShelf) => {
+    setSearchQuery('');
+    setBrowseSource({
+      kind: 'company',
+      companyIds: shelf.companyIds,
+      name: shelf.name,
+      serial: shelf.serial,
+    });
+    analytics.track('search:v2_browse', {
+      company_ids: shelf.companyIds.join(','),
+      shelf_name: shelf.name,
+    });
+  }, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -333,76 +358,98 @@ export function SearchV2Screen() {
         </View>
 
         {showResults ? (
-          <ScrollView
-            style={styles.flex}
-            contentContainerStyle={styles.resultsContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {contentLoading ? (
-              isOffline ? (
-                <EmptyBlock
-                  colors={colors}
-                  title="You’re offline"
-                  body="Connect to the internet to search"
-                />
-              ) : (
-                <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
-              )
-            ) : scope === 'user' ? (
-              users.length === 0 ? (
-                <EmptyBlock colors={colors} title="No users found" body="Try a different username" />
-              ) : (
-                users.map((u) => (
-                  <UserSearchResult key={u.id} user={u} onPress={() => router.push(`/user/${u.id}`)} />
-                ))
-              )
-            ) : filtered.length > 0 ? (
-              <>
-                <Text style={[styles.micro, { color: colors.textTertiary }]}>Top result</Text>
-                {filtered.map((result, i) => (
-                  <ResultRow
-                    key={result.key}
-                    result={result}
-                    onPress={openResult}
-                    isFirst={i === 0}
-                  />
-                ))}
-              </>
-            ) : rescue ? (
-              <View style={styles.rescue}>
-                <Text style={[styles.rescueLead, { color: colors.text }]}>
-                  {rescue.copy.lead}
-                  <Text style={{ color: colors.tint }}>{rescue.copy.emphasis}</Text>
-                </Text>
-                <Text style={[styles.micro, styles.rescueMicro, { color: colors.textTertiary }]}>
-                  Found elsewhere
-                </Text>
-                {rescue.rows.map((result, i) => (
-                  <ResultRow
-                    key={result.key}
-                    result={result}
-                    onPress={openResult}
-                    highlighted
-                    isFirst={i === 0}
-                  />
-                ))}
-                <Pressable
-                  onPress={() => handleScopeChange(rescue.target)}
-                  accessibilityRole="button"
-                  accessibilityLabel={rescue.copy.cta}
-                  style={({ pressed }) => [
-                    styles.rescueCta,
-                    { borderColor: colors.tint, opacity: pressed ? 0.7 : 1 },
-                  ]}
-                >
-                  <Text style={[styles.rescueCtaText, { color: colors.tint }]}>{rescue.copy.cta}</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <EmptyBlock colors={colors} title="No results found" body="Try a different search term" />
-            )}
-          </ScrollView>
+          scope === 'user' ? (
+            // Users list — virtualized so a long result set doesn't mount every
+            // row (and its avatar) at once.
+            <FlatList
+              style={styles.flex}
+              data={contentLoading ? [] : users}
+              keyExtractor={(u) => u.id}
+              renderItem={({ item }) => (
+                <UserSearchResult user={item} onPress={() => router.push(`/user/${item.id}`)} />
+              )}
+              contentContainerStyle={styles.resultsContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                contentLoading ? (
+                  isOffline ? (
+                    <EmptyBlock
+                      colors={colors}
+                      title="You’re offline"
+                      body="Connect to the internet to search"
+                    />
+                  ) : (
+                    <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+                  )
+                ) : (
+                  <EmptyBlock colors={colors} title="No users found" body="Try a different username" />
+                )
+              }
+            />
+          ) : (
+            // Media results — virtualized: the unified list can mount ~60 rows,
+            // each with an Svg StubBadge, so a plain map would build them all.
+            <FlatList
+              style={styles.flex}
+              data={contentLoading ? [] : filtered}
+              keyExtractor={(item) => item.key}
+              renderItem={renderResultRow}
+              contentContainerStyle={styles.resultsContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              ListHeaderComponent={
+                !contentLoading && filtered.length > 0 ? (
+                  <Text style={[styles.micro, { color: colors.textTertiary }]}>Top result</Text>
+                ) : null
+              }
+              ListEmptyComponent={
+                contentLoading ? (
+                  isOffline ? (
+                    <EmptyBlock
+                      colors={colors}
+                      title="You’re offline"
+                      body="Connect to the internet to search"
+                    />
+                  ) : (
+                    <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+                  )
+                ) : rescue ? (
+                  <View style={styles.rescue}>
+                    <Text style={[styles.rescueLead, { color: colors.text }]}>
+                      {rescue.copy.lead}
+                      <Text style={{ color: colors.tint }}>{rescue.copy.emphasis}</Text>
+                    </Text>
+                    <Text style={[styles.micro, styles.rescueMicro, { color: colors.textTertiary }]}>
+                      Found elsewhere
+                    </Text>
+                    {rescue.rows.map((result, i) => (
+                      <ResultRow
+                        key={result.key}
+                        result={result}
+                        onPress={openResult}
+                        highlighted
+                        isFirst={i === 0}
+                      />
+                    ))}
+                    <Pressable
+                      onPress={() => handleScopeChange(rescue.target)}
+                      accessibilityRole="button"
+                      accessibilityLabel={rescue.copy.cta}
+                      style={({ pressed }) => [
+                        styles.rescueCta,
+                        { borderColor: colors.tint, opacity: pressed ? 0.7 : 1 },
+                      ]}
+                    >
+                      <Text style={[styles.rescueCtaText, { color: colors.tint }]}>{rescue.copy.cta}</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <EmptyBlock colors={colors} title="No results found" body="Try a different search term" />
+                )
+              }
+            />
+          )
         ) : browseActive ? (
           <FlatList
             style={styles.flex}
@@ -426,7 +473,7 @@ export function SearchV2Screen() {
                   <Text style={[styles.browseBack, { color: colors.tint }]}>← Browse</Text>
                 </Pressable>
                 <Text style={[styles.micro, styles.browseLabel, { color: colors.textTertiary }]}>
-                  {browseGenre?.name} · {genreSerial(browseGenre?.id ?? 0)}
+                  {browseSource?.name} · {browseSource?.serial}
                 </Text>
               </View>
             }
@@ -440,6 +487,16 @@ export function SearchV2Screen() {
                   />
                 ) : (
                   <SearchSkeletonList cardColor={colors.card} shimmerColor={colors.backgroundSecondary} />
+                )
+              ) : browseError ? (
+                // Company browse needs the discover-movies `with_companies` param.
+                // On a fn that predates it (production, pre-deploy) the call
+                // errors — degrade to the curated-shelf coming-soon state rather
+                // than a hard failure. Genre browse errors are transient network.
+                browseSource?.kind === 'company' ? (
+                  <EmptyBlock colors={colors} title="Coming soon" body="This curated shelf isn’t live yet" />
+                ) : (
+                  <EmptyBlock colors={colors} title="Couldn’t load" body="Check your connection and try again" />
                 )
               ) : (
                 <EmptyBlock colors={colors} title="No results found" body="Nothing on this shelf right now" />
@@ -516,17 +573,11 @@ export function SearchV2Screen() {
                   name={shelf.name}
                   serial={shelf.serial}
                   width={tileWidth}
-                  onPress={() => handleShelfPress(shelf.name)}
-                  accessibilityLabel={`${shelf.name}, curated shelf, coming soon`}
-                  disabled
+                  onPress={() => handleShelfPress(shelf)}
+                  accessibilityLabel={`Browse ${shelf.name}, curated shelf`}
                 />
               ))}
             </View>
-            {comingSoonShelf && (
-              <Text style={[styles.shelfNotice, { color: colors.textTertiary }]}>
-                {comingSoonShelf} — curated shelf coming soon
-              </Text>
-            )}
           </ScrollView>
         )}
       </ContentContainer>
@@ -670,11 +721,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: GRID_GAP,
-  },
-  shelfNotice: {
-    fontSize: 12.5,
-    marginTop: Spacing.md,
-    fontStyle: 'italic',
   },
   // Genre browse results
   browseHeader: {

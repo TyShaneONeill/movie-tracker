@@ -19,6 +19,7 @@ jest.mock('@/lib/movie-cache-service', () => ({
 import {
   searchMovies,
   discoverMoviesByGenre,
+  discoverMoviesByCompany,
   getMovieList,
   getMovieDetails,
   fetchUserMovies,
@@ -199,6 +200,61 @@ describe('discoverMoviesByGenre', () => {
     mockInvoke.mockResolvedValue({ data: null, error: null });
 
     await expect(discoverMoviesByGenre(28)).rejects.toThrow('No data returned from discover');
+  });
+});
+
+describe('discoverMoviesByCompany', () => {
+  const response = { movies: [makeTMDBMovie()], page: 1, totalPages: 4, totalResults: 75 };
+
+  it('invokes discover-movies with comma-joined with_companies', async () => {
+    mockInvoke.mockResolvedValue({ data: response, error: null });
+
+    const result = await discoverMoviesByCompany([41077], 2);
+
+    expect(mockInvoke).toHaveBeenCalledWith('discover-movies', {
+      body: { with_companies: '41077', page: 2 },
+    });
+    expect(result).toEqual(response);
+  });
+
+  it('OR-joins multiple company ids with a comma', async () => {
+    mockInvoke.mockResolvedValue({ data: response, error: null });
+
+    await discoverMoviesByCompany([41077, 491], 1);
+
+    expect(mockInvoke).toHaveBeenCalledWith('discover-movies', {
+      body: { with_companies: '41077,491', page: 1 },
+    });
+  });
+
+  it('defaults page to 1', async () => {
+    mockInvoke.mockResolvedValue({ data: response, error: null });
+
+    await discoverMoviesByCompany([41077]);
+
+    expect(mockInvoke).toHaveBeenCalledWith('discover-movies', {
+      body: { with_companies: '41077', page: 1 },
+    });
+  });
+
+  it('throws on invoke error (caller degrades to coming-soon)', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Valid genreId parameter is required' } });
+
+    await expect(discoverMoviesByCompany([41077])).rejects.toThrow(
+      'Valid genreId parameter is required'
+    );
+  });
+
+  it('throws fallback message when error has no message', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: {} });
+
+    await expect(discoverMoviesByCompany([41077])).rejects.toThrow('Failed to discover movies');
+  });
+
+  it('throws when data is null', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: null });
+
+    await expect(discoverMoviesByCompany([41077])).rejects.toThrow('No data returned from discover');
   });
 });
 

@@ -1,9 +1,11 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { discoverMoviesByGenre } from '@/lib/movie-service';
+import { discoverMoviesByGenre, discoverMoviesByCompany } from '@/lib/movie-service';
 import type { TMDBMovie, SearchMoviesResponse } from '@/lib/tmdb.types';
 
 interface UseDiscoverMoviesOptions {
   genreId: number | null;
+  /** When set, browse by production company instead of genre (Search v2 shelves). */
+  companyIds?: number[] | null;
   enabled?: boolean;
 }
 
@@ -20,8 +22,12 @@ interface UseDiscoverMoviesResult {
 
 export function useDiscoverMovies({
   genreId,
+  companyIds = null,
   enabled = true,
 }: UseDiscoverMoviesOptions): UseDiscoverMoviesResult {
+  const hasCompanies = !!companyIds && companyIds.length > 0;
+  const hasGenre = genreId !== null && genreId > 0;
+
   const {
     data,
     isLoading,
@@ -32,12 +38,16 @@ export function useDiscoverMovies({
     hasNextPage,
     fetchNextPage,
   } = useInfiniteQuery<SearchMoviesResponse, Error>({
-    queryKey: ['discoverMovies', genreId],
-    queryFn: ({ pageParam }) => discoverMoviesByGenre(genreId!, pageParam as number),
+    // company id array is stable-keyed by its joined string
+    queryKey: ['discoverMovies', genreId, companyIds?.join(',') ?? null],
+    queryFn: ({ pageParam }) =>
+      hasCompanies
+        ? discoverMoviesByCompany(companyIds!, pageParam as number)
+        : discoverMoviesByGenre(genreId!, pageParam as number),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
-    enabled: enabled && genreId !== null && genreId > 0,
+    enabled: enabled && (hasCompanies || hasGenre),
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
 

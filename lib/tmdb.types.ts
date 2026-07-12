@@ -336,6 +336,20 @@ export interface SearchTvShowsResponse {
   totalResults: number;
 }
 
+/**
+ * Unified title fan-out for Search v2 — the `search-multi` edge fn returns
+ * movies + TV in one call. `movieTotal`/`tvTotal` mirror each dedicated fn's
+ * `totalResults`. Field-compatible with `SearchMoviesResponse.movies` and
+ * `SearchTvShowsResponse.shows` so the merge logic is unchanged.
+ */
+export interface SearchMultiResponse {
+  movies: TMDBMovie[];
+  tvShows: TMDBTvShow[];
+  movieTotal: number;
+  tvTotal: number;
+  page: number;
+}
+
 export interface TvShowDetailResponse {
   show: TMDBTvShowDetail;
   cast: TMDBCastMember[];
