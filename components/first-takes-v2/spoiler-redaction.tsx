@@ -53,6 +53,11 @@ export function SpoilerRedaction({ children }: SpoilerRedactionProps) {
 const styles = StyleSheet.create({
   redact: {
     alignSelf: 'flex-start',
+    // On the hero the chip shares a flex row with the rating stamp; capping it to
+    // its parent column (the quote slot) means it can never overflow under the
+    // stamp at any label length or screen width (Ty round 1: overlap at ~320pt).
+    // The label shrinks/wraps within instead of pushing the chip wider.
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -64,6 +69,8 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     width: 120,
+    maxWidth: 120,
+    flexShrink: 1,
     height: 10,
     borderRadius: 2,
     overflow: 'hidden',
@@ -75,5 +82,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 1.4,
     fontWeight: '700',
+    flexShrink: 1,
   },
 });

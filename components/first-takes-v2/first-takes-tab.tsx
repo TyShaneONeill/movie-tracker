@@ -104,7 +104,10 @@ export function FirstTakesTab({
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 16,
+    // 12 (was 16): Ty round 1 flagged unused side room — buys the stub more
+    // presence. Moves hero + ledger rows + section labels together; interior
+    // card padding (TornStub / ledger row) is unchanged.
+    paddingHorizontal: 12,
     paddingTop: 4,
   },
   scopeRow: {

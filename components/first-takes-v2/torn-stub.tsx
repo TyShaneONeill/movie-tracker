@@ -27,29 +27,49 @@ import { useTheme } from '@/lib/theme-context';
 
 /** Bottom corner radius. */
 const CORNER = BorderRadius.md;
-/** Torn top edge oscillates between these depths (px from the card top). */
+/** Depth (px from the card top) of a shallow apex — the tooth tips near the top. */
 const TEAR_SHALLOW = 2;
-const TEAR_DEEP = 9;
-/** Content clearance below the deepest tear point. */
-export const TORN_TOP_PADDING = TEAR_DEEP + 15;
 
 /**
- * One closed path: a jagged top edge (left→right, alternating shallow/deep) with
- * straight sides and rounded bottom corners. Both top corners sit at the deep
- * depth so the vertical sides start cleanly. Exported for unit testing the
- * geometry is a closed, well-formed path.
+ * Precomputed jitter so the tear looks hand-torn instead of machine-perforated
+ * (Ty round 1: uniform triangles read as fake). Tooth WIDTHS vary ~8–18pt and
+ * notch DEPTHS ~4–10pt; the tables are tiled across whatever width the card
+ * measures. Constant on purpose — never Math.random/Date.now at render, or the
+ * tear would reshuffle on every layout pass (shimmer) and differ per platform.
+ * Coprime-ish lengths (13 vs 11) so widths and depths don't repeat in lockstep.
+ */
+const TOOTH_WIDTHS = [13, 9, 16, 11, 18, 8, 14, 10, 17, 12, 15, 9, 12];
+const NOTCH_DEPTHS = [8, 5, 9.5, 6, 10, 4.5, 7, 5.5, 9, 6.5, 8.5];
+const MAX_NOTCH = 10;
+/** Content clearance below the deepest possible tear point. */
+export const TORN_TOP_PADDING = MAX_NOTCH + 14;
+
+/**
+ * One closed path: a hand-torn top edge (left→right, alternating shallow apex /
+ * jittered notch) with straight sides and rounded bottom corners. The left edge
+ * starts in a notch and the final tooth is clamped to terminate exactly at the
+ * right edge so the vertical side is clean. Deterministic for a given width —
+ * exported so a unit test can assert it's stable + well-formed.
  */
 export function buildTornStubPath(w: number, h: number): string {
   if (w <= 0 || h <= 0) return '';
-  const teeth = Math.max(14, Math.round(w / 14));
-  const n = teeth % 2 === 0 ? teeth : teeth + 1; // even → both ends land "deep"
 
-  const segs: string[] = [`M 0 ${TEAR_DEEP}`];
-  for (let i = 1; i <= n; i++) {
-    const x = (w * i) / n;
-    const y = i % 2 === 0 ? TEAR_DEEP : TEAR_SHALLOW;
-    segs.push(`L ${round(x)} ${y}`);
+  const segs: string[] = [`M 0 ${NOTCH_DEPTHS[0]}`];
+  let x = 0;
+  let widthIdx = 0;
+  let depthIdx = 1; // 0 used for the left-edge start
+  let shallow = true; // first interior point rises to a shallow apex
+
+  while (x < w) {
+    let nx = x + TOOTH_WIDTHS[widthIdx % TOOTH_WIDTHS.length];
+    widthIdx++;
+    const ny = shallow ? TEAR_SHALLOW : NOTCH_DEPTHS[depthIdx++ % NOTCH_DEPTHS.length];
+    if (nx >= w) nx = w; // clamp the last (partial) tooth to the right edge
+    segs.push(`L ${round(nx)} ${round(ny)}`);
+    x = nx;
+    shallow = !shallow;
   }
+
   segs.push(`L ${round(w)} ${round(h - CORNER)}`);
   segs.push(`Q ${round(w)} ${round(h)} ${round(w - CORNER)} ${round(h)}`);
   segs.push(`L ${CORNER} ${round(h)}`);
