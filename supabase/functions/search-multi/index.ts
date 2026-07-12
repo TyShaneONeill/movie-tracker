@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { enforceIpRateLimit } from '../_shared/rate-limit.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -33,6 +34,17 @@ Deno.serve(async (req)=>{
         }
       });
     }
+    // IP-based rate limit for this public (verify_jwt=false) TMDB proxy.
+    // This is the LIVE per-keystroke search backend, so the cap must never
+    // throttle a real user, and mobile clients share carrier-grade NAT IPs.
+    // 600 req / 60s stops a runaway scraper while leaving huge headroom for
+    // legitimate typing. (One invocation = one check even though it fans out to
+    // two TMDB endpoints, so the effective TMDB budget is 2x this.)
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || 'unknown';
+    const rateLimited = await enforceIpRateLimit(clientIp, 'search_multi', 600, 60, req);
+    if (rateLimited) return rateLimited;
     const trimmed = query.trim();
     const movieUrl = new URL('https://api.themoviedb.org/3/search/movie');
     movieUrl.searchParams.set('api_key', TMDB_API_KEY);
@@ -49,28 +61,47 @@ Deno.serve(async (req)=>{
     // is returned, each that fails contributes empty results + total 0 and is
     // named in `errors` so the client can distinguish "no matches" from
     // "search unavailable". Only when BOTH fail do we surface a 500.
-    const fetchJson = async (url)=>{
-      const r = await fetch(url);
+    // fetch() network-level TypeErrors embed the full request URL, which carries
+    // ?api_key=… — so a rejection reason must NEVER be surfaced verbatim. Each
+    // failure is reduced here to a sanitized token: an HTTP status ("status 502")
+    // or the fixed string "unreachable" for a network error. reason.message can
+    // therefore only ever be one of those tokens downstream — no URL, no key.
+    const fetchJson = async (url, side)=>{
+      let r;
+      try {
+        r = await fetch(url);
+      } catch (e) {
+        console.error(`search-multi ${side} network error:`, e);
+        throw new Error('unreachable');
+      }
       if (!r.ok) {
-        throw new Error(`TMDB error ${r.status}`);
+        throw new Error(`status ${r.status}`);
       }
       return await r.json();
     };
+    // Build a client-safe description from a rejection reason. Only ever emits a
+    // fixed string or a status code captured by regex — never interpolates the
+    // raw message — so it cannot carry the api_key even if the token changes.
+    const describeFailure = (reason, side)=>{
+      const msg = typeof reason?.message === 'string' ? reason.message : '';
+      const statusMatch = msg.match(/^status (\d+)$/);
+      return statusMatch ? `${side} search failed (TMDB ${statusMatch[1]})` : `${side} search unavailable`;
+    };
     const [movieResult, tvResult] = await Promise.allSettled([
-      fetchJson(movieUrl.toString()),
-      fetchJson(tvUrl.toString())
+      fetchJson(movieUrl.toString(), 'movie'),
+      fetchJson(tvUrl.toString(), 'tv')
     ]);
     if (movieResult.status === 'rejected' && tvResult.status === 'rejected') {
-      throw new Error(`TMDB search failed (movies: ${movieResult.reason?.message}; tv: ${tvResult.reason?.message})`);
+      throw new Error(`TMDB search failed (movies: ${describeFailure(movieResult.reason, 'movie')}; tv: ${describeFailure(tvResult.reason, 'tv')})`);
     }
     const movieData = movieResult.status === 'fulfilled' ? movieResult.value : null;
     const tvData = tvResult.status === 'fulfilled' ? tvResult.value : null;
     const errors = {};
     if (movieResult.status === 'rejected') {
-      errors.movies = movieResult.reason?.message || 'movie search failed';
+      errors.movies = describeFailure(movieResult.reason, 'movie');
     }
     if (tvResult.status === 'rejected') {
-      errors.tvShows = tvResult.reason?.message || 'tv search failed';
+      errors.tvShows = describeFailure(tvResult.reason, 'tv');
     }
     const response = {
       movies: movieData?.results ?? [],
@@ -88,9 +119,11 @@ Deno.serve(async (req)=>{
       status: 200
     });
   } catch (error) {
+    // Never echo error.message: a fetch network TypeError embeds the request URL
+    // (?api_key=…). Log the real error server-side (private) and return generic.
     console.error('Edge function error:', error);
     return new Response(JSON.stringify({
-      error: error.message || 'Internal server error'
+      error: 'Internal server error'
     }), {
       status: 500,
       headers: {

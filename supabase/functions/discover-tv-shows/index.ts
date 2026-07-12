@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { enforceIpRateLimit } from '../_shared/rate-limit.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -26,6 +27,15 @@ Deno.serve(async (req)=>{
         }
       });
     }
+    // IP-based rate limit for this public (verify_jwt=false) TMDB proxy.
+    // Generous cap: shelf browsing must never be throttled for a real user, and
+    // mobile clients share carrier-grade NAT IPs. 600 req / 60s stops a runaway
+    // scraper while leaving huge headroom for legitimate browsing.
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || 'unknown';
+    const rateLimited = await enforceIpRateLimit(clientIp, 'discover_tv_shows', 600, 60, req);
+    if (rateLimited) return rateLimited;
     const discoverUrl = new URL('https://api.themoviedb.org/3/discover/tv');
     discoverUrl.searchParams.set('api_key', TMDB_API_KEY);
     discoverUrl.searchParams.set('with_genres', String(genreId));
@@ -52,9 +62,12 @@ Deno.serve(async (req)=>{
       status: 200
     });
   } catch (error) {
+    // Never echo error.message: Deno fetch network TypeErrors embed the full
+    // request URL, which carries ?api_key=… and would leak the TMDB key. Log
+    // the real error server-side (function logs are private) and return generic.
     console.error('Edge function error:', error);
     return new Response(JSON.stringify({
-      error: error.message || 'Internal server error'
+      error: 'Internal server error'
     }), {
       status: 500,
       headers: {
