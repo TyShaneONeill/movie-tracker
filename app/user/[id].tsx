@@ -29,6 +29,8 @@ import { useTheme } from '@/lib/theme-context';
 import { FollowButton } from '@/components/social/FollowButton';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
+import { FirstTakesTab } from '@/components/first-takes-v2/first-takes-tab';
+import { useFirstTakesV2 } from '@/hooks/use-first-takes-v2';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { Avatar } from '@/components/ui/avatar';
 import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
@@ -120,10 +122,23 @@ export default function UserProfileScreen() {
   }, [screenWidth]);
 
   // Fetch user profile data — lazy-loads per active tab
-  const { profile, watchedMovies, firstTakes, watchlist, isLoading, isError, stats } =
-    useUserProfile(id!, activeTab);
+  const {
+    profile,
+    watchedMovies,
+    firstTakes,
+    watchlist,
+    isLoading,
+    isError,
+    firstTakesLoading,
+    firstTakesError,
+    refetchFirstTakes,
+    stats,
+  } = useUserProfile(id!, activeTab);
 
   const { user } = useAuth();
+
+  // First Takes v2 redesign gate (flag first_takes_v2, founder-only).
+  const firstTakesV2 = useFirstTakesV2();
   const { isFollowing } = useFollow(id!, { username: profile?.username });
   const isOwnProfile = user?.id === id;
 
@@ -278,6 +293,24 @@ export default function UserProfileScreen() {
 
   // Render first takes list
   const renderFirstTakes = () => {
+    // Redesign seam: hold a neutral frame while the flag resolves, then render
+    // v2 or fall through to the byte-identical legacy list (fails closed).
+    if (firstTakesV2.resolving) {
+      return <View style={styles.firstTakesContainer} />;
+    }
+    if (firstTakesV2.enabled) {
+      return (
+        <FirstTakesTab
+          takes={firstTakes}
+          loading={firstTakesLoading}
+          error={firstTakesError}
+          isOwn={user?.id === id}
+          onRetry={refetchFirstTakes}
+          onPressTake={(takeId) => router.push(`/first-take/${takeId}`)}
+        />
+      );
+    }
+
     if (firstTakes.length === 0) {
       return (
         <View style={styles.emptyContainer}>
@@ -309,6 +342,7 @@ export default function UserProfileScreen() {
             createdAt={take.created_at ?? ''}
             editedAt={take.edited_at}
             isLatest={index === 0}
+            isSpoiler={take.is_spoiler ?? false}
             onPress={() => router.push(`/first-take/${take.id}`)}
           />
         ))}

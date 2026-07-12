@@ -103,6 +103,12 @@ export interface UseUserProfileResult {
   watchlist: UserMovie[];
   isLoading: boolean;
   isError: boolean;
+  /** Loading/error/refetch for the lazily-loaded First Takes tab specifically,
+   *  so a consumer can show that tab's own loading/error state rather than the
+   *  profile-level flags (which only cover the profile row + counts). */
+  firstTakesLoading: boolean;
+  firstTakesError: boolean;
+  refetchFirstTakes: () => void;
   stats: {
     watched: number;
     firstTakes: number;
@@ -169,6 +175,11 @@ export function useUserProfile(userId: string, activeTab: ActiveTab = 'collectio
     watchlist,
     isLoading: profileQuery.isLoading || countsQuery.isLoading,
     isError: profileQuery.isError || countsQuery.isError,
+    firstTakesLoading: firstTakesQuery.isLoading,
+    firstTakesError: firstTakesQuery.isError,
+    refetchFirstTakes: () => {
+      firstTakesQuery.refetch();
+    },
     stats: counts,
   };
 }

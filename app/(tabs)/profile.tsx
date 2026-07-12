@@ -32,6 +32,8 @@ import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
+import { FirstTakesTab } from '@/components/first-takes-v2/first-takes-tab';
+import { useFirstTakesV2 } from '@/hooks/use-first-takes-v2';
 import { ReviewCard } from '@/components/cards/review-card';
 import { CreateListModal } from '@/components/modals/create-list-modal';
 import { useQueryClient } from '@tanstack/react-query';
@@ -145,6 +147,9 @@ export default function ProfileScreen() {
         isError: takesError,
         refetch: refetchTakes,
     } = useFirstTakes();
+
+    // First Takes v2 redesign gate (flag first_takes_v2, founder-only).
+    const firstTakesV2 = useFirstTakesV2();
 
     // Fetch user's reviews
     const {
@@ -790,6 +795,26 @@ export default function ProfileScreen() {
     // Render content for non-collection tabs (First Takes and Lists)
     const renderTabContent = () => {
         if (activeTab === 'first-takes') {
+            // Redesign seam: hold a neutral skeleton while the flag resolves so a
+            // tester never sees legacy flash then snap to v2 (fails closed to
+            // legacy). One gate — the legacy branch below is byte-identical off-flag.
+            if (firstTakesV2.resolving) {
+                return renderFirstTakesSkeleton();
+            }
+            if (firstTakesV2.enabled) {
+                return (
+                    <FirstTakesTab
+                        takes={firstTakes ?? []}
+                        loading={takesLoading}
+                        error={takesError}
+                        isOwn
+                        onRetry={refetchTakes}
+                        onPressTake={(takeId) => router.push(`/first-take/${takeId}`)}
+                        onLogFilm={() => router.push('/search')}
+                    />
+                );
+            }
+
             if (takesLoading) {
                 return renderFirstTakesSkeleton();
             }
@@ -820,6 +845,7 @@ export default function ProfileScreen() {
                                 createdAt={take.created_at ?? ''}
                                 editedAt={take.edited_at}
                                 isLatest={index === 0}
+                                isSpoiler={take.is_spoiler ?? false}
                                 onPress={() => router.push(`/first-take/${take.id}`)}
                             />
                         </View>
