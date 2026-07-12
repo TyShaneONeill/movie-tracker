@@ -76,7 +76,12 @@ export function FirstTakesTab({
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
             Latest take · {formatRelativeTime(hero.created_at ?? '')}
           </Text>
-          <HeroTake take={hero} onPress={() => onPressTake(hero.id)} />
+          {/* Keyed by take id: the hero renders at a fixed position, and
+              SpoilerRedaction holds its reveal in local state — without a key,
+              React reconciles by position and a NEW spoiler hero (scope switch
+              or refetch) would inherit the previous reveal and show unredacted.
+              The key remounts it so each hero starts redacted. */}
+          <HeroTake key={hero.id} take={hero} onPress={() => onPressTake(hero.id)} />
         </>
       )}
 

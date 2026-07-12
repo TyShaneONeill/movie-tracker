@@ -122,8 +122,18 @@ export default function UserProfileScreen() {
   }, [screenWidth]);
 
   // Fetch user profile data — lazy-loads per active tab
-  const { profile, watchedMovies, firstTakes, watchlist, isLoading, isError, stats } =
-    useUserProfile(id!, activeTab);
+  const {
+    profile,
+    watchedMovies,
+    firstTakes,
+    watchlist,
+    isLoading,
+    isError,
+    firstTakesLoading,
+    firstTakesError,
+    refetchFirstTakes,
+    stats,
+  } = useUserProfile(id!, activeTab);
 
   const { user } = useAuth();
 
@@ -292,10 +302,10 @@ export default function UserProfileScreen() {
       return (
         <FirstTakesTab
           takes={firstTakes}
-          loading={false}
-          error={false}
+          loading={firstTakesLoading}
+          error={firstTakesError}
           isOwn={user?.id === id}
-          onRetry={() => {}}
+          onRetry={refetchFirstTakes}
           onPressTake={(takeId) => router.push(`/first-take/${takeId}`)}
         />
       );
