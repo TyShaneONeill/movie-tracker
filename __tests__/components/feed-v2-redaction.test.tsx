@@ -76,3 +76,22 @@ describe('FeedArtifact — spoiler reveal does not persist across artifact id ch
     expect(queryByText('SPOILER · TAP TO REVEAL')).not.toBeNull();
   });
 });
+
+describe('FeedArtifact — moderation report affordance (compliance parity)', () => {
+  it('shows a "…" menu on a non-own artifact and opens the report flow', () => {
+    const onReport = jest.fn();
+    const { getByLabelText } = render(
+      <FeedArtifact item={spoilerArtifact('a', QUOTE_A)} timeLabel="1d" isOwn={false} onReport={onReport} />
+    );
+    fireEvent.press(getByLabelText('More options'));
+    expect(onReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the "…" menu on the signed-in user\'s own artifact', () => {
+    const onReport = jest.fn();
+    const { queryByLabelText } = render(
+      <FeedArtifact item={spoilerArtifact('a', QUOTE_A)} timeLabel="1d" isOwn onReport={onReport} />
+    );
+    expect(queryByLabelText('More options')).toBeNull();
+  });
+});

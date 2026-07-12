@@ -72,7 +72,16 @@ export type FeedV2Item =
   | { kind: 'artifact'; key: string; item: ActivityFeedItem }
   | { kind: 'murmur'; key: string; murmur: FeedMurmur }
   | { kind: 'perf'; key: string }
-  | { kind: 'rail'; key: string };
+  | { kind: 'rail'; key: string }
+  | { kind: 'ad'; key: string };
+
+// Feed ad cadence, mirroring the legacy feed (AD_FIRST_SLOT / AD_INTERVAL in
+// feed-service) but counting artifact GROUPS, not raw list rows: the first ad
+// lands after the 3rd artifact group, then one every 5th group thereafter.
+// Defined locally to avoid a value import cycle with feed-service (which imports
+// TopComment from here).
+export const AD_FIRST_GROUP = 3;
+export const AD_GROUP_INTERVAL = 5;
 
 export interface BuildFeedV2Params {
   /** first_take | review | comment items from followed users (hook-merged). */
@@ -83,6 +92,8 @@ export interface BuildFeedV2Params {
   topComments: Map<string, TopComment>;
   /** Whether any suggestions exist — drives whether the rail item is inserted. */
   railEnabled: boolean;
+  /** Whether feed ads should be interleaved (premium-off + not __DEV__). */
+  adsEnabled?: boolean;
   filter: FeedV2Filter;
   /** Injected for deterministic day bucketing in tests. */
   now: Date;
@@ -211,7 +222,7 @@ type Thread =
  *     (≥3 threads), promoted to the very top when thin (<3) (Decision 5).
  */
 export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
-  const { followingItems, communityItems, topComments, railEnabled, filter, now } = params;
+  const { followingItems, communityItems, topComments, railEnabled, adsEnabled = false, filter, now } = params;
 
   const followingArtifacts = followingItems.filter((i) => i.activityType !== 'comment');
   const followingComments = followingItems.filter((i) => i.activityType === 'comment');
@@ -296,6 +307,15 @@ export function buildFeedV2Items(params: BuildFeedV2Params): FeedV2Item[] {
       if (!railPlaced && artifactGroupsEmitted === 2) {
         out.push({ kind: 'rail', key: 'rail' });
         railPlaced = true;
+      }
+      // Interleave a plain banner ad between thread groups after the cadence
+      // hits (groups 3, 8, 13, …) — a monetization slot, no stub styling.
+      if (
+        adsEnabled &&
+        artifactGroupsEmitted >= AD_FIRST_GROUP &&
+        (artifactGroupsEmitted - AD_FIRST_GROUP) % AD_GROUP_INTERVAL === 0
+      ) {
+        out.push({ kind: 'ad', key: `ad-${artifactGroupsEmitted}` });
       }
     } else {
       out.push({ kind: 'murmur', key: `murmur-${thread.murmur.id}`, murmur: thread.murmur });

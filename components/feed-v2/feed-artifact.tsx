@@ -31,9 +31,13 @@ import { Attribution } from './attribution';
 interface FeedArtifactProps {
   item: ActivityFeedItem;
   timeLabel: string;
+  /** True when the signed-in user authored this artifact — hides the "…" menu. */
+  isOwn?: boolean;
+  /** Opens the moderation (report) flow for a non-own artifact. */
+  onReport?: () => void;
 }
 
-export function FeedArtifact({ item, timeLabel }: FeedArtifactProps) {
+export function FeedArtifact({ item, timeLabel, isOwn = false, onReport }: FeedArtifactProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
@@ -81,6 +85,7 @@ export function FeedArtifact({ item, timeLabel }: FeedArtifactProps) {
         verb={isReview ? 'wrote a review' : 'logged a first take'}
         timeLabel={timeLabel}
         onPressUser={openProfile}
+        onMore={!isOwn && onReport ? onReport : undefined}
       />
 
       <Pressable

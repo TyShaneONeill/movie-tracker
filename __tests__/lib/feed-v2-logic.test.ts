@@ -157,6 +157,59 @@ describe('buildFeedV2Items — rail placement (Decision 5)', () => {
   });
 });
 
+describe('buildFeedV2Items — ad interleaving (parity with legacy feed)', () => {
+  // N first takes, all today, strictly descending so order is stable.
+  const makeN = (n: number) =>
+    Array.from({ length: n }, (_, i) => makeArtifact({ id: `a${i}`, createdAt: at(2026, 6, 12, 11 - i) }));
+
+  const adCount = (items: FeedV2Item[]) => items.filter((i) => i.kind === 'ad').length;
+  const artifactsBefore = (items: FeedV2Item[], idx: number) =>
+    items.slice(0, idx).filter((i) => i.kind === 'artifact').length;
+
+  it('injects no ads when adsEnabled is false', () => {
+    const items = buildFeedV2Items({
+      followingItems: makeN(8), communityItems: [], topComments: new Map(),
+      railEnabled: false, adsEnabled: false, filter: 'all', now: NOW,
+    });
+    expect(adCount(items)).toBe(0);
+  });
+
+  it('places the first ad after the 3rd artifact GROUP', () => {
+    const items = buildFeedV2Items({
+      followingItems: makeN(4), communityItems: [], topComments: new Map(),
+      railEnabled: false, adsEnabled: true, filter: 'all', now: NOW,
+    });
+    expect(adCount(items)).toBe(1);
+    const adIdx = indexOfKind(items, 'ad');
+    expect(artifactsBefore(items, adIdx)).toBe(3);
+  });
+
+  it('then repeats every 5th group (groups 3, 8, …)', () => {
+    const items = buildFeedV2Items({
+      followingItems: makeN(9), communityItems: [], topComments: new Map(),
+      railEnabled: false, adsEnabled: true, filter: 'all', now: NOW,
+    });
+    // 9 groups → ads after group 3 and group 8.
+    expect(adCount(items)).toBe(2);
+    const firstAd = items.findIndex((i) => i.kind === 'ad');
+    const secondAd = items.findIndex((i, n) => i.kind === 'ad' && n > firstAd);
+    expect(artifactsBefore(items, firstAd)).toBe(3);
+    expect(artifactsBefore(items, secondAd)).toBe(8);
+  });
+
+  it('counts artifact GROUPS, not raw rows — murmurs do not advance the ad cadence', () => {
+    // 3 artifacts each carrying a top-comment murmur = 6 rows but only 3 groups,
+    // so exactly one ad lands (after group 3), not sooner.
+    const tc = new Map(makeN(3).map((a) => [a.id, makeTopComment({ artifactId: a.id, id: `c-${a.id}` })]));
+    const items = buildFeedV2Items({
+      followingItems: makeN(3), communityItems: [], topComments: tc,
+      railEnabled: false, adsEnabled: true, filter: 'all', now: NOW,
+    });
+    expect(adCount(items)).toBe(1);
+    expect(artifactsBefore(items, indexOfKind(items, 'ad'))).toBe(3);
+  });
+});
+
 describe('buildFeedV2Items — top-comment attachment (Decision 4)', () => {
   it('attaches an artifact top comment as a murmur beneath it', () => {
     const items = buildFeedV2Items({

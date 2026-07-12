@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
 import { useSuggestedUsers } from '@/hooks/use-suggested-users';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
+import { useAds } from '@/lib/ads-context';
 import { fetchTopComments } from '@/lib/feed-service';
 import { buildFeedV2Items, type FeedV2Filter, type FeedV2Item } from '@/lib/feed-v2-logic';
 import type { SuggestedUser } from '@/lib/suggested-users-service';
@@ -22,6 +23,7 @@ export function useFeedV2Composed(userId: string | undefined, filter: FeedV2Filt
 
   const { suggestions: rawSuggestions } = useSuggestedUsers();
   const { blockedIds } = useBlockedUsers();
+  const { adsEnabled } = useAds();
   const suggestions: SuggestedUser[] = useMemo(
     () => rawSuggestions.filter((u) => !blockedIds.includes(u.id)),
     [rawSuggestions, blockedIds]
@@ -57,10 +59,11 @@ export function useFeedV2Composed(userId: string | undefined, filter: FeedV2Filt
         communityItems,
         topComments: topCommentsQuery.data ?? new Map(),
         railEnabled: suggestions.length > 0,
+        adsEnabled,
         filter,
         now: new Date(),
       }),
-    [followingItems, communityItems, topCommentsQuery.data, suggestions.length, filter]
+    [followingItems, communityItems, topCommentsQuery.data, suggestions.length, adsEnabled, filter]
   );
 
   const hasContent = items.some((i) => i.kind === 'artifact' || i.kind === 'murmur');

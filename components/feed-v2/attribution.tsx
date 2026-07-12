@@ -7,6 +7,7 @@
  */
 
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/avatar';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
@@ -18,9 +19,11 @@ interface AttributionProps {
   verb: string;
   timeLabel: string;
   onPressUser: () => void;
+  /** Non-own artifacts only — opens the moderation (report) flow. */
+  onMore?: () => void;
 }
 
-export function Attribution({ userId, name, avatarUrl, verb, timeLabel, onPressUser }: AttributionProps) {
+export function Attribution({ userId, name, avatarUrl, verb, timeLabel, onPressUser, onMore }: AttributionProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
@@ -41,6 +44,17 @@ export function Attribution({ userId, name, avatarUrl, verb, timeLabel, onPressU
         </Text>
       </Pressable>
       <Text style={[styles.time, { color: colors.textTertiary }]}>{timeLabel}</Text>
+      {onMore && (
+        <Pressable
+          onPress={onMore}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="More options"
+          style={({ pressed }) => [styles.more, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Ionicons name="ellipsis-horizontal" size={16} color={colors.textTertiary} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -75,5 +89,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
     fontVariant: ['tabular-nums'],
+  },
+  more: {
+    paddingLeft: 6,
+    marginLeft: 2,
   },
 });

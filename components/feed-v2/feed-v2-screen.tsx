@@ -28,6 +28,9 @@ import { analytics } from '@/lib/analytics';
 import { useFeedV2Composed } from '@/hooks/use-feed-v2-composed';
 import { formatShortTime, type FeedV2Filter, type FeedV2Item } from '@/lib/feed-v2-logic';
 import { Perforation } from '@/components/first-takes-v2/perforation';
+import { NativeFeedAd } from '@/components/ads/native-feed-ad';
+import { ReportModal } from '@/components/moderation/report-modal';
+import type { ReportTargetType } from '@/lib/report-service';
 import { FeedArtifact } from './feed-artifact';
 import { MurmurLine } from './murmur-line';
 import { DayHeader } from './day-header';
@@ -44,6 +47,7 @@ export function FeedV2Screen({ resolving = false }: { resolving?: boolean }) {
   const { unreadCount } = useNotifications();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FeedV2Filter>('all');
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
 
   const {
     items,
@@ -88,18 +92,32 @@ export function FeedV2Screen({ resolving = false }: { resolving?: boolean }) {
         case 'day':
           return <DayHeader label={item.label} />;
         case 'artifact':
-          return <FeedArtifact item={item.item} timeLabel={formatShortTime(item.item.createdAt, now)} />;
+          return (
+            <FeedArtifact
+              item={item.item}
+              timeLabel={formatShortTime(item.item.createdAt, now)}
+              isOwn={item.item.userId === user?.id}
+              onReport={() =>
+                setReportTarget({
+                  type: item.item.activityType === 'review' ? 'review' : 'first_take',
+                  id: item.item.id,
+                })
+              }
+            />
+          );
         case 'murmur':
           return <MurmurLine murmur={item.murmur} />;
         case 'perf':
           return <Perforation />;
         case 'rail':
           return <SharedTasteRail suggestions={suggestions} />;
+        case 'ad':
+          return <NativeFeedAd />;
         default:
           return null;
       }
     },
-    [now, suggestions]
+    [now, suggestions, user?.id]
   );
 
   const showSkeleton = resolving || (isLoading && !hasContent);
@@ -162,6 +180,15 @@ export function FeedV2Screen({ resolving = false }: { resolving?: boolean }) {
         <View style={styles.filters}>
           <FeedFilterChips active={filter} onChange={setFilter} />
         </View>
+
+        {reportTarget && (
+          <ReportModal
+            visible={!!reportTarget}
+            onClose={() => setReportTarget(null)}
+            targetType={reportTarget.type}
+            targetId={reportTarget.id}
+          />
+        )}
 
         <FlatList
           data={data}
