@@ -4,7 +4,6 @@ import {
   shouldShowReviewScopeChips,
   filterReviewsByScope,
   sortReviews,
-  formatReviewRating,
   reviewChipFlags,
 } from '../../lib/reviews-v2-logic';
 import type { Review } from '../../lib/database.types';
@@ -99,14 +98,6 @@ describe('sortReviews', () => {
     const x = review({ id: 'x', like_count: null });
     const y = review({ id: 'y', like_count: 2 });
     expect(sortReviews([x, y], 'popular').map((r) => r.id)).toEqual(['y', 'x']);
-  });
-});
-
-describe('formatReviewRating', () => {
-  it('shows whole numbers bare and halves to one decimal', () => {
-    expect(formatReviewRating(9)).toBe('9');
-    expect(formatReviewRating(10)).toBe('10');
-    expect(formatReviewRating(8.5)).toBe('8.5');
   });
 });
 

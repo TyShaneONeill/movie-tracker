@@ -84,11 +84,6 @@ export function sortReviews<
   }
 }
 
-/** Whole numbers show bare (9); halves show one decimal (8.5). Matches FT. */
-export function formatReviewRating(rating: number): string {
-  return Number.isInteger(rating) ? String(rating) : rating.toFixed(1);
-}
-
 /**
  * The fine-print chip flags for a review row (contract note E). Every chip
  * encodes real row state, never decoration:
