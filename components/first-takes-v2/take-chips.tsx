@@ -10,11 +10,11 @@
  * 9px uppercase, hairline outline; rose outline reserved for Rewatch.
  */
 
-import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import type { FirstTake } from '@/lib/database.types';
 import { isTvTake, formatSeasonEpisode } from '@/lib/first-takes-v2-logic';
+import { Chip } from './chip';
 
 interface TakeChipsProps {
   take: Pick<
@@ -40,26 +40,3 @@ export function TakeChips({ take }: TakeChipsProps) {
     </>
   );
 }
-
-function Chip({ label, color, border }: { label: string; color: string; border: string }) {
-  return (
-    <View style={[styles.chip, { borderColor: border }]}>
-      <Text style={[styles.chipText, { color }]}>{label}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  chip: {
-    borderWidth: 1,
-    borderRadius: 3,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  chipText: {
-    fontSize: 9,
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-});

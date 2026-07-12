@@ -31,6 +31,8 @@ import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
 import { FirstTakesTab } from '@/components/first-takes-v2/first-takes-tab';
 import { useFirstTakesV2 } from '@/hooks/use-first-takes-v2';
+import { ReviewsTab } from '@/components/reviews-v2/reviews-tab';
+import { useReviewsV2 } from '@/hooks/use-reviews-v2';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { Avatar } from '@/components/ui/avatar';
 import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
@@ -139,6 +141,8 @@ export default function UserProfileScreen() {
 
   // First Takes v2 redesign gate (flag first_takes_v2, founder-only).
   const firstTakesV2 = useFirstTakesV2();
+  // Reviews v2 redesign gate (flag reviews_v2, founder-only).
+  const reviewsV2 = useReviewsV2();
   const { isFollowing } = useFollow(id!, { username: profile?.username });
   const isOwnProfile = user?.id === id;
 
@@ -163,7 +167,12 @@ export default function UserProfileScreen() {
   const isPrivateAndNotFollowing = profile?.is_private && !isFollowing;
 
   // Fetch reviews for this user (lazy-loaded when reviews tab is active)
-  const { reviews, isLoading: reviewsLoading } = useUserReviews({
+  const {
+    reviews,
+    isLoading: reviewsLoading,
+    isError: reviewsError,
+    refetch: refetchReviews,
+  } = useUserReviews({
     userId: id!,
     viewerId: user?.id,
     enabled: activeTab === 'reviews',
@@ -351,6 +360,23 @@ export default function UserProfileScreen() {
 
   // Render reviews list
   const renderReviews = () => {
+    // Redesign seam: while the flag resolves, render the v2 tab in its loading
+    // state so the flush parent wrapper (see contentFlush) matches the enabled
+    // width — no jump when the flag lands. Fails closed to the byte-identical
+    // legacy list once the flag is off. No CTA for a non-owner empty state.
+    if (reviewsV2.resolving || reviewsV2.enabled) {
+      return (
+        <ReviewsTab
+          reviews={reviews}
+          loading={reviewsV2.resolving || reviewsLoading}
+          error={reviewsError}
+          isOwn={user?.id === id}
+          onRetry={refetchReviews}
+          onPressReview={(reviewId) => router.push(`/review/${reviewId}`)}
+        />
+      );
+    }
+
     if (reviewsLoading) {
       return (
         <View style={styles.emptyContainer}>
@@ -796,6 +822,7 @@ export default function UserProfileScreen() {
             <View style={[
               styles.content,
               activeTab === 'first-takes' && (firstTakesV2.enabled || firstTakesV2.resolving) && styles.contentFlush,
+              activeTab === 'reviews' && (reviewsV2.enabled || reviewsV2.resolving) && styles.contentFlush,
             ]}>{renderScrollTabContent()}</View>
           </ContentContainer>
         </ScrollView>
