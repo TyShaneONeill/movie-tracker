@@ -29,6 +29,8 @@ import { useTheme } from '@/lib/theme-context';
 import { FollowButton } from '@/components/social/FollowButton';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
+import { FirstTakesTab } from '@/components/first-takes-v2/first-takes-tab';
+import { useFirstTakesV2 } from '@/hooks/use-first-takes-v2';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { Avatar } from '@/components/ui/avatar';
 import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
@@ -124,6 +126,9 @@ export default function UserProfileScreen() {
     useUserProfile(id!, activeTab);
 
   const { user } = useAuth();
+
+  // First Takes v2 redesign gate (flag first_takes_v2, founder-only).
+  const firstTakesV2 = useFirstTakesV2();
   const { isFollowing } = useFollow(id!, { username: profile?.username });
   const isOwnProfile = user?.id === id;
 
@@ -278,6 +283,24 @@ export default function UserProfileScreen() {
 
   // Render first takes list
   const renderFirstTakes = () => {
+    // Redesign seam: hold a neutral frame while the flag resolves, then render
+    // v2 or fall through to the byte-identical legacy list (fails closed).
+    if (firstTakesV2.resolving) {
+      return <View style={styles.firstTakesContainer} />;
+    }
+    if (firstTakesV2.enabled) {
+      return (
+        <FirstTakesTab
+          takes={firstTakes}
+          loading={false}
+          error={false}
+          isOwn={user?.id === id}
+          onRetry={() => {}}
+          onPressTake={(takeId) => router.push(`/first-take/${takeId}`)}
+        />
+      );
+    }
+
     if (firstTakes.length === 0) {
       return (
         <View style={styles.emptyContainer}>
