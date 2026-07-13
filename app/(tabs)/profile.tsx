@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { StyleSheet, View, Text, Pressable, RefreshControl, ListRenderItemInfo, useWindowDimensions, Platform } from 'react-native';
-import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,
     useAnimatedScrollHandler,
@@ -27,7 +26,6 @@ import { MAX_CONTENT_WIDTH } from '@/hooks/use-wide-layout';
 import { useAuth } from '@/hooks/use-auth';
 import { useAchievements } from '@/hooks/use-achievements';
 import { GuestSignInPrompt } from '@/components/guest-sign-in-prompt';
-import { AchievementBadge } from '@/components/achievement-badge';
 import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
@@ -639,36 +637,23 @@ export default function ProfileScreen() {
         </>
     );
 
-    // Shared achievements row renderer
+    // Achievements: the badge row is hidden pending its redesign (Ty, 2026-07-12) —
+    // a slim fine-print row navigates to the full /achievements page instead.
+    const unlockedAchievements = achievementProgress.filter((p) => p.currentLevel > 0).length;
     const renderAchievementsRow = () => (
-        <View style={styles.achievementsSection}>
+        <Pressable
+            onPress={() => router.push('/achievements')}
+            accessibilityRole="button"
+            accessibilityLabel={`Achievements, ${unlockedAchievements} unlocked`}
+            style={({ pressed }) => [styles.achievementsSection, { opacity: pressed ? 0.7 : 1 }]}
+        >
             <View style={styles.achievementsHeader}>
                 <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
-                    ACHIEVEMENTS
+                    ACHIEVEMENTS{unlockedAchievements > 0 ? ` · ${unlockedAchievements}` : ''}
                 </ThemedText>
+                <Ionicons name="chevron-forward" size={12} color={colors.textSecondary} />
             </View>
-            <GHScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.achievementsScrollContent}
-            >
-                {achievementProgress.map((p) => {
-                    const currentLevelData = p.levels.find(l => l.level === p.currentLevel);
-                    return (
-                        <AchievementBadge
-                            key={p.achievement.id}
-                            icon={p.achievement.icon}
-                            name={p.achievement.name}
-                            unlocked={p.currentLevel > 0}
-                            currentLevel={p.currentLevel}
-                            maxLevel={p.maxLevel}
-                            imageUrl={currentLevelData?.image_url}
-                            onPress={() => router.push('/achievements')}
-                        />
-                    );
-                })}
-            </GHScrollView>
-        </View>
+        </Pressable>
     );
 
     // Profile identity (avatar + name + bio) — skeleton while loading, never fake placeholder data
@@ -1482,13 +1467,11 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     achievementsHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
         width: '100%',
-    },
-    achievementsScrollContent: {
-        paddingHorizontal: Spacing.lg,
-        gap: Spacing.sm,
-        ...(Platform.OS === 'web' ? { flexGrow: 1, justifyContent: 'center' } : {}),
     },
     // Combined stat-tab bar styles
     statTabBar: {
