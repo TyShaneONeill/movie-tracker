@@ -641,19 +641,22 @@ export default function ProfileScreen() {
     // a slim fine-print row navigates to the full /achievements page instead.
     const unlockedAchievements = achievementProgress.filter((p) => p.currentLevel > 0).length;
     const renderAchievementsRow = () => (
-        <Pressable
-            onPress={() => router.push('/achievements')}
-            accessibilityRole="button"
-            accessibilityLabel={`Achievements, ${unlockedAchievements} unlocked`}
-            style={({ pressed }) => [styles.achievementsSection, { opacity: pressed ? 0.7 : 1 }]}
-        >
-            <View style={styles.achievementsHeader}>
+        <View style={styles.achievementsSection}>
+            <Pressable
+                onPress={() => router.push('/achievements')}
+                accessibilityRole="button"
+                accessibilityLabel={`Achievements, ${unlockedAchievements} unlocked`}
+                style={({ pressed }) => [
+                    styles.achievementsPill,
+                    { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+            >
                 <ThemedText style={[styles.achievementsLabel, { color: colors.textSecondary }]}>
                     ACHIEVEMENTS{unlockedAchievements > 0 ? ` · ${unlockedAchievements}` : ''}
                 </ThemedText>
-                <Ionicons name="chevron-forward" size={12} color={colors.textSecondary} />
-            </View>
-        </Pressable>
+                <Ionicons name="chevron-forward" size={12} color={colors.tint} />
+            </Pressable>
+        </View>
     );
 
     // Profile identity (avatar + name + bio) — skeleton while loading, never fake placeholder data
@@ -1466,12 +1469,15 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
-    achievementsHeader: {
+    achievementsPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        alignSelf: 'center',
         gap: 4,
-        width: '100%',
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
     },
     // Combined stat-tab bar styles
     statTabBar: {
