@@ -46,6 +46,7 @@ export function PileDeck({ items, onOpen }: PileDeckProps) {
           item={item}
           pos={pos}
           isTop={pos === 0}
+          cyclable={order.length > 1}
           reduced={reduced}
           onThrow={cycle}
           onTap={onOpen}

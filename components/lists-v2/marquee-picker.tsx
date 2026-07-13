@@ -25,7 +25,8 @@ interface MarqueePickerProps {
   candidates: MarqueeCandidate[];
   /** Currently chosen cover id (highlighted), or null for smart default. */
   chosenTmdbId: number | null;
-  onPick: (tmdbId: number, media: MediaKind) => void;
+  /** Only the tmdb id is persisted; media is re-derived from the list items. */
+  onPick: (tmdbId: number) => void;
   onUseSmartDefault: () => void;
   onClose: () => void;
 }
@@ -55,7 +56,7 @@ export function MarqueePicker({
             return (
               <Pressable
                 key={`${c.media}:${c.tmdbId}`}
-                onPress={() => onPick(c.tmdbId, c.media)}
+                onPress={() => onPick(c.tmdbId)}
                 accessibilityRole="button"
                 accessibilityLabel={`Set ${c.title} as list cover`}
                 style={({ pressed }) => [

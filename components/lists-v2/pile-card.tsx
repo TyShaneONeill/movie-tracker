@@ -5,7 +5,7 @@
  * re-render, the tear-line lesson). Feel constants come from PILE (locked).
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
@@ -42,6 +42,9 @@ interface PileCardProps {
   /** Position in the pile (0 = top). Drives layout; animates on change (rise). */
   pos: number;
   isTop: boolean;
+  /** False when the deck has ≤1 item — a throw would never reposition (and thus
+   *  never clear its transform in the reorder effect), so we snap back instead. */
+  cyclable: boolean;
   reduced: boolean;
   /** Fires after the top card flies off (or immediately when reduced) — cycle. */
   onThrow: () => void;
@@ -54,6 +57,7 @@ export function PileCard({
   item,
   pos,
   isTop,
+  cyclable,
   reduced,
   onThrow,
   onTap,
@@ -63,15 +67,26 @@ export function PileCard({
   const layoutPos = useSharedValue(pos);
   const dragX = useSharedValue(0);
   const flying = useSharedValue(0); // 0..1 fly-off progress (top card only)
+  const isThrowing = useSharedValue(false); // locks the card while it flies off
+  const prevPosRef = useRef(pos);
 
-  // Animate to the new pile position when the order cycles — this is the rise.
+  // React to pile-position changes on cycle. Cards BELOW the thrown one drop a
+  // slot (pos decreases) — animate that, it's the pile RISE. The thrown card
+  // wraps to the back (pos increases): snap it there INSTANTLY and clear its
+  // throw transform HERE (not in finishThrow) so it's never drawn at center
+  // full-opacity for a frame — that's the cycle flash. Mounts/new entries snap.
   useEffect(() => {
-    if (reduced) {
-      layoutPos.value = pos;
-    } else {
+    const rose = pos < prevPosRef.current;
+    prevPosRef.current = pos;
+    if (!reduced && rose) {
       layoutPos.value = withTiming(pos, { duration: PILE.throwMs, easing: EASE });
+    } else {
+      layoutPos.value = pos;
+      dragX.value = 0;
+      flying.value = 0;
+      isThrowing.value = false;
     }
-  }, [pos, reduced, layoutPos]);
+  }, [pos, reduced, layoutPos, dragX, flying, isThrowing]);
 
   const seededDeg = seededRotation(item.tmdbId) * PILE.jitter;
 
@@ -100,9 +115,9 @@ export function PileCard({
     };
   });
 
+  // The transform reset lives in the reorder effect (see above), NOT here —
+  // resetting while the card is still at pos 0 would flash it back to center.
   const finishThrow = () => {
-    dragX.value = 0;
-    flying.value = 0;
     onThrow();
   };
 
@@ -112,11 +127,19 @@ export function PileCard({
     // enclosing list (the deck must never trap the page scroll).
     .activeOffsetX([-12, 12])
     .failOffsetY([-16, 16])
+    // Ignore any second grab while a throw is in flight — otherwise dragging the
+    // opposite way mid-throw flips flyX's sign and the card teleports.
+    .onStart(() => {
+      if (isThrowing.value) return;
+    })
     .onUpdate((e) => {
+      if (isThrowing.value) return;
       dragX.value = e.translationX;
     })
     .onEnd((e) => {
-      if (Math.abs(e.translationX) > PILE.throwThreshold) {
+      if (isThrowing.value) return;
+      if (cyclable && Math.abs(e.translationX) > PILE.throwThreshold) {
+        isThrowing.value = true;
         if (reduced) {
           runOnJS(finishThrow)();
         } else {
