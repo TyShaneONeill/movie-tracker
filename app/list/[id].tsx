@@ -34,6 +34,8 @@ import { useUserMovies } from '@/hooks/use-user-movies';
 import { useListDetail } from '@/hooks/use-list-mutations';
 import { useProfile } from '@/hooks/use-profile';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import { useListsV2 } from '@/hooks/use-lists-v2';
+import { ListDetailV2 } from '@/components/lists-v2/list-detail-v2';
 import type { MovieStatus, UserMovie, ListMovie } from '@/lib/database.types';
 
 const EFFECTIVE_WIDTH = Math.min(Dimensions.get('window').width, MAX_CONTENT_WIDTH);
@@ -79,6 +81,10 @@ export default function ListDetailScreen() {
 
   // Fetch user profile for creator info
   const { profile } = useProfile();
+
+  // Lists v2 redesign gate (flag lists_v2, founder-only). Legacy renders
+  // byte-identical below when the flag is off.
+  const listsV2 = useListsV2();
 
   // Unified movie data as a common shape
   const movies: { id: string; tmdb_id: number; poster_path: string | null; media_type?: string }[] = useMemo(() => {
@@ -241,6 +247,11 @@ export default function ListDetailScreen() {
       </View>
     </>
   );
+
+  // Lists v2: hand off to the redesigned detail screen (deck / rows / backdrop).
+  if (listsV2.enabled || listsV2.resolving) {
+    return <ListDetailV2 id={id ?? ''} resolving={listsV2.resolving} />;
+  }
 
   // Loading state
   if (isLoading) {

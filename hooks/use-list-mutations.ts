@@ -86,6 +86,17 @@ export function useListMutations(listId?: string) {
     onSuccess: () => invalidateLists(),
   });
 
+  // Mutation: set the list cover (Lists v2 "set the marquee"). null clears it,
+  // falling the hero back to the smart default. Only meaningful for CUSTOM lists
+  // (special watchlist/watching are virtual — they use AsyncStorage prefs).
+  const setCoverMutation = useMutation({
+    mutationFn: async (coverTmdbId: number | null) => {
+      if (!listId) throw new Error('No list ID');
+      return updateList(listId, { cover_tmdb_id: coverTmdbId });
+    },
+    onSuccess: () => invalidateLists(),
+  });
+
   return {
     createList: createListMutation.mutateAsync,
     isCreating: createListMutation.isPending,
@@ -107,6 +118,9 @@ export function useListMutations(listId?: string) {
 
     reorderMovies: reorderMutation.mutateAsync,
     isReordering: reorderMutation.isPending,
+
+    setCover: setCoverMutation.mutateAsync,
+    isSettingCover: setCoverMutation.isPending,
   };
 }
 

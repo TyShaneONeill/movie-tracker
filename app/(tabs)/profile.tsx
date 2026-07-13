@@ -36,6 +36,8 @@ import { FirstTakesTab } from '@/components/first-takes-v2/first-takes-tab';
 import { useFirstTakesV2 } from '@/hooks/use-first-takes-v2';
 import { ReviewsTab } from '@/components/reviews-v2/reviews-tab';
 import { useReviewsV2 } from '@/hooks/use-reviews-v2';
+import { ListsTabV2 } from '@/components/lists-v2/lists-tab';
+import { useListsV2 } from '@/hooks/use-lists-v2';
 import { ReviewCard } from '@/components/cards/review-card';
 import { CreateListModal } from '@/components/modals/create-list-modal';
 import { useQueryClient } from '@tanstack/react-query';
@@ -154,6 +156,8 @@ export default function ProfileScreen() {
     const firstTakesV2 = useFirstTakesV2();
     // Reviews v2 redesign gate (flag reviews_v2, founder-only).
     const reviewsV2 = useReviewsV2();
+    // Lists v2 redesign gate (flag lists_v2, founder-only).
+    const listsV2 = useListsV2();
 
     // Fetch user's reviews
     const {
@@ -985,6 +989,18 @@ export default function ProfileScreen() {
             );
         } else {
             // Lists tab
+            // Lists v2 redesign (flag lists_v2, founder-only): programme cards.
+            // Byte-identical legacy renders below when the flag is off.
+            if (listsV2.enabled || listsV2.resolving) {
+                return (
+                    <ListsTabV2
+                        resolving={listsV2.resolving}
+                        onOpenList={(route) => router.push(route as never)}
+                        onCreateList={() => setShowCreateModal(true)}
+                    />
+                );
+            }
+
             if (listsLoading) {
                 return renderListsSkeleton();
             }
@@ -1272,6 +1288,7 @@ export default function ProfileScreen() {
                         styles.content,
                         activeTab === 'first-takes' && (firstTakesV2.enabled || firstTakesV2.resolving) && styles.contentFlush,
                         activeTab === 'reviews' && (reviewsV2.enabled || reviewsV2.resolving) && styles.contentFlush,
+                        activeTab === 'lists' && (listsV2.enabled || listsV2.resolving) && styles.contentFlush,
                     ]}>
                         {activeTab === 'collection' ? (
                             showingTv ? (
