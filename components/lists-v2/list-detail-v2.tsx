@@ -1,7 +1,8 @@
 /**
- * List detail — Lists v2 (design contract 01.2). Three modes, one flag:
- *  - watchlist (system): interactive Pile DECK hero + the numbered grid below
- *    (A2 — the pile is the hero, the grid is the scanner).
+ * List detail — Lists v2 (device round 1). Three modes, one flag:
+ *  - watchlist (system): backdrop hero + SET MARQUEE + numbered grid. The
+ *    interactive pile now lives on the profile Lists TAB, not here — the detail
+ *    is "the long list of things I can scroll down" (Ty, round 1).
  *  - watching (system): backdrop hero + SET MARQUEE + merged movies/TV rows (B/E).
  *  - custom: backdrop hero + SET MARQUEE + numbered grid with long-press
  *    "Set as list cover" (C/D).
@@ -37,15 +38,13 @@ import { useWatchingList } from '@/hooks/use-watching-list';
 import { useListCover } from '@/hooks/use-list-cover';
 import { useProfile } from '@/hooks/use-profile';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import { getSpecialListCover, setSpecialListCover } from '@/lib/list-cover-prefs';
+import { getSpecialListCover, setSpecialListCover, type SpecialListId } from '@/lib/list-cover-prefs';
 import {
   formatDeepCount,
   formatSplitCount,
   type CoverCandidate,
   type MediaKind,
 } from '@/lib/lists-v2-logic';
-import { PileDeck } from './pile-deck';
-import type { DeckItem } from './pile-card';
 import { ListHeroBackdrop } from './list-hero-backdrop';
 import { WatchingRows } from './watching-rows';
 import { MarqueePicker, type MarqueeCandidate } from './marquee-picker';
@@ -82,6 +81,9 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
 
   const mode: 'watchlist' | 'watching' | 'custom' =
     id === 'watchlist' ? 'watchlist' : id === 'watching' ? 'watching' : 'custom';
+  // The two system lists are virtual (no row) — their cover lives in AsyncStorage.
+  const specialListId: SpecialListId | null =
+    mode === 'watchlist' ? 'watchlist' : mode === 'watching' ? 'watching' : null;
 
   // --- Data (all hooks called unconditionally) ---
   const { movies: watchlistMovies, isLoading: wlLoading, isError: wlError } = useUserMovies(
@@ -93,11 +95,11 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
   );
   const { setCover, reorderMovies, removeMovie } = useListMutations(mode === 'custom' ? id : undefined);
 
-  // Special-list cover choice (Watching) lives in AsyncStorage (virtual list).
+  // Special-list cover choice (Watchlist / Watching) lives in AsyncStorage.
   const [specialCover, setSpecialCover] = useState<number | null>(null);
   useEffect(() => {
-    if (mode === 'watching') getSpecialListCover('watching').then(setSpecialCover);
-  }, [mode]);
+    if (specialListId) getSpecialListCover(specialListId).then(setSpecialCover);
+  }, [specialListId]);
 
   // --- Grid items (watchlist + custom) ---
   const gridItems: GridItem[] = useMemo(() => {
@@ -122,20 +124,17 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
     return [];
   }, [mode, watchlistMovies, customList?.movies]);
 
-  const deckItems: DeckItem[] = useMemo(
-    () =>
-      gridItems.map((g) => ({
-        key: `${g.media}:${g.tmdbId}`,
-        tmdbId: g.tmdbId,
-        posterPath: g.posterPath,
-        media: g.media,
-        title: g.title,
-      })),
-    [gridItems]
-  );
-
-  // --- Cover resolution (watching + custom heroes) ---
+  // --- Cover resolution (all three heroes) ---
   const coverCandidates: CoverCandidate[] = useMemo(() => {
+    if (mode === 'watchlist') {
+      // user_movies carries backdrop_path + vote_average inline — no fetch.
+      return watchlistMovies.map((m) => ({
+        tmdbId: m.tmdb_id,
+        media: 'movie' as MediaKind,
+        backdropPath: m.backdrop_path,
+        score: m.vote_average ?? null,
+      }));
+    }
     if (mode === 'watching') {
       return watching.map((w) => ({
         tmdbId: w.tmdbId,
@@ -144,21 +143,17 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
         score: w.voteAverage,
       }));
     }
-    if (mode === 'custom') {
-      // list_movies carries no backdrop — useListCover fetches per title.
-      return gridItems.map((g) => ({ tmdbId: g.tmdbId, media: g.media, backdropPath: null, score: null }));
-    }
-    return [];
-  }, [mode, watching, gridItems]);
+    // custom: list_movies carries no backdrop — useListCover fetches per title.
+    return gridItems.map((g) => ({ tmdbId: g.tmdbId, media: g.media, backdropPath: null, score: null }));
+  }, [mode, watchlistMovies, watching, gridItems]);
 
-  const chosenCover = mode === 'watching' ? specialCover : mode === 'custom' ? customList?.cover_tmdb_id ?? null : null;
+  const chosenCover = specialListId ? specialCover : customList?.cover_tmdb_id ?? null;
   const chosenMedia = coverCandidates.find((c) => c.tmdbId === chosenCover)?.media;
 
   const { backdropUrl } = useListCover({
     candidates: coverCandidates,
     chosenTmdbId: chosenCover ?? null,
     chosenMedia,
-    enabled: mode !== 'watchlist',
   });
 
   // --- Cover picker + long-press sheet state ---
@@ -177,26 +172,26 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
 
   const handlePickCover = useCallback(
     (tmdbId: number) => {
-      if (mode === 'watching') {
+      if (specialListId) {
         setSpecialCover(tmdbId);
-        setSpecialListCover('watching', tmdbId);
-      } else if (mode === 'custom') {
+        setSpecialListCover(specialListId, tmdbId);
+      } else {
         setCover(tmdbId).catch(() => {});
       }
       setPickerOpen(false);
     },
-    [mode, setCover]
+    [specialListId, setCover]
   );
 
   const handleSmartDefault = useCallback(() => {
-    if (mode === 'watching') {
+    if (specialListId) {
       setSpecialCover(null);
-      setSpecialListCover('watching', null);
-    } else if (mode === 'custom') {
+      setSpecialListCover(specialListId, null);
+    } else {
       setCover(null).catch(() => {});
     }
     setPickerOpen(false);
-  }, [mode, setCover]);
+  }, [specialListId, setCover]);
 
   const handleGoBack = () => {
     if (router.canGoBack()) router.back();
@@ -335,39 +330,37 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
     );
   }
 
-  // ---------- WATCHLIST (deck) + CUSTOM (backdrop) share the grid list ----------
-  const listHeader =
-    mode === 'watchlist' ? (
-      <View style={styles.deckHeader}>
-        <View style={[styles.backFloat, { top: insets.top + Spacing.xs }]}>
-          <GlassBackButton onPress={handleGoBack} />
-        </View>
-        {deckItems.length > 0 ? (
-          <PileDeck items={deckItems} onOpen={(it) => openTitle(it.tmdbId, it.media ?? 'movie')} />
-        ) : (
-          <View style={styles.deckPlaceholder} />
-        )}
-        <Text style={[styles.deckTitle, { color: colors.text }]}>Watchlist</Text>
-        <Text style={[styles.deckCount, { color: colors.textSecondary }]}>
-          {gridItems.length > 0 ? formatDeepCount(gridItems.length) : 'Your lineup is empty'}
-        </Text>
-        <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>THE LINEUP</Text>
-      </View>
-    ) : (
-      <ListHeroBackdrop
-        backdropUrl={backdropUrl}
-        title={customList?.name ?? 'List'}
-        subtitle={
-          customList?.description
-            ? `${customList.description} · ${gridItems.length} ${gridItems.length === 1 ? 'title' : 'titles'}`
-            : `${gridItems.length} ${gridItems.length === 1 ? 'title' : 'titles'}`
-        }
-        creatorName={creatorName}
-        creatorAvatarUrl={profile?.avatar_url}
-        onBack={handleGoBack}
-        onSetMarquee={gridItems.length > 0 ? () => setPickerOpen(true) : undefined}
-      />
-    );
+  // ---------- WATCHLIST + CUSTOM: backdrop hero + numbered grid ----------
+  const listSubtitle =
+    mode === 'watchlist'
+      ? gridItems.length > 0
+        ? formatDeepCount(gridItems.length)
+        : 'Your watchlist is empty'
+      : customList?.description
+        ? `${customList.description} · ${gridItems.length} ${gridItems.length === 1 ? 'title' : 'titles'}`
+        : `${gridItems.length} ${gridItems.length === 1 ? 'title' : 'titles'}`;
+
+  const listHeader = (
+    <ListHeroBackdrop
+      backdropUrl={backdropUrl}
+      title={mode === 'watchlist' ? 'Watchlist' : customList?.name ?? 'List'}
+      subtitle={listSubtitle}
+      creatorName={creatorName}
+      creatorAvatarUrl={profile?.avatar_url}
+      onBack={handleGoBack}
+      onSetMarquee={gridItems.length > 0 ? () => setPickerOpen(true) : undefined}
+    />
+  );
+
+  const GridEmpty = () => (
+    <View style={styles.gridEmpty}>
+      <Text style={[styles.gridEmptyText, { color: colors.textSecondary }]}>
+        {mode === 'watchlist'
+          ? 'Your watchlist is empty. Add films from search or a movie page.'
+          : 'No titles in this list yet.'}
+      </Text>
+    </View>
+  );
 
   return (
     <>
@@ -380,6 +373,7 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
             renderItem={renderGridItem}
             numColumns={NUM_COLUMNS}
             ListHeaderComponent={listHeader}
+            ListEmptyComponent={GridEmpty}
             columnWrapperStyle={gridItems.length > 0 ? styles.columnWrapper : undefined}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
@@ -387,23 +381,21 @@ export function ListDetailV2({ id, resolving }: ListDetailV2Props) {
           />
         </ContentContainer>
       </View>
+      <MarqueePicker
+        visible={pickerOpen}
+        candidates={marqueeCandidates}
+        chosenTmdbId={chosenCover ?? null}
+        onPick={handlePickCover}
+        onUseSmartDefault={handleSmartDefault}
+        onClose={() => setPickerOpen(false)}
+      />
       {mode === 'custom' && (
-        <>
-          <MarqueePicker
-            visible={pickerOpen}
-            candidates={marqueeCandidates}
-            chosenTmdbId={chosenCover ?? null}
-            onPick={handlePickCover}
-            onUseSmartDefault={handleSmartDefault}
-            onClose={() => setPickerOpen(false)}
-          />
-          <ActionSheet
-            visible={longPressed !== null}
-            onClose={() => setLongPressed(null)}
-            options={longPressOptions}
-            title={longPressed?.title}
-          />
-        </>
+        <ActionSheet
+          visible={longPressed !== null}
+          onClose={() => setLongPressed(null)}
+          options={longPressOptions}
+          title={longPressed?.title}
+        />
       )}
     </>
   );
@@ -437,31 +429,15 @@ const createStyles = (colors: ThemeColors) =>
       left: Spacing.md,
       zIndex: 30,
     },
-    // Watchlist deck header
-    deckHeader: {
-      paddingTop: 72,
-      paddingBottom: Spacing.md,
+    gridEmpty: {
+      paddingHorizontal: Spacing.xl,
+      paddingVertical: Spacing.xxl,
       alignItems: 'center',
     },
-    deckPlaceholder: {
-      height: 240,
-    },
-    deckTitle: {
-      ...Typography.display.h2,
-      marginTop: Spacing.lg,
-    },
-    deckCount: {
-      ...Typography.body.sm,
-      marginTop: 2,
-    },
-    gridLabel: {
-      fontSize: 10,
-      letterSpacing: 1.6,
-      textTransform: 'uppercase',
-      fontWeight: '700',
-      alignSelf: 'flex-start',
-      marginLeft: GRID_PADDING,
-      marginTop: Spacing.lg,
+    gridEmptyText: {
+      ...Typography.body.base,
+      textAlign: 'center',
+      lineHeight: 24,
     },
     // Grid
     gridCard: {

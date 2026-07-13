@@ -11,13 +11,18 @@ import { useTheme } from '@/lib/theme-context';
 import { Chip } from '@/components/first-takes-v2/chip';
 import { PileStatic } from './pile-static';
 import { FannedHand } from './fanned-hand';
+import { PileDeck } from './pile-deck';
+import type { DeckItem } from './pile-card';
 
 export interface ProgrammeCardProps {
   title: string;
   /** Formatted count line, e.g. "19 films deep" / "1 film · 3 shows" / "7 films". */
   count: string;
-  variant: 'pile' | 'fan';
+  /** 'deck' = interactive Watchlist pile (drag cycles; tap opens the list). */
+  variant: 'pile' | 'fan' | 'deck';
   posterPaths: (string | null)[];
+  /** Deck items — required for variant 'deck'. */
+  deckItems?: DeckItem[];
   /** Numeric total — drives Pile depth / FannedHand "+N". */
   totalCount: number;
   /** Rose NOW PLAYING chip (Watching). */
@@ -40,6 +45,7 @@ export function ProgrammeCard({
   count,
   variant,
   posterPaths,
+  deckItems,
   totalCount,
   nowPlaying,
   fineprint,
@@ -79,7 +85,13 @@ export function ProgrammeCard({
         <Text style={[styles.invite, { color: colors.textSecondary }]}>{emptyInvitation}</Text>
       ) : (
         <>
-          {variant === 'pile' ? (
+          {variant === 'deck' ? (
+            // Live deck: drags cycle the pile; taps have no handler here so they
+            // fall through to THIS card's Pressable → open the Watchlist detail.
+            <View style={styles.deckSlot}>
+              <PileDeck items={deckItems ?? []} />
+            </View>
+          ) : variant === 'pile' ? (
             <PileStatic posterPaths={posterPaths} count={totalCount} />
           ) : (
             <FannedHand posterPaths={posterPaths} count={totalCount} jitter={jitter} />
@@ -128,6 +140,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontVariant: ['tabular-nums'],
     flexShrink: 0,
+  },
+  deckSlot: {
+    marginTop: 8,
   },
   invite: {
     marginTop: 8,

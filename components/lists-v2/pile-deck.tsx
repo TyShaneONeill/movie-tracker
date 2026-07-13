@@ -1,9 +1,11 @@
 /**
- * The Watchlist-detail interactive swipe deck (contract A2). Drag the top poster
- * off → it flies away, the pile rises, and the card cycles to the back (v1:
- * non-destructive shuffle). Tap the top card → open the title. The deck is
- * WINDOWED: a backlog of 100+ mounts only PILE.depth + 1 cards. It does NOT
- * replace browsing — the numbered grid stays below (rendered by the screen).
+ * The interactive Watchlist swipe deck (contract A2, device round 1: moved to
+ * the profile Lists-tab Watchlist card). Drag the top poster off → it flies
+ * away, the pile rises, and the card cycles to the back (v1: non-destructive
+ * shuffle). WINDOWED: a backlog of 100+ mounts only PILE.depth + 1 cards.
+ *
+ * `onOpen` is optional: omit it (as the Lists tab does) so a TAP falls through
+ * to the enclosing card's open-the-list Pressable while drags still cycle.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -16,7 +18,8 @@ import { PileCard, DECK_CARD_W, DECK_CARD_H, type DeckItem } from './pile-card';
 
 interface PileDeckProps {
   items: DeckItem[];
-  onOpen: (item: DeckItem) => void;
+  /** Optional — when omitted, taps fall through to the enclosing press target. */
+  onOpen?: (item: DeckItem) => void;
 }
 
 export function PileDeck({ items, onOpen }: PileDeckProps) {
