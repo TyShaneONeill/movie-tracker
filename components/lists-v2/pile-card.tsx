@@ -22,8 +22,10 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { seededRotation, PILE } from '@/lib/lists-v2-logic';
 
 const SCREEN_W = Dimensions.get('window').width;
-export const DECK_CARD_W = 156;
-export const DECK_CARD_H = 234;
+// Sized to fill the Lists-tab Watchlist card (device round 1) — a touch larger
+// than the old detail-hero deck so the pile has presence, still centered.
+export const DECK_CARD_W = 172;
+export const DECK_CARD_H = 258;
 const FLY_OFF_X = SCREEN_W * 1.4;
 const EASE = Easing.bezier(0.2, 0.8, 0.3, 1);
 
@@ -48,7 +50,10 @@ interface PileCardProps {
   reduced: boolean;
   /** Fires after the top card flies off (or immediately when reduced) — cycle. */
   onThrow: () => void;
-  onTap: (item: DeckItem) => void;
+  /** Optional tap handler. When omitted, taps fall THROUGH to the enclosing
+   *  press target (e.g. the Lists-tab card's open-the-list Pressable) — drags
+   *  still cycle. */
+  onTap?: (item: DeckItem) => void;
   cardColor: string;
   borderColor: string;
 }
@@ -153,13 +158,15 @@ export function PileCard({
     });
 
   const tap = Gesture.Tap()
-    .enabled(isTop)
+    .enabled(isTop && !!onTap)
     .maxDistance(10)
     .onEnd((_e, success) => {
-      if (success) runOnJS(onTap)(item);
+      if (success && onTap) runOnJS(onTap)(item);
     });
 
-  const gesture = Gesture.Exclusive(pan, tap);
+  // With no onTap the Tap gesture is disabled, so a tap isn't consumed here and
+  // falls through to the enclosing Pressable; the Pan still handles drag-cycle.
+  const gesture = onTap ? Gesture.Exclusive(pan, tap) : pan;
 
   const posterUrl = getTMDBImageUrl(item.posterPath, 'w500');
 
@@ -172,9 +179,16 @@ export function PileCard({
       <Animated.View
         pointerEvents={isTop ? 'auto' : 'none'}
         style={[styles.card, { backgroundColor: cardColor, borderColor, zIndex: 100 - pos }, animatedStyle]}
-        accessibilityRole={isTop ? 'button' : undefined}
+        // With no onTap the enclosing card (e.g. the Lists-tab Watchlist card)
+        // owns the button semantics — mirror pile-static/fanned-hand and expose
+        // only the shuffle affordance here, no button role.
+        accessibilityRole={isTop && onTap ? 'button' : undefined}
         accessibilityLabel={
-          isTop ? `${item.title ?? 'Top of your watchlist pile'}. Tap to open, swipe to shuffle.` : undefined
+          isTop
+            ? onTap
+              ? `${item.title ?? 'Top of your watchlist pile'}. Tap to open, swipe to shuffle.`
+              : 'Swipe to shuffle your watchlist pile.'
+            : undefined
         }
       >
         {posterUrl ? (

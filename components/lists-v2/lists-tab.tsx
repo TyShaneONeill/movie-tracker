@@ -22,6 +22,7 @@ import {
 import { Perforation } from '@/components/first-takes-v2/perforation';
 import { ProgrammeCard } from './programme-card';
 import { ListsSkeleton, ListsError } from './states';
+import type { DeckItem } from './pile-card';
 
 interface ListsTabV2Props {
   /** Flag still resolving — hold the skeleton rather than flash legacy. */
@@ -49,7 +50,13 @@ export function ListsTabV2({ resolving, onOpenList, onCreateList }: ListsTabV2Pr
   if (listsError || watchingError) return <ListsError onRetry={() => refetchLists()} />;
 
   const watchlistCount = watchlistMovies.length;
-  const watchlistPosters = watchlistMovies.slice(0, 5).map((m) => m.poster_path);
+  const watchlistDeck: DeckItem[] = watchlistMovies.map((m) => ({
+    key: `movie:${m.tmdb_id}`,
+    tmdbId: m.tmdb_id,
+    posterPath: m.poster_path,
+    media: 'movie',
+    title: m.title,
+  }));
 
   const wCounts = watchingScopeCounts(watching);
   const watchingPosters = watching.slice(0, 4).map((w) => w.posterPath);
@@ -59,16 +66,24 @@ export function ListsTabV2({ resolving, onOpenList, onCreateList }: ListsTabV2Pr
 
   return (
     <View style={styles.wrap}>
-      {/* Watchlist — the Pile */}
+      {/* Watchlist — the interactive PILE deck (tap opens the list, drag cycles) */}
       <ProgrammeCard
         title="Watchlist"
         count={formatDeepCount(watchlistCount)}
-        variant="pile"
-        posterPaths={watchlistPosters}
+        variant="deck"
+        deckItems={watchlistDeck}
+        posterPaths={[]}
         totalCount={watchlistCount}
         fineprint={watchlistCount > 0 ? "The lineup you're planning" : undefined}
+        empty={watchlistCount === 0}
+        emptyInvitation="Your watchlist is empty — add films to plan your next night."
         onPress={() => onOpenList('/list/watchlist')}
       />
+
+      {/* Perforation separator (system pattern, #675 spacing) */}
+      <View style={styles.perf}>
+        <Perforation />
+      </View>
 
       {/* Watching — Now Playing (movies + TV) */}
       <ProgrammeCard
@@ -89,6 +104,9 @@ export function ListsTabV2({ resolving, onOpenList, onCreateList }: ListsTabV2Pr
       {/* Custom lists — calm fanned hands */}
       {userLists && userLists.length > 0 && (
         <>
+          <View style={styles.perf}>
+            <Perforation />
+          </View>
           <Text style={[styles.section, { color: colors.textSecondary }]}>YOUR LISTS</Text>
           {userLists.map((list) => (
             <ProgrammeCard
@@ -106,7 +124,9 @@ export function ListsTabV2({ resolving, onOpenList, onCreateList }: ListsTabV2Pr
       )}
 
       {/* Create a list — dashed CTA, contract copy */}
-      <Perforation />
+      <View style={styles.perf}>
+        <Perforation />
+      </View>
       <Pressable
         onPress={onCreateList}
         accessibilityRole="button"
@@ -135,8 +155,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     textTransform: 'uppercase',
     fontWeight: '700',
-    marginTop: 22,
+    marginTop: 14,
     marginHorizontal: 2,
+  },
+  // Perforation separator breathing room (#675 spacing: ~12pt).
+  perf: {
+    marginTop: 12,
   },
   create: {
     borderWidth: 1.5,
