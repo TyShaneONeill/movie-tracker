@@ -15,6 +15,8 @@ export interface ActionSheetOption {
   description?: string;
   /** Marks the current selection — renders a tint ✓ and tints the label. */
   selected?: boolean;
+  /** Optional accent color for the label (e.g. rose for a primary action). */
+  accent?: string;
 }
 
 interface ActionSheetProps {
@@ -92,6 +94,7 @@ export function ActionSheet({ visible, onClose, options, title }: ActionSheetPro
                   <Text
                     style={[
                       styles.optionText,
+                      option.accent != null && { color: option.accent },
                       option.destructive && { color: '#EF4444' },
                     ]}
                   >

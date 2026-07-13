@@ -114,6 +114,9 @@ export async function getListWithMovies(
     description: joined.description,
     is_public: joined.is_public,
     cover_image_url: joined.cover_image_url,
+    // Absent-safe: `select('*')` omits this pre-migration (undefined -> null),
+    // so the client falls back to the smart-default cover (contract F).
+    cover_tmdb_id: joined.cover_tmdb_id ?? null,
     created_at: joined.created_at,
     updated_at: joined.updated_at,
     movies,
@@ -148,6 +151,7 @@ export async function getUserLists(
       description: joined.description,
       is_public: joined.is_public,
       cover_image_url: joined.cover_image_url,
+      cover_tmdb_id: joined.cover_tmdb_id ?? null,
       created_at: joined.created_at,
       updated_at: joined.updated_at,
       movies: allMovies.slice(0, 4),

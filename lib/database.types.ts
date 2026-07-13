@@ -1652,6 +1652,7 @@ export type Database = {
       user_lists: {
         Row: {
           cover_image_url: string | null
+          cover_tmdb_id: number | null
           created_at: string | null
           description: string | null
           id: string
@@ -1662,6 +1663,7 @@ export type Database = {
         }
         Insert: {
           cover_image_url?: string | null
+          cover_tmdb_id?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1672,6 +1674,7 @@ export type Database = {
         }
         Update: {
           cover_image_url?: string | null
+          cover_tmdb_id?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
