@@ -367,18 +367,33 @@ export default function FirstTakeDetailScreen() {
             <ContentContainer>
             {/* Movie Info */}
             <View style={styles.movieInfoRow}>
-              {posterUri ? (
-                <Image
-                  source={{ uri: posterUri }}
-                  style={styles.poster}
-                  contentFit="cover"
-                  transition={200}
-                />
-              ) : (
-                <View style={[styles.poster, styles.posterPlaceholder]}>
-                  <Ionicons name="film-outline" size={32} color={colors.textTertiary} />
-                </View>
-              )}
+              {/* Poster opens the film/show detail (Ty, 2026-07-13) — same
+                  media_type routing the feed uses. */}
+              <Pressable
+                onPress={() =>
+                  router.push(
+                    firstTake.media_type === 'tv_show'
+                      ? `/tv/${firstTake.tmdb_id}`
+                      : `/movie/${firstTake.tmdb_id}`
+                  )
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${firstTake.movie_title}`}
+                style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              >
+                {posterUri ? (
+                  <Image
+                    source={{ uri: posterUri }}
+                    style={styles.poster}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ) : (
+                  <View style={[styles.poster, styles.posterPlaceholder]}>
+                    <Ionicons name="film-outline" size={32} color={colors.textTertiary} />
+                  </View>
+                )}
+              </Pressable>
 
               <View style={styles.movieInfoText}>
                 <Text style={styles.movieTitle} numberOfLines={2}>
