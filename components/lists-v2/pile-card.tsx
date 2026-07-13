@@ -108,6 +108,10 @@ export function PileCard({
 
   const pan = Gesture.Pan()
     .enabled(isTop)
+    // Activate only on horizontal intent so vertical scrolls pass through to the
+    // enclosing list (the deck must never trap the page scroll).
+    .activeOffsetX([-12, 12])
+    .failOffsetY([-16, 16])
     .onUpdate((e) => {
       dragX.value = e.translationX;
     })
