@@ -179,9 +179,16 @@ export function PileCard({
       <Animated.View
         pointerEvents={isTop ? 'auto' : 'none'}
         style={[styles.card, { backgroundColor: cardColor, borderColor, zIndex: 100 - pos }, animatedStyle]}
-        accessibilityRole={isTop ? 'button' : undefined}
+        // With no onTap the enclosing card (e.g. the Lists-tab Watchlist card)
+        // owns the button semantics — mirror pile-static/fanned-hand and expose
+        // only the shuffle affordance here, no button role.
+        accessibilityRole={isTop && onTap ? 'button' : undefined}
         accessibilityLabel={
-          isTop ? `${item.title ?? 'Top of your watchlist pile'}. Tap to open, swipe to shuffle.` : undefined
+          isTop
+            ? onTap
+              ? `${item.title ?? 'Top of your watchlist pile'}. Tap to open, swipe to shuffle.`
+              : 'Swipe to shuffle your watchlist pile.'
+            : undefined
         }
       >
         {posterUrl ? (

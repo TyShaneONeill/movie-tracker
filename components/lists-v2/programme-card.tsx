@@ -64,6 +64,10 @@ export function ProgrammeCard({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? `${title}, ${count}`}
+      // Hold the press-dim briefly so a horizontal deck drag (which activates the
+      // Pan only after ~12px) doesn't flash the card dim at drag-start. Delays
+      // the visual only — tap-to-open is unaffected.
+      unstable_pressDelay={80}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
