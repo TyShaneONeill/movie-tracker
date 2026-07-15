@@ -15,6 +15,26 @@ import { enforceRateLimit } from '../_shared/rate-limit.ts';
 // payload for a progress UI, so every call is independently idempotent via
 // natural keys (select-then-insert) — a re-sent chunk inserts nothing.
 //
+// Robustness invariants (a stuck row would strand the user's whole import,
+// because the client retries the same chunk):
+//   * Every field is validated at the boundary. A malformed row NEVER 500s
+//     the chunk — it is counted as `invalid` and skipped so the rest imports.
+//   * Batch inserts fall back to per-row inserts on an unexpected DB error,
+//     isolating the one bad row from its neighbours.
+//   * Concurrent/retried calls are race-safe: episodes via the partial unique
+//     index on watch_number=1, movies via the partial unique index scoped to
+//     source='tvtime_import' — both paired with a 23505 recheck backstop.
+//
+// Semantics that are intentionally narrow in v1 (documented, not bugs):
+//   * `followed` is informational. ALL imported shows land as status='watching'
+//     (including episode-only shows) unless the user already tracks the show,
+//     in which case their existing status is preserved.
+//   * `favorited=true` sets is_liked on new shows and UPGRADES is_liked on an
+//     existing show row (never downgrades true->false).
+//   * `rewatchCount` is NOT modeled — user_movies has no rewatch-count column;
+//     rewatches are separate journey rows. An imported movie lands as a single
+//     watch in v1.
+//
 // Deliberately does NOT call record_user_activity (would stamp today's streak),
 // check-achievements, or insert reviews/first_takes (would fan out follower
 // notifications). Episode/movie writes emit no notifications or feed events.
@@ -56,16 +76,16 @@ interface ImportCounts {
   showsUpserted: number;
   episodesInserted: number;
   episodesSkipped: number;
+  episodesInvalid: number;
   moviesInserted: number;
   moviesUpdated: number;
   moviesSkipped: number;
+  moviesInvalid: number;
 }
 
-// Guardrails against a malformed or abusive single call. The client chunks, so
-// these are per-call ceilings, not per-import.
-const MAX_SHOWS_PER_CALL = 500;
-const MAX_MOVIES_PER_CALL = 1000;
-const MAX_EPISODES_PER_SHOW = 5000;
+// Aggregate ceilings per call — the client chunks, so these bound one request.
+const MAX_TOTAL_EPISODES_PER_CALL = 5000;
+const MAX_TOTAL_MOVIES_PER_CALL = 2000;
 const PG_UNIQUE_VIOLATION = '23505';
 
 function jsonResponse(req: Request, body: unknown, status: number): Response {
@@ -73,6 +93,35 @@ function jsonResponse(req: Request, body: unknown, status: number): Response {
     status,
     headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
   });
+}
+
+// --- Boundary sanitizers ----------------------------------------------------
+
+/** A valid ISO-ish date string canonicalized, or null. Never throws, never
+ *  passes a malformed value through to a timestamptz column. */
+function sanitizeDate(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return null;
+  try {
+    return new Date(ms).toISOString();
+  } catch {
+    return null;
+  }
+}
+
+/** A non-negative integer (season/episode; 0 is valid — specials), or null. */
+function sanitizeIndex(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  const n = Math.trunc(value);
+  return n >= 0 ? n : null;
+}
+
+/** A positive integer tmdb id, or null. */
+function sanitizeTmdbId(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  const n = Math.trunc(value);
+  return n > 0 ? n : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,29 +134,50 @@ async function importShows(
   counts: ImportCounts,
 ): Promise<void> {
   for (const show of shows) {
-    // Ensure a user_tv_shows row. Preserve the user's existing status if they
-    // already track this show; otherwise create it as 'watching'. (No source
-    // column on this table — provenance lives on the episode/movie rows.)
+    const tmdbShowId = sanitizeTmdbId(show?.tmdbShowId);
+    const episodes = Array.isArray(show?.episodes) ? show.episodes : [];
+    const favorited = show?.favorited === true;
+
+    // A show we can't key can't take episodes — count them all invalid.
+    if (tmdbShowId === null) {
+      counts.episodesInvalid += episodes.length;
+      continue;
+    }
+
     const { data: existingShow, error: showLookupError } = await admin
       .from('user_tv_shows')
-      .select('id')
+      .select('id, is_liked')
       .eq('user_id', userId)
-      .eq('tmdb_id', show.tmdbShowId)
+      .eq('tmdb_id', tmdbShowId)
       .maybeSingle();
     if (showLookupError) throw showLookupError;
 
     let userTvShowId: string;
     if (existingShow) {
       userTvShowId = existingShow.id;
+      // Upgrade is_liked when favorited; never downgrade true->false.
+      if (favorited && existingShow.is_liked !== true) {
+        const { error: likeError } = await admin
+          .from('user_tv_shows')
+          .update({ is_liked: true })
+          .eq('id', existingShow.id);
+        if (likeError) throw likeError;
+      }
     } else {
+      const name = typeof show?.name === 'string' ? show.name.trim() : '';
+      // name is NOT NULL — can't create the show without one.
+      if (name === '') {
+        counts.episodesInvalid += episodes.length;
+        continue;
+      }
       const { data: insertedShow, error: showInsertError } = await admin
         .from('user_tv_shows')
         .insert({
           user_id: userId,
-          tmdb_id: show.tmdbShowId,
-          name: show.name,
+          tmdb_id: tmdbShowId,
+          name,
           status: 'watching',
-          is_liked: show.favorited === true,
+          is_liked: favorited,
         })
         .select('id')
         .single();
@@ -116,17 +186,17 @@ async function importShows(
       counts.showsUpserted += 1;
     }
 
-    if (!Array.isArray(show.episodes) || show.episodes.length === 0) continue;
-
-    await importEpisodesForShow(admin, userId, show, userTvShowId, counts);
+    if (episodes.length === 0) continue;
+    await importEpisodesForShow(admin, userId, tmdbShowId, userTvShowId, episodes, counts);
   }
 }
 
 async function importEpisodesForShow(
   admin: SupabaseClient,
   userId: string,
-  show: ImportShow,
+  tmdbShowId: number,
   userTvShowId: string,
+  episodes: ImportEpisode[],
   counts: ImportCounts,
 ): Promise<void> {
   // Existing watches for this show — key set is (season, episode). The table's
@@ -137,7 +207,7 @@ async function importEpisodesForShow(
     .from('user_episode_watches')
     .select('season_number, episode_number')
     .eq('user_id', userId)
-    .eq('tmdb_show_id', show.tmdbShowId);
+    .eq('tmdb_show_id', tmdbShowId);
   if (watchLookupError) throw watchLookupError;
 
   const present = new Set<string>(
@@ -146,17 +216,14 @@ async function importEpisodesForShow(
 
   const rows: Record<string, unknown>[] = [];
   const seenInPayload = new Set<string>();
-  for (const ep of show.episodes) {
-    if (
-      typeof ep.season !== 'number' ||
-      typeof ep.episode !== 'number' ||
-      !Number.isFinite(ep.season) ||
-      !Number.isFinite(ep.episode)
-    ) {
+  for (const ep of episodes) {
+    const season = sanitizeIndex(ep?.season);
+    const episode = sanitizeIndex(ep?.episode);
+    if (season === null || episode === null) {
+      counts.episodesInvalid += 1;
       continue;
     }
-    const key = `${ep.season}:${ep.episode}`;
-    // Already logged, or duplicated within this payload chunk → skip.
+    const key = `${season}:${episode}`;
     if (present.has(key) || seenInPayload.has(key)) {
       counts.episodesSkipped += 1;
       continue;
@@ -165,10 +232,10 @@ async function importEpisodesForShow(
     rows.push({
       user_id: userId,
       user_tv_show_id: userTvShowId,
-      tmdb_show_id: show.tmdbShowId,
-      season_number: ep.season,
-      episode_number: ep.episode,
-      watched_at: ep.watchedAt ?? null,
+      tmdb_show_id: tmdbShowId,
+      season_number: season,
+      episode_number: episode,
+      watched_at: sanitizeDate(ep?.watchedAt),
       watch_number: 1,
       source: 'tvtime_import',
     });
@@ -176,27 +243,24 @@ async function importEpisodesForShow(
 
   if (rows.length === 0) return;
 
-  const { error: insertError } = await admin
-    .from('user_episode_watches')
-    .insert(rows);
-
+  const { error: insertError } = await admin.from('user_episode_watches').insert(rows);
   if (!insertError) {
     counts.episodesInserted += rows.length;
     return;
   }
 
-  // Concurrency/retry backstop: a racing writer (or an overlapping retried
-  // chunk) may have inserted a watch_number=1 row between our SELECT and
-  // INSERT, tripping the partial unique index. Re-derive what's still missing
-  // and insert only those; anything now present counts as skipped.
+  // Concurrency/retry backstop: a racing writer may have inserted a
+  // watch_number=1 row between our SELECT and INSERT, tripping the partial
+  // unique index. Re-derive what's still missing; anything now present is a
+  // skip. Then insert the remainder per-row so one genuinely bad row can't
+  // strand its neighbours.
   if (insertError.code === PG_UNIQUE_VIOLATION) {
     const { data: recheck, error: recheckError } = await admin
       .from('user_episode_watches')
       .select('season_number, episode_number')
       .eq('user_id', userId)
-      .eq('tmdb_show_id', show.tmdbShowId);
+      .eq('tmdb_show_id', tmdbShowId);
     if (recheckError) throw recheckError;
-
     const nowPresent = new Set<string>(
       (recheck ?? []).map((w) => `${w.season_number}:${w.episode_number}`),
     );
@@ -204,18 +268,27 @@ async function importEpisodesForShow(
       (r) => !nowPresent.has(`${r.season_number}:${r.episode_number}`),
     );
     counts.episodesSkipped += rows.length - stillMissing.length;
-
-    if (stillMissing.length > 0) {
-      const { error: retryError } = await admin
-        .from('user_episode_watches')
-        .insert(stillMissing);
-      if (retryError) throw retryError;
-      counts.episodesInserted += stillMissing.length;
-    }
+    await insertEpisodesPerRow(admin, stillMissing, counts);
     return;
   }
 
-  throw insertError;
+  // Unexpected error on the batch — isolate the offender row-by-row.
+  await insertEpisodesPerRow(admin, rows, counts);
+}
+
+/** Per-row insert fallback: isolates a single failing row from its batch.
+ *  23505 -> already present (skip); any other error -> invalid. */
+async function insertEpisodesPerRow(
+  admin: SupabaseClient,
+  rows: Record<string, unknown>[],
+  counts: ImportCounts,
+): Promise<void> {
+  for (const row of rows) {
+    const { error } = await admin.from('user_episode_watches').insert(row);
+    if (!error) counts.episodesInserted += 1;
+    else if (error.code === PG_UNIQUE_VIOLATION) counts.episodesSkipped += 1;
+    else counts.episodesInvalid += 1;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -228,58 +301,95 @@ async function importMovies(
   counts: ImportCounts,
 ): Promise<void> {
   for (const movie of movies) {
-    if (typeof movie.tmdbId !== 'number' || !Number.isFinite(movie.tmdbId)) continue;
-    const wantWatched = movie.status === 'watched';
-
-    // user_movies has NO unique constraint on (user_id, tmdb_id) — multiple
-    // rows can exist (journeys). Treat "any row" as already-in-library and
-    // apply the terminal-state-set rule against the strongest existing status.
-    const { data: existingRows, error: lookupError } = await admin
-      .from('user_movies')
-      .select('id, status, watched_at')
-      .eq('user_id', userId)
-      .eq('tmdb_id', movie.tmdbId);
-    if (lookupError) throw lookupError;
-
-    const hasAnyRow = (existingRows?.length ?? 0) > 0;
-    const hasWatchedRow = (existingRows ?? []).some((r) => r.status === 'watched');
-
-    if (!hasAnyRow) {
-      const { error: insertError } = await admin.from('user_movies').insert({
-        user_id: userId,
-        tmdb_id: movie.tmdbId,
-        title: movie.title,
-        status: wantWatched ? 'watched' : 'watchlist',
-        watched_at: wantWatched ? (movie.watchedAt ?? null) : null,
-        source: 'tvtime_import',
-      });
-      if (insertError) throw insertError;
-      counts.moviesInserted += 1;
+    const tmdbId = sanitizeTmdbId(movie?.tmdbId);
+    const title = typeof movie?.title === 'string' ? movie.title.trim() : '';
+    const status = movie?.status;
+    // NOT NULL title, keyable id, and a valid status enum are all required —
+    // a bad row is counted invalid, never silently coerced.
+    if (tmdbId === null || title === '' || (status !== 'watched' && status !== 'watchlist')) {
+      counts.moviesInvalid += 1;
       continue;
     }
-
-    // Existing row(s). A watchlist import never overwrites/downgrades anything.
-    // A watched import upgrades an existing non-watched row to watched, but
-    // never touches an already-watched row (no downgrade, no duplicate).
-    if (!wantWatched || hasWatchedRow) {
-      counts.moviesSkipped += 1;
-      continue;
-    }
-
-    // Upgrade the existing watchlist/watching row to watched. Leave `source`
-    // untouched — the row originated organically; do not retroactively relabel
-    // it as an import. Only fill watched_at if it's currently empty.
-    const target = existingRows![0];
-    const update: Record<string, unknown> = { status: 'watched' };
-    if (!target.watched_at && movie.watchedAt) update.watched_at = movie.watchedAt;
-
-    const { error: updateError } = await admin
-      .from('user_movies')
-      .update(update)
-      .eq('id', target.id);
-    if (updateError) throw updateError;
-    counts.moviesUpdated += 1;
+    await processMovie(admin, userId, tmdbId, title, status, sanitizeDate(movie?.watchedAt), counts, true);
   }
+}
+
+async function processMovie(
+  admin: SupabaseClient,
+  userId: string,
+  tmdbId: number,
+  title: string,
+  status: 'watched' | 'watchlist',
+  watchedAt: string | null,
+  counts: ImportCounts,
+  allowRetry: boolean,
+): Promise<void> {
+  const wantWatched = status === 'watched';
+
+  // user_movies has NO unique (user_id, tmdb_id) constraint — multiple journey
+  // rows can exist. Order deterministically so the upgrade target is stable.
+  const { data: existingRows, error: lookupError } = await admin
+    .from('user_movies')
+    .select('id, status, watched_at')
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
+    .order('watched_at', { ascending: false, nullsFirst: false })
+    .order('added_at', { ascending: false });
+  if (lookupError) throw lookupError;
+
+  const hasAnyRow = (existingRows?.length ?? 0) > 0;
+  const hasWatchedRow = (existingRows ?? []).some((r) => r.status === 'watched');
+
+  if (!hasAnyRow) {
+    const { error: insertError } = await admin.from('user_movies').insert({
+      user_id: userId,
+      tmdb_id: tmdbId,
+      title,
+      status: wantWatched ? 'watched' : 'watchlist',
+      watched_at: wantWatched ? watchedAt : null,
+      source: 'tvtime_import',
+    });
+    if (!insertError) {
+      counts.moviesInserted += 1;
+      return;
+    }
+    // Concurrent import of the same movie won the race (partial unique index
+    // on source='tvtime_import', or the journey index). Re-decide once.
+    if (insertError.code === PG_UNIQUE_VIOLATION && allowRetry) {
+      await processMovie(admin, userId, tmdbId, title, status, watchedAt, counts, false);
+      return;
+    }
+    if (insertError.code === PG_UNIQUE_VIOLATION) {
+      counts.moviesSkipped += 1;
+      return;
+    }
+    counts.moviesInvalid += 1;
+    return;
+  }
+
+  // A watchlist import never overwrites/downgrades anything; a watched import
+  // upgrades an existing non-watched row to watched but never touches an
+  // already-watched row (no downgrade, no duplicate).
+  if (!wantWatched || hasWatchedRow) {
+    counts.moviesSkipped += 1;
+    return;
+  }
+
+  // Upgrade the strongest existing (non-watched) row to watched. Leave `source`
+  // untouched — the row originated organically; do not relabel it an import.
+  const target = existingRows![0];
+  const update: Record<string, unknown> = { status: 'watched' };
+  if (!target.watched_at && watchedAt) update.watched_at = watchedAt;
+
+  const { error: updateError } = await admin
+    .from('user_movies')
+    .update(update)
+    .eq('id', target.id);
+  if (updateError) {
+    counts.moviesInvalid += 1;
+    return;
+  }
+  counts.moviesUpdated += 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -333,17 +443,17 @@ Deno.serve(async (req: Request) => {
     const shows = Array.isArray(payload.shows) ? payload.shows : [];
     const movies = Array.isArray(payload.movies) ? payload.movies : [];
 
-    if (shows.length > MAX_SHOWS_PER_CALL || movies.length > MAX_MOVIES_PER_CALL) {
-      return jsonResponse(req, { error: 'Chunk too large' }, 413);
-    }
-    for (const s of shows) {
-      if (
-        typeof s?.tmdbShowId !== 'number' ||
-        typeof s?.name !== 'string' ||
-        (Array.isArray(s?.episodes) && s.episodes.length > MAX_EPISODES_PER_SHOW)
-      ) {
-        return jsonResponse(req, { error: 'Malformed show entry' }, 400);
-      }
+    // Aggregate size guard — bound total work per call (client chunks).
+    const totalEpisodes = shows.reduce(
+      (sum, s) => sum + (Array.isArray(s?.episodes) ? s.episodes.length : 0),
+      0,
+    );
+    if (totalEpisodes > MAX_TOTAL_EPISODES_PER_CALL || movies.length > MAX_TOTAL_MOVIES_PER_CALL) {
+      return jsonResponse(
+        req,
+        { error: 'chunk_too_large', maxEpisodes: MAX_TOTAL_EPISODES_PER_CALL, maxMovies: MAX_TOTAL_MOVIES_PER_CALL },
+        413,
+      );
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -351,9 +461,11 @@ Deno.serve(async (req: Request) => {
       showsUpserted: 0,
       episodesInserted: 0,
       episodesSkipped: 0,
+      episodesInvalid: 0,
       moviesInserted: 0,
       moviesUpdated: 0,
       moviesSkipped: 0,
+      moviesInvalid: 0,
     };
 
     await importShows(admin, user.id, shows, counts);

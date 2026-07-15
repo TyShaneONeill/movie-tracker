@@ -26,6 +26,22 @@ ALTER TABLE "public"."user_episode_watches"
   ADD COLUMN "source" "text" NOT NULL DEFAULT 'manual'
   CHECK ("source" IN ('manual', 'tvtime_import'));
 
+-- Race-safety for the movie import path. user_movies has NO unique constraint
+-- on (user_id, tmdb_id) — rewatches are legitimately separate rows keyed by
+-- journey_number (unique index user_unique_user_movie_journey), so a full
+-- unique index on (user_id, tmdb_id) would be invalid. A PARTIAL unique index
+-- scoped to source='tvtime_import' can't collide with organic multi-journey
+-- rows (no organic row has that source) but guarantees at most ONE imported
+-- row per (user, movie), making two concurrent/retried import calls of the
+-- same movie race-safe. The edge function pairs this with a 23505 backstop
+-- that turns the losing insert into a skip. (Note: the existing
+-- user_unique_user_movie_journey index would also catch the collision, but it
+-- is live-only drift not present in any migration file; this partial index
+-- makes the import invariant explicit and version-controlled.)
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_user_movies_tvtime_import_unique"
+  ON "public"."user_movies" ("user_id", "tmdb_id")
+  WHERE "source" = 'tvtime_import';
+
 -- ---------------------------------------------------------------------------
 -- 2. Weekly-recap candidates RPC — exclude imported rows from every signal.
 --
