@@ -31,6 +31,8 @@ import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { ContinueWatchingCard } from '@/components/cards/continue-watching-card';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
+import { TvTimeImportCard } from '@/components/tvtime-import/tvtime-import-card';
+import { useTvTimeImportCard } from '@/hooks/use-tvtime-import-card';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -81,6 +83,7 @@ export default function HomeScreen() {
   const colors = Colors[effectiveTheme];
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const tvtimeCard = useTvTimeImportCard();
 
   // Fetch movie lists with validation and deduplication
   const {
@@ -195,6 +198,13 @@ export default function HomeScreen() {
             </TourTarget>
           </View>
         </View>
+
+        {/* Coming from TV Time? — dismissable import entry card */}
+        {tvtimeCard.visible && (
+          <View style={styles.tvtimeCardSlot}>
+            <TvTimeImportCard onPress={tvtimeCard.onImport} onDismiss={tvtimeCard.onDismiss} />
+          </View>
+        )}
 
         {/* Continue Watching Section */}
         {user && showContinueWatching && continueWatching.shows.length > 0 && (
@@ -435,6 +445,10 @@ const styles = StyleSheet.create({
     height: 40,
   },
   section: {
+    marginBottom: Spacing.lg,
+  },
+  tvtimeCardSlot: {
+    paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
   },
   trendingList: {

@@ -19,6 +19,8 @@ import { ThemeSelector } from '@/components/settings/theme-selector';
 import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
+import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
+import { TicketIcon } from '@/components/tvtime-import/icons';
 import { formatExpiryDate, getDaysLeft } from '@/lib/subscription-format';
 import Constants from 'expo-constants';
 import { acceptAllPendingRequests } from '@/lib/follow-request-service';
@@ -45,6 +47,7 @@ export default function SettingsScreen() {
   const { effectiveTheme, themePreference, setThemePreference } = useTheme();
   const colors = Colors[effectiveTheme];
   const { signOut, user } = useAuth();
+  const tvtime = useTvTimeImportGate();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
   const { isPremium, tier, subscription, isLoading: isPremiumLoading } = usePremium();
   const [isExporting, setIsExporting] = useState(false);
@@ -190,6 +193,51 @@ export default function SettingsScreen() {
           </Pressable>
           <Text style={[Typography.display.h4, { color: colors.text }]}>Settings</Text>
         </View>
+
+        {/* TV Time import — pinned "NEW · FOR TV TIME MEMBERS" section while the
+            flag payload says pinned; demotes to a plain integrations row when
+            `pinned=false` (remote-config, no release needed). */}
+        {tvtime.enabled && (
+          <View style={styles.section}>
+            <Text
+              style={[
+                styles.sectionHeader,
+                { color: tvtime.pinned ? colors.tint : colors.textSecondary },
+              ]}
+            >
+              {tvtime.pinned ? 'NEW · FOR TV TIME MEMBERS' : 'INTEGRATIONS'}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingsItem,
+                styles.firstItem,
+                styles.lastItem,
+                { backgroundColor: colors.card },
+                tvtime.pinned && { borderWidth: 1, borderColor: colors.tint },
+                pressed && { backgroundColor: colors.backgroundSecondary },
+              ]}
+              onPress={() => { hapticImpact(); router.push('/settings/tvtime-import'); }}
+              accessibilityRole="button"
+              accessibilityLabel="Import from TV Time"
+            >
+              <View style={styles.integrationRow}>
+                <TicketIcon color={colors.tint} size={22} />
+                <View>
+                  <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Import from TV Time</Text>
+                  <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Bring your shows &amp; movies home</Text>
+                </View>
+              </View>
+              <View style={styles.tvtimeTrailing}>
+                {tvtime.pinned && (
+                  <View style={[styles.newChip, { backgroundColor: colors.tint }]}>
+                    <Text style={styles.newChipText}>NEW</Text>
+                  </View>
+                )}
+                <ChevronRightIcon color={colors.textSecondary} />
+              </View>
+            </Pressable>
+          </View>
+        )}
 
         {/* Help & Feedback Section */}
         <View style={styles.section}>
@@ -719,6 +767,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  tvtimeTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  newChip: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  newChipText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   integrationIcon: {
     width: 24,

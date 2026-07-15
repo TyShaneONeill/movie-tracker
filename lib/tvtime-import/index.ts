@@ -5,6 +5,40 @@
 export { parseTvTimeExport } from './parser';
 export { matchShows, matchMovies, matchTvTimePayload } from './matcher';
 export { createDefaultTmdbGateway } from './gateway';
+export { unzipTvTimeExport } from './unzip';
+export {
+  mapMatchToImportItems,
+  chunkImportItems,
+  sendImportChunk,
+  runTvTimeImport,
+  ChunkTooLargeError,
+} from './import-client';
+export type { ImportChunk, ChunkCaps, ImportProgress, RunImportArgs } from './import-client';
+export {
+  MAX_EPISODES_PER_CALL,
+  MAX_MOVIES_PER_CALL,
+  emptyImportCounts,
+  addImportCounts,
+} from './import-types';
+export type {
+  ImportEpisode,
+  ImportShow,
+  ImportMovie,
+  ImportPayload,
+  ImportCounts,
+} from './import-types';
+export {
+  loadNeedsReview,
+  saveNeedsReview,
+  resolveNeedsReviewItem,
+  clearNeedsReview,
+  reviewItemId,
+  isImportCardDismissed,
+  dismissImportCard,
+} from './import-storage';
+export type { PersistedReviewItem } from './import-storage';
+export { buildImportPreview, buildReviewItems } from './preview';
+export type { ImportPreview } from './preview';
 export type {
   ParsedEpisode,
   ParsedShow,
