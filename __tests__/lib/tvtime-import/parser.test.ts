@@ -214,4 +214,23 @@ describe('parseTvTimeExport — robustness', () => {
     const payload = parseTvTimeExport({ 'export/data/tracking-prod-records.csv': csv });
     expect(payload.movies).toHaveLength(1);
   });
+
+  it('surfaces structural CSV errors (unterminated quote) as warnings, not a silent partial parse', () => {
+    const movieCsv = [
+      MOVIE_HEADER,
+      // Unterminated quote: Papa swallows the rest of the file into this field.
+      'u1,watch,movie,"Heat: The Unclosed,1995-12-15 00:00:00,0,2026-07-14 23:38:56',
+      'u2,watch,movie,Joker,2019-10-03 00:00:00,0,2026-07-14 23:38:56',
+    ].join('\n');
+
+    let payload!: ReturnType<typeof parseTvTimeExport>;
+    expect(() => {
+      payload = parseTvTimeExport({ 'tracking-prod-records.csv': movieCsv });
+    }).not.toThrow();
+
+    // The parse may salvage fewer movies than the file contains — the contract
+    // is that this can never look like a clean, complete import.
+    expect(payload.warnings.some((w) => w.includes('CSV parse error'))).toBe(true);
+    expect(payload.warnings.some((w) => w.includes('tracking-prod-records.csv'))).toBe(true);
+  });
 });

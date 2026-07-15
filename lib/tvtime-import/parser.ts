@@ -65,8 +65,16 @@ function toInt(raw: string | undefined): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-function parseCsv<T>(content: string): T[] {
+function parseCsv<T>(content: string, fileName: string, warnings: string[]): T[] {
   const result = Papa.parse<T>(content, { header: true, skipEmptyLines: true });
+  // Structural parse errors (e.g. an unterminated quote) can swallow large
+  // spans of the file into one field — surface them so a partial parse is
+  // never mistaken for a complete one.
+  for (const err of result.errors) {
+    warnings.push(
+      `${fileName}: CSV parse error${err.row !== undefined ? ` near row ${err.row}` : ''} — ${err.message}`
+    );
+  }
   return result.data;
 }
 
@@ -106,7 +114,7 @@ function parseShows(files: TvTimeFileMap, warnings: string[]): ParsedShow[] {
     return show;
   };
 
-  for (const row of parseCsv<ShowRow>(content)) {
+  for (const row of parseCsv<ShowRow>(content, FILE_SHOWS, warnings)) {
     const tvdbId = toInt(row.s_id);
     // Aggregate / stats rows have a blank series id — skip silently.
     if (tvdbId === null) continue;
@@ -156,13 +164,12 @@ function applyFavorites(
 ): void {
   const content = findFile(files, FILE_SHOW_SUMMARY);
   if (!content) return;
-  for (const row of parseCsv<ShowSummaryRow>(content)) {
+  for (const row of parseCsv<ShowSummaryRow>(content, FILE_SHOW_SUMMARY, warnings)) {
     const tvdbId = toInt(row.tv_show_id);
     if (tvdbId === null) continue;
     const show = byTvdbId.get(tvdbId);
     if (show) show.favorited = row.is_favorited?.trim() === '1';
   }
-  void warnings;
 }
 
 function parseMovies(files: TvTimeFileMap, warnings: string[]): ParsedMovie[] {
@@ -179,7 +186,7 @@ function parseMovies(files: TvTimeFileMap, warnings: string[]): ParsedMovie[] {
   }
   const byUuid = new Map<string, MovieAcc>();
 
-  for (const row of parseCsv<MovieRow>(content)) {
+  for (const row of parseCsv<MovieRow>(content, FILE_MOVIES, warnings)) {
     // Keep only movie entities; skip time-count / count-watch / blank rows.
     if (row.entity_type?.trim() !== 'movie') continue;
 
