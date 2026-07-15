@@ -137,6 +137,7 @@ function makeUserEpisodeWatch(overrides: Partial<UserEpisodeWatch> = {}): UserEp
     created_at: '2024-06-15T00:00:00Z',
     notes: null,
     watch_number: null,
+    source: 'manual',
     ...overrides,
   };
 }

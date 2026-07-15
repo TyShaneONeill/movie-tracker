@@ -1602,6 +1602,7 @@ export type Database = {
           id: string
           notes: string | null
           season_number: number
+          source: string
           still_path: string | null
           tmdb_show_id: number
           user_id: string
@@ -1617,6 +1618,7 @@ export type Database = {
           id?: string
           notes?: string | null
           season_number: number
+          source?: string
           still_path?: string | null
           tmdb_show_id: number
           user_id: string
@@ -1632,6 +1634,7 @@ export type Database = {
           id?: string
           notes?: string | null
           season_number?: number
+          source?: string
           still_path?: string | null
           tmdb_show_id?: number
           user_id?: string
@@ -1737,6 +1740,7 @@ export type Database = {
           poster_path: string | null
           release_date: string | null
           seat_location: string | null
+          source: string
           status: string
           theater_chain: string | null
           ticket_id: string | null
@@ -1776,6 +1780,7 @@ export type Database = {
           poster_path?: string | null
           release_date?: string | null
           seat_location?: string | null
+          source?: string
           status?: string
           theater_chain?: string | null
           ticket_id?: string | null
@@ -1815,6 +1820,7 @@ export type Database = {
           poster_path?: string | null
           release_date?: string | null
           seat_location?: string | null
+          source?: string
           status?: string
           theater_chain?: string | null
           ticket_id?: string | null

@@ -60,6 +60,7 @@ function makeUserMovie(overrides: Partial<UserMovie> = {}): UserMovie {
     user_id: USER_ID,
     tmdb_id: TMDB_ID,
     title: 'Fight Club',
+    source: 'manual',
     overview: 'A ticking-Loss-of-identity tale.',
     poster_path: '/pB8BM7pdSp6B6Ih7QI4DrWVkJUN.jpg',
     backdrop_path: '/87hTDiay2N2qWyX4Ds7ybXi9h8I.jpg',
