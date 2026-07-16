@@ -376,6 +376,7 @@ export async function markEpisodeWatched(
     created_at: now,
     notes: null,
     watch_number: 1,
+    source: 'manual',
   };
 
   return { watch, flipped };
