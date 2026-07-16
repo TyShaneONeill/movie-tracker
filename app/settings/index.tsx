@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { hapticImpact } from '@/lib/haptics';
@@ -20,6 +20,7 @@ import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
+import { useHasTvTimeImport } from '@/hooks/use-has-tvtime-import';
 import { TicketIcon } from '@/components/tvtime-import/icons';
 import { formatExpiryDate, getDaysLeft } from '@/lib/subscription-format';
 import Constants from 'expo-constants';
@@ -48,6 +49,7 @@ export default function SettingsScreen() {
   const colors = Colors[effectiveTheme];
   const { signOut, user } = useAuth();
   const tvtime = useTvTimeImportGate();
+  const { hasImport: hasTvTimeImport } = useHasTvTimeImport();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
   const { isPremium, tier, subscription, isLoading: isPremiumLoading } = usePremium();
   const [isExporting, setIsExporting] = useState(false);
@@ -194,26 +196,19 @@ export default function SettingsScreen() {
           <Text style={[Typography.display.h4, { color: colors.text }]}>Settings</Text>
         </View>
 
-        {/* TV Time import — pinned "NEW · FOR TV TIME MEMBERS" section while the
-            flag payload says pinned; demotes to a plain integrations row when
-            `pinned=false` (remote-config, no release needed). */}
-        {tvtime.enabled && (
+        {/* TV Time import — pinned "NEW · FOR TV TIME MEMBERS" section shown only
+            to members who HAVEN'T imported yet (and while the flag payload says
+            pinned). Once they've completed an import — or the flag demotes — this
+            disappears and TV Time lives under the "Imports" row below (forever). */}
+        {tvtime.enabled && tvtime.pinned && !hasTvTimeImport && (
           <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionHeader,
-                { color: tvtime.pinned ? colors.tint : colors.textSecondary },
-              ]}
-            >
-              {tvtime.pinned ? 'NEW · FOR TV TIME MEMBERS' : 'INTEGRATIONS'}
-            </Text>
+            <Text style={[styles.sectionHeader, { color: colors.tint }]}>NEW · FOR TV TIME MEMBERS</Text>
             <Pressable
               style={({ pressed }) => [
                 styles.settingsItem,
                 styles.firstItem,
                 styles.lastItem,
-                { backgroundColor: colors.card },
-                tvtime.pinned && { borderWidth: 1, borderColor: colors.tint },
+                { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.tint },
                 pressed && { backgroundColor: colors.backgroundSecondary },
               ]}
               onPress={() => { hapticImpact(); router.push('/settings/tvtime-import?from=settings'); }}
@@ -228,11 +223,9 @@ export default function SettingsScreen() {
                 </View>
               </View>
               <View style={styles.tvtimeTrailing}>
-                {tvtime.pinned && (
-                  <View style={[styles.newChip, { backgroundColor: colors.tint }]}>
-                    <Text style={styles.newChipText}>NEW</Text>
-                  </View>
-                )}
+                <View style={[styles.newChip, { backgroundColor: colors.tint }]}>
+                  <Text style={styles.newChipText}>NEW</Text>
+                </View>
                 <ChevronRightIcon color={colors.textSecondary} />
               </View>
             </Pressable>
@@ -491,6 +484,9 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>INTEGRATIONS</Text>
 
+          {/* Consolidated "Imports" — one row into a screen that lists every
+              import source (Letterboxd + TV Time). TV Time is always reachable
+              here, even after its NEW section demotes. */}
           <Pressable
             style={({ pressed }) => [
               styles.settingsItem,
@@ -498,14 +494,13 @@ export default function SettingsScreen() {
               { backgroundColor: colors.card, borderBottomColor: colors.border },
               pressed && { backgroundColor: colors.backgroundSecondary }
             ]}
-            onPress={() => router.push('/settings/letterboxd-import')}
+            onPress={() => { hapticImpact(); router.push('/settings/imports'); }}
+            accessibilityRole="button"
+            accessibilityLabel="Imports"
           >
             <View style={styles.integrationRow}>
-              <Image
-                source={{ uri: 'https://a.ltrbxd.com/logos/letterboxd-mac-icon.png' }}
-                style={styles.integrationIcon}
-              />
-              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Letterboxd Import</Text>
+              <Ionicons name="download-outline" size={24} color={colors.text} />
+              <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Imports</Text>
             </View>
             <ChevronRightIcon color={colors.textSecondary} />
           </Pressable>

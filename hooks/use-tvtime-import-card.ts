@@ -1,27 +1,37 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { useAuth } from '@/hooks/use-auth';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
-import { isImportCardDismissed, dismissImportCard } from '@/lib/tvtime-import';
+import { useHasTvTimeImport } from '@/hooks/use-has-tvtime-import';
+import {
+  getImportBannerDismissal,
+  recordImportBannerDismissal,
+  isBannerAllowedByDismissal,
+  type ImportBannerDismissal,
+} from '@/lib/tvtime-import';
 
 /**
- * Drives the dismissable "Coming from TV Time?" entry card shown on the home
- * feed and the onboarding completion screen. Visible only while the feature is
- * enabled and the user hasn't dismissed it. Dismissal persists per-user.
+ * Drives the dismissable "Coming from TV Time?" home banner. Visible iff the
+ * flag is on AND the user has no successful import AND the dismissal policy
+ * (bounded count + snooze window, see {@link isBannerAllowedByDismissal})
+ * allows it. Dismissal is applied optimistically and guarded against
+ * double-fire so a fast double-tap can never jump the count.
  */
 export function useTvTimeImportCard(): { visible: boolean; onImport: () => void; onDismiss: () => void } {
   const gate = useTvTimeImportGate();
+  const { hasImport, isLoading: hasImportLoading } = useHasTvTimeImport();
   const { user } = useAuth();
-  const [dismissed, setDismissed] = useState<boolean | null>(null);
+  const [dismissal, setDismissal] = useState<ImportBannerDismissal | null>(null);
+  const dismissingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     if (!user) {
-      setDismissed(false);
+      setDismissal({ count: 0, lastDismissedAt: null });
       return;
     }
-    isImportCardDismissed(user.id).then((d) => {
-      if (!cancelled) setDismissed(d);
+    getImportBannerDismissal(user.id).then((d) => {
+      if (!cancelled) setDismissal(d);
     });
     return () => {
       cancelled = true;
@@ -33,13 +43,22 @@ export function useTvTimeImportCard(): { visible: boolean; onImport: () => void;
   }, []);
 
   const onDismiss = useCallback(() => {
-    setDismissed(true);
-    if (user) void dismissImportCard(user.id);
+    // Guard double-fire: a second tap before the first settles must not bump the
+    // count to 2 / permanent.
+    if (dismissingRef.current) return;
+    dismissingRef.current = true;
+    // Optimistically hide + increment BEFORE the AsyncStorage round-trip so the
+    // banner disappears instantly; persistence catches up in the background.
+    setDismissal((prev) => ({ count: (prev?.count ?? 0) + 1, lastDismissedAt: Date.now() }));
+    if (user) void recordImportBannerDismissal(user.id).then(setDismissal);
   }, [user]);
 
-  return {
-    visible: gate.enabled && !gate.resolving && dismissed === false,
-    onImport,
-    onDismiss,
-  };
+  const visible =
+    gate.enabled &&
+    !gate.resolving &&
+    !hasImportLoading &&
+    !hasImport &&
+    isBannerAllowedByDismissal(dismissal);
+
+  return { visible, onImport, onDismiss };
 }

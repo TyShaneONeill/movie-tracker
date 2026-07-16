@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { enforceRateLimit } from '../_shared/rate-limit.ts';
+import { movieMetadata, showMetadata } from './metadata.ts';
 
 // ============================================================================
 // import-tvtime — bulk-write path for the "Import from TV Time" feature (PR 2).
@@ -56,6 +57,15 @@ interface ImportShow {
   followed: boolean;
   favorited: boolean;
   episodes: ImportEpisode[];
+  // Optional metadata (backward compat) — persisted so imported shows render
+  // posters + feed stats. Absent on older clients; the row simply keeps null.
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  firstAirDate?: string | null;
+  voteAverage?: number | null;
+  numberOfEpisodes?: number | null;
+  numberOfSeasons?: number | null;
 }
 
 interface ImportMovie {
@@ -64,6 +74,12 @@ interface ImportMovie {
   status: 'watched' | 'watchlist';
   watchedAt: string | null;
   rewatchCount: number;
+  // Optional metadata (backward compat) — mirrors what movie-service persists.
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  voteAverage?: number | null;
+  releaseDate?: string | null;
 }
 
 interface ImportPayload {
@@ -124,6 +140,10 @@ function sanitizeTmdbId(value: unknown): number | null {
   return n > 0 ? n : null;
 }
 
+// movieMetadata / showMetadata (the persist whitelist) live in ./metadata.ts so
+// the same builders are unit-tested by Jest — the whitelist is what guarantees
+// the self-heal path can never emit status/watched_at/source.
+
 // ---------------------------------------------------------------------------
 // Shows + episodes
 // ---------------------------------------------------------------------------
@@ -146,22 +166,33 @@ async function importShows(
 
     const { data: existingShow, error: showLookupError } = await admin
       .from('user_tv_shows')
-      .select('id, is_liked')
+      .select('id, is_liked, poster_path')
       .eq('user_id', userId)
       .eq('tmdb_id', tmdbShowId)
       .maybeSingle();
     if (showLookupError) throw showLookupError;
 
+    const meta = showMetadata(show);
+
     let userTvShowId: string;
     if (existingShow) {
       userTvShowId = existingShow.id;
-      // Upgrade is_liked when favorited; never downgrade true->false.
+      // Upgrade is_liked when favorited (never downgrade true->false). This is a
+      // real state change, so a failure propagates.
       if (favorited && existingShow.is_liked !== true) {
         const { error: likeError } = await admin
           .from('user_tv_shows')
           .update({ is_liked: true })
           .eq('id', existingShow.id);
         if (likeError) throw likeError;
+      }
+      // SELF-HEAL — when the existing row has no poster and the payload carries
+      // metadata, backfill it (the founder's re-import repair path). Never
+      // touches status/watched_at. BEST-EFFORT: a transient heal failure must
+      // not abort the chunk (mirrors the movie heal below), so we don't check
+      // the error — the poster just stays blank until the next import.
+      if (existingShow.poster_path === null && Object.keys(meta).length > 0) {
+        await admin.from('user_tv_shows').update(meta).eq('id', existingShow.id);
       }
     } else {
       const name = typeof show?.name === 'string' ? show.name.trim() : '';
@@ -178,6 +209,7 @@ async function importShows(
           name,
           status: 'watching',
           is_liked: favorited,
+          ...meta,
         })
         .select('id')
         .single();
@@ -310,7 +342,7 @@ async function importMovies(
       counts.moviesInvalid += 1;
       continue;
     }
-    await processMovie(admin, userId, tmdbId, title, status, sanitizeDate(movie?.watchedAt), counts, true);
+    await processMovie(admin, userId, tmdbId, title, status, sanitizeDate(movie?.watchedAt), movieMetadata(movie), counts, true);
   }
 }
 
@@ -321,6 +353,7 @@ async function processMovie(
   title: string,
   status: 'watched' | 'watchlist',
   watchedAt: string | null,
+  meta: Record<string, unknown>,
   counts: ImportCounts,
   allowRetry: boolean,
 ): Promise<void> {
@@ -330,7 +363,7 @@ async function processMovie(
   // rows can exist. Order deterministically so the upgrade target is stable.
   const { data: existingRows, error: lookupError } = await admin
     .from('user_movies')
-    .select('id, status, watched_at')
+    .select('id, status, watched_at, poster_path')
     .eq('user_id', userId)
     .eq('tmdb_id', tmdbId)
     .order('watched_at', { ascending: false, nullsFirst: false })
@@ -340,6 +373,19 @@ async function processMovie(
   const hasAnyRow = (existingRows?.length ?? 0) > 0;
   const hasWatchedRow = (existingRows ?? []).some((r) => r.status === 'watched');
 
+  // SELF-HEAL (founder repair path): backfill metadata onto any existing rows
+  // for this movie that have no poster. One UPDATE scoped to poster_path IS
+  // NULL; never touches status/watched_at. Best-effort — a heal failure must
+  // not fail the import.
+  if (hasAnyRow && Object.keys(meta).length > 0 && (existingRows ?? []).some((r) => r.poster_path === null)) {
+    await admin
+      .from('user_movies')
+      .update(meta)
+      .eq('user_id', userId)
+      .eq('tmdb_id', tmdbId)
+      .is('poster_path', null);
+  }
+
   if (!hasAnyRow) {
     const { error: insertError } = await admin.from('user_movies').insert({
       user_id: userId,
@@ -348,6 +394,7 @@ async function processMovie(
       status: wantWatched ? 'watched' : 'watchlist',
       watched_at: wantWatched ? watchedAt : null,
       source: 'tvtime_import',
+      ...meta,
     });
     if (!insertError) {
       counts.moviesInserted += 1;
@@ -356,7 +403,7 @@ async function processMovie(
     // Concurrent import of the same movie won the race (partial unique index
     // on source='tvtime_import', or the journey index). Re-decide once.
     if (insertError.code === PG_UNIQUE_VIOLATION && allowRetry) {
-      await processMovie(admin, userId, tmdbId, title, status, watchedAt, counts, false);
+      await processMovie(admin, userId, tmdbId, title, status, watchedAt, meta, counts, false);
       return;
     }
     if (insertError.code === PG_UNIQUE_VIOLATION) {

@@ -14,22 +14,39 @@ export interface ImportEpisode {
   watchedAt: string | null;
 }
 
-/** A show to import, keyed to TMDB. `followed`/`favorited` are informational. */
+/** A show to import, keyed to TMDB. `followed`/`favorited` are informational.
+ *  Metadata fields are OPTIONAL (backward compat) — when present the edge fn
+ *  persists them so the show renders a poster and feeds stats like an
+ *  organically-tracked one. */
 export interface ImportShow {
   tmdbShowId: number;
   name: string;
   followed: boolean;
   favorited: boolean;
   episodes: ImportEpisode[];
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  firstAirDate?: string | null;
+  voteAverage?: number | null;
+  numberOfEpisodes?: number | null;
+  numberOfSeasons?: number | null;
 }
 
-/** A movie to import, keyed to TMDB. */
+/** A movie to import, keyed to TMDB. Metadata fields OPTIONAL (backward compat)
+ *  — mirror what movie-service persists so imported movies render posters and
+ *  contribute to stats. */
 export interface ImportMovie {
   tmdbId: number;
   title: string;
   status: 'watched' | 'watchlist';
   watchedAt: string | null;
   rewatchCount: number;
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  voteAverage?: number | null;
+  releaseDate?: string | null;
 }
 
 /** One chunk's request body. `importKey` is stable across the whole import so

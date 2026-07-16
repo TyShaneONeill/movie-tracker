@@ -51,10 +51,34 @@ export type TvTimeFileMap = Record<string, string>;
 // Matcher (matcher.ts output)
 // ============================================================================
 
-/** A show successfully mapped to a TMDB tv id. */
+/** Result of resolving a TVDB id to TMDB. `id`/`name` are always present; the
+ *  rest is best-effort metadata (from the extended find-by-external-id fn) used
+ *  to populate the show row so imported shows render posters + contribute to
+ *  stats like organic ones. All optional for backward compat. */
+export interface TmdbShowLookup {
+  id: number;
+  name: string;
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  firstAirDate?: string | null;
+  voteAverage?: number | null;
+}
+
+/** A show successfully mapped to a TMDB tv id, carried with the metadata needed
+ *  to render it (posters, stats) — parity with an organically-tracked show.
+ *  Metadata fields are optional: a lookup that returns only id+name still
+ *  imports (poster just stays null, as before). */
 export interface MatchedShow extends ParsedShow {
   tmdbId: number;
   tmdbName: string;
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  firstAirDate?: string | null;
+  voteAverage?: number | null;
+  numberOfEpisodes?: number | null;
+  numberOfSeasons?: number | null;
 }
 
 /** A movie confidently mapped to a TMDB movie. */
@@ -97,9 +121,18 @@ export interface TmdbGateway {
    * Resolve a TheTVDB series id to a TMDB tv id via TMDB's
    * `/find/{id}?external_source=tvdb_id`. Returns null when TMDB has no mapping.
    */
-  findTvByTvdbId(tvdbId: number): Promise<{ id: number; name: string } | null>;
+  findTvByTvdbId(tvdbId: number): Promise<TmdbShowLookup | null>;
   /** Search TMDB movies by title, optionally biased by release year. */
   searchMovie(title: string, year: number | null): Promise<TMDBMovie[]>;
+  /**
+   * Best-effort episode/season counts for a matched show (TMDB tv-details).
+   * OPTIONAL on the interface so existing test mocks and the pure matcher stay
+   * valid; `/find` doesn't carry these, so they need a details lookup. A null
+   * result (or an absent method) simply leaves the counts null.
+   */
+  getShowEpisodeCounts?(
+    tmdbId: number
+  ): Promise<{ numberOfEpisodes: number | null; numberOfSeasons: number | null } | null>;
 }
 
 export interface MatchOptions {

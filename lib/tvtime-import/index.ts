@@ -33,10 +33,15 @@ export {
   resolveNeedsReviewItem,
   clearNeedsReview,
   reviewItemId,
-  isImportCardDismissed,
-  dismissImportCard,
+  getImportBannerDismissal,
+  recordImportBannerDismissal,
+  isBannerAllowedByDismissal,
+  MAX_BANNER_DISMISSALS,
+  BANNER_SNOOZE_MS,
+  markImportCompleted,
+  hasCompletedImportLocally,
 } from './import-storage';
-export type { PersistedReviewItem } from './import-storage';
+export type { PersistedReviewItem, ImportBannerDismissal } from './import-storage';
 export { buildImportPreview, buildReviewItems } from './preview';
 export type { ImportPreview } from './preview';
 export type {

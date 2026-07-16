@@ -1,6 +1,7 @@
 import type { TMDBMovie } from '@/lib/tmdb.types';
 import type {
   MatchOptions,
+  MatchedShow,
   MovieMatchResult,
   ParsedMovie,
   ParsedShow,
@@ -74,18 +75,43 @@ export async function matchShows(
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   const result: ShowMatchResult = { matched: [], unmatched: [] };
 
-  const resolved = await mapPool(shows, concurrency, async (show) => {
+  const resolved = await mapPool(shows, concurrency, async (show): Promise<MatchedShow | null> => {
+    let hit;
     try {
-      return await withRetry(() => gateway.findTvByTvdbId(show.tvdbId));
+      hit = await withRetry(() => gateway.findTvByTvdbId(show.tvdbId));
     } catch {
       return null;
     }
+    if (!hit) return null;
+
+    // Episode/season counts aren't in TMDB `/find`; fetch best-effort so the
+    // show row matches an organically-tracked one. Never fails the match.
+    let counts: { numberOfEpisodes: number | null; numberOfSeasons: number | null } | null = null;
+    if (gateway.getShowEpisodeCounts) {
+      try {
+        counts = await gateway.getShowEpisodeCounts(hit.id);
+      } catch {
+        counts = null;
+      }
+    }
+
+    return {
+      ...show,
+      tmdbId: hit.id,
+      tmdbName: hit.name,
+      posterPath: hit.posterPath ?? null,
+      backdropPath: hit.backdropPath ?? null,
+      genreIds: hit.genreIds ?? [],
+      firstAirDate: hit.firstAirDate ?? null,
+      voteAverage: hit.voteAverage ?? null,
+      numberOfEpisodes: counts?.numberOfEpisodes ?? null,
+      numberOfSeasons: counts?.numberOfSeasons ?? null,
+    };
   });
 
-  resolved.forEach((hit, i) => {
-    const show = shows[i];
-    if (hit) result.matched.push({ ...show, tmdbId: hit.id, tmdbName: hit.name });
-    else result.unmatched.push(show);
+  resolved.forEach((matched, i) => {
+    if (matched) result.matched.push(matched);
+    else result.unmatched.push(shows[i]);
   });
 
   return result;

@@ -76,8 +76,23 @@ Deno.serve(async (req)=>{
     }
     const tmdbData = await tmdbResponse.json();
     const match = Array.isArray(tmdbData.tv_results) ? tmdbData.tv_results[0] : undefined;
+    // Return poster/genre metadata alongside id+name so the TV Time import can
+    // populate the show row (poster + stats) without a second details call.
+    // These all live on the /find tv_results entry; episode/season counts do
+    // NOT (details-only) and are fetched client-side via get-tv-show-details.
     const response = {
-      tv: match ? { id: match.id, name: match.name } : null
+      tv: match
+        ? {
+            id: match.id,
+            name: match.name,
+            poster_path: match.poster_path ?? null,
+            backdrop_path: match.backdrop_path ?? null,
+            genre_ids: Array.isArray(match.genre_ids) ? match.genre_ids : [],
+            first_air_date: match.first_air_date ?? null,
+            vote_average: typeof match.vote_average === 'number' ? match.vote_average : null,
+            overview: match.overview ?? null
+          }
+        : null
     };
     return new Response(JSON.stringify(response), {
       headers: {
