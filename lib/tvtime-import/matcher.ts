@@ -104,7 +104,6 @@ export async function matchShows(
       genreIds: hit.genreIds ?? [],
       firstAirDate: hit.firstAirDate ?? null,
       voteAverage: hit.voteAverage ?? null,
-      overview: hit.overview ?? null,
       numberOfEpisodes: counts?.numberOfEpisodes ?? null,
       numberOfSeasons: counts?.numberOfSeasons ?? null,
     };

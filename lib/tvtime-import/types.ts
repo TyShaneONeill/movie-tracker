@@ -63,7 +63,6 @@ export interface TmdbShowLookup {
   genreIds?: number[];
   firstAirDate?: string | null;
   voteAverage?: number | null;
-  overview?: string | null;
 }
 
 /** A show successfully mapped to a TMDB tv id, carried with the metadata needed
@@ -78,7 +77,6 @@ export interface MatchedShow extends ParsedShow {
   genreIds?: number[];
   firstAirDate?: string | null;
   voteAverage?: number | null;
-  overview?: string | null;
   numberOfEpisodes?: number | null;
   numberOfSeasons?: number | null;
 }

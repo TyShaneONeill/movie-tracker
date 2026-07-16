@@ -58,7 +58,9 @@ export default function ImportsScreen() {
               style={({ pressed }) => [
                 styles.row,
                 styles.firstRow,
-                tvtime.enabled && styles.rowDivider,
+                // When TV Time is flag-off, Letterboxd is the ONLY row — give it
+                // the bottom radius + drop the divider so it reads as a full card.
+                tvtime.enabled ? styles.rowDivider : styles.lastRow,
                 { backgroundColor: colors.card, borderBottomColor: colors.border },
                 pressed && { backgroundColor: colors.backgroundSecondary },
               ]}

@@ -40,7 +40,6 @@ export function mapMatchToImportItems(match: TvTimeMatchResult): {
     genreIds: s.genreIds ?? [],
     firstAirDate: s.firstAirDate ?? null,
     voteAverage: s.voteAverage ?? null,
-    overview: s.overview ?? null,
     numberOfEpisodes: s.numberOfEpisodes ?? null,
     numberOfSeasons: s.numberOfSeasons ?? null,
   }));
@@ -55,7 +54,6 @@ export function mapMatchToImportItems(match: TvTimeMatchResult): {
     posterPath: m.tmdbMovie?.poster_path ?? null,
     backdropPath: m.tmdbMovie?.backdrop_path ?? null,
     genreIds: m.tmdbMovie?.genre_ids ?? [],
-    overview: m.tmdbMovie?.overview ?? null,
     voteAverage: m.tmdbMovie?.vote_average ?? null,
     releaseDate: m.tmdbMovie?.release_date ?? m.releaseDate ?? null,
   }));

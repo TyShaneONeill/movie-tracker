@@ -35,6 +35,11 @@ export {
   reviewItemId,
   getImportBannerDismissal,
   recordImportBannerDismissal,
+  isBannerAllowedByDismissal,
+  MAX_BANNER_DISMISSALS,
+  BANNER_SNOOZE_MS,
+  markImportCompleted,
+  hasCompletedImportLocally,
 } from './import-storage';
 export type { PersistedReviewItem, ImportBannerDismissal } from './import-storage';
 export { buildImportPreview, buildReviewItems } from './preview';

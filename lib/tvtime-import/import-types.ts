@@ -29,7 +29,6 @@ export interface ImportShow {
   genreIds?: number[];
   firstAirDate?: string | null;
   voteAverage?: number | null;
-  overview?: string | null;
   numberOfEpisodes?: number | null;
   numberOfSeasons?: number | null;
 }
@@ -46,7 +45,6 @@ export interface ImportMovie {
   posterPath?: string | null;
   backdropPath?: string | null;
   genreIds?: number[];
-  overview?: string | null;
   voteAverage?: number | null;
   releaseDate?: string | null;
 }

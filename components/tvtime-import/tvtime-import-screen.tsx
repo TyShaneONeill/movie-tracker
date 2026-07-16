@@ -31,6 +31,7 @@ import {
   saveNeedsReview,
   resolveNeedsReviewItem,
   reviewItemId,
+  markImportCompleted,
   emptyImportCounts,
   type ImportPreview,
   type ImportCounts,
@@ -183,6 +184,9 @@ export function TvTimeImportScreen() {
 
       // Persist unresolved "Needs a look" items so they're resumable.
       await saveNeedsReview(user.id, reviewItems);
+      // Local completed-import marker — covers a follows-only import the DB
+      // source-check can't see; OR'd into useHasTvTimeImport.
+      await markImportCompleted(user.id);
       // Refresh every surface the import touched (Continue Watching, Watching
       // card, watched grid, stats) + the derived "has imported" check that
       // gates the Settings section and home banner — no restart needed.
@@ -244,7 +248,6 @@ export function TvTimeImportScreen() {
                 posterPath: movie.poster_path ?? null,
                 backdropPath: movie.backdrop_path ?? null,
                 genreIds: movie.genre_ids ?? [],
-                overview: movie.overview ?? null,
                 voteAverage: movie.vote_average ?? null,
                 releaseDate: movie.release_date ?? item.releaseDate ?? null,
               },

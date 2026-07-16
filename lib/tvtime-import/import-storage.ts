@@ -97,6 +97,26 @@ export interface ImportBannerDismissal {
 
 const NO_DISMISSAL: ImportBannerDismissal = { count: 0, lastDismissedAt: null };
 
+/** Banner return-policy tuning. Exported so the hook + tests share one source. */
+export const MAX_BANNER_DISMISSALS = 2;
+export const BANNER_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+/**
+ * Pure policy: may the banner show given its dismissal state? (The flag +
+ * has-import gates are applied separately by the hook.) Snoozed for
+ * {@link BANNER_SNOOZE_MS} after each dismissal; gone for good once dismissed
+ * {@link MAX_BANNER_DISMISSALS} times. `null` (still loading) fails closed.
+ */
+export function isBannerAllowedByDismissal(
+  dismissal: ImportBannerDismissal | null,
+  nowMs: number = Date.now()
+): boolean {
+  if (dismissal === null) return false;
+  if (dismissal.count >= MAX_BANNER_DISMISSALS) return false;
+  if (dismissal.lastDismissedAt === null) return true;
+  return nowMs - dismissal.lastDismissedAt > BANNER_SNOOZE_MS;
+}
+
 export async function getImportBannerDismissal(userId: string): Promise<ImportBannerDismissal> {
   try {
     const raw = await AsyncStorage.getItem(`${CARD_DISMISS_PREFIX}${userId}`);
@@ -107,9 +127,23 @@ export async function getImportBannerDismissal(userId: string): Promise<ImportBa
         lastDismissedAt: typeof parsed.lastDismissedAt === 'number' ? parsed.lastDismissedAt : null,
       };
     }
-    // Migrate the legacy binary flag: a prior dismissal counts as one.
+    // Migrate the legacy binary flag: honor the prior dismissal as count=1 with
+    // a real timestamp of NOW, so the user gets the normal 14-day snooze → one
+    // resurface → permanent — NOT an instant resurrect for everyone who'd
+    // already dismissed it. Persist the migration so the timestamp is stable
+    // across reads (a fresh Date.now() each read would never let the snooze
+    // expire).
     const legacy = await AsyncStorage.getItem(`${LEGACY_DISMISS_PREFIX}${userId}`);
-    if (legacy === '1') return { count: 1, lastDismissedAt: null };
+    if (legacy === '1') {
+      const migrated: ImportBannerDismissal = { count: 1, lastDismissedAt: Date.now() };
+      try {
+        await AsyncStorage.setItem(`${CARD_DISMISS_PREFIX}${userId}`, JSON.stringify(migrated));
+        await AsyncStorage.removeItem(`${LEGACY_DISMISS_PREFIX}${userId}`);
+      } catch {
+        // non-fatal; re-migrates next read
+      }
+      return migrated;
+    }
     return NO_DISMISSAL;
   } catch {
     return NO_DISMISSAL;
@@ -128,4 +162,27 @@ export async function recordImportBannerDismissal(userId: string): Promise<Impor
     // non-fatal; the banner simply reappears next launch
   }
   return next;
+}
+
+// --- Local "completed an import" marker ------------------------------------
+// The DB EXISTS-on-source check is the primary (cross-device) signal, but a
+// follows-only import (movies=0, episodes=0, only user_tv_shows rows which
+// carry no `source` column) leaves nothing for it to find. This per-user local
+// marker, set on the done screen, is OR'd with the DB check to cover that edge.
+const IMPORT_COMPLETED_PREFIX = '@cinetrak/tvtime_import_completed:';
+
+export async function markImportCompleted(userId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(`${IMPORT_COMPLETED_PREFIX}${userId}`, '1');
+  } catch {
+    // non-fatal; the DB check remains the primary signal
+  }
+}
+
+export async function hasCompletedImportLocally(userId: string): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(`${IMPORT_COMPLETED_PREFIX}${userId}`)) === '1';
+  } catch {
+    return false;
+  }
 }

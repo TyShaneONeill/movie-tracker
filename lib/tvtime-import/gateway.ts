@@ -16,7 +16,6 @@ interface FindByExternalIdResponse {
         genre_ids?: number[] | null;
         first_air_date?: string | null;
         vote_average?: number | null;
-        overview?: string | null;
       }
     | null;
 }
@@ -51,7 +50,6 @@ export function createDefaultTmdbGateway(): TmdbGateway {
         genreIds: tv.genre_ids ?? [],
         firstAirDate: tv.first_air_date ?? null,
         voteAverage: tv.vote_average ?? null,
-        overview: tv.overview ?? null,
       };
       return lookup;
     },

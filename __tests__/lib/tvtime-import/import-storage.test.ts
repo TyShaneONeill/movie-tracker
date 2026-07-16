@@ -7,6 +7,11 @@ import {
   reviewItemId,
   getImportBannerDismissal,
   recordImportBannerDismissal,
+  isBannerAllowedByDismissal,
+  MAX_BANNER_DISMISSALS,
+  BANNER_SNOOZE_MS,
+  markImportCompleted,
+  hasCompletedImportLocally,
   type PersistedReviewItem,
 } from '@/lib/tvtime-import/import-storage';
 
@@ -117,9 +122,45 @@ describe('home banner dismissal (return policy)', () => {
     expect(second.count).toBe(2);
   });
 
-  it('migrates the legacy binary dismissal flag to count=1', async () => {
+  it('migrates the legacy binary flag to count=1 with a real timestamp (14d snooze, not instant resurrect)', async () => {
+    const before = Date.now();
     store.set('@cinetrak/tvtime_import_card_dismissed:' + USER, '1');
     const d = await getImportBannerDismissal(USER);
     expect(d.count).toBe(1);
+    expect(d.lastDismissedAt).toBeGreaterThanOrEqual(before); // NOW, not null
+    // Persisted + legacy key cleared, so the timestamp is stable across reads.
+    expect(store.get('@cinetrak/tvtime_import_card_dismissed:' + USER)).toBeUndefined();
+    const again = await getImportBannerDismissal(USER);
+    expect(again.lastDismissedAt).toBe(d.lastDismissedAt);
+    // A just-migrated legacy dismissal is snoozed (not immediately shown).
+    expect(isBannerAllowedByDismissal(d)).toBe(false);
+  });
+});
+
+describe('isBannerAllowedByDismissal (state machine)', () => {
+  const now = 1_000_000_000_000;
+  it('shows when never dismissed', () => {
+    expect(isBannerAllowedByDismissal({ count: 0, lastDismissedAt: null }, now)).toBe(true);
+  });
+  it('hides during the snooze window, returns after it expires', () => {
+    const justDismissed = { count: 1, lastDismissedAt: now };
+    expect(isBannerAllowedByDismissal(justDismissed, now + BANNER_SNOOZE_MS - 1)).toBe(false);
+    expect(isBannerAllowedByDismissal(justDismissed, now + BANNER_SNOOZE_MS + 1)).toBe(true);
+  });
+  it('is permanent once dismissed MAX times, even after the snooze', () => {
+    const maxed = { count: MAX_BANNER_DISMISSALS, lastDismissedAt: now };
+    expect(isBannerAllowedByDismissal(maxed, now + BANNER_SNOOZE_MS * 10)).toBe(false);
+  });
+  it('fails closed while loading (null)', () => {
+    expect(isBannerAllowedByDismissal(null, now)).toBe(false);
+  });
+});
+
+describe('local completed-import marker', () => {
+  it('defaults false, then persists true per user', async () => {
+    expect(await hasCompletedImportLocally(USER)).toBe(false);
+    await markImportCompleted(USER);
+    expect(await hasCompletedImportLocally(USER)).toBe(true);
+    expect(await hasCompletedImportLocally('other')).toBe(false);
   });
 });
