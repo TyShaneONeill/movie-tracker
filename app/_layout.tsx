@@ -45,6 +45,8 @@ import { supabase } from '@/lib/supabase';
 import { preloadGenres } from '@/lib/genre-service';
 import { NetworkProvider } from '@/lib/network-context';
 import { OfflineBanner } from '@/components/offline-banner';
+import { ImportRunProvider } from '@/lib/tvtime-import/import-run-context';
+import { ImportProgressPill } from '@/components/tvtime-import/import-progress-pill';
 import { AdsProvider } from '@/lib/ads-context';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { BugReportRoot } from '@/components/BugReportRoot';
@@ -365,6 +367,7 @@ function RootLayoutNav() {
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
       <Toast config={toastConfig} />
       <OfflineBanner />
+      <ImportProgressPill />
       <TourOverlay />
     </NavigationThemeProvider>
   );
@@ -451,7 +454,9 @@ export default function RootLayout() {
                               <TourProvider>
                                 <ErrorBoundary>
                                   <BugReportRoot>
-                                    <RootLayoutNav />
+                                    <ImportRunProvider>
+                                      <RootLayoutNav />
+                                    </ImportRunProvider>
                                   </BugReportRoot>
                                 </ErrorBoundary>
                               </TourProvider>
