@@ -44,6 +44,10 @@ const AMBER = '#f59e0b';
 
 type Phase = 'pick' | 'reading' | 'preview' | 'importing' | 'done';
 
+// Entry surfaces we measure conversion from. `?from=` values outside this set
+// (or a raw deep link with no param) fall back to 'deeplink'.
+const ENTRY_POINTS = new Set(['onboarding_completion', 'home_card', 'settings', 'deeplink']);
+
 function newImportKey(): string {
   return `tvtime-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -54,7 +58,10 @@ export function TvTimeImportScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ resume?: string }>();
+  const params = useLocalSearchParams<{ resume?: string; from?: string }>();
+  // Which surface opened the import, for conversion analytics. Unknown/absent
+  // (e.g. a raw deep link) is bucketed as 'deeplink'. Counts-only, no PII.
+  const entryPoint = ENTRY_POINTS.has(params.from ?? '') ? (params.from as string) : 'deeplink';
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +166,7 @@ export function TvTimeImportScreen() {
 
       const items = mapMatchToImportItems(match);
       analytics.track('import_started', {
+        entry_point: entryPoint,
         shows: items.shows.length,
         episodes: items.shows.reduce((s, sh) => s + sh.episodes.length, 0),
         movies: items.movies.length,
@@ -177,6 +185,7 @@ export function TvTimeImportScreen() {
       invalidateUserMovieQueries(queryClient);
 
       analytics.track('import_completed', {
+        entry_point: entryPoint,
         shows_upserted: result.showsUpserted,
         episodes_inserted: result.episodesInserted,
         episodes_skipped: result.episodesSkipped,
@@ -203,7 +212,7 @@ export function TvTimeImportScreen() {
       setError('Something interrupted the import. Nothing was duplicated — you can try again.');
       setPhase('preview');
     }
-  }, [user, match, reviewItems, queryClient]);
+  }, [user, match, reviewItems, queryClient, entryPoint]);
 
   // -------------------------------------------------------------------------
   // Fix-a-match resolution

@@ -29,7 +29,7 @@ export function useTvTimeImportCard(): { visible: boolean; onImport: () => void;
   }, [user]);
 
   const onImport = useCallback(() => {
-    router.push('/settings/tvtime-import');
+    router.push('/settings/tvtime-import?from=home_card');
   }, []);
 
   const onDismiss = useCallback(() => {

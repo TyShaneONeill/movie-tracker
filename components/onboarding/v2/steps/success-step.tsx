@@ -73,7 +73,7 @@ export function SuccessStep(_props: StepProps) {
     router.replace('/(tabs)');
     InteractionManager.runAfterInteractions(() => {
       startTourIfNotCompleted();
-      router.push('/settings/tvtime-import');
+      router.push('/settings/tvtime-import?from=onboarding_completion');
     });
   };
 

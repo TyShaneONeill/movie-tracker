@@ -216,7 +216,7 @@ export default function SettingsScreen() {
                 tvtime.pinned && { borderWidth: 1, borderColor: colors.tint },
                 pressed && { backgroundColor: colors.backgroundSecondary },
               ]}
-              onPress={() => { hapticImpact(); router.push('/settings/tvtime-import'); }}
+              onPress={() => { hapticImpact(); router.push('/settings/tvtime-import?from=settings'); }}
               accessibilityRole="button"
               accessibilityLabel="Import from TV Time"
             >
