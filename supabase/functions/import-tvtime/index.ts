@@ -218,8 +218,41 @@ async function importShows(
       counts.showsUpserted += 1;
     }
 
-    if (episodes.length === 0) continue;
-    await importEpisodesForShow(admin, userId, tmdbShowId, userTvShowId, episodes, counts);
+    if (episodes.length > 0) {
+      await importEpisodesForShow(admin, userId, tmdbShowId, userTvShowId, episodes, counts);
+    }
+
+    // Recompute user_tv_shows.episodes_watched from the actual watch rows — the
+    // same count the organic writer (sync_tv_show_progress RPC) uses:
+    // watch_number=1 rows for this user_tv_show. Run it UNCONDITIONALLY per show
+    // (including re-imports where every episode skipped as a duplicate) so a
+    // re-import self-heals stale "0/N" counters exactly like the poster heal.
+    // Never touches status.
+    //
+    // NOTE — current_season/current_episode are DELIBERATELY not set here (the
+    // organic RPC also sets them to the latest watched S/E). Two reasons: (1) it
+    // keeps the Continue Watching card showing the "N/total episodes" COUNT the
+    // founder expects — setting current_* flips that label to "S# E#"; (2) a
+    // "current" episode is ambiguous for a bulk import of scattered episodes.
+    // Deferred; the episodes_watched counter is what drives the progress bar.
+    // Best-effort: a counter-sync failure must not strand the import.
+    const { count: watchedCount, error: countError } = await admin
+      .from('user_episode_watches')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('user_tv_show_id', userTvShowId)
+      .eq('watch_number', 1);
+    if (countError) {
+      console.error(`[import-tvtime] episodes_watched count failed code=${countError.code ?? 'unknown'}`);
+    } else {
+      const { error: updateError } = await admin
+        .from('user_tv_shows')
+        .update({ episodes_watched: watchedCount ?? 0 })
+        .eq('id', userTvShowId);
+      if (updateError) {
+        console.error(`[import-tvtime] episodes_watched update failed code=${updateError.code ?? 'unknown'}`);
+      }
+    }
   }
 }
 
