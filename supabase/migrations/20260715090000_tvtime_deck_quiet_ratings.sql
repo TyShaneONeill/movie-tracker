@@ -12,9 +12,12 @@
 -- user_episode_watches: tag deck-written ratings with reviews.source =
 -- 'tvtime_import' and teach the notification trigger to skip them. The feed
 -- (lib/feed-service.ts), the profile Reviews tab + count, and the import are
--- filtered on the client for the same provenance value; the row still counts
--- toward the OWNER's own rating stats (get_rating_personality reads their own
--- reviews) and stays private to the community.
+-- filtered on the client for the same provenance value; the row stays private
+-- to the community. (Stats note: rating personality reads first_takes, NOT
+-- reviews, so quiet ratings have exact PARITY with organic review-ratings —
+-- neither feeds personality; the per-title value is "your rating" on the
+-- title detail. The weekly-recap reviews_count + Critic count also exclude
+-- source='tvtime_import' — see 20260716100000 + the check-achievements fn.)
 
 -- 1) Provenance column. NOT NULL DEFAULT 'manual' backfills every existing row
 --    as organically authored; only the deck write-path sets 'tvtime_import'.
@@ -37,7 +40,8 @@ COMMENT ON COLUMN "public"."reviews"."source" IS
   '(fans out follower notifications + shows in the feed). ''tvtime_import'' = '
   'a quiet rating inked from the TV Time import deck: excluded from the '
   'notify_followers_on_full_review fan-out and from the activity feed / '
-  'profile Reviews tab, but still counts toward the owner''s own rating stats.';
+  'profile Reviews tab. Rating personality reads first_takes (not reviews), so '
+  'quiet ratings have stats parity with organic review-ratings.';
 
 -- 2) Teach the follower-notification trigger to skip quiet (imported) ratings.
 --    Body is preserved verbatim from 20260525063629_remote_schema.sql; only the

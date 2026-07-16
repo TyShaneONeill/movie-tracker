@@ -94,10 +94,12 @@ export async function fetchDeckData(userId: string): Promise<DeckData> {
 /**
  * Ink one blank stub: write the rating as a QUIET review (source =
  * 'tvtime_import', private, no words). Stored identically to a slider review of
- * the same value (stars*2 on the 1–10 scale) so it counts in the owner's rating
- * stats, but the DB trigger skips follower notifications and the feed / Reviews
- * tab exclude it. A pre-existing review (already inked, or rated organically)
- * is treated as success — the deck simply advances.
+ * the same value (stars*2 on the 1–10 scale) — so it has exact PARITY with an
+ * organic review-rating (both show as "your rating" on the title detail;
+ * neither feeds rating personality, which reads first_takes). The DB trigger
+ * skips follower notifications and the feed / Reviews tab / weekly-recap /
+ * Critic count exclude it. A pre-existing review (already inked, or rated
+ * organically) is treated as success — the deck simply advances.
  */
 export async function inkStubRating(
   userId: string,

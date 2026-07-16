@@ -147,7 +147,11 @@ Deno.serve(async (req: Request) => {
       supabaseAdmin
         .from('reviews')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId),
+        .eq('user_id', userId)
+        // Quiet TV Time import-deck ratings (source='tvtime_import') are wordless
+        // backfilled ratings — they must not unlock the Critic achievement. Count
+        // only organically authored reviews. See 20260715090000_tvtime_deck_quiet_ratings.
+        .eq('source', 'manual'),
     ]);
 
     const watchedCount = watchedResult.count ?? 0;

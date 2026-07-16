@@ -3,11 +3,18 @@
  * imported items, presents them as a swipeable card stack in sessions of ~10,
  * and inks each rating as a QUIET review. Resumes exactly on reopen: rated items
  * drop out of the server read, skipped items persist client-side.
+ *
+ * Writes are OPTIMISTIC and non-blocking: a decision advances the card
+ * immediately and the network write runs in the background, tracked in a bounded
+ * in-flight set (keyed per item, so a card can't double-submit). A FAILED write
+ * is not re-queued in place — the item simply stays unrated/unskipped
+ * server-side, so it returns naturally in the next session's eligibility load.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
@@ -19,7 +26,7 @@ import { analytics } from '@/lib/analytics';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import { useTvTimeDeck } from '@/hooks/use-tvtime-deck';
 import { inkStubRating } from '@/lib/tvtime-deck/deck-service';
-import { addSkipped } from '@/lib/tvtime-deck/skip-store';
+import { addSkipped, clearSkipped } from '@/lib/tvtime-deck/skip-store';
 import {
   buildDeckQueue,
   sessionSlot,
@@ -40,17 +47,23 @@ export function TvTimeDeckScreen() {
   // Live queue + session state. Seeded once from the loaded data; thereafter the
   // component owns it so decisions advance instantly (writes happen in the bg).
   const [queue, setQueue] = useState<DeckItem[]>([]);
+  const [deckSize, setDeckSize] = useState(0); // items in the current deck pass (for "N OF M")
   const [ratedThisSession, setRatedThisSession] = useState(0);
-  const [decidedThisSession, setDecidedThisSession] = useState(0);
+  const [skippedKeys, setSkippedKeys] = useState<Set<string>>(new Set());
   const [checkpoint, setCheckpoint] = useState(false);
-  const [busy, setBusy] = useState(false);
   const seededRef = useRef(false);
+  // Bounded in-flight write set, keyed per item — a card can't double-submit and
+  // decisions never serialize behind one another (no single busy lock).
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const decidedRef = useRef(0);
 
   useEffect(() => {
     if (data && !seededRef.current) {
       seededRef.current = true;
       const initial = buildDeckQueue(data.eligible, data.skippedKeys);
       setQueue(initial);
+      setDeckSize(initial.length);
+      setSkippedKeys(new Set(data.skippedKeys));
       analytics.track('deck_opened', {
         eligible_count: initial.length,
         inked: data.progress.inked,
@@ -62,57 +75,56 @@ export function TvTimeDeckScreen() {
   const baseInked = data?.progress.inked ?? 0;
   const total = data?.progress.totalEligible ?? 0;
   const inkedNow = baseInked + ratedThisSession;
-  const slot = sessionSlot(decidedThisSession);
   const progressPct = total > 0 ? Math.min(100, Math.round((inkedNow / total) * 100)) : 0;
+  // 1-based position of the current card within this deck pass.
+  const position = deckSize > 0 ? deckSize - queue.length + 1 : 0;
 
-  const advance = (decided: number) => {
-    const nextDecided = decided + 1;
-    setDecidedThisSession(nextDecided);
-    if (isSessionCheckpoint(nextDecided)) {
-      // Milestone thud at each 10-item checkpoint (firmer than the per-rate tick).
-      hapticImpact(ImpactFeedbackStyle.Medium);
+  // Advance the session counter (drives the 10-item checkpoint). decidedRef keeps
+  // an accurate count under rapid optimistic taps (state closures can be stale).
+  const advance = () => {
+    decidedRef.current += 1;
+    const next = decidedRef.current;
+    if (isSessionCheckpoint(next)) {
+      hapticImpact(ImpactFeedbackStyle.Medium); // milestone thud, firmer than the per-rate tick
       analytics.track('deck_session_completed', {
-        session_number: Math.floor(nextDecided / slot.size),
-        decided_total: nextDecided,
+        session_number: Math.floor(next / sessionSlot(next).size),
+        decided_total: next,
       });
       setCheckpoint(true);
     }
   };
 
-  const handleRate = async (item: DeckItem, stars: number) => {
-    if (!user?.id || busy) return;
-    setBusy(true);
-    // Optimistic advance — the card already flew off. Success tick confirms the
-    // rating committed (matches the import screen's save haptic).
-    hapticNotification(NotificationFeedbackType.Success);
+  const handleRate = (item: DeckItem, stars: number) => {
+    if (!user?.id || checkpoint) return;
+    if (inFlightRef.current.has(item.key)) return;
+    hapticNotification(NotificationFeedbackType.Success); // confirms the rating committed
     setQueue((q) => q.filter((it) => it.key !== item.key));
     setRatedThisSession((n) => n + 1);
     analytics.track('deck_rating_submitted', {
       stars,
-      session_index: slot.index,
-      decided_total: decidedThisSession + 1,
+      session_index: sessionSlot(decidedRef.current).index,
+      decided_total: decidedRef.current + 1,
     });
-    advance(decidedThisSession);
-    try {
-      await inkStubRating(user.id, item, stars);
-    } catch {
-      Toast.show({ type: 'error', text1: "Couldn't save that rating", visibilityTime: 2500 });
-      refetch();
-    } finally {
-      setBusy(false);
-    }
+    advance();
+    inFlightRef.current.add(item.key);
+    inkStubRating(user.id, item, stars)
+      .catch(() => {
+        // Failed write: the item stays unrated server-side and returns next
+        // session — no in-place re-queue. Just tell the user it didn't stick.
+        Toast.show({ type: 'error', text1: "Couldn't save that rating", visibilityTime: 2500 });
+      })
+      .finally(() => inFlightRef.current.delete(item.key));
   };
 
-  const handleSkip = async (item: DeckItem) => {
-    if (!user?.id || busy) return;
-    setBusy(true);
+  const handleSkip = (item: DeckItem) => {
+    if (!user?.id || checkpoint) return;
+    if (inFlightRef.current.has(item.key)) return;
     setQueue((q) => q.filter((it) => it.key !== item.key));
-    advance(decidedThisSession);
-    try {
-      await addSkipped(user.id, item.key);
-    } finally {
-      setBusy(false);
-    }
+    setSkippedKeys((s) => new Set(s).add(item.key));
+    advance();
+    inFlightRef.current.add(item.key);
+    addSkipped(user.id, item.key)
+      .finally(() => inFlightRef.current.delete(item.key));
   };
 
   const keepGoing = () => {
@@ -124,16 +136,30 @@ export function TvTimeDeckScreen() {
     router.back();
   };
 
+  // Founder spec: skipped items are re-surfaceable. Rebuild the deck from the
+  // still-eligible skipped items (they were never rated, so they're still in
+  // data.eligible) and clear the persisted skip set.
+  const revisitSkipped = () => {
+    if (!user?.id || !data) return;
+    hapticImpact();
+    const revisit = data.eligible.filter((it) => skippedKeys.has(it.key));
+    setQueue(revisit);
+    setDeckSize(revisit.length);
+    setSkippedKeys(new Set());
+    clearSkipped(user.id);
+  };
+
   const top = queue[0];
   const done = !isLoading && !isError && queue.length === 0;
+  const skippedCount = skippedKeys.size;
 
   const header = (
     <View style={styles.header}>
       <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-        <Text style={styles.close}>✕</Text>
+        <Ionicons name="close" size={26} color={colors.textSecondary} />
       </Pressable>
       <Text style={styles.headerTitle}>Ink your stubs</Text>
-      <View style={{ width: 20 }} />
+      <View style={{ width: 26 }} />
     </View>
   );
 
@@ -170,11 +196,23 @@ export function TvTimeDeckScreen() {
             </Text>
             <Text style={styles.msgSub}>
               {total > 0
-                ? "You've rated your imported library. Skipped any? They'll wait for you here."
+                ? skippedCount > 0
+                  ? `You've rated the rest of your imported library. ${skippedCount} skipped ${skippedCount === 1 ? 'stub is' : 'stubs are'} still waiting whenever you want them.`
+                  : "You've rated your imported library."
                 : 'Import from TV Time first, then come back to rate what you brought over.'}
             </Text>
-            <Pressable style={styles.primaryBtn} onPress={() => router.back()}>
-              <Text style={styles.primaryBtnText}>Done</Text>
+            {total > 0 && skippedCount > 0 && (
+              <Pressable style={styles.primaryBtn} onPress={revisitSkipped}>
+                <Text style={styles.primaryBtnText}>Revisit skipped ({skippedCount})</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={total > 0 && skippedCount > 0 ? styles.secondaryBtn : styles.primaryBtn}
+              onPress={() => router.back()}
+            >
+              <Text style={total > 0 && skippedCount > 0 ? styles.secondaryBtnText : styles.primaryBtnText}>
+                Done
+              </Text>
             </Pressable>
           </View>
         )}
@@ -187,7 +225,7 @@ export function TvTimeDeckScreen() {
               key={top.key}
               item={top}
               reduced={reduced}
-              disabled={busy || checkpoint}
+              disabled={checkpoint}
               onRate={handleRate}
               onSkip={handleSkip}
             />
@@ -195,9 +233,9 @@ export function TvTimeDeckScreen() {
         )}
       </View>
 
-      {!done && !isLoading && (
+      {!done && !isLoading && !isError && deckSize > 0 && (
         <Text style={styles.counter}>
-          SAME RATING INPUT AS A REVIEW · SESSION {slot.index} OF {slot.size}
+          {position} OF {deckSize}
         </Text>
       )}
 
@@ -232,7 +270,6 @@ const createStyles = (colors: typeof Colors.dark) =>
       paddingHorizontal: Spacing.lg,
       paddingVertical: Spacing.md,
     },
-    close: { ...Typography.body.lg, color: colors.textSecondary },
     headerTitle: { ...Typography.body.lg, color: colors.text, fontFamily: Fonts.inter.semibold },
     progressWrap: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
     progressText: { ...Typography.body.sm, color: colors.textSecondary, marginBottom: 6 },
@@ -260,7 +297,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       ...Typography.body.xs,
       textAlign: 'center',
       color: colors.textTertiary,
-      letterSpacing: 1,
+      letterSpacing: 1.5,
       paddingBottom: Spacing.md,
     },
     centerMsg: { alignItems: 'center', paddingHorizontal: Spacing.lg, gap: Spacing.md },
@@ -275,7 +312,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       marginTop: Spacing.sm,
     },
     primaryBtnText: { ...Typography.button.primary, color: '#fff' },
-    secondaryBtn: { paddingVertical: Spacing.sm, alignItems: 'center' },
+    secondaryBtn: { paddingVertical: Spacing.sm, alignItems: 'center', marginTop: Spacing.xs },
     secondaryBtnText: { ...Typography.body.sm, color: colors.textSecondary },
     checkpointOverlay: {
       ...StyleSheet.absoluteFillObject,
