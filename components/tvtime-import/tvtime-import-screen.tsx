@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -28,10 +28,8 @@ import {
   buildImportPreview,
   buildReviewItems,
   loadNeedsReview,
-  saveNeedsReview,
   resolveNeedsReviewItem,
   reviewItemId,
-  markImportCompleted,
   emptyImportCounts,
   type ImportPreview,
   type ImportCounts,
@@ -39,12 +37,16 @@ import {
   type PersistedReviewItem,
 } from '@/lib/tvtime-import';
 import type { TvTimeMatchResult } from '@/lib/tvtime-import/types';
+import { useImportRun } from '@/lib/tvtime-import/import-run-context';
+import { importScreenView } from '@/lib/tvtime-import/import-run-view';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
 
 const AMBER = '#f59e0b';
 
-type Phase = 'pick' | 'reading' | 'preview' | 'importing' | 'done';
+// Local screen phases only — 'importing'/done-after-run come from the provider
+// (see importScreenView), so they're not part of the local phase.
+type Phase = 'pick' | 'reading' | 'preview' | 'done';
 
 // Entry surfaces we measure conversion from. `?from=` values outside this set
 // (or a raw deep link with no param) fall back to 'deeplink'.
@@ -70,9 +72,14 @@ export function TvTimeImportScreen() {
   const [match, setMatch] = useState<TvTimeMatchResult | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [counts, setCounts] = useState<ImportCounts>(emptyImportCounts());
-  const [progress, setProgress] = useState<ImportProgress>({ processed: 0, total: 0 });
   const [reviewItems, setReviewItems] = useState<PersistedReviewItem[]>([]);
   const [fixItem, setFixItem] = useState<PersistedReviewItem | null>(null);
+
+  // The import RUN lives in a provider so it survives "Hide" + navigation; the
+  // screen re-attaches by reading it. `start`/`reset`/`setScreenFocused` are
+  // stable refs (safe as effect deps).
+  const importRun = useImportRun();
+  const { start: startImport, reset: resetImportRun, setScreenFocused } = importRun;
 
   const importKeyRef = useRef<string>(newImportKey());
   const mountedRef = useRef(true);
@@ -96,6 +103,32 @@ export function TvTimeImportScreen() {
       cancelled = true;
     };
   }, [params.resume, user]);
+
+  // Tell the provider whether this screen is focused — the global pill shows
+  // only while an import is running AND the screen is NOT focused.
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      return () => setScreenFocused(false);
+    }, [setScreenFocused])
+  );
+
+  // Re-attach to a finished run: pull its counts/preview/review list into local
+  // state so the done screen (and fix-a-match) render whether the import just
+  // completed here or finished in the background while we were away. Also restore
+  // preview/reviewItems on an ERROR that finished in the background — otherwise a
+  // returning user hits the error branch with null local preview and sees a blank
+  // screen with no way forward.
+  useEffect(() => {
+    if (importRun.phase === 'complete') {
+      if (importRun.counts) setCounts(importRun.counts);
+      if (importRun.preview) setPreview(importRun.preview);
+      setReviewItems(importRun.reviewItems);
+    } else if (importRun.phase === 'error') {
+      if (importRun.preview) setPreview(importRun.preview);
+      setReviewItems(importRun.reviewItems);
+    }
+  }, [importRun.phase, importRun.counts, importRun.preview, importRun.reviewItems]);
 
   // -------------------------------------------------------------------------
   // Pick + parse + match
@@ -155,73 +188,49 @@ export function TvTimeImportScreen() {
       setError('You must be signed in to import.');
       return;
     }
-    if (!match) return;
+    if (!match || !preview) return;
     hapticImpact(ImpactFeedbackStyle.Medium);
-    setPhase('importing');
-    setProgress({ processed: 0, total: 0 });
-    const startedAt = Date.now();
-
+    setError(null);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error('Your session expired. Sign in and try again.');
-
+      if (!accessToken) {
+        setError('Your session expired. Sign in and try again.');
+        return;
+      }
       const items = mapMatchToImportItems(match);
-      analytics.track('import_started', {
-        entry_point: entryPoint,
-        shows: items.shows.length,
-        episodes: items.shows.reduce((s, sh) => s + sh.episodes.length, 0),
-        movies: items.movies.length,
-      });
-
-      const result = await runTvTimeImport({
+      // Hand the run to the provider: it keeps running (and firing completion
+      // side-effects: invalidation, marker, analytics, haptic, notification)
+      // even if the user taps "Hide" and leaves. The screen just observes.
+      startImport({
+        userId: user.id,
+        accessToken,
         shows: items.shows,
         movies: items.movies,
         importKey: importKeyRef.current,
-        accessToken,
-        onProgress: (p) => mountedRef.current && setProgress(p),
+        preview,
+        reviewItems,
+        entryPoint,
       });
-
-      // Persist unresolved "Needs a look" items so they're resumable.
-      await saveNeedsReview(user.id, reviewItems);
-      // Local completed-import marker — covers a follows-only import the DB
-      // source-check can't see; OR'd into useHasTvTimeImport.
-      await markImportCompleted(user.id);
-      // Refresh every surface the import touched (Continue Watching, Watching
-      // card, watched grid, stats) + the derived "has imported" check that
-      // gates the Settings section and home banner — no restart needed.
-      invalidateTvTimeImportQueries(queryClient);
-      invalidateHasTvTimeImport(queryClient);
-
-      analytics.track('import_completed', {
-        entry_point: entryPoint,
-        shows_upserted: result.showsUpserted,
-        episodes_inserted: result.episodesInserted,
-        episodes_skipped: result.episodesSkipped,
-        episodes_invalid: result.episodesInvalid,
-        movies_inserted: result.moviesInserted,
-        movies_updated: result.moviesUpdated,
-        movies_skipped: result.moviesSkipped,
-        movies_invalid: result.moviesInvalid,
-        needs_review: reviewItems.length,
-        duration_ms: Date.now() - startedAt,
-      });
-
-      if (!mountedRef.current) return;
-      setCounts(result);
-      setPhase('done');
-      hapticNotification(NotificationFeedbackType.Success);
     } catch (err) {
-      // Report AND persist BEFORE the mounted check: a backgrounded import that
-      // fails must still be captured and its review state recoverable from
-      // Settings -> Import — "we'll finish in the background" has to be true.
-      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'tvtime-import-run' });
-      if (user) await saveNeedsReview(user.id, reviewItems);
-      if (!mountedRef.current) return;
-      setError('Something interrupted the import. Nothing was duplicated — you can try again.');
-      setPhase('preview');
+      captureException(err instanceof Error ? err : new Error(String(err)), { context: 'tvtime-import-start' });
+      setError('Something went wrong starting the import. Please try again.');
     }
-  }, [user, match, reviewItems, queryClient, entryPoint]);
+  }, [user, match, preview, reviewItems, entryPoint, startImport]);
+
+  // Backgrounded-error recovery: when the run failed while the user was away, the
+  // matched payload is gone (we deliberately don't retain the shows/movies in the
+  // provider — it's memory-heavy), so a direct retry isn't possible. Reset the
+  // run + local state and return to the pick step. Re-importing the same ZIP is
+  // safe: the server is idempotent, so nothing is ever duplicated.
+  const handleStartOver = useCallback(() => {
+    resetImportRun();
+    setMatch(null);
+    setPreview(null);
+    setReviewItems([]);
+    setError(null);
+    setPhase('pick');
+  }, [resetImportRun]);
 
   // -------------------------------------------------------------------------
   // Fix-a-match resolution
@@ -283,6 +292,8 @@ export function TvTimeImportScreen() {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+  // Provider phase wins over the local phase (re-attach); see importScreenView.
+  const view = importScreenView(importRun.phase, phase);
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ContentContainer style={{ flex: 1 }}>
@@ -294,25 +305,57 @@ export function TvTimeImportScreen() {
           <View style={{ width: 24 }} />
         </View>
 
-        {phase === 'pick' && <PickScreen styles={styles} colors={colors} error={error} onPick={handleSelectFile} />}
-        {phase === 'reading' && <ReadingScreen styles={styles} colors={colors} />}
-        {phase === 'preview' && preview && (
-          <PreviewScreen styles={styles} colors={colors} preview={preview} error={error} onImport={handleImport} onCancel={() => router.back()} />
-        )}
-        {phase === 'importing' && <ImportingScreen styles={styles} colors={colors} progress={progress} onHide={() => router.back()} />}
-        {phase === 'done' && (
+        {/* Running / complete / error come from the provider (survive Hide +
+            navigation); pick / reading / preview / resume-done are local. The
+            provider phase wins, which is what re-attaches a returning user to
+            the live import instead of the pick screen. */}
+        {view === 'importing' && <ImportingScreen styles={styles} colors={colors} progress={importRun.progress} onHide={() => router.back()} />}
+        {view === 'error' && (() => {
+          const errPreview = importRun.preview ?? preview;
+          // Live in-screen error: the matched payload is still in local state, so
+          // the direct "Import everything" retry works. Backgrounded error (the
+          // user left and came back to a fresh mount): `match` is gone, so a direct
+          // retry is impossible — offer an honest "Start over" instead of a dead button.
+          if (match && errPreview) {
+            return (
+              <PreviewScreen
+                styles={styles}
+                colors={colors}
+                preview={errPreview}
+                error={importRun.error}
+                onImport={handleImport}
+                onCancel={() => { resetImportRun(); router.back(); }}
+              />
+            );
+          }
+          return (
+            <ImportErrorScreen
+              styles={styles}
+              colors={colors}
+              error={importRun.error}
+              onStartOver={handleStartOver}
+              onCancel={() => { resetImportRun(); router.back(); }}
+            />
+          );
+        })()}
+        {view === 'done' && (
           <DoneScreen
             styles={styles}
             colors={colors}
             counts={counts}
             preview={preview}
             reviewItems={reviewItems}
-            resume={params.resume === '1'}
+            resume={importRun.phase !== 'complete' && params.resume === '1'}
             onFix={setFixItem}
             onPickCandidate={resolveWith}
             onDismissItem={dismissItem}
-            onDone={() => router.back()}
+            onDone={() => { resetImportRun(); router.back(); }}
           />
+        )}
+        {view === 'pick' && <PickScreen styles={styles} colors={colors} error={error} onPick={handleSelectFile} />}
+        {view === 'reading' && <ReadingScreen styles={styles} colors={colors} />}
+        {view === 'preview' && preview && (
+          <PreviewScreen styles={styles} colors={colors} preview={preview} error={error} onImport={handleImport} onCancel={() => router.back()} />
         )}
       </ContentContainer>
 
@@ -443,6 +486,46 @@ function PreviewScreen({
         </Pressable>
         <Pressable onPress={onCancel} style={({ pressed }) => [styles.secondaryBtn, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}>
           <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function ImportErrorScreen({
+  styles,
+  colors,
+  error,
+  onStartOver,
+  onCancel,
+}: {
+  styles: Styles;
+  colors: ThemeColors;
+  error: string | null;
+  onStartOver: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={styles.scrollBody}>
+        <View style={styles.doneTitleRow}>
+          <WarningIcon color={AMBER} size={22} />
+          <Text style={[Typography.display.h3, { color: colors.text }]}>Import interrupted</Text>
+        </View>
+        <Text style={[Typography.body.base, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
+          {error ?? 'Something interrupted the import before it finished.'}
+        </Text>
+        <Text style={[Typography.body.sm, { color: colors.textTertiary, marginTop: Spacing.md, lineHeight: 20 }]}>
+          Pick your export again to pick up where it left off. Re-running never duplicates anything —
+          already-imported stubs are skipped.
+        </Text>
+      </View>
+      <View style={styles.footer}>
+        <Pressable onPress={onStartOver} style={({ pressed }) => [styles.primaryBtn, { backgroundColor: colors.tint }, pressed && { opacity: 0.85 }]}>
+          <Text style={styles.primaryBtnText}>Start over</Text>
+        </Pressable>
+        <Pressable onPress={onCancel} style={({ pressed }) => [styles.secondaryBtn, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}>
+          <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Not now</Text>
         </Pressable>
       </View>
     </View>

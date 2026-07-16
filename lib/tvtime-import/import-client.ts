@@ -216,6 +216,13 @@ export interface RunImportArgs {
   /** Injectable for tests. Defaults to {@link sendImportChunk}. */
   send?: (chunk: ImportChunk, importKey: string, accessToken: string) => Promise<ImportCounts>;
   caps?: ChunkCaps;
+  /**
+   * Cheap cooperative abort checked between chunks. Returns false to stop the
+   * run early (the caller flips it when the signed-in user changes — logout or
+   * account switch — so a run never completes for a user who's no longer here).
+   * Returning early yields whatever counts accrued so far; the caller discards them.
+   */
+  shouldContinue?: () => boolean;
 }
 
 function chunkUnitCount(chunk: ImportChunk): number {
@@ -271,7 +278,12 @@ export async function runTvTimeImport(args: RunImportArgs): Promise<ImportCounts
     }
   };
 
-  for (const chunk of chunks) await sendWithReslice(chunk, caps);
+  for (const chunk of chunks) {
+    // Cooperative abort point — bail between chunks if the caller has revoked
+    // the run (user changed). Partial counts are returned but discarded upstream.
+    if (args.shouldContinue && !args.shouldContinue()) return counts;
+    await sendWithReslice(chunk, caps);
+  }
   return counts;
 }
 

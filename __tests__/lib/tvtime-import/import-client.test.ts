@@ -211,4 +211,28 @@ describe('runTvTimeImport', () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(counts.moviesInserted).toBe(1);
   });
+
+  it('aborts between chunks when shouldContinue() turns false (user changed)', async () => {
+    const send = jest.fn(async (chunk: ImportChunk) => countsWith({ moviesInserted: chunk.movies.length }));
+    let allow = true;
+
+    const counts = await runTvTimeImport({
+      shows: [],
+      movies: [movie(1), movie(2), movie(3), movie(4)],
+      importKey: 'k',
+      accessToken: 't',
+      send,
+      caps: { maxEpisodes: 10, maxMovies: 1 }, // 4 single-movie chunks
+      shouldContinue: () => {
+        // Allow the first chunk, then revoke (simulates a mid-run logout).
+        const ok = allow;
+        allow = false;
+        return ok;
+      },
+    });
+
+    // Only the first chunk is sent; the loop bails before the rest.
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(counts.moviesInserted).toBe(1);
+  });
 });
