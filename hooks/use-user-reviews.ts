@@ -19,6 +19,11 @@ async function fetchUserReviews(userId: string, viewerId?: string): Promise<Revi
       .from('reviews')
       .select('*')
       .eq('user_id', userId)
+      // Quiet TV Time import-deck ratings carry no words — they're the owner's
+      // private ratings, not written reviews — so they stay out of the Reviews
+      // tab list, kept in agreement with the tab count in use-profile.ts (the
+      // #669 list/count parity rule). See 20260715090000.
+      .eq('source', 'manual')
       .order('created_at', { ascending: false });
 
     if (error) {

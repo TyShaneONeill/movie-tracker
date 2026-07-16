@@ -33,6 +33,7 @@ import { ContinueWatchingCard } from '@/components/cards/continue-watching-card'
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { TvTimeImportCard } from '@/components/tvtime-import/tvtime-import-card';
 import { useTvTimeImportCard } from '@/hooks/use-tvtime-import-card';
+import { InkStubsCard } from '@/components/tvtime-deck/ink-stubs-card';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -205,6 +206,11 @@ export default function HomeScreen() {
             <TvTimeImportCard onPress={tvtimeCard.onImport} onDismiss={tvtimeCard.onDismiss} />
           </View>
         )}
+
+        {/* Ink-your-stubs deck resume card (TV Time import PR 4). Renders nothing
+            when the flag is off, nothing is imported, or the user dismissed it —
+            no wrapper, so a hidden card leaves no phantom gap. */}
+        {user && <InkStubsCard />}
 
         {/* Continue Watching Section */}
         {user && showContinueWatching && continueWatching.shows.length > 0 && (

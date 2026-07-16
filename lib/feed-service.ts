@@ -118,6 +118,9 @@ export async function fetchFollowingReviews(
     .select(REVIEW_FEED_SELECT)
     .in('user_id', followingIds)
     .in('visibility', ['public', 'followers_only'])
+    // Quiet TV Time import-deck ratings never enter the feed (they carry no
+    // words and would spam a 600-item backfill). See 20260715090000.
+    .eq('source', 'manual')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -222,6 +225,8 @@ export async function fetchCommunityReviewsPage(
     .select(REVIEW_FEED_SELECT)
     .not('user_id', 'in', '(' + excludedIds.join(',') + ')')
     .eq('visibility', 'public')
+    // Quiet TV Time import-deck ratings never enter the feed. See 20260715090000.
+    .eq('source', 'manual')
     .order('created_at', { ascending: false })
     .limit(PAGE_SIZE);
 

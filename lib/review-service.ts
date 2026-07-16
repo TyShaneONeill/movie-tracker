@@ -12,6 +12,13 @@ export interface CreateReviewData {
   isRewatch: boolean;
   visibility: ReviewVisibility;
   mediaType?: 'movie' | 'tv_show';
+  /**
+   * Provenance of the rating. Omit (or 'manual') for organically authored
+   * reviews. 'tvtime_import' marks a quiet rating inked from the TV Time import
+   * deck: the DB trigger skips follower notifications and the client feed /
+   * profile Reviews tab exclude it. See 20260715090000_tvtime_deck_quiet_ratings.
+   */
+  source?: 'manual' | 'tvtime_import';
 }
 
 export interface ReviewerInfo {
@@ -99,6 +106,8 @@ export async function createReview(
     is_spoiler: data.isSpoiler,
     is_rewatch: data.isRewatch,
     visibility: data.visibility,
+    // Only set when provided; the column defaults to 'manual' in the DB.
+    ...(data.source ? { source: data.source } : {}),
   };
 
   const { data: result, error } = (await (supabase

@@ -40,6 +40,7 @@ import {
 } from '@/lib/tvtime-import';
 import type { TvTimeMatchResult } from '@/lib/tvtime-import/types';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
+import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
 
 const AMBER = '#f59e0b';
@@ -551,8 +552,19 @@ function DoneScreen({
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable onPress={onDone} style={({ pressed }) => [styles.primaryBtn, { backgroundColor: colors.tint }, pressed && { opacity: 0.85 }]}>
-          <Text style={styles.primaryBtnText}>Done</Text>
+        {/* Blank-stubs rating deck CTA (PR 4). Self-hides when the deck flag is
+            off or nothing imported is unrated; when present it's the primary
+            action and Done demotes to a ghost button (mock frame 5). */}
+        <InkStubsCta />
+        <Pressable
+          onPress={onDone}
+          style={({ pressed }) => [
+            styles.secondaryBtn,
+            { borderColor: colors.border },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Done</Text>
         </Pressable>
       </View>
     </View>
