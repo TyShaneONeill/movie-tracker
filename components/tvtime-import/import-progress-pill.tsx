@@ -46,6 +46,8 @@ export function ImportProgressPill() {
   // from the done screen — a bottom-pinned pill there collides with the deck's
   // own footer and the home-indicator area). The pill is for the main tab
   // screens where the user waits during a background import.
+  // HAZARD: these are literal path prefixes — if either route file is renamed
+  // (app/tvtime-deck.tsx / app/settings/tvtime-import.tsx), update them here too.
   const onFlowRoute =
     !!pathname &&
     (pathname.startsWith('/tvtime-deck') || pathname.startsWith('/settings/tvtime-import'));

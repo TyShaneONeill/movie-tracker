@@ -50,9 +50,13 @@ export function DeckCard({ item, reduced, disabled, onRate, onSkip }: DeckCardPr
     transform: [{ scale: 0.96 + enter.value * 0.04 }, { translateY: (1 - enter.value) * 16 }],
   }));
 
-  const posterUrl = getTMDBImageUrl(item.posterPath, 'w500');
+  // w342 (the app's ceiling) — the poster is invisible at 88% dim, so a lighter fetch.
+  const posterUrl = getTMDBImageUrl(item.posterPath, 'w342');
 
-  const onSliderChange = (v: number) => {
+  // ANY interaction sets the rating and enables Rate — including a tap that lands
+  // exactly on the resting value (5.0), where onValueChange never fires but
+  // onSlidingComplete does. Both paths route through here.
+  const markRated = (v: number) => {
     if (disabled) return;
     if (!touched) {
       setTouched(true);
@@ -89,7 +93,8 @@ export function DeckCard({ item, reduced, disabled, onRate, onSkip }: DeckCardPr
           <Text style={styles.ratingLabel}>{touched ? 'YOUR RATING' : 'YOUR RATING — NOT SET'}</Text>
           <RatingSlider
             value={rating}
-            onChange={onSliderChange}
+            onChange={markRated}
+            onSlidingComplete={markRated}
             unset={!touched}
             disabled={disabled}
             valueFontSize={40}

@@ -1,8 +1,8 @@
 /**
  * The blank-stubs rating deck screen (mock frame 7). Loads the eligible-unrated
- * imported items, presents them as a swipeable card stack in sessions of ~10,
- * and inks each rating as a QUIET review. Resumes exactly on reopen: rated items
- * drop out of the server read, skipped items persist client-side.
+ * imported items, presents them one card at a time in sessions of ~10, and inks
+ * each rating as a QUIET review. Resumes exactly on reopen: rated items drop out
+ * of the server read, skipped items persist client-side.
  *
  * Writes are OPTIMISTIC and non-blocking: a decision advances the card
  * immediately and the network write runs in the background, tracked in a bounded

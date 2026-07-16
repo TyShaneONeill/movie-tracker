@@ -2,7 +2,7 @@
  * Pure, side-effect-free logic for the TV Time blank-stubs rating deck (PR 4).
  *
  * Everything here is unit-tested and free of I/O: eligibility filtering, the
- * stars→stored-rating mapping, session chunking, the deck queue (eligible minus
+ * 1–10 rating clamp, session chunking, the deck queue (eligible minus
  * locally-skipped), resume position, and the "inked of total" progress. The
  * service layer (deck-service.ts) does the Supabase reads/writes; the screen
  * stays thin.
