@@ -360,6 +360,7 @@ function RootLayoutNav() {
         <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="lists" options={{ headerShown: false }} />
         <Stack.Screen name="release-calendar" options={{ headerShown: false }} />
+        <Stack.Screen name="tvtime-deck" options={{ headerShown: false }} />
         <Stack.Screen name="streaming-services" options={{ headerShown: false }} />
         <Stack.Screen name="upgrade" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

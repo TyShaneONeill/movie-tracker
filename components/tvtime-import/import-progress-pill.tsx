@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Text, StyleSheet, Animated, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing } from '@/constants/theme';
@@ -30,16 +30,26 @@ export function ImportProgressPill() {
 
   const { phase, progress, screenFocused, reset } = useImportRun();
   const gate = useTvTimeImportGate();
+  const pathname = usePathname();
 
   // Visible whenever an import is active/finished AND the user isn't on the
   // import screen. Flag-gated like the rest of the feature.
-  const { visible, label, running, kind } = importPillView({
+  const { visible: visibleRaw, label, running, kind } = importPillView({
     enabled: gate.enabled,
     phase,
     screenFocused,
     processed: progress.processed,
     total: progress.total,
   });
+  // Never render over the full-screen import FLOW routes: the import screen
+  // (which shows its own UI) or the blank-stubs deck (a tabless route reached
+  // from the done screen — a bottom-pinned pill there collides with the deck's
+  // own footer and the home-indicator area). The pill is for the main tab
+  // screens where the user waits during a background import.
+  const onFlowRoute =
+    !!pathname &&
+    (pathname.startsWith('/tvtime-deck') || pathname.startsWith('/settings/tvtime-import'));
+  const visible = visibleRaw && !onFlowRoute;
 
   const translateY = useRef(new Animated.Value(120)).current;
   useEffect(() => {

@@ -2,7 +2,7 @@ import {
   computeEligibleItems,
   buildDeckQueue,
   computeProgress,
-  starsToReviewRating,
+  clampDeckRating,
   sessionSlot,
   isSessionCheckpoint,
   deckItemKey,
@@ -27,18 +27,19 @@ const show = (tmdb_id: number, name = `Show ${tmdb_id}`): EligibleShowRow => ({
   poster_path: `/s${tmdb_id}.jpg`,
 });
 
-describe('starsToReviewRating (1–5 stars → 1–10 stored)', () => {
-  it('doubles each star value', () => {
-    expect(starsToReviewRating(1)).toBe(2);
-    expect(starsToReviewRating(3)).toBe(6);
-    expect(starsToReviewRating(5)).toBe(10);
+describe('clampDeckRating (1–10 slider value, stored directly)', () => {
+  it('passes valid 1–10 values through unchanged (incl. one decimal)', () => {
+    expect(clampDeckRating(1)).toBe(1);
+    expect(clampDeckRating(8)).toBe(8);
+    expect(clampDeckRating(7.5)).toBe(7.5);
+    expect(clampDeckRating(10)).toBe(10);
   });
 
-  it('clamps out-of-range and rounds fractional input', () => {
-    expect(starsToReviewRating(0)).toBe(2); // clamps up to 1 star
-    expect(starsToReviewRating(9)).toBe(10); // clamps down to 5 stars
-    expect(starsToReviewRating(2.4)).toBe(4);
-    expect(starsToReviewRating(2.6)).toBe(6);
+  it('clamps out-of-range values into 1..10', () => {
+    expect(clampDeckRating(0)).toBe(1);
+    expect(clampDeckRating(0.4)).toBe(1);
+    expect(clampDeckRating(11)).toBe(10);
+    expect(clampDeckRating(-3)).toBe(1);
   });
 });
 

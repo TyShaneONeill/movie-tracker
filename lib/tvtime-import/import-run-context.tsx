@@ -127,6 +127,19 @@ export function ImportRunProvider({ children }: { children: React.ReactNode }) {
         total: s.progress.total,
       });
     }
+    // Leaving the import screen when the run has already FINISHED = the user has
+    // seen the result, so drop the run to idle. Without this the 'complete'/
+    // 'error' phase was carried out of the flow (the done-screen "Ink your blank
+    // stubs" CTA and back-swipe don't hit the explicit Done/Cancel reset), and
+    // the global pill — mounted in _layout over every route, including the
+    // tabless deck — lingered on the deck and home. A run that's still RUNNING is
+    // left untouched so a backgrounded import still completes and surfaces via
+    // the pill's own auto-dismiss.
+    if (!focused && (s.phase === 'complete' || s.phase === 'error')) {
+      runningRef.current = false;
+      setState({ ...IDLE, screenFocused: false });
+      return;
+    }
     setState((prev) => ({ ...prev, screenFocused: focused }));
   }, []);
 
