@@ -9,6 +9,8 @@ interface TvTimeImportCardProps {
   onPress: () => void;
   /** When provided, renders a dismiss affordance (home + onboarding). */
   onDismiss?: () => void;
+  /** Blocks the tap + dims the card (e.g. while onboarding is committing). */
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -17,11 +19,12 @@ interface TvTimeImportCardProps {
  * completion screen — both dismissable, never placed inside required onboarding
  * steps. Vector icon, approved copy, theme-aware.
  */
-export function TvTimeImportCard({ onPress, onDismiss, style }: TvTimeImportCardProps) {
+export function TvTimeImportCard({ onPress, onDismiss, disabled, style }: TvTimeImportCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
   const handlePress = () => {
+    if (disabled) return;
     hapticImpact();
     onPress();
   };
@@ -34,13 +37,16 @@ export function TvTimeImportCard({ onPress, onDismiss, style }: TvTimeImportCard
   return (
     <Pressable
       onPress={handlePress}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: colors.card, borderColor: colors.tint },
-        pressed && { opacity: 0.9 },
+        disabled && { opacity: 0.6 },
+        pressed && !disabled && { opacity: 0.9 },
         style,
       ]}
       accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
       accessibilityLabel="Import from TV Time"
     >
       <View style={[styles.iconWrap, { backgroundColor: colors.backgroundSecondary }]}>

@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Platf
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -100,25 +101,32 @@ export function TvTimeImportScreen() {
       });
       if (result.canceled || !result.assets?.[0]) return;
 
+      const pickedUri = result.assets[0].uri;
       setPhase('reading');
-      const files = await unzipTvTimeExport(result.assets[0].uri);
-      const parsed = parseTvTimeExport(files);
-      const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
-      if (!mountedRef.current) return;
+      try {
+        const files = await unzipTvTimeExport(pickedUri);
+        const parsed = parseTvTimeExport(files);
+        const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
+        if (!mountedRef.current) return;
 
-      setMatch(matched);
-      const pv = buildImportPreview(matched);
-      setPreview(pv);
-      setReviewItems(buildReviewItems(matched));
-      setPhase('preview');
-      // Counts only — never titles or row content (PII hygiene).
-      analytics.track('import_preview', {
-        shows: pv.shows,
-        episodes: pv.episodes,
-        movies_watched: pv.moviesWatched,
-        movies_watchlist: pv.moviesWatchlist,
-        needs_attention: pv.needsAttention,
-      });
+        setMatch(matched);
+        const pv = buildImportPreview(matched);
+        setPreview(pv);
+        setReviewItems(buildReviewItems(matched));
+        setPhase('preview');
+        // Counts only — never titles or row content (PII hygiene).
+        analytics.track('import_preview', {
+          shows: pv.shows,
+          episodes: pv.episodes,
+          movies_watched: pv.moviesWatched,
+          movies_watchlist: pv.moviesWatchlist,
+          needs_attention: pv.needsAttention,
+        });
+      } finally {
+        // Delete the picker's cache copy of the ZIP — it holds the export's
+        // auth-token / password-hash CSVs and must not linger at rest.
+        FileSystem.deleteAsync(pickedUri, { idempotent: true }).catch(() => {});
+      }
     } catch (err) {
       if (!mountedRef.current) return;
       // A parse/read error message is user-facing copy, safe to show. It is NOT
@@ -186,8 +194,12 @@ export function TvTimeImportScreen() {
       setPhase('done');
       hapticNotification(NotificationFeedbackType.Success);
     } catch (err) {
-      if (!mountedRef.current) return;
+      // Report AND persist BEFORE the mounted check: a backgrounded import that
+      // fails must still be captured and its review state recoverable from
+      // Settings -> Import — "we'll finish in the background" has to be true.
       captureException(err instanceof Error ? err : new Error(String(err)), { context: 'tvtime-import-run' });
+      if (user) await saveNeedsReview(user.id, reviewItems);
+      if (!mountedRef.current) return;
       setError('Something interrupted the import. Nothing was duplicated — you can try again.');
       setPhase('preview');
     }

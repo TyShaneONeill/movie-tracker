@@ -23,8 +23,16 @@ beforeEach(() => {
   });
 });
 
-function item(title: string, releaseDate: string | null): PersistedReviewItem {
-  return { title, releaseDate, status: 'watched', watchedAt: null, rewatchCount: 0, candidates: [] };
+function item(title: string, releaseDate: string | null, id?: string): PersistedReviewItem {
+  return {
+    id: id ?? `${title.trim().toLowerCase()}|${releaseDate ?? ''}#0`,
+    title,
+    releaseDate,
+    status: 'watched',
+    watchedAt: null,
+    rewatchCount: 0,
+    candidates: [],
+  };
 }
 
 const USER = 'user-abc';
@@ -57,9 +65,23 @@ describe('needs-review persistence', () => {
     expect(await loadNeedsReview(USER)).toEqual([b]);
   });
 
-  it('reviewItemId is stable and case/whitespace-insensitive on title', () => {
-    expect(reviewItemId(item('Obsession', '2026-01-01'))).toBe(reviewItemId(item('  obsession ', '2026-01-01')));
-    expect(reviewItemId(item('Obsession', '2026-01-01'))).not.toBe(reviewItemId(item('Obsession', '1976-01-01')));
+  it('reviewItemId prefers the assigned id, falling back to title|year', () => {
+    // With an id, that id is the identity.
+    expect(reviewItemId(item('Obsession', '2026-01-01', 'obsession|2026-01-01#3'))).toBe('obsession|2026-01-01#3');
+    // Without an id (legacy item), it falls back to a case/whitespace-normalized title|year.
+    expect(reviewItemId({ title: '  Obsession ', releaseDate: '2026-01-01' })).toBe(
+      reviewItemId({ title: 'obsession', releaseDate: '2026-01-01' })
+    );
+  });
+
+  it('two same-title+year items with distinct ids resolve independently (no collision)', async () => {
+    const a = item('Obsession', '2026-01-01', 'obsession|2026-01-01#0');
+    const b = item('Obsession', '2026-01-01', 'obsession|2026-01-01#1');
+    await saveNeedsReview(USER, [a, b]);
+
+    const remaining = await resolveNeedsReviewItem(USER, reviewItemId(a));
+    // Resolving `a` leaves `b` intact — the duplicate is NOT silently dropped.
+    expect(remaining).toEqual([b]);
   });
 
   it('clearNeedsReview empties the list', async () => {

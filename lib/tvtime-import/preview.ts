@@ -38,7 +38,7 @@ export function buildImportPreview(match: TvTimeMatchResult): ImportPreview {
  * re-linkable via movie search in v1 and are excluded from this list.
  */
 export function buildReviewItems(match: TvTimeMatchResult): PersistedReviewItem[] {
-  const fromNeedsReview: PersistedReviewItem[] = match.movies.needsReview.map((m) => ({
+  const fromNeedsReview = match.movies.needsReview.map((m) => ({
     title: m.title,
     releaseDate: m.releaseDate,
     status: m.status,
@@ -46,13 +46,18 @@ export function buildReviewItems(match: TvTimeMatchResult): PersistedReviewItem[
     rewatchCount: m.rewatchCount,
     candidates: m.candidates.slice(0, 6),
   }));
-  const fromUnmatched: PersistedReviewItem[] = match.movies.unmatched.map((m) => ({
+  const fromUnmatched = match.movies.unmatched.map((m) => ({
     title: m.title,
     releaseDate: m.releaseDate,
     status: m.status,
     watchedAt: m.watchedAt,
     rewatchCount: m.rewatchCount,
-    candidates: [],
+    candidates: [] as PersistedReviewItem['candidates'],
   }));
-  return [...fromNeedsReview, ...fromUnmatched];
+  // Assign a unique, stable id AFTER concatenation so duplicate title+year rows
+  // (in either bucket) never collide on their React key / resolve identity.
+  return [...fromNeedsReview, ...fromUnmatched].map((item, index) => ({
+    ...item,
+    id: `${item.title.trim().toLowerCase()}|${item.releaseDate ?? ''}#${index}`,
+  }));
 }

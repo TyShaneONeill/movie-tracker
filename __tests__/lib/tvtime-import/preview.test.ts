@@ -127,4 +127,16 @@ describe('buildReviewItems', () => {
     const match = result({ movies: { matched: [], needsReview: [needsReview('Busy', 12)], unmatched: [] } });
     expect(buildReviewItems(match)[0].candidates.length).toBe(6);
   });
+
+  it('assigns unique ids even to duplicate title+year rows', () => {
+    const match = result({
+      movies: {
+        matched: [],
+        needsReview: [needsReview('Obsession', 1), needsReview('Obsession', 1)],
+        unmatched: [parsedMovie('Obsession')], // same title again
+      },
+    });
+    const ids = buildReviewItems(match).map((i) => i.id);
+    expect(new Set(ids).size).toBe(ids.length); // all distinct
+  });
 });

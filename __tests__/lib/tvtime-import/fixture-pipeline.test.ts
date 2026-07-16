@@ -4,8 +4,7 @@ import { parseTvTimeExport } from '@/lib/tvtime-import/parser';
 import { matchTvTimePayload } from '@/lib/tvtime-import/matcher';
 import { buildImportPreview } from '@/lib/tvtime-import/preview';
 import { mapMatchToImportItems, chunkImportItems } from '@/lib/tvtime-import/import-client';
-import type { TmdbGateway } from '@/lib/tvtime-import/types';
-import type { TvTimeFileMap } from '@/lib/tvtime-import/types';
+import type { TmdbGateway, TvTimeFileMap } from '@/lib/tvtime-import/types';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 
 // import-client pulls in the real supabase client at module load; the pipeline

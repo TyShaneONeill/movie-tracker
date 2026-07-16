@@ -15,6 +15,10 @@ function keyFor(userId: string): string {
 /** A movie the matcher couldn't confidently place, carried with its TMDB
  *  candidates so the review list + fix-a-match sheet can render offline. */
 export interface PersistedReviewItem {
+  /** Unique, stable identity assigned at build time. Two movies with the same
+   *  title+year must NOT collide — otherwise they'd share a React key and
+   *  resolving one would silently drop the other. */
+  id: string;
   title: string;
   releaseDate: string | null;
   status: 'watched' | 'watchlist';
@@ -23,8 +27,11 @@ export interface PersistedReviewItem {
   candidates: TMDBMovie[];
 }
 
-/** Stable identity for an item (title + year) so resolve/remove is idempotent. */
-export function reviewItemId(item: Pick<PersistedReviewItem, 'title' | 'releaseDate'>): string {
+/** Stable identity for an item. Prefers the assigned `id` (unique even for
+ *  duplicate title+year); falls back to title|year for items built before an
+ *  id was assigned. */
+export function reviewItemId(item: Pick<PersistedReviewItem, 'title' | 'releaseDate'> & { id?: string }): string {
+  if (item.id) return item.id;
   return `${item.title.trim().toLowerCase()}|${item.releaseDate ?? ''}`;
 }
 

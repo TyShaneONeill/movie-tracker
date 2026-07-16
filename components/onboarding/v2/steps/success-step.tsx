@@ -61,14 +61,20 @@ export function SuccessStep(_props: StepProps) {
 
   // Completion-screen entry to import. Commits onboarding first (never leaves
   // required steps unsaved), enters the app, then opens the import screen.
+  // Still queues the coach-mark tour (like handleEnter) so import-first users
+  // aren't skipped. Guards on isSubmitting to prevent a double-commit.
   const handleImportFromTvTime = async () => {
+    if (isSubmitting) return;
     const ok = await commit();
     if (!ok) {
       Toast.show({ type: 'error', text1: 'Something went wrong saving your profile', visibilityTime: 2500 });
       return;
     }
     router.replace('/(tabs)');
-    InteractionManager.runAfterInteractions(() => router.push('/settings/tvtime-import'));
+    InteractionManager.runAfterInteractions(() => {
+      startTourIfNotCompleted();
+      router.push('/settings/tvtime-import');
+    });
   };
 
   return (
@@ -104,6 +110,7 @@ export function SuccessStep(_props: StepProps) {
           <TvTimeImportCard
             onPress={handleImportFromTvTime}
             onDismiss={() => setTvtimeDismissed(true)}
+            disabled={isSubmitting}
             style={styles.tvtimeCard}
           />
         )}
