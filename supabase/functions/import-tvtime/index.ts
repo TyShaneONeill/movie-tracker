@@ -56,6 +56,16 @@ interface ImportShow {
   followed: boolean;
   favorited: boolean;
   episodes: ImportEpisode[];
+  // Optional metadata (backward compat) — persisted so imported shows render
+  // posters + feed stats. Absent on older clients; the row simply keeps null.
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  firstAirDate?: string | null;
+  voteAverage?: number | null;
+  overview?: string | null;
+  numberOfEpisodes?: number | null;
+  numberOfSeasons?: number | null;
 }
 
 interface ImportMovie {
@@ -64,6 +74,13 @@ interface ImportMovie {
   status: 'watched' | 'watchlist';
   watchedAt: string | null;
   rewatchCount: number;
+  // Optional metadata (backward compat) — mirrors what movie-service persists.
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genreIds?: number[];
+  overview?: string | null;
+  voteAverage?: number | null;
+  releaseDate?: string | null;
 }
 
 interface ImportPayload {
@@ -124,6 +141,68 @@ function sanitizeTmdbId(value: unknown): number | null {
   return n > 0 ? n : null;
 }
 
+/** A non-empty trimmed string (poster path, overview, air date), or null. */
+function sanitizeString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const t = value.trim();
+  return t === '' ? null : t;
+}
+
+/** A finite number (vote average, episode/season count), or null. */
+function sanitizeNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** An array of finite integer genre ids (defensive; drops junk). Empty → []. */
+function sanitizeGenreIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((g): g is number => typeof g === 'number' && Number.isInteger(g));
+}
+
+/** Build the persistable metadata subset for a movie row from the payload.
+ *  Only defined keys are returned so an absent field never nulls an existing
+ *  value on the self-heal path. */
+function movieMetadata(movie: ImportMovie): Record<string, unknown> {
+  const meta: Record<string, unknown> = {};
+  const poster = sanitizeString(movie?.posterPath);
+  const backdrop = sanitizeString(movie?.backdropPath);
+  const overview = sanitizeString(movie?.overview);
+  const releaseDate = sanitizeString(movie?.releaseDate);
+  const vote = sanitizeNumber(movie?.voteAverage);
+  if (poster !== null) meta.poster_path = poster;
+  if (backdrop !== null) meta.backdrop_path = backdrop;
+  if (overview !== null) meta.overview = overview;
+  if (releaseDate !== null) meta.release_date = releaseDate;
+  if (vote !== null) meta.vote_average = vote;
+  if (Array.isArray(movie?.genreIds) && movie.genreIds.length > 0) {
+    meta.genre_ids = sanitizeGenreIds(movie.genreIds);
+  }
+  return meta;
+}
+
+/** Persistable metadata subset for a show row (see {@link movieMetadata}). */
+function showMetadata(show: ImportShow): Record<string, unknown> {
+  const meta: Record<string, unknown> = {};
+  const poster = sanitizeString(show?.posterPath);
+  const backdrop = sanitizeString(show?.backdropPath);
+  const overview = sanitizeString(show?.overview);
+  const firstAir = sanitizeString(show?.firstAirDate);
+  const vote = sanitizeNumber(show?.voteAverage);
+  const numEps = sanitizeNumber(show?.numberOfEpisodes);
+  const numSeasons = sanitizeNumber(show?.numberOfSeasons);
+  if (poster !== null) meta.poster_path = poster;
+  if (backdrop !== null) meta.backdrop_path = backdrop;
+  if (overview !== null) meta.overview = overview;
+  if (firstAir !== null) meta.first_air_date = firstAir;
+  if (vote !== null) meta.vote_average = vote;
+  if (numEps !== null) meta.number_of_episodes = numEps;
+  if (numSeasons !== null) meta.number_of_seasons = numSeasons;
+  if (Array.isArray(show?.genreIds) && show.genreIds.length > 0) {
+    meta.genre_ids = sanitizeGenreIds(show.genreIds);
+  }
+  return meta;
+}
+
 // ---------------------------------------------------------------------------
 // Shows + episodes
 // ---------------------------------------------------------------------------
@@ -146,22 +225,33 @@ async function importShows(
 
     const { data: existingShow, error: showLookupError } = await admin
       .from('user_tv_shows')
-      .select('id, is_liked')
+      .select('id, is_liked, poster_path')
       .eq('user_id', userId)
       .eq('tmdb_id', tmdbShowId)
       .maybeSingle();
     if (showLookupError) throw showLookupError;
 
+    const meta = showMetadata(show);
+
     let userTvShowId: string;
     if (existingShow) {
       userTvShowId = existingShow.id;
-      // Upgrade is_liked when favorited; never downgrade true->false.
-      if (favorited && existingShow.is_liked !== true) {
-        const { error: likeError } = await admin
+      // Build a single UPDATE: (a) upgrade is_liked when favorited (never
+      // downgrade true->false); (b) SELF-HEAL — when the existing row has no
+      // poster and the payload carries metadata, backfill it. This is the
+      // founder's repair path: re-running an import fills every blank poster.
+      // Never touches status/watched_at.
+      const update: Record<string, unknown> = {};
+      if (favorited && existingShow.is_liked !== true) update.is_liked = true;
+      if (existingShow.poster_path === null && Object.keys(meta).length > 0) {
+        Object.assign(update, meta);
+      }
+      if (Object.keys(update).length > 0) {
+        const { error: updateError } = await admin
           .from('user_tv_shows')
-          .update({ is_liked: true })
+          .update(update)
           .eq('id', existingShow.id);
-        if (likeError) throw likeError;
+        if (updateError) throw updateError;
       }
     } else {
       const name = typeof show?.name === 'string' ? show.name.trim() : '';
@@ -178,6 +268,7 @@ async function importShows(
           name,
           status: 'watching',
           is_liked: favorited,
+          ...meta,
         })
         .select('id')
         .single();
@@ -310,7 +401,7 @@ async function importMovies(
       counts.moviesInvalid += 1;
       continue;
     }
-    await processMovie(admin, userId, tmdbId, title, status, sanitizeDate(movie?.watchedAt), counts, true);
+    await processMovie(admin, userId, tmdbId, title, status, sanitizeDate(movie?.watchedAt), movieMetadata(movie), counts, true);
   }
 }
 
@@ -321,6 +412,7 @@ async function processMovie(
   title: string,
   status: 'watched' | 'watchlist',
   watchedAt: string | null,
+  meta: Record<string, unknown>,
   counts: ImportCounts,
   allowRetry: boolean,
 ): Promise<void> {
@@ -330,7 +422,7 @@ async function processMovie(
   // rows can exist. Order deterministically so the upgrade target is stable.
   const { data: existingRows, error: lookupError } = await admin
     .from('user_movies')
-    .select('id, status, watched_at')
+    .select('id, status, watched_at, poster_path')
     .eq('user_id', userId)
     .eq('tmdb_id', tmdbId)
     .order('watched_at', { ascending: false, nullsFirst: false })
@@ -340,6 +432,19 @@ async function processMovie(
   const hasAnyRow = (existingRows?.length ?? 0) > 0;
   const hasWatchedRow = (existingRows ?? []).some((r) => r.status === 'watched');
 
+  // SELF-HEAL (founder repair path): backfill metadata onto any existing rows
+  // for this movie that have no poster. One UPDATE scoped to poster_path IS
+  // NULL; never touches status/watched_at. Best-effort — a heal failure must
+  // not fail the import.
+  if (hasAnyRow && Object.keys(meta).length > 0 && (existingRows ?? []).some((r) => r.poster_path === null)) {
+    await admin
+      .from('user_movies')
+      .update(meta)
+      .eq('user_id', userId)
+      .eq('tmdb_id', tmdbId)
+      .is('poster_path', null);
+  }
+
   if (!hasAnyRow) {
     const { error: insertError } = await admin.from('user_movies').insert({
       user_id: userId,
@@ -348,6 +453,7 @@ async function processMovie(
       status: wantWatched ? 'watched' : 'watchlist',
       watched_at: wantWatched ? watchedAt : null,
       source: 'tvtime_import',
+      ...meta,
     });
     if (!insertError) {
       counts.moviesInserted += 1;
@@ -356,7 +462,7 @@ async function processMovie(
     // Concurrent import of the same movie won the race (partial unique index
     // on source='tvtime_import', or the journey index). Re-decide once.
     if (insertError.code === PG_UNIQUE_VIOLATION && allowRetry) {
-      await processMovie(admin, userId, tmdbId, title, status, watchedAt, counts, false);
+      await processMovie(admin, userId, tmdbId, title, status, watchedAt, meta, counts, false);
       return;
     }
     if (insertError.code === PG_UNIQUE_VIOLATION) {

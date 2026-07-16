@@ -15,3 +15,25 @@ export function invalidateUserMovieQueries(queryClient: QueryClient): void {
   queryClient.invalidateQueries({ queryKey: ['userMovies'] });
   queryClient.invalidateQueries({ queryKey: ['watchlist-tmdb-ids'] });
 }
+
+/**
+ * Invalidate everything a TV Time import touches so enriched/imported items
+ * appear WITHOUT an app restart. A single import writes movies, TV shows, and
+ * episode watches, and (via genre_ids) changes stats — so this covers all three
+ * surfaces the founder screenshotted plus the stats that read genre_ids:
+ * - ['userMovies'] / ['watchlist-tmdb-ids'] — watched grid, library, calendar
+ * - ['userTvShows'] — home Continue Watching + profile Watching card
+ *   (both read useUserTvShows('watching'))
+ * - ['episodeWatches'] — episode progress
+ * - stats surfaces (userStats/profileStats/blindSpots/ratingPersonality) that
+ *   key off genre_ids, so imported items start contributing immediately
+ */
+export function invalidateTvTimeImportQueries(queryClient: QueryClient): void {
+  invalidateUserMovieQueries(queryClient);
+  queryClient.invalidateQueries({ queryKey: ['userTvShows'] });
+  queryClient.invalidateQueries({ queryKey: ['episodeWatches'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['profileStats'] });
+  queryClient.invalidateQueries({ queryKey: ['blindSpots'] });
+  queryClient.invalidateQueries({ queryKey: ['ratingPersonality'] });
+}

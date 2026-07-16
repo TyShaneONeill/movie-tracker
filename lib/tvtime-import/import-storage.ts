@@ -79,21 +79,53 @@ export async function clearNeedsReview(userId: string): Promise<void> {
   await saveNeedsReview(userId, []);
 }
 
-// --- Entry-card dismissal (home + onboarding) ------------------------------
-const CARD_DISMISS_PREFIX = '@cinetrak/tvtime_import_card_dismissed:';
+// --- Home banner dismissal state (return policy) ---------------------------
+// The banner can return a bounded number of times: dismissing snoozes it for a
+// window; after enough dismissals (or a successful import) it's gone for good.
+// We persist how many times it's been dismissed and when it was last dismissed,
+// per user. (Legacy binary key `@cinetrak/tvtime_import_card_dismissed:` from
+// the first release is read once and migrated to count=1.)
+const CARD_DISMISS_PREFIX = '@cinetrak/tvtime_import_card_dismissal:';
+const LEGACY_DISMISS_PREFIX = '@cinetrak/tvtime_import_card_dismissed:';
 
-export async function isImportCardDismissed(userId: string): Promise<boolean> {
+export interface ImportBannerDismissal {
+  /** How many times the user has dismissed the banner. */
+  count: number;
+  /** Epoch ms of the most recent dismissal, or null if never dismissed. */
+  lastDismissedAt: number | null;
+}
+
+const NO_DISMISSAL: ImportBannerDismissal = { count: 0, lastDismissedAt: null };
+
+export async function getImportBannerDismissal(userId: string): Promise<ImportBannerDismissal> {
   try {
-    return (await AsyncStorage.getItem(`${CARD_DISMISS_PREFIX}${userId}`)) === '1';
+    const raw = await AsyncStorage.getItem(`${CARD_DISMISS_PREFIX}${userId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ImportBannerDismissal>;
+      return {
+        count: typeof parsed.count === 'number' ? parsed.count : 0,
+        lastDismissedAt: typeof parsed.lastDismissedAt === 'number' ? parsed.lastDismissedAt : null,
+      };
+    }
+    // Migrate the legacy binary flag: a prior dismissal counts as one.
+    const legacy = await AsyncStorage.getItem(`${LEGACY_DISMISS_PREFIX}${userId}`);
+    if (legacy === '1') return { count: 1, lastDismissedAt: null };
+    return NO_DISMISSAL;
   } catch {
-    return false;
+    return NO_DISMISSAL;
   }
 }
 
-export async function dismissImportCard(userId: string): Promise<void> {
+/** Record a dismissal: increment the count and stamp the time. Returns the new
+ *  state so callers can update in-memory from the same source of truth. */
+export async function recordImportBannerDismissal(userId: string): Promise<ImportBannerDismissal> {
+  const current = await getImportBannerDismissal(userId);
+  const next: ImportBannerDismissal = { count: current.count + 1, lastDismissedAt: Date.now() };
   try {
-    await AsyncStorage.setItem(`${CARD_DISMISS_PREFIX}${userId}`, '1');
+    await AsyncStorage.setItem(`${CARD_DISMISS_PREFIX}${userId}`, JSON.stringify(next));
+    await AsyncStorage.removeItem(`${LEGACY_DISMISS_PREFIX}${userId}`);
   } catch {
-    // non-fatal; the card simply reappears next launch
+    // non-fatal; the banner simply reappears next launch
   }
+  return next;
 }

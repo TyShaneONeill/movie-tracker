@@ -104,18 +104,47 @@ describe('mapMatchToImportItems', () => {
     };
 
     const items = mapMatchToImportItems(match);
-    expect(items.shows).toEqual([
-      {
-        tmdbShowId: 500,
-        name: 'Series (TMDB)',
-        followed: true,
-        favorited: true,
-        episodes: [{ season: 2, episode: 4, watchedAt: '2021-01-01 00:00:00' }],
-      },
-    ]);
-    expect(items.movies).toEqual([
-      { tmdbId: 42, title: 'Film', status: 'watched', watchedAt: null, rewatchCount: 2 },
-    ]);
+    // Only the confidently-matched show/movie map through (needsReview +
+    // unmatched are dropped).
+    expect(items.shows).toHaveLength(1);
+    expect(items.shows[0]).toMatchObject({
+      tmdbShowId: 500,
+      name: 'Series (TMDB)',
+      followed: true,
+      favorited: true,
+      episodes: [{ season: 2, episode: 4, watchedAt: '2021-01-01 00:00:00' }],
+    });
+    expect(items.movies).toHaveLength(1);
+    expect(items.movies[0]).toMatchObject({
+      tmdbId: 42,
+      title: 'Film',
+      status: 'watched',
+      watchedAt: null,
+      rewatchCount: 2,
+    });
+  });
+
+  it('threads TMDB metadata (poster/genres) onto mapped movies + shows', () => {
+    const movieWithArt = tmdb(42, 'Film');
+    movieWithArt.poster_path = '/p.jpg';
+    movieWithArt.genre_ids = [18, 53];
+    const matchedShow: MatchedShow = {
+      tvdbId: 5, name: 'Series', followed: true, favorited: false,
+      episodes: [], tmdbId: 500, tmdbName: 'Series',
+      posterPath: '/s.jpg', genreIds: [10765], numberOfEpisodes: 20, numberOfSeasons: 2,
+    };
+    const matchedMovie: MatchedMovie = {
+      title: 'Film', releaseDate: '2019-05-01', status: 'watched', watchedAt: null, rewatchCount: 0,
+      tmdbId: 42, tmdbMovie: movieWithArt,
+    };
+    const match: TvTimeMatchResult = {
+      shows: { matched: [matchedShow], unmatched: [] },
+      movies: { matched: [matchedMovie], needsReview: [], unmatched: [] },
+      warnings: [],
+    };
+    const items = mapMatchToImportItems(match);
+    expect(items.movies[0]).toMatchObject({ posterPath: '/p.jpg', genreIds: [18, 53] });
+    expect(items.shows[0]).toMatchObject({ posterPath: '/s.jpg', genreIds: [10765], numberOfEpisodes: 20, numberOfSeasons: 2 });
   });
 });
 

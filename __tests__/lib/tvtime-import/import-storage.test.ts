@@ -5,8 +5,8 @@ import {
   resolveNeedsReviewItem,
   clearNeedsReview,
   reviewItemId,
-  isImportCardDismissed,
-  dismissImportCard,
+  getImportBannerDismissal,
+  recordImportBannerDismissal,
   type PersistedReviewItem,
 } from '@/lib/tvtime-import/import-storage';
 
@@ -96,11 +96,30 @@ describe('needs-review persistence', () => {
   });
 });
 
-describe('entry-card dismissal', () => {
-  it('defaults to not dismissed, then persists dismissal per user', async () => {
-    expect(await isImportCardDismissed(USER)).toBe(false);
-    await dismissImportCard(USER);
-    expect(await isImportCardDismissed(USER)).toBe(true);
-    expect(await isImportCardDismissed('someone-else')).toBe(false);
+describe('home banner dismissal (return policy)', () => {
+  it('defaults to zero dismissals, never dismissed', async () => {
+    expect(await getImportBannerDismissal(USER)).toEqual({ count: 0, lastDismissedAt: null });
+  });
+
+  it('records a dismissal: increments count + stamps time, isolated per user', async () => {
+    const before = Date.now();
+    const after = await recordImportBannerDismissal(USER);
+    expect(after.count).toBe(1);
+    expect(after.lastDismissedAt).toBeGreaterThanOrEqual(before);
+    const persisted = await getImportBannerDismissal(USER);
+    expect(persisted.count).toBe(1);
+    expect(await getImportBannerDismissal('someone-else')).toEqual({ count: 0, lastDismissedAt: null });
+  });
+
+  it('accumulates across dismissals', async () => {
+    await recordImportBannerDismissal(USER);
+    const second = await recordImportBannerDismissal(USER);
+    expect(second.count).toBe(2);
+  });
+
+  it('migrates the legacy binary dismissal flag to count=1', async () => {
+    store.set('@cinetrak/tvtime_import_card_dismissed:' + USER, '1');
+    const d = await getImportBannerDismissal(USER);
+    expect(d.count).toBe(1);
   });
 });

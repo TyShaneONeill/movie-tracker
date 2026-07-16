@@ -1,10 +1,24 @@
 import { searchMovies } from '@/lib/movie-service';
+import { getTvShowDetails } from '@/lib/tv-show-service';
 import { supabase } from '@/lib/supabase';
-import type { TmdbGateway } from './types';
+import type { TmdbGateway, TmdbShowLookup } from './types';
 
-/** Shape returned by the `find-by-external-id` edge function (see note below). */
+/** Shape returned by the extended `find-by-external-id` edge function. `id`/
+ *  `name` are always present; the metadata fields come from TMDB's
+ *  `/find` `tv_results[0]` and let imported shows render posters + feed stats. */
 interface FindByExternalIdResponse {
-  tv: { id: number; name: string } | null;
+  tv:
+    | {
+        id: number;
+        name: string;
+        poster_path?: string | null;
+        backdrop_path?: string | null;
+        genre_ids?: number[] | null;
+        first_air_date?: string | null;
+        vote_average?: number | null;
+        overview?: string | null;
+      }
+    | null;
 }
 
 /**
@@ -13,12 +27,11 @@ interface FindByExternalIdResponse {
  * uses — no new HTTP client or API key).
  *
  * - Movies reuse the existing `search-movies` edge function via
- *   {@link searchMovies}.
- * - Show lookup calls a `find-by-external-id` edge function that wraps TMDB's
- *   `/find/{id}?external_source=tvdb_id`. **That edge function does not exist
- *   yet — it is a PR-2 dependency.** The pure matcher never touches this
- *   gateway (tests inject a mock), so PR 1 stays green without it; PR 2 adds
- *   the edge function and the bulk-write path that consumes this gateway.
+ *   {@link searchMovies}; its results already carry poster/backdrop/genre_ids.
+ * - Show lookup calls `find-by-external-id` (extended to return poster/genre
+ *   metadata alongside id+name) for the cheap poster fix; episode/season counts
+ *   aren't in TMDB `/find`, so {@link TmdbGateway.getShowEpisodeCounts} fetches
+ *   them best-effort via the existing `get-tv-show-details` service.
  */
 export function createDefaultTmdbGateway(): TmdbGateway {
   return {
@@ -28,12 +41,38 @@ export function createDefaultTmdbGateway(): TmdbGateway {
         { body: { externalId: tvdbId, source: 'tvdb_id', type: 'tv' } }
       );
       if (error) throw new Error(error.message || 'find-by-external-id failed');
-      return data?.tv ?? null;
+      const tv = data?.tv;
+      if (!tv) return null;
+      const lookup: TmdbShowLookup = {
+        id: tv.id,
+        name: tv.name,
+        posterPath: tv.poster_path ?? null,
+        backdropPath: tv.backdrop_path ?? null,
+        genreIds: tv.genre_ids ?? [],
+        firstAirDate: tv.first_air_date ?? null,
+        voteAverage: tv.vote_average ?? null,
+        overview: tv.overview ?? null,
+      };
+      return lookup;
     },
 
     async searchMovie(title) {
       const response = await searchMovies(title);
       return response.movies;
+    },
+
+    async getShowEpisodeCounts(tmdbId) {
+      // Best-effort: a details failure must never fail the whole import — the
+      // show still imports with its poster; counts just stay null.
+      try {
+        const { show } = await getTvShowDetails(tmdbId);
+        return {
+          numberOfEpisodes: show?.number_of_episodes ?? null,
+          numberOfSeasons: show?.number_of_seasons ?? null,
+        };
+      } catch {
+        return null;
+      }
     },
   };
 }

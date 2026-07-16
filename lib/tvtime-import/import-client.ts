@@ -35,6 +35,14 @@ export function mapMatchToImportItems(match: TvTimeMatchResult): {
       episode: e.episode,
       watchedAt: e.watchedAt,
     })),
+    posterPath: s.posterPath ?? null,
+    backdropPath: s.backdropPath ?? null,
+    genreIds: s.genreIds ?? [],
+    firstAirDate: s.firstAirDate ?? null,
+    voteAverage: s.voteAverage ?? null,
+    overview: s.overview ?? null,
+    numberOfEpisodes: s.numberOfEpisodes ?? null,
+    numberOfSeasons: s.numberOfSeasons ?? null,
   }));
 
   const movies: ImportMovie[] = match.movies.matched.map((m) => ({
@@ -43,6 +51,13 @@ export function mapMatchToImportItems(match: TvTimeMatchResult): {
     status: m.status,
     watchedAt: m.watchedAt,
     rewatchCount: m.rewatchCount,
+    // The search-movies result carried on the matched movie already has these.
+    posterPath: m.tmdbMovie?.poster_path ?? null,
+    backdropPath: m.tmdbMovie?.backdrop_path ?? null,
+    genreIds: m.tmdbMovie?.genre_ids ?? [],
+    overview: m.tmdbMovie?.overview ?? null,
+    voteAverage: m.tmdbMovie?.vote_average ?? null,
+    releaseDate: m.tmdbMovie?.release_date ?? m.releaseDate ?? null,
   }));
 
   return { shows, movies };

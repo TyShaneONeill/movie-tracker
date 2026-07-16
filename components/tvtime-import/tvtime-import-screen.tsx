@@ -9,7 +9,8 @@ import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
+import { invalidateTvTimeImportQueries } from '@/lib/query-invalidation';
+import { invalidateHasTvTimeImport } from '@/hooks/use-has-tvtime-import';
 import { captureException } from '@/lib/sentry';
 import { analytics } from '@/lib/analytics';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
@@ -182,7 +183,11 @@ export function TvTimeImportScreen() {
 
       // Persist unresolved "Needs a look" items so they're resumable.
       await saveNeedsReview(user.id, reviewItems);
-      invalidateUserMovieQueries(queryClient);
+      // Refresh every surface the import touched (Continue Watching, Watching
+      // card, watched grid, stats) + the derived "has imported" check that
+      // gates the Settings section and home banner — no restart needed.
+      invalidateTvTimeImportQueries(queryClient);
+      invalidateHasTvTimeImport(queryClient);
 
       analytics.track('import_completed', {
         entry_point: entryPoint,
@@ -234,12 +239,21 @@ export function TvTimeImportScreen() {
                 status: item.status,
                 watchedAt: item.watchedAt,
                 rewatchCount: item.rewatchCount,
+                // Carry the picked movie's metadata so the re-linked stub
+                // renders a poster + feeds stats like any other.
+                posterPath: movie.poster_path ?? null,
+                backdropPath: movie.backdrop_path ?? null,
+                genreIds: movie.genre_ids ?? [],
+                overview: movie.overview ?? null,
+                voteAverage: movie.vote_average ?? null,
+                releaseDate: movie.release_date ?? item.releaseDate ?? null,
               },
             ],
             importKey: importKeyRef.current,
             accessToken,
           });
-          invalidateUserMovieQueries(queryClient);
+          invalidateTvTimeImportQueries(queryClient);
+          invalidateHasTvTimeImport(queryClient);
         }
       } catch (err) {
         captureException(err instanceof Error ? err : new Error(String(err)), { context: 'tvtime-import-resolve' });
