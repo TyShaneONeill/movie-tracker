@@ -142,6 +142,12 @@ export const analytics = {
     return posthogClient?.getFeatureFlag(flagName);
   },
 
+  /** Get a feature flag's JSON payload (remote config carried alongside the
+   *  flag). Used to time-box / demote surfaces without an app release. */
+  getFeatureFlagPayload(flagName: string): unknown {
+    return posthogClient?.getFeatureFlagPayload(flagName);
+  },
+
   /** Reload feature flags from PostHog */
   reloadFeatureFlags() {
     posthogClient?.reloadFeatureFlags();

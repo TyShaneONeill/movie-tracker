@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, StyleSheet, InteractionManager } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +15,8 @@ import { useReducedMotion } from '@/components/onboarding/v2/shared/use-reduced-
 import { useOnboardingV2 } from '@/components/onboarding/v2/onboarding-v2-context';
 import { useTour } from '@/lib/onboarding/tour-context';
 import type { StepProps } from '@/components/onboarding/v2/types';
+import { TvTimeImportCard } from '@/components/tvtime-import/tvtime-import-card';
+import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
 
 function MetaCol({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
   const colors = Colors.dark;
@@ -33,6 +36,8 @@ export function SuccessStep(_props: StepProps) {
   const { data, commit, isSubmitting } = useOnboardingV2();
   const { startTourIfNotCompleted } = useTour();
   const reduceMotion = useReducedMotion();
+  const tvtime = useTvTimeImportGate();
+  const [tvtimeDismissed, setTvtimeDismissed] = useState(false);
   // The "welcome stub" prints in: a springy drop from above. Reduced motion → fade.
   const stubEntering = reduceMotion
     ? FadeIn.duration(250)
@@ -52,6 +57,24 @@ export function SuccessStep(_props: StepProps) {
     }
     router.replace('/(tabs)');
     InteractionManager.runAfterInteractions(() => startTourIfNotCompleted());
+  };
+
+  // Completion-screen entry to import. Commits onboarding first (never leaves
+  // required steps unsaved), enters the app, then opens the import screen.
+  // Still queues the coach-mark tour (like handleEnter) so import-first users
+  // aren't skipped. Guards on isSubmitting to prevent a double-commit.
+  const handleImportFromTvTime = async () => {
+    if (isSubmitting) return;
+    const ok = await commit();
+    if (!ok) {
+      Toast.show({ type: 'error', text1: 'Something went wrong saving your profile', visibilityTime: 2500 });
+      return;
+    }
+    router.replace('/(tabs)');
+    InteractionManager.runAfterInteractions(() => {
+      startTourIfNotCompleted();
+      router.push('/settings/tvtime-import?from=onboarding_completion');
+    });
   };
 
   return (
@@ -83,6 +106,14 @@ export function SuccessStep(_props: StepProps) {
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+        {tvtime.enabled && !tvtime.resolving && !tvtimeDismissed && (
+          <TvTimeImportCard
+            onPress={handleImportFromTvTime}
+            onDismiss={() => setTvtimeDismissed(true)}
+            disabled={isSubmitting}
+            style={styles.tvtimeCard}
+          />
+        )}
         <CTAButton label="Enter PocketStubs" onPress={handleEnter} loading={isSubmitting} icon="arrow-forward" />
       </View>
     </View>
@@ -102,4 +133,5 @@ const styles = StyleSheet.create({
   metaLabel: { fontFamily: MONO_FONT, fontSize: 9, letterSpacing: 1.5 },
   metaValue: { fontFamily: MONO_FONT, fontSize: 12 },
   footer: { paddingTop: Spacing.md },
+  tvtimeCard: { marginBottom: Spacing.md },
 });
