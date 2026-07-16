@@ -115,10 +115,16 @@ export function TvTimeImportScreen() {
 
   // Re-attach to a finished run: pull its counts/preview/review list into local
   // state so the done screen (and fix-a-match) render whether the import just
-  // completed here or finished in the background while we were away.
+  // completed here or finished in the background while we were away. Also restore
+  // preview/reviewItems on an ERROR that finished in the background — otherwise a
+  // returning user hits the error branch with null local preview and sees a blank
+  // screen with no way forward.
   useEffect(() => {
     if (importRun.phase === 'complete') {
       if (importRun.counts) setCounts(importRun.counts);
+      if (importRun.preview) setPreview(importRun.preview);
+      setReviewItems(importRun.reviewItems);
+    } else if (importRun.phase === 'error') {
       if (importRun.preview) setPreview(importRun.preview);
       setReviewItems(importRun.reviewItems);
     }
@@ -212,6 +218,20 @@ export function TvTimeImportScreen() {
     }
   }, [user, match, preview, reviewItems, entryPoint, startImport]);
 
+  // Backgrounded-error recovery: when the run failed while the user was away, the
+  // matched payload is gone (we deliberately don't retain the shows/movies in the
+  // provider — it's memory-heavy), so a direct retry isn't possible. Reset the
+  // run + local state and return to the pick step. Re-importing the same ZIP is
+  // safe: the server is idempotent, so nothing is ever duplicated.
+  const handleStartOver = useCallback(() => {
+    resetImportRun();
+    setMatch(null);
+    setPreview(null);
+    setReviewItems([]);
+    setError(null);
+    setPhase('pick');
+  }, [resetImportRun]);
+
   // -------------------------------------------------------------------------
   // Fix-a-match resolution
   // -------------------------------------------------------------------------
@@ -290,16 +310,34 @@ export function TvTimeImportScreen() {
             provider phase wins, which is what re-attaches a returning user to
             the live import instead of the pick screen. */}
         {view === 'importing' && <ImportingScreen styles={styles} colors={colors} progress={importRun.progress} onHide={() => router.back()} />}
-        {view === 'error' && preview && (
-          <PreviewScreen
-            styles={styles}
-            colors={colors}
-            preview={preview}
-            error={importRun.error}
-            onImport={handleImport}
-            onCancel={() => { resetImportRun(); router.back(); }}
-          />
-        )}
+        {view === 'error' && (() => {
+          const errPreview = importRun.preview ?? preview;
+          // Live in-screen error: the matched payload is still in local state, so
+          // the direct "Import everything" retry works. Backgrounded error (the
+          // user left and came back to a fresh mount): `match` is gone, so a direct
+          // retry is impossible — offer an honest "Start over" instead of a dead button.
+          if (match && errPreview) {
+            return (
+              <PreviewScreen
+                styles={styles}
+                colors={colors}
+                preview={errPreview}
+                error={importRun.error}
+                onImport={handleImport}
+                onCancel={() => { resetImportRun(); router.back(); }}
+              />
+            );
+          }
+          return (
+            <ImportErrorScreen
+              styles={styles}
+              colors={colors}
+              error={importRun.error}
+              onStartOver={handleStartOver}
+              onCancel={() => { resetImportRun(); router.back(); }}
+            />
+          );
+        })()}
         {view === 'done' && (
           <DoneScreen
             styles={styles}
@@ -448,6 +486,46 @@ function PreviewScreen({
         </Pressable>
         <Pressable onPress={onCancel} style={({ pressed }) => [styles.secondaryBtn, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}>
           <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function ImportErrorScreen({
+  styles,
+  colors,
+  error,
+  onStartOver,
+  onCancel,
+}: {
+  styles: Styles;
+  colors: ThemeColors;
+  error: string | null;
+  onStartOver: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={styles.scrollBody}>
+        <View style={styles.doneTitleRow}>
+          <WarningIcon color={AMBER} size={22} />
+          <Text style={[Typography.display.h3, { color: colors.text }]}>Import interrupted</Text>
+        </View>
+        <Text style={[Typography.body.base, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
+          {error ?? 'Something interrupted the import before it finished.'}
+        </Text>
+        <Text style={[Typography.body.sm, { color: colors.textTertiary, marginTop: Spacing.md, lineHeight: 20 }]}>
+          Pick your export again to pick up where it left off. Re-running never duplicates anything —
+          already-imported stubs are skipped.
+        </Text>
+      </View>
+      <View style={styles.footer}>
+        <Pressable onPress={onStartOver} style={({ pressed }) => [styles.primaryBtn, { backgroundColor: colors.tint }, pressed && { opacity: 0.85 }]}>
+          <Text style={styles.primaryBtnText}>Start over</Text>
+        </Pressable>
+        <Pressable onPress={onCancel} style={({ pressed }) => [styles.secondaryBtn, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}>
+          <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Not now</Text>
         </Pressable>
       </View>
     </View>

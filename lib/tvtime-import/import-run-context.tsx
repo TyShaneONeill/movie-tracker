@@ -1,8 +1,9 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { useAuth } from '@/hooks/use-auth';
 import { analytics } from '@/lib/analytics';
 import { captureException } from '@/lib/sentry';
 import { hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
@@ -100,22 +101,33 @@ async function maybeNotifyCompletion(result: ImportCounts): Promise<void> {
 
 export function ImportRunProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [state, setState] = useState<ImportRunState>(IDLE);
   const runningRef = useRef(false);
   const focusedRef = useRef(true);
+  // Latest state, readable from event handlers so side-effects (analytics) live
+  // OUTSIDE the setState updater — a setState updater is double-invoked under
+  // StrictMode and must stay pure.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  // Run ownership + cooperative abort. A run belongs to runUserIdRef; if the
+  // signed-in user changes, the run is cancelled and its side-effects suppressed.
+  const cancelledRef = useRef(false);
+  const runUserIdRef = useRef<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(user?.id ?? null);
 
   const setScreenFocused = useCallback((focused: boolean) => {
     focusedRef.current = focused;
-    setState((s) => {
-      // The moment the user leaves the screen mid-run = "backgrounded".
-      if (!focused && s.phase === 'running') {
-        analytics.track('import_backgrounded', {
-          processed: s.progress.processed,
-          total: s.progress.total,
-        });
-      }
-      return { ...s, screenFocused: focused };
-    });
+    // The moment the user leaves the screen mid-run = "backgrounded". Fire the
+    // analytics OUTSIDE the setState updater so StrictMode can't double-count it.
+    const s = stateRef.current;
+    if (!focused && s.phase === 'running') {
+      analytics.track('import_backgrounded', {
+        processed: s.progress.processed,
+        total: s.progress.total,
+      });
+    }
+    setState((prev) => ({ ...prev, screenFocused: focused }));
   }, []);
 
   const reset = useCallback(() => {
@@ -123,10 +135,27 @@ export function ImportRunProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...IDLE, screenFocused: s.screenFocused }));
   }, []);
 
+  // Auth-lifecycle guard: if the signed-in user changes (logout or account
+  // switch), a run started by the previous user must not finish, mutate their
+  // review markers, or fire haptics/notifications into the new session. Cancel
+  // it between chunks and drop the provider state.
+  useEffect(() => {
+    const newId = user?.id ?? null;
+    currentUserIdRef.current = newId;
+    if (runUserIdRef.current !== null && runUserIdRef.current !== newId) {
+      cancelledRef.current = true;
+      runningRef.current = false;
+      runUserIdRef.current = null;
+      reset();
+    }
+  }, [user?.id, reset]);
+
   const start = useCallback(
     (args: StartImportArgs) => {
       if (runningRef.current) return; // one import at a time
       runningRef.current = true;
+      cancelledRef.current = false;
+      runUserIdRef.current = args.userId;
       const startedAt = Date.now();
       setState({
         phase: 'running',
@@ -152,7 +181,13 @@ export function ImportRunProvider({ children }: { children: React.ReactNode }) {
             importKey: args.importKey,
             accessToken: args.accessToken,
             onProgress: (p) => setState((s) => (s.phase === 'running' ? { ...s, progress: p } : s)),
+            shouldContinue: () => !cancelledRef.current && currentUserIdRef.current === args.userId,
           });
+
+          // The signed-in user changed mid-run (logout / account switch): drop
+          // everything. The auth-lifecycle effect already reset provider state;
+          // firing any of these would leak this user's import into another session.
+          if (cancelledRef.current || currentUserIdRef.current !== args.userId) return;
 
           // Completion side-effects run here (not the screen) so they happen
           // even when the user has navigated away.
@@ -192,6 +227,9 @@ export function ImportRunProvider({ children }: { children: React.ReactNode }) {
             progress: { processed: s.progress.total, total: s.progress.total },
           }));
         } catch (err) {
+          // A cancelled run (user changed) surfaces as a thrown/aborted promise —
+          // that's a deliberate abort, not a failure. Stay silent; state was reset.
+          if (cancelledRef.current || currentUserIdRef.current !== args.userId) return;
           captureException(err instanceof Error ? err : new Error(String(err)), {
             context: 'tvtime-import-run',
           });

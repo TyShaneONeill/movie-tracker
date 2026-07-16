@@ -100,7 +100,11 @@ function createStyles(colors: typeof Colors.dark) {
       left: 0,
       right: 0,
       alignItems: 'center',
+      // On Android draw order is governed by `elevation`, not `zIndex` — a bare
+      // zIndex lets a FAB (elevation ~6) paint over the pill. Carry a matching
+      // elevation on the wrap AND the pill so the pill always stacks on top.
       zIndex: 9998,
+      elevation: 24,
     },
     pill: {
       flexDirection: 'row',
@@ -115,7 +119,7 @@ function createStyles(colors: typeof Colors.dark) {
       shadowOpacity: 0.18,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 3 },
-      elevation: 4,
+      elevation: 24,
     },
     text: { fontWeight: '700', flexShrink: 1 },
   });
