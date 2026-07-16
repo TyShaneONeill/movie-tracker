@@ -1047,6 +1047,7 @@ export type Database = {
           poster_path: string | null
           rating: number
           review_text: string
+          source: string
           title: string
           tmdb_id: number
           updated_at: string
@@ -1066,6 +1067,7 @@ export type Database = {
           poster_path?: string | null
           rating: number
           review_text: string
+          source?: string
           title: string
           tmdb_id: number
           updated_at?: string
@@ -1085,6 +1087,7 @@ export type Database = {
           poster_path?: string | null
           rating?: number
           review_text?: string
+          source?: string
           title?: string
           tmdb_id?: number
           updated_at?: string

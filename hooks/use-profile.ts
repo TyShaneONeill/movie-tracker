@@ -123,7 +123,11 @@ async function fetchProfileStats(userId: string): Promise<ProfileStats> {
     supabase
       .from('reviews')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      // Match the Reviews LIST (useUserReviews), which excludes quiet TV Time
+      // import-deck ratings — otherwise the tab counter would exceed the list
+      // (#669 class). See 20260715090000.
+      .eq('source', 'manual'),
     supabase
       .from('user_lists')
       .select('*', { count: 'exact', head: true })
