@@ -18,6 +18,9 @@ import { TicketIcon } from './icons';
 // it flips to "Import complete" and auto-dismisses; on failure it says "needs a
 // look". Mirrors the OfflineBanner mount pattern (rendered once in _layout).
 const AUTO_DISMISS_MS = 5000;
+// Clears the bottom tab bar (~56pt) plus a margin so the pill is always tappable
+// above it on the main tab screens.
+const TAB_BAR_CLEARANCE = 72;
 
 export function ImportProgressPill() {
   const { effectiveTheme } = useTheme();
@@ -65,7 +68,9 @@ export function ImportProgressPill() {
 
   return (
     <Animated.View
-      style={[styles.wrap, { bottom: insets.bottom + Spacing.md, transform: [{ translateY }] }]}
+      // Sit ABOVE the bottom tab bar (~56pt + safe area) so the pill never
+      // collides with a tab target on the main screens where the user waits.
+      style={[styles.wrap, { bottom: insets.bottom + TAB_BAR_CLEARANCE, transform: [{ translateY }] }]}
       pointerEvents={visible ? 'auto' : 'none'}
       accessibilityElementsHidden={!visible}
     >
