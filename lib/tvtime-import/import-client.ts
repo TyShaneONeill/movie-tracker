@@ -5,6 +5,7 @@ import {
   emptyImportCounts,
   MAX_EPISODES_PER_CALL,
   MAX_MOVIES_PER_CALL,
+  MAX_SHOWS_PER_CALL,
   type ImportCounts,
   type ImportMovie,
   type ImportShow,
@@ -73,6 +74,7 @@ export interface ImportChunk {
 export interface ChunkCaps {
   maxEpisodes?: number;
   maxMovies?: number;
+  maxShows?: number;
 }
 
 function episodeCount(shows: ImportShow[]): number {
@@ -96,13 +98,19 @@ function splitOversizedShows(shows: ImportShow[], maxEpisodes: number): ImportSh
   return parts;
 }
 
-/** Greedy-pack show parts into chunks bounded by total episodes per chunk. */
-function packShows(parts: ImportShow[], maxEpisodes: number): ImportShow[][] {
+/** Greedy-pack show parts into chunks bounded by BOTH total episodes and total
+ *  show count per chunk. The show-count bound is what keeps a follows-heavy
+ *  import (thousands of 0-episode shows, which add nothing to the episode total)
+ *  from packing into one oversized chunk. */
+function packShows(parts: ImportShow[], maxEpisodes: number, maxShows: number): ImportShow[][] {
   const chunks: ImportShow[][] = [];
   let current: ImportShow[] = [];
   let currentEpisodes = 0;
   for (const part of parts) {
-    if (current.length > 0 && currentEpisodes + part.episodes.length > maxEpisodes) {
+    if (
+      current.length > 0 &&
+      (currentEpisodes + part.episodes.length > maxEpisodes || current.length >= maxShows)
+    ) {
       chunks.push(current);
       current = [];
       currentEpisodes = 0;
@@ -134,8 +142,9 @@ export function chunkImportItems(
 ): ImportChunk[] {
   const maxEpisodes = Math.max(1, caps.maxEpisodes ?? MAX_EPISODES_PER_CALL);
   const maxMovies = Math.max(1, caps.maxMovies ?? MAX_MOVIES_PER_CALL);
+  const maxShows = Math.max(1, caps.maxShows ?? MAX_SHOWS_PER_CALL);
 
-  const showChunks = packShows(splitOversizedShows(shows, maxEpisodes), maxEpisodes);
+  const showChunks = packShows(splitOversizedShows(shows, maxEpisodes), maxEpisodes, maxShows);
   const movieChunks = chunkArray(movies, maxMovies);
 
   const chunkCount = Math.max(showChunks.length, movieChunks.length);
@@ -244,6 +253,7 @@ export async function runTvTimeImport(args: RunImportArgs): Promise<ImportCounts
   const caps: ChunkCaps = {
     maxEpisodes: args.caps?.maxEpisodes ?? MAX_EPISODES_PER_CALL,
     maxMovies: args.caps?.maxMovies ?? MAX_MOVIES_PER_CALL,
+    maxShows: args.caps?.maxShows ?? MAX_SHOWS_PER_CALL,
   };
 
   const total = episodeCount(args.shows) + args.movies.length;
@@ -264,10 +274,12 @@ export async function runTvTimeImport(args: RunImportArgs): Promise<ImportCounts
       if (!(error instanceof ChunkTooLargeError)) throw error;
       const nextEpisodes = Math.floor((chunkCaps.maxEpisodes ?? MAX_EPISODES_PER_CALL) / 2);
       const nextMovies = Math.floor((chunkCaps.maxMovies ?? MAX_MOVIES_PER_CALL) / 2);
-      if (nextEpisodes < MIN_CAP && nextMovies < MIN_CAP) throw error;
+      const nextShows = Math.floor((chunkCaps.maxShows ?? MAX_SHOWS_PER_CALL) / 2);
+      if (nextEpisodes < MIN_CAP && nextMovies < MIN_CAP && nextShows < MIN_CAP) throw error;
       const smallerCaps: ChunkCaps = {
         maxEpisodes: Math.max(MIN_CAP, nextEpisodes),
         maxMovies: Math.max(MIN_CAP, nextMovies),
+        maxShows: Math.max(MIN_CAP, nextShows),
       };
       const subChunks = chunkImportItems(chunk.shows, chunk.movies, smallerCaps);
       // Guard against a no-op re-slice (single item still 413ing) looping forever.

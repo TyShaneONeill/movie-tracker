@@ -2378,6 +2378,10 @@ export type Database = {
         Args: { p_list_id: string; p_ordered_tmdb_ids: number[] }
         Returns: undefined
       }
+      recompute_episodes_watched: {
+        Args: { p_user_tv_show_ids: string[]; p_user_id: string }
+        Returns: undefined
+      }
       record_user_activity: {
         Args: { p_action: string }
         Returns: Json

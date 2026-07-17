@@ -4,6 +4,8 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { enforceRateLimit } from '../_shared/rate-limit.ts';
 import { movieMetadata, showMetadata } from './metadata.ts';
+import { recomputeEpisodesWatched } from './recompute.ts';
+import { checkPayloadSize } from './validation.ts';
 
 // ============================================================================
 // import-tvtime — bulk-write path for the "Import from TV Time" feature (PR 2).
@@ -99,9 +101,8 @@ interface ImportCounts {
   moviesInvalid: number;
 }
 
-// Aggregate ceilings per call — the client chunks, so these bound one request.
-const MAX_TOTAL_EPISODES_PER_CALL = 5000;
-const MAX_TOTAL_MOVIES_PER_CALL = 2000;
+// Aggregate ceilings per call live in ./validation.ts (shared with the Jest
+// boundary test) — the client chunks, so they bound one request.
 const PG_UNIQUE_VIOLATION = '23505';
 
 function jsonResponse(req: Request, body: unknown, status: number): Response {
@@ -153,6 +154,10 @@ async function importShows(
   shows: ImportShow[],
   counts: ImportCounts,
 ): Promise<void> {
+  // Every show we resolve to a user_tv_shows row this call — recomputed ONCE at
+  // the end (see recomputeEpisodesWatched) instead of per-show.
+  const touchedShowIds = new Set<string>();
+
   for (const show of shows) {
     const tmdbShowId = sanitizeTmdbId(show?.tmdbShowId);
     const episodes = Array.isArray(show?.episodes) ? show.episodes : [];
@@ -213,47 +218,57 @@ async function importShows(
         })
         .select('id')
         .single();
-      if (showInsertError) throw showInsertError;
-      userTvShowId = insertedShow.id;
-      counts.showsUpserted += 1;
+      if (showInsertError) {
+        // Concurrency backstop (user_tv_shows is unique on user_id+tmdb_id): a
+        // racing/retried call — or an organic write — created this show between
+        // our lookup and insert. Adopt the existing row rather than 500 the
+        // whole chunk; episodes still import against it, and the favorited /
+        // poster heals run on the next re-import (best-effort, like the movie
+        // path). Mirrors the episode/movie 23505 recheck.
+        if (showInsertError.code !== PG_UNIQUE_VIOLATION) throw showInsertError;
+        const { data: racedShow, error: racedLookupError } = await admin
+          .from('user_tv_shows')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('tmdb_id', tmdbShowId)
+          .single();
+        if (racedLookupError) throw racedLookupError;
+        userTvShowId = racedShow.id;
+      } else {
+        userTvShowId = insertedShow.id;
+        counts.showsUpserted += 1;
+      }
     }
 
     if (episodes.length > 0) {
       await importEpisodesForShow(admin, userId, tmdbShowId, userTvShowId, episodes, counts);
     }
 
-    // Recompute user_tv_shows.episodes_watched from the actual watch rows — the
-    // same count the organic writer (sync_tv_show_progress RPC) uses:
-    // watch_number=1 rows for this user_tv_show. Run it UNCONDITIONALLY per show
-    // (including re-imports where every episode skipped as a duplicate) so a
-    // re-import self-heals stale "0/N" counters exactly like the poster heal.
-    // Never touches status.
-    //
-    // NOTE — current_season/current_episode are DELIBERATELY not set here (the
-    // organic RPC also sets them to the latest watched S/E). Two reasons: (1) it
-    // keeps the Continue Watching card showing the "N/total episodes" COUNT the
-    // founder expects — setting current_* flips that label to "S# E#"; (2) a
-    // "current" episode is ambiguous for a bulk import of scattered episodes.
-    // Deferred; the episodes_watched counter is what drives the progress bar.
-    // Best-effort: a counter-sync failure must not strand the import.
-    const { count: watchedCount, error: countError } = await admin
-      .from('user_episode_watches')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('user_tv_show_id', userTvShowId)
-      .eq('watch_number', 1);
-    if (countError) {
-      console.error(`[import-tvtime] episodes_watched count failed code=${countError.code ?? 'unknown'}`);
-    } else {
-      const { error: updateError } = await admin
-        .from('user_tv_shows')
-        .update({ episodes_watched: watchedCount ?? 0 })
-        .eq('id', userTvShowId);
-      if (updateError) {
-        console.error(`[import-tvtime] episodes_watched update failed code=${updateError.code ?? 'unknown'}`);
-      }
-    }
+    // Touched — its episodes_watched is recomputed once, after the loop. Recorded
+    // UNCONDITIONALLY (including a follow-only show and a re-import where every
+    // episode skipped as a duplicate) so a re-import self-heals stale "0/N"
+    // counters exactly like the poster heal.
+    touchedShowIds.add(userTvShowId);
   }
+
+  // ONE atomic set-based recompute for every show touched this call — replaces
+  // the old per-show COUNT-then-UPDATE (non-atomic read-then-write with a
+  // concurrent-stale-write race, 2 round-trips/show). The RPC sets each show's
+  // episodes_watched to its watch_number=1 row count in a single statement — the
+  // same semantics the organic writer (sync_tv_show_progress) uses.
+  //
+  // NOTE — current_season/current_episode are DELIBERATELY not set (the organic
+  // RPC sets them to the latest watched S/E). Two reasons: (1) it keeps the
+  // Continue Watching card showing the "N/total episodes" COUNT the founder
+  // expects — setting current_* flips that label to "S# E#"; (2) a "current"
+  // episode is ambiguous for a bulk import of scattered episodes. Deferred; the
+  // episodes_watched counter is what drives the progress bar. Best-effort: a
+  // recompute failure must not strand the import.
+  await recomputeEpisodesWatched(
+    (name, args) => admin.rpc(name, args),
+    touchedShowIds,
+    userId,
+  );
 }
 
 async function importEpisodesForShow(
@@ -523,17 +538,12 @@ Deno.serve(async (req: Request) => {
     const shows = Array.isArray(payload.shows) ? payload.shows : [];
     const movies = Array.isArray(payload.movies) ? payload.movies : [];
 
-    // Aggregate size guard — bound total work per call (client chunks).
-    const totalEpisodes = shows.reduce(
-      (sum, s) => sum + (Array.isArray(s?.episodes) ? s.episodes.length : 0),
-      0,
-    );
-    if (totalEpisodes > MAX_TOTAL_EPISODES_PER_CALL || movies.length > MAX_TOTAL_MOVIES_PER_CALL) {
-      return jsonResponse(
-        req,
-        { error: 'chunk_too_large', maxEpisodes: MAX_TOTAL_EPISODES_PER_CALL, maxMovies: MAX_TOTAL_MOVIES_PER_CALL },
-        413,
-      );
+    // Aggregate size guard — bound total work per call (shows, episodes, movies;
+    // the client chunks within these). A follows-heavy migrant with thousands of
+    // 0-episode followed shows passes the episode cap but must still be chunked.
+    const sizeError = checkPayloadSize(shows, movies);
+    if (sizeError) {
+      return jsonResponse(req, sizeError, 413);
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

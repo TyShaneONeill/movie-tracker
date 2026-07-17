@@ -68,6 +68,25 @@ describe('chunkImportItems', () => {
     expect(chunks[0].shows).toHaveLength(1);
     expect(chunks[0].movies).toHaveLength(1);
   });
+
+  it('caps the number of shows per chunk even when they carry no episodes', () => {
+    // A follows-heavy import: 7 followed shows, all 0-episode. The episode cap is
+    // never approached (0 episodes total), so only the shows cap can bound them.
+    const shows = Array.from({ length: 7 }, (_, i) => show(i + 1, 0));
+    const chunks = chunkImportItems(shows, [], { maxShows: 3, maxEpisodes: 5000 });
+    expect(chunks.map((c) => c.shows.length)).toEqual([3, 3, 1]);
+    // Every show is carried exactly once, none dropped.
+    expect(chunks.reduce((n, c) => n + c.shows.length, 0)).toBe(7);
+  });
+
+  it('applies the shows cap and the episode cap together', () => {
+    // 4 shows of 2 episodes each, maxShows 2 and maxEpisodes 5: the shows cap
+    // bites first (2 shows = 4 episodes < 5), so chunks pack 2 shows each.
+    const shows = [show(1, 2), show(2, 2), show(3, 2), show(4, 2)];
+    const chunks = chunkImportItems(shows, [], { maxShows: 2, maxEpisodes: 5 });
+    chunks.forEach((c) => expect(c.shows.length).toBeLessThanOrEqual(2));
+    expect(chunks.reduce((n, c) => n + c.shows.length, 0)).toBe(4);
+  });
 });
 
 describe('mapMatchToImportItems', () => {
@@ -189,6 +208,32 @@ describe('runTvTimeImport', () => {
     // One rejected 4-movie call, then two accepted 2-movie calls.
     expect(send).toHaveBeenCalledTimes(3);
     expect(counts.moviesInserted).toBe(4);
+  });
+
+  it('re-slices a shows-heavy chunk the server rejects (413 on shows, 0 episodes)', async () => {
+    // Server that rejects any chunk carrying more than 2 shows — the shape of a
+    // shows-count 413. All shows are 0-episode, so the old episode/movie-only
+    // reslice could never shrink the chunk; the shows cap is what makes it fit.
+    const send = jest.fn(async (chunk: ImportChunk) => {
+      if (chunk.shows.length > 2) throw new ChunkTooLargeError();
+      return countsWith({ showsUpserted: chunk.shows.length });
+    });
+
+    const shows = Array.from({ length: 4 }, (_, i) => show(i + 1, 0));
+    const counts = await runTvTimeImport({
+      shows,
+      movies: [],
+      importKey: 'k',
+      accessToken: 't',
+      send,
+      caps: { maxEpisodes: 5000, maxMovies: 2000, maxShows: 4 },
+    });
+
+    // The 4-show call is rejected, then re-sliced by halved maxShows until each
+    // chunk carries ≤ 2 shows and is accepted; every show lands.
+    expect(counts.showsUpserted).toBe(4);
+    expect(send.mock.calls.every(([c]) => c.shows.length <= 4)).toBe(true);
+    expect(send.mock.calls.some(([c]) => c.shows.length > 2)).toBe(true); // the rejected first try
   });
 
   it('retries a transiently-failed chunk once (idempotent server)', async () => {
