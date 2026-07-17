@@ -6,9 +6,10 @@ import { unzipSync, strFromU8 } from 'fflate';
 import type { TvTimeFileMap } from './types';
 
 // TV Time's GDPR export is a ZIP that also contains files with auth tokens and
-// password hashes. We NEVER decompress or read those: fflate's `filter` runs
-// before decompression, so only the allowlisted CSVs are ever inflated into
-// memory. Nothing is extracted to disk. (PII hygiene, per PR #681 review.)
+// password hashes. We NEVER decompress or read those: fflate's `filter` (below)
+// runs before decompression, so only the allowlisted CSVs are ever inflated into
+// memory, and the output loop re-asserts the allowlist as a second layer.
+// Nothing is extracted to disk. (PII hygiene, per PR #681 review.)
 const ALLOWED_BASENAMES = new Set([
   'tracking-prod-records-v2.csv', // shows + episodes
   'tracking-prod-records.csv', // movies (older format)
@@ -108,15 +109,18 @@ export async function unzipTvTimeExport(uri: string, file?: File | Blob): Promis
     );
   }
 
-  // fflate 0.4.8's `unzipSync` takes no options — the `filter` that was supposed
-  // to allowlist entries and cap decompressed size BEFORE inflation is not
-  // supported by this pinned version (it was added in a later major). So every
-  // entry is inflated here, and the allowlist + size cap are enforced on the
-  // OUTPUT in the loop below. Real pre-decompression bomb protection (never
-  // inflating a hostile entry) needs the fflate bump — tracked as a follow-up.
+  // PRIMARY defense: fflate's `filter` runs BEFORE decompression (it inspects
+  // each entry's header — name + pre-inflation `originalSize`), so the export's
+  // secret CSVs (auth tokens, password hashes) and any decompression-bomb entry
+  // are NEVER inflated into memory. Only the allowlisted CSVs within the size
+  // ceiling get decompressed. (fflate >=0.8 supports UnzipOptions.filter on the
+  // sync API — the repo ships 0.8.3 per the lockfile.)
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(bytes);
+    entries = unzipSync(bytes, {
+      filter: (f) =>
+        ALLOWED_BASENAMES.has(basename(f.name)) && f.originalSize < MAX_ENTRY_BYTES,
+    });
   } catch {
     throw new Error(
       "That doesn't look like a TV Time export ZIP. Choose the gdpr-data.zip file (or a similar name)."
@@ -125,10 +129,10 @@ export async function unzipTvTimeExport(uri: string, file?: File | Blob): Promis
 
   const files: TvTimeFileMap = {};
   for (const [name, data] of Object.entries(entries)) {
-    // Enforce the allowlist + per-entry size cap HERE — fflate 0.4.8's `filter`
-    // is a no-op (see above), so this is what actually keeps the export's secret
-    // CSVs (auth tokens, password hashes) and oversized entries out of the parsed
-    // payload and everything downstream (match, network calls).
+    // SECONDARY defense (belt-and-suspenders): re-assert the allowlist + size cap
+    // on the decompressed output, so a future fflate downgrade that silently
+    // dropped the filter still can't leak a secret CSV or an oversized entry into
+    // the parsed payload or any downstream network call.
     if (!ALLOWED_BASENAMES.has(basename(name))) continue;
     if (data.length >= MAX_ENTRY_BYTES) continue;
     files[name] = strFromU8(data);
