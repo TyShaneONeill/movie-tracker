@@ -144,10 +144,14 @@ export function TvTimeImportScreen() {
       });
       if (result.canceled || !result.assets?.[0]) return;
 
-      const pickedUri = result.assets[0].uri;
+      const pickedAsset = result.assets[0];
+      const pickedUri = pickedAsset.uri;
       setPhase('reading');
       try {
-        const files = await unzipTvTimeExport(pickedUri);
+        // On web the picker hands back an in-memory File (blob: URI) that
+        // expo-file-system can't read — pass it through so the read path can
+        // use Blob.arrayBuffer() instead. `file` is undefined on native.
+        const files = await unzipTvTimeExport(pickedUri, pickedAsset.file);
         const parsed = parseTvTimeExport(files);
         const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
         if (!mountedRef.current) return;
@@ -166,9 +170,13 @@ export function TvTimeImportScreen() {
           needs_attention: pv.needsAttention,
         });
       } finally {
-        // Delete the picker's cache copy of the ZIP — it holds the export's
-        // auth-token / password-hash CSVs and must not linger at rest.
-        FileSystem.deleteAsync(pickedUri, { idempotent: true }).catch(() => {});
+        // Native only: delete the picker's cache copy of the ZIP — it holds the
+        // export's auth-token / password-hash CSVs and must not linger at rest.
+        // On web there's no cache copy (the File lives in memory and is GC'd) and
+        // expo-file-system can't touch a blob: URI, so skip it.
+        if (Platform.OS !== 'web') {
+          FileSystem.deleteAsync(pickedUri, { idempotent: true }).catch(() => {});
+        }
       }
     } catch (err) {
       if (!mountedRef.current) return;

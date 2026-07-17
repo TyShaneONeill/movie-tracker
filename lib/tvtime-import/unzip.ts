@@ -1,7 +1,8 @@
 // expo-file-system v19's base64 read + EncodingType live on the /legacy entry
 // (the same one app/settings/index.tsx uses).
 import * as FileSystem from 'expo-file-system/legacy';
-import { unzipSync, strFromU8, type UnzipFileInfo } from 'fflate';
+import { Platform } from 'react-native';
+import { unzipSync, strFromU8 } from 'fflate';
 import type { TvTimeFileMap } from './types';
 
 // TV Time's GDPR export is a ZIP that also contains files with auth tokens and
@@ -34,10 +35,32 @@ function hasZipMagic(bytes: Uint8Array): boolean {
   return ZIP_MAGIC.every((b, i) => bytes[i] === b);
 }
 
-/** Read the picked ZIP's bytes. DocumentPicker copies into the cache dir by
- *  default, yielding a `file://` URI expo-file-system can read as base64.
- *  Guards the whole-file size before reading so a pathological file can't OOM. */
-async function readZipBytes(uri: string): Promise<Uint8Array> {
+/** Read the picked ZIP's bytes. Guards the whole-file size before reading so a
+ *  pathological file can't OOM.
+ *
+ *  Web and native diverge because DocumentPicker returns different things:
+ *  - Web hands back a `File`/`Blob` (and a `blob:` URI). expo-file-system can't
+ *    read a blob URI, so we read straight off the Blob via `arrayBuffer()`.
+ *  - Native copies into the cache dir, yielding a `file://` URI expo-file-system
+ *    reads as base64. */
+async function readZipBytes(uri: string, file?: File | Blob): Promise<Uint8Array> {
+  if (Platform.OS === 'web') {
+    // Prefer the picker's File; fall back to fetching the blob: URI (both give a
+    // Blob with .size and .arrayBuffer()). fflate is pure-JS — inflates the same
+    // on web as native.
+    let blob: Blob | undefined = file;
+    if (!blob) {
+      const resp = await fetch(uri);
+      blob = await resp.blob();
+    }
+    if (!blob) throw new Error("We couldn't read that file.");
+    if (typeof blob.size === 'number' && blob.size > MAX_ZIP_BYTES) {
+      throw new Error('That file is too large to be a TV Time export.');
+    }
+    const buffer = await blob.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+
   const info = await FileSystem.getInfoAsync(uri);
   if (info.exists && typeof info.size === 'number' && info.size > MAX_ZIP_BYTES) {
     throw new Error('That file is too large to be a TV Time export.');
@@ -64,10 +87,10 @@ function base64ToBytes(base64: string): Uint8Array {
  * friendly error when the file isn't a readable ZIP or contains none of the
  * expected CSVs (an empty map would look like a clean zero-item import).
  */
-export async function unzipTvTimeExport(uri: string): Promise<TvTimeFileMap> {
+export async function unzipTvTimeExport(uri: string, file?: File | Blob): Promise<TvTimeFileMap> {
   let bytes: Uint8Array;
   try {
-    bytes = await readZipBytes(uri);
+    bytes = await readZipBytes(uri, file);
   } catch (err) {
     // Preserve the too-large message; otherwise a generic read-failure message.
     if (err instanceof Error && err.message.includes('too large')) throw err;
@@ -85,14 +108,15 @@ export async function unzipTvTimeExport(uri: string): Promise<TvTimeFileMap> {
     );
   }
 
+  // fflate 0.4.8's `unzipSync` takes no options — the `filter` that was supposed
+  // to allowlist entries and cap decompressed size BEFORE inflation is not
+  // supported by this pinned version (it was added in a later major). So every
+  // entry is inflated here, and the allowlist + size cap are enforced on the
+  // OUTPUT in the loop below. Real pre-decompression bomb protection (never
+  // inflating a hostile entry) needs the fflate bump — tracked as a follow-up.
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(bytes, {
-      // Runs BEFORE decompression: allowlist by name AND cap decompressed size,
-      // so an auth-token file or a decompression bomb is never inflated.
-      filter: (file: UnzipFileInfo) =>
-        ALLOWED_BASENAMES.has(basename(file.name)) && file.originalSize < MAX_ENTRY_BYTES,
-    });
+    entries = unzipSync(bytes);
   } catch {
     throw new Error(
       "That doesn't look like a TV Time export ZIP. Choose the gdpr-data.zip file (or a similar name)."
@@ -101,6 +125,12 @@ export async function unzipTvTimeExport(uri: string): Promise<TvTimeFileMap> {
 
   const files: TvTimeFileMap = {};
   for (const [name, data] of Object.entries(entries)) {
+    // Enforce the allowlist + per-entry size cap HERE — fflate 0.4.8's `filter`
+    // is a no-op (see above), so this is what actually keeps the export's secret
+    // CSVs (auth tokens, password hashes) and oversized entries out of the parsed
+    // payload and everything downstream (match, network calls).
+    if (!ALLOWED_BASENAMES.has(basename(name))) continue;
+    if (data.length >= MAX_ENTRY_BYTES) continue;
     files[name] = strFromU8(data);
   }
 
