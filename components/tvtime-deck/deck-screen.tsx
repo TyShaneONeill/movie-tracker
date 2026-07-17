@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -306,6 +306,9 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     checkpointCard: {
       width: '100%',
+      // Web: keep this "keep going?" modal card from spanning the full viewport
+      // (~1400px edge-to-edge). Centered by checkpointOverlay's alignItems.
+      ...(Platform.OS === 'web' ? { maxWidth: 440 } : {}),
       backgroundColor: colors.card,
       borderRadius: BorderRadius.lg,
       borderWidth: 1,

@@ -6,7 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 import { hapticImpact } from '@/lib/haptics';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
 import { TicketIcon } from '@/components/tvtime-import/icons';
@@ -40,7 +40,7 @@ export default function ImportsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <ContentContainer>
+        <ContentContainer style={formWidthStyle}>
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} hitSlop={12} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
               <ChevronLeftIcon color={colors.text} />

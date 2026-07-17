@@ -16,7 +16,7 @@ import { analytics } from '@/lib/analytics';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 import {
   unzipTvTimeExport,
@@ -144,10 +144,14 @@ export function TvTimeImportScreen() {
       });
       if (result.canceled || !result.assets?.[0]) return;
 
-      const pickedUri = result.assets[0].uri;
+      const pickedAsset = result.assets[0];
+      const pickedUri = pickedAsset.uri;
       setPhase('reading');
       try {
-        const files = await unzipTvTimeExport(pickedUri);
+        // On web the picker hands back an in-memory File (blob: URI) that
+        // expo-file-system can't read — pass it through so the read path can
+        // use Blob.arrayBuffer() instead. `file` is undefined on native.
+        const files = await unzipTvTimeExport(pickedUri, pickedAsset.file);
         const parsed = parseTvTimeExport(files);
         const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
         if (!mountedRef.current) return;
@@ -166,9 +170,13 @@ export function TvTimeImportScreen() {
           needs_attention: pv.needsAttention,
         });
       } finally {
-        // Delete the picker's cache copy of the ZIP — it holds the export's
-        // auth-token / password-hash CSVs and must not linger at rest.
-        FileSystem.deleteAsync(pickedUri, { idempotent: true }).catch(() => {});
+        // Native only: delete the picker's cache copy of the ZIP — it holds the
+        // export's auth-token / password-hash CSVs and must not linger at rest.
+        // On web there's no cache copy (the File lives in memory and is GC'd) and
+        // expo-file-system can't touch a blob: URI, so skip it.
+        if (Platform.OS !== 'web') {
+          FileSystem.deleteAsync(pickedUri, { idempotent: true }).catch(() => {});
+        }
       }
     } catch (err) {
       if (!mountedRef.current) return;
@@ -711,7 +719,7 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: Spacing.sm,
       paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
     },
-    pickBody: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
+    pickBody: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.md, ...formWidthStyle },
     pickSub: { marginTop: Spacing.sm, lineHeight: 22 },
     dropzone: {
       marginTop: Spacing.xl,
@@ -723,7 +731,7 @@ function createStyles(colors: ThemeColors) {
     },
     quiet: { textAlign: 'center', marginTop: Spacing.md, lineHeight: 18 },
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg },
-    scrollBody: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xl },
+    scrollBody: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xl, ...formWidthStyle },
     xlate: { borderRadius: BorderRadius.md, padding: Spacing.md, marginTop: Spacing.sm },
     xlateFrom: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
     xlateN: { fontSize: 22, fontWeight: '800' },
@@ -739,7 +747,7 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: 'rgba(245, 158, 11, 0.08)',
     },
     errorText: { color: '#ef4444', marginTop: Spacing.md },
-    footer: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md, gap: Spacing.sm },
+    footer: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md, gap: Spacing.sm, ...formWidthStyle },
     primaryBtn: { paddingVertical: Spacing.md, borderRadius: BorderRadius.full, alignItems: 'center' },
     primaryBtnText: { ...Typography.button.primary, color: '#ffffff' },
     secondaryBtn: { paddingVertical: Spacing.md, borderRadius: BorderRadius.full, alignItems: 'center', borderWidth: 1.5 },
