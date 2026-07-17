@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
@@ -135,6 +135,10 @@ const createStyles = (colors: typeof Colors.dark) =>
   StyleSheet.create({
     card: {
       width: '88%',
+      // Web: this swipe-card is a mobile design — cap it so `88%` doesn't resolve
+      // against the full desktop viewport (~1290px at 1440). 440 keeps the
+      // mobile card proportions; native is untouched. Centered via alignSelf.
+      ...(Platform.OS === 'web' ? { maxWidth: 440 } : {}),
       alignSelf: 'center',
       borderRadius: 18,
       borderWidth: 1,

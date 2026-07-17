@@ -16,7 +16,7 @@ import { analytics } from '@/lib/analytics';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 import type { TMDBMovie } from '@/lib/tmdb.types';
 import {
   unzipTvTimeExport,
@@ -719,7 +719,7 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: Spacing.sm,
       paddingTop: Platform.OS === 'web' ? Spacing.md : Spacing.sm,
     },
-    pickBody: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
+    pickBody: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.md, ...formWidthStyle },
     pickSub: { marginTop: Spacing.sm, lineHeight: 22 },
     dropzone: {
       marginTop: Spacing.xl,
@@ -731,7 +731,7 @@ function createStyles(colors: ThemeColors) {
     },
     quiet: { textAlign: 'center', marginTop: Spacing.md, lineHeight: 18 },
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg },
-    scrollBody: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xl },
+    scrollBody: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xl, ...formWidthStyle },
     xlate: { borderRadius: BorderRadius.md, padding: Spacing.md, marginTop: Spacing.sm },
     xlateFrom: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
     xlateN: { fontSize: 22, fontWeight: '800' },
@@ -747,7 +747,7 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: 'rgba(245, 158, 11, 0.08)',
     },
     errorText: { color: '#ef4444', marginTop: Spacing.md },
-    footer: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md, gap: Spacing.sm },
+    footer: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md, gap: Spacing.sm, ...formWidthStyle },
     primaryBtn: { paddingVertical: Spacing.md, borderRadius: BorderRadius.full, alignItems: 'center' },
     primaryBtnText: { ...Typography.button.primary, color: '#ffffff' },
     secondaryBtn: { paddingVertical: Spacing.md, borderRadius: BorderRadius.full, alignItems: 'center', borderWidth: 1.5 },
