@@ -171,6 +171,16 @@ const createStyles = (colors: typeof Colors.dark) =>
       alignItems: 'center',
     },
     skipText: { ...Typography.body.base, fontFamily: Fonts.inter.semibold },
-    rateBtn: { flex: 1, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, alignItems: 'center' },
+    // Transparent border matches the skip button's 1.5px border so the two pills
+    // have identical box heights and sit balanced on the row (founder soak r5).
+    rateBtn: {
+      flex: 1,
+      paddingVertical: Spacing.md,
+      borderRadius: BorderRadius.full,
+      borderWidth: 1.5,
+      borderColor: 'transparent',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     rateText: { ...Typography.button.primary },
   });

@@ -71,14 +71,23 @@ export function RatingSlider({
           onSlidingComplete={onSlidingComplete ? (v) => onSlidingComplete(Math.round(v * 10) / 10) : undefined}
           minimumTrackTintColor={unset ? colors.textTertiary : colors.tint}
           maximumTrackTintColor={colors.backgroundSecondary}
-          thumbTintColor={unset ? colors.textTertiary : '#ffffff'}
+          // Theme-aware thumb: colors.text is near-white on dark (as before) and
+          // near-black on light — a hardcoded '#ffffff' vanished on the light
+          // track/card (invisible-thumb bug, shared with review-modal until now).
+          thumbTintColor={unset ? colors.textTertiary : colors.text}
         />
       </View>
 
       <View style={styles.labels}>
-        <Text style={[styles.labelText, styles.labelLeft]}>Poor</Text>
-        <Text style={[styles.labelText, styles.labelCenter]}>Average</Text>
-        <Text style={[styles.labelText, styles.labelRight]}>Masterpiece</Text>
+        <Text style={[styles.labelText, styles.labelLeft]} numberOfLines={1} adjustsFontSizeToFit>
+          Poor
+        </Text>
+        <Text style={[styles.labelText, styles.labelCenter]} numberOfLines={1} adjustsFontSizeToFit>
+          Average
+        </Text>
+        <Text style={[styles.labelText, styles.labelRight]} numberOfLines={1} adjustsFontSizeToFit>
+          Masterpiece
+        </Text>
       </View>
     </View>
   );
