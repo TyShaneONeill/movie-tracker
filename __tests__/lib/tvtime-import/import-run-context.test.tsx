@@ -200,4 +200,51 @@ describe('ImportRunProvider', () => {
     // background analytics fires once, not twice (StrictMode-safe: outside the setState updater)
     expect(mockTrack.mock.calls.filter((c) => c[0] === 'import_backgrounded')).toHaveLength(1);
   });
+
+  it('drops a FINISHED run to idle when the user leaves the screen (so the global pill cannot linger)', async () => {
+    const d = deferred<ImportCounts>();
+    mockRunImport.mockReturnValue(d.promise);
+
+    const { result } = renderProvider();
+
+    act(() => {
+      result.current.start(startArgs());
+    });
+    // Import completes while the user is still on the done screen (focused).
+    await act(async () => {
+      d.resolve(COUNTS);
+      await d.promise;
+    });
+    await waitFor(() => expect(result.current.phase).toBe('complete'));
+
+    // Leaving the done screen (via the "Ink your blank stubs" CTA / back-swipe —
+    // not the explicit Done button) must reset the run; otherwise the completed
+    // phase was carried out of the flow and the global pill lingered on the deck
+    // and home (founder soak round 4 P0).
+    act(() => {
+      result.current.setScreenFocused(false);
+    });
+    await waitFor(() => expect(result.current.phase).toBe('idle'));
+  });
+
+  it('leaves a RUNNING import untouched on blur (backgrounded import still completes + surfaces)', async () => {
+    const d = deferred<ImportCounts>();
+    mockRunImport.mockReturnValue(d.promise);
+
+    const { result } = renderProvider();
+    act(() => {
+      result.current.start(startArgs());
+    });
+    // Leaving mid-run must NOT reset — the import keeps going and the pill shows.
+    act(() => {
+      result.current.setScreenFocused(false);
+    });
+    expect(result.current.phase).toBe('running');
+
+    await act(async () => {
+      d.resolve(COUNTS);
+      await d.promise;
+    });
+    await waitFor(() => expect(result.current.phase).toBe('complete'));
+  });
 });

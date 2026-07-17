@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, StyleSheet, Animated, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 
 import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing } from '@/constants/theme';
@@ -21,6 +21,12 @@ const AUTO_DISMISS_MS = 5000;
 // Clears the bottom tab bar (~56pt) plus a margin so the pill is always tappable
 // above it on the main tab screens.
 const TAB_BAR_CLEARANCE = 72;
+// Slide-out target — safely past the bottom of any device for the ~200ms exit
+// transient before the component UNMOUNTS. (The old code hid by translating to a
+// fixed 120px while staying mounted at `bottom: insets+72`, so on any device where
+// insets+72+pillHeight > 120 the "hidden" pill permanently peeked above the bottom
+// edge on EVERY route. We now unmount instead of hide-by-translate.)
+const HIDE_Y = 400;
 
 export function ImportProgressPill() {
   const { effectiveTheme } = useTheme();
@@ -30,26 +36,46 @@ export function ImportProgressPill() {
 
   const { phase, progress, screenFocused, reset } = useImportRun();
   const gate = useTvTimeImportGate();
+  const pathname = usePathname();
 
   // Visible whenever an import is active/finished AND the user isn't on the
   // import screen. Flag-gated like the rest of the feature.
-  const { visible, label, running, kind } = importPillView({
+  const { visible: visibleRaw, label, running, kind } = importPillView({
     enabled: gate.enabled,
     phase,
     screenFocused,
     processed: progress.processed,
     total: progress.total,
   });
+  // Never render over the full-screen import FLOW routes: the import screen
+  // (which shows its own UI) or the blank-stubs deck (a tabless route reached
+  // from the done screen — a bottom-pinned pill there collides with the deck's
+  // own footer and the home-indicator area). The pill is for the main tab
+  // screens where the user waits during a background import.
+  // HAZARD: these are literal path prefixes — if either route file is renamed
+  // (app/tvtime-deck.tsx / app/settings/tvtime-import.tsx), update them here too.
+  const onFlowRoute =
+    !!pathname &&
+    (pathname.startsWith('/tvtime-deck') || pathname.startsWith('/settings/tvtime-import'));
+  const visible = visibleRaw && !onFlowRoute;
 
-  const translateY = useRef(new Animated.Value(120)).current;
+  // Mount ONLY while visible. With no active import (the dominant state) — or on
+  // a flow route — the component returns null and occupies zero pixels; it can't
+  // peek. On show: mount + spring in. On hide: slide out, then unmount.
+  const [mounted, setMounted] = useState(false);
+  const translateY = useRef(new Animated.Value(HIDE_Y)).current;
   useEffect(() => {
-    Animated.spring(translateY, {
-      toValue: visible ? 0 : 120,
-      useNativeDriver: true,
-      tension: 80,
-      friction: 12,
-    }).start();
-  }, [visible, translateY]);
+    if (visible) {
+      setMounted(true);
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }).start();
+    } else if (mounted) {
+      Animated.timing(translateY, { toValue: HIDE_Y, duration: 200, useNativeDriver: true }).start(
+        ({ finished }) => {
+          if (finished) setMounted(false);
+        }
+      );
+    }
+  }, [visible, mounted, translateY]);
 
   // Auto-dismiss the completed/errored pill after a few seconds (the data is
   // already imported; the done screen remains reachable from Settings → Import).
@@ -65,6 +91,10 @@ export function ImportProgressPill() {
     hapticImpact();
     router.push('/settings/tvtime-import');
   };
+
+  // Zero pixels when there's nothing to show — the fix for the "always peeking"
+  // floater. All hooks above run every render; only the tree is withheld.
+  if (!mounted) return null;
 
   return (
     <Animated.View

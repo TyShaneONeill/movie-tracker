@@ -23,7 +23,7 @@ import { createReview } from '@/lib/review-service';
 import {
   computeEligibleItems,
   computeProgress,
-  starsToReviewRating,
+  clampDeckRating,
   type DeckItem,
   type DeckProgress,
   type EligibleMovieRow,
@@ -92,11 +92,11 @@ export async function fetchDeckData(userId: string): Promise<DeckData> {
 }
 
 /**
- * Ink one blank stub: write the rating as a QUIET review (source =
- * 'tvtime_import', private, no words). Stored identically to a slider review of
- * the same value (stars*2 on the 1–10 scale) — so it has exact PARITY with an
- * organic review-rating (both show as "your rating" on the title detail;
- * neither feeds rating personality, which reads first_takes). The DB trigger
+ * Ink one blank stub: write the rating (1–10, from the same slider as
+ * review-modal) as a QUIET review (source = 'tvtime_import', private, no words).
+ * Stored identically to an organic slider review of the same value — exact
+ * PARITY (both show as "your rating" on the title detail; neither feeds rating
+ * personality, which reads first_takes). The DB trigger
  * skips follower notifications and the feed / Reviews tab / weekly-recap /
  * Critic count exclude it. A pre-existing review (already inked, or rated
  * organically) is treated as success — the deck simply advances.
@@ -104,7 +104,7 @@ export async function fetchDeckData(userId: string): Promise<DeckData> {
 export async function inkStubRating(
   userId: string,
   item: DeckItem,
-  stars: number
+  rating: number
 ): Promise<void> {
   try {
     await createReview(userId, {
@@ -114,7 +114,7 @@ export async function inkStubRating(
       posterPath: item.posterPath,
       title: '',
       reviewText: '',
-      rating: starsToReviewRating(stars),
+      rating: clampDeckRating(rating),
       isSpoiler: false,
       isRewatch: false,
       visibility: 'private',

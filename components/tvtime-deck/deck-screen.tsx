@@ -1,8 +1,8 @@
 /**
  * The blank-stubs rating deck screen (mock frame 7). Loads the eligible-unrated
- * imported items, presents them as a swipeable card stack in sessions of ~10,
- * and inks each rating as a QUIET review. Resumes exactly on reopen: rated items
- * drop out of the server read, skipped items persist client-side.
+ * imported items, presents them one card at a time in sessions of ~10, and inks
+ * each rating as a QUIET review. Resumes exactly on reopen: rated items drop out
+ * of the server read, skipped items persist client-side.
  *
  * Writes are OPTIMISTIC and non-blocking: a decision advances the card
  * immediately and the network write runs in the background, tracked in a bounded
@@ -94,20 +94,20 @@ export function TvTimeDeckScreen() {
     }
   };
 
-  const handleRate = (item: DeckItem, stars: number) => {
+  const handleRate = (item: DeckItem, rating: number) => {
     if (!user?.id || checkpoint) return;
     if (inFlightRef.current.has(item.key)) return;
     hapticNotification(NotificationFeedbackType.Success); // confirms the rating committed
     setQueue((q) => q.filter((it) => it.key !== item.key));
     setRatedThisSession((n) => n + 1);
     analytics.track('deck_rating_submitted', {
-      stars,
+      rating,
       session_index: sessionSlot(decidedRef.current).index,
       decided_total: decidedRef.current + 1,
     });
     advance();
     inFlightRef.current.add(item.key);
-    inkStubRating(user.id, item, stars)
+    inkStubRating(user.id, item, rating)
       .catch(() => {
         // Failed write: the item stays unrated server-side and returns next
         // session — no in-place re-queue. Just tell the user it didn't stick.
@@ -217,19 +217,14 @@ export function TvTimeDeckScreen() {
           </View>
         )}
         {!isLoading && !isError && !done && top && (
-          <>
-            {/* Backing plates for deck depth (decorative). */}
-            <View style={[styles.backing, styles.backing2]} />
-            <View style={[styles.backing, styles.backing1]} />
-            <DeckCard
-              key={top.key}
-              item={top}
-              reduced={reduced}
-              disabled={checkpoint}
-              onRate={handleRate}
-              onSkip={handleSkip}
-            />
-          </>
+          <DeckCard
+            key={top.key}
+            item={top}
+            reduced={reduced}
+            disabled={checkpoint}
+            onRate={handleRate}
+            onSkip={handleSkip}
+          />
         )}
       </View>
 
@@ -281,18 +276,6 @@ const createStyles = (colors: typeof Colors.dark) =>
       justifyContent: 'center',
       paddingHorizontal: Spacing.lg,
     },
-    backing: {
-      position: 'absolute',
-      width: '80%',
-      aspectRatio: 2 / 2.5,
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      opacity: 0.5,
-    },
-    backing1: { transform: [{ rotate: '-3deg' }, { scale: 0.97 }] },
-    backing2: { transform: [{ rotate: '4deg' }, { scale: 0.94 }], opacity: 0.3 },
     counter: {
       ...Typography.body.xs,
       textAlign: 'center',

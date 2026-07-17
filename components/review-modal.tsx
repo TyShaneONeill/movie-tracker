@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
-import Slider from '@react-native-community/slider';
+import { RatingSlider } from '@/components/ui/rating-slider';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -134,10 +134,6 @@ export function ReviewModal({
     onClose();
   };
 
-  const formatRating = (value: number) => {
-    return value % 1 === 0 ? value.toString() : value.toFixed(1);
-  };
-
   return (
     <Modal
       visible={visible}
@@ -192,37 +188,10 @@ export function ReviewModal({
                 </View>
               )}
 
-              {/* Rating Section */}
+              {/* Rating Section — shared 1–10 slider (also used by the TV Time deck) */}
               <View style={[styles.ratingSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Rating</Text>
-
-                <View style={styles.ratingWrapper}>
-                  <View style={styles.ratingDisplay}>
-                    <Text style={styles.ratingValue}>{formatRating(rating)}</Text>
-                    <Text style={styles.ratingMax}>/ 10</Text>
-                  </View>
-
-                  <View style={styles.sliderContainer}>
-                    <Slider
-                      style={styles.slider}
-                      minimumValue={0}
-                      maximumValue={10}
-                      step={0.1}
-                      value={rating}
-                      disabled={contentLocked}
-                      onValueChange={(value) => setRating(Math.round(value * 10) / 10)}
-                      minimumTrackTintColor={colors.tint}
-                      maximumTrackTintColor={colors.backgroundSecondary}
-                      thumbTintColor="#ffffff"
-                    />
-                  </View>
-
-                  <View style={styles.ratingLabels}>
-                    <Text style={[styles.ratingLabelText, styles.ratingLabelLeft]}>Poor</Text>
-                    <Text style={[styles.ratingLabelText, styles.ratingLabelCenter]}>Average</Text>
-                    <Text style={[styles.ratingLabelText, styles.ratingLabelRight]}>Masterpiece</Text>
-                  </View>
-                </View>
+                <RatingSlider value={rating} onChange={setRating} disabled={contentLocked} />
               </View>
 
               {/* Title */}
@@ -429,63 +398,9 @@ const createStyles = (colors: typeof Colors.dark) =>
       fontFamily: Fonts.inter.semibold,
     },
 
-    // Rating
+    // Rating (the slider itself lives in the shared RatingSlider component)
     ratingSection: {
       marginBottom: Spacing.lg,
-    },
-    ratingWrapper: {
-      alignItems: 'center',
-      gap: Spacing.md,
-      paddingVertical: Spacing.md,
-    },
-    ratingDisplay: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      gap: 4,
-    },
-    ratingValue: {
-      fontFamily: Fonts.outfit.extrabold,
-      fontSize: 48,
-      color: colors.tint,
-      lineHeight: 52,
-    },
-    ratingMax: {
-      fontFamily: Fonts.outfit.semibold,
-      fontSize: 20,
-      color: colors.textTertiary,
-    },
-    sliderContainer: {
-      width: '100%',
-      height: 32,
-      justifyContent: 'center',
-    },
-    slider: {
-      width: '100%',
-      height: 32,
-    },
-    ratingLabels: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      width: '100%',
-      marginTop: -Spacing.xs,
-      paddingHorizontal: Platform.OS === 'ios' ? 16 : 0,
-    },
-    ratingLabelText: {
-      ...Typography.body.xs,
-      color: colors.textTertiary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      fontFamily: Fonts.inter.semibold,
-      flex: 1,
-    },
-    ratingLabelLeft: {
-      textAlign: 'left',
-    },
-    ratingLabelCenter: {
-      textAlign: 'center',
-    },
-    ratingLabelRight: {
-      textAlign: 'right',
     },
 
     // Title Input

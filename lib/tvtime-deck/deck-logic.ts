@@ -2,7 +2,7 @@
  * Pure, side-effect-free logic for the TV Time blank-stubs rating deck (PR 4).
  *
  * Everything here is unit-tested and free of I/O: eligibility filtering, the
- * stars→stored-rating mapping, session chunking, the deck queue (eligible minus
+ * 1–10 rating clamp, session chunking, the deck queue (eligible minus
  * locally-skipped), resume position, and the "inked of total" progress. The
  * service layer (deck-service.ts) does the Supabase reads/writes; the screen
  * stays thin.
@@ -75,13 +75,14 @@ export function yearFromDate(date: string | null | undefined): string | null {
 }
 
 /**
- * Map a 1–5 star tap to the app's 1–10 stored rating (reviews.rating CHECK is
- * 1..10). An inked stub of N stars is stored identically to a slider review of
- * N*2, so it counts the same in rating stats. Clamps to the valid 1..5 domain.
+ * Clamp a slider value to the app's valid 1–10 rating domain (reviews.rating
+ * CHECK is 1..10). The deck uses the SAME 1–10 slider as review-modal and stores
+ * the value directly — no star mapping. Fractional values are passed through as
+ * the organic review flow does (the integer reviews.rating column rounds on
+ * insert), so an inked stub is stored identically to a slider review.
  */
-export function starsToReviewRating(stars: number): number {
-  const clamped = Math.max(1, Math.min(5, Math.round(stars)));
-  return clamped * 2;
+export function clampDeckRating(value: number): number {
+  return Math.min(10, Math.max(1, value));
 }
 
 /**
