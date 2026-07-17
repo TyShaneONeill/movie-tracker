@@ -61,8 +61,11 @@ export function SuccessStep(_props: StepProps) {
 
   // Completion-screen entry to import. Commits onboarding first (never leaves
   // required steps unsaved), enters the app, then opens the import screen.
-  // Still queues the coach-mark tour (like handleEnter) so import-first users
-  // aren't skipped. Guards on isSubmitting to prevent a double-commit.
+  // Deliberately does NOT start the coach-mark tour: someone who explicitly taps
+  // "Import from TV Time" wants the import screen, and the tour overlay pops over
+  // everything and swallows the landing (they never reach import). The tour still
+  // runs for the normal "Enter" path (handleEnter). Guards isSubmitting against a
+  // double-commit.
   const handleImportFromTvTime = async () => {
     if (isSubmitting) return;
     const ok = await commit();
@@ -72,7 +75,6 @@ export function SuccessStep(_props: StepProps) {
     }
     router.replace('/(tabs)');
     InteractionManager.runAfterInteractions(() => {
-      startTourIfNotCompleted();
       router.push('/settings/tvtime-import?from=onboarding_completion');
     });
   };

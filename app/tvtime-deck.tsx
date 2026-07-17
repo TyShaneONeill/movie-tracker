@@ -12,19 +12,29 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
+import { useAuth } from '@/hooks/use-auth';
 import { useTvTimeImportDeckGate } from '@/hooks/use-tvtime-deck';
 import { TvTimeDeckScreen } from '@/components/tvtime-deck/deck-screen';
 
 export default function TvTimeDeckRoute() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { user, isLoading: authLoading } = useAuth();
   const { enabled, resolving } = useTvTimeImportDeckGate();
 
+  // Auth gate FIRST (same rationale as the import route): the deck reads and
+  // writes a signed-in user's blank stubs / ratings, so a guest or unauth user
+  // must never reach it. Then the flag gate (separate kill switch) holds.
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/(auth)/signin');
+      return;
+    }
     if (!resolving && !enabled) router.replace('/');
-  }, [resolving, enabled]);
+  }, [authLoading, user, resolving, enabled]);
 
-  if (resolving || !enabled) {
+  if (authLoading || !user || resolving || !enabled) {
     return <View style={{ flex: 1, backgroundColor: colors.background }} />;
   }
 

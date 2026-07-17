@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
 
 // Defer the heavy import screen (fflate unzip + parser + matcher + the file
@@ -18,16 +19,24 @@ const TvTimeImportScreen = React.lazy(() =>
 export default function TvTimeImportRoute() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
+  const { user, isLoading: authLoading } = useAuth();
   const { enabled, resolving } = useTvTimeImportGate();
 
-  // Hard flag gate: rollout control must hold even for a cached deep link into
-  // this route. While the flag resolves we hold a neutral screen (no flash);
-  // once resolved OFF, bounce back to Settings rather than rendering the flow.
+  // Auth gate FIRST: the import writes user_tv_shows / user_episode_watches /
+  // user_movies rows keyed on a user_id, so a guest (browse-anywhere mode is the
+  // default on web and opt-in on native) or any not-yet-signed-in user must never
+  // reach the pick screen. Once auth resolves with no user, send them to sign-in.
+  // Then the hard flag gate (rollout control) holds even for a cached deep link.
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/(auth)/signin');
+      return;
+    }
     if (!resolving && !enabled) router.replace('/settings');
-  }, [resolving, enabled]);
+  }, [authLoading, user, resolving, enabled]);
 
-  if (resolving || !enabled) {
+  if (authLoading || !user || resolving || !enabled) {
     return <View style={{ flex: 1, backgroundColor: colors.background }} />;
   }
 
