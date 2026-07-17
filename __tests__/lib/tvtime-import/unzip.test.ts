@@ -46,6 +46,31 @@ describe('unzipTvTimeExport (web / Blob path)', () => {
     await expect(unzipTvTimeExport('blob:fake-url', huge)).rejects.toThrow(/too large/);
   });
 
+  it('excludes an oversized entry even when its name is allowlisted (size cap)', async () => {
+    // A decompression-bomb style entry: allowlisted NAME but >50 MB decompressed.
+    // The pre-decompression filter reads fflate's originalSize and must skip it;
+    // the output loop re-asserts the cap. Either way it must never reach the map.
+    // (fflate compresses the repeated byte to a few KB, so the ZIP stays small.)
+    const oversized = new Uint8Array(51 * 1024 * 1024).fill(65); // 51 MB of 'A'
+    const zip = zipSync({
+      'tracking-prod-records-v2.csv': oversized,
+      'tracking-prod-records.csv': strToU8('movie_name\nHeat\n'), // a normal one survives
+    });
+    const files = await unzipTvTimeExport('blob:fake-url', toBlob(zip));
+
+    expect(Object.keys(files)).toContain('tracking-prod-records.csv');
+    expect(Object.keys(files)).not.toContain('tracking-prod-records-v2.csv');
+  });
+
+  it('throws the no-history message when every allowlisted entry is filtered out', async () => {
+    // Only secrets + oversized → nothing valid parses → the friendly empty message,
+    // never a silent zero-item "success".
+    const zip = zipSync({ 'auth-token.csv': strToU8('secret,hunter2\n') });
+    await expect(unzipTvTimeExport('blob:fake-url', toBlob(zip))).rejects.toThrow(
+      /couldn't find your TV Time history/
+    );
+  });
+
   it('falls back to fetching the blob: URI when no File is passed', async () => {
     const zip = makeZip({ 'tracking-prod-records-v2.csv': 'series_name\nShow\n' });
     const fetchMock = jest.fn().mockResolvedValue({ blob: async () => toBlob(zip) });
