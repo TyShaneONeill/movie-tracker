@@ -70,9 +70,14 @@ export interface ImportCounts {
 }
 
 /** Per-call aggregate ceilings the edge fn enforces (413 `chunk_too_large`).
- *  The client slices within these so a well-formed chunk never trips the guard. */
+ *  The client slices within these so a well-formed chunk never trips the guard.
+ *  MAX_SHOWS_PER_CALL bounds a follows-heavy import: thousands of 0-episode
+ *  followed shows carry no episodes, so without a shows cap they'd all pack into
+ *  one chunk and blow the edge fn's wall-clock. Kept in lockstep with the edge
+ *  fn's MAX_TOTAL_SHOWS_PER_CALL. */
 export const MAX_EPISODES_PER_CALL = 5000;
 export const MAX_MOVIES_PER_CALL = 2000;
+export const MAX_SHOWS_PER_CALL = 500;
 
 /** A zeroed counts accumulator. */
 export function emptyImportCounts(): ImportCounts {
