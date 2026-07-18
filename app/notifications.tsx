@@ -33,6 +33,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useFollowRequests } from '@/hooks/use-follow-requests';
+import { notificationTargetExists } from '@/lib/notification-service';
 import { NotificationItem } from '@/components/social/NotificationItem';
 import { supabase } from '@/lib/supabase';
 import type { Notification, Profile } from '@/lib/database.types';
@@ -187,7 +188,7 @@ export default function NotificationsScreen() {
     [notifications, readOverrides, resolvedRequestCardIds]
   );
 
-  const handleNotificationPress = (notification: Notification) => {
+  const handleNotificationPress = async (notification: Notification) => {
     // Clear this specific row's unread dot immediately (optimistic);
     // fire-and-forget so navigation never blocks on the server write.
     if (!notification.read) {
@@ -196,6 +197,21 @@ export default function NotificationsScreen() {
     }
 
     const data = (notification.data ?? {}) as Record<string, unknown>;
+
+    // Historical orphans (deleted before the #709 cleanup triggers existed)
+    // and delete/tap races can still reference a comment/review/first-take
+    // that's since been removed. Verify before navigating into a "not found"
+    // screen and show a neutral fallback instead of a dead end.
+    const targetsContent = typeof data.review_id === 'string' || typeof data.first_take_id === 'string';
+    if (targetsContent && !(await notificationTargetExists(notification))) {
+      Toast.show({
+        type: 'info',
+        text1: 'Content no longer available',
+        text2: 'This has been deleted.',
+        visibilityTime: 3000,
+      });
+      return;
+    }
 
     switch (notification.type) {
       case 'like_review':
