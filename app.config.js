@@ -3,7 +3,7 @@ export default {
     owner: "tormaj",
     name: "PocketStubs",
     slug: "pocketstubs",
-    version: "1.5.1",
+    version: "1.6.0",
     orientation: "portrait",
     updates: {
       url: "https://u.expo.dev/d71c1a95-3697-4a03-b485-813c803573f9",
@@ -42,7 +42,7 @@ export default {
     },
     android: {
       package: "com.pocketstubs.app",
-      versionCode: 56,
+      versionCode: 57,
       googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         backgroundColor: "#000000",
