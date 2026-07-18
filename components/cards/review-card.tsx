@@ -129,13 +129,17 @@ export function ReviewCard({
         <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(rating, colors.tint) }]}>
           <Text style={styles.ratingText}>{formatRating(rating)}</Text>
         </View>
-        {Platform.OS === 'web' && onDelete && (
+        {/* Visible trigger for the same delete confirm long-press already opens —
+            long-press alone wasn't discoverable (PS edit-affordance polish). */}
+        {onDelete && (
           <Pressable
             onPress={(e: any) => { e.stopPropagation?.(); handleLongPress(); }}
-            style={styles.webTrashButton}
+            style={styles.moreButton}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="More options"
           >
-            <Ionicons name="trash-outline" size={16} color={colors.textTertiary} />
+            <Ionicons name="ellipsis-horizontal" size={16} color={colors.textTertiary} />
           </Pressable>
         )}
       </View>
@@ -280,7 +284,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       ...Typography.body.xs,
       color: colors.textSecondary,
     },
-    webTrashButton: {
+    moreButton: {
       padding: 4,
       marginLeft: Spacing.xs,
       justifyContent: 'center',
