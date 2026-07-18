@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Time Alternative — Import Your TV Time History | PocketStubs</title>
+    <meta name="description" content="TV Time shut down July 15, 2026, but your export file still works. PocketStubs is the TV Time alternative that imports your full TV Time history — shows, episodes, films, ratings, and watchlist — in about a minute.">
+    <link rel="canonical" href="https://pocketstubs.com/tv-time-import">
+    <meta property="og:title" content="TV Time Alternative — Import Your TV Time History">
+    <meta property="og:description" content="TV Time shut down July 15, 2026, but your export file still works. Import your full history into PocketStubs in about a minute.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pocketstubs.com/tv-time-import">
+    <meta property="og:site_name" content="PocketStubs">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="TV Time Alternative — Import Your TV Time History">
+    <meta name="twitter:description" content="TV Time shut down July 15, 2026, but your export file still works. Import your full history into PocketStubs in about a minute.">
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5311715630678079" crossorigin="anonymous"></script>
+    <!-- FAQ structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "TV Time is closed, does my export still work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, forever. Your TV Time gdpr-data.zip export works with PocketStubs' import tool whenever you're ready — there's no deadline."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need the app to import my TV Time history?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The importer runs right in your browser at pocketstubs.com. Apps are also available for iOS and Android if you want to keep tracking on your phone."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is importing my TV Time history free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Importing your TV Time history and using PocketStubs' core tracking features is free."
+          }
+        }
+      ]
+    }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #09090b;
+            color: #fafafa;
+            min-height: 100vh;
+            line-height: 1.7;
+        }
+
+        a { color: #e11d48; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .section {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        /* Hero */
+        .hero {
+            padding-top: 60px;
+            padding-bottom: 40px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.25rem;
+        }
+
+        .hero .subheadline {
+            font-size: 1.15rem;
+            color: #a1a1aa;
+            line-height: 1.7;
+            margin: 0 auto 2rem;
+            max-width: 560px;
+        }
+
+        .cta-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+        }
+
+        .btn:hover { text-decoration: none; transform: translateY(-1px); }
+
+        .btn-primary { background: #e11d48; color: #fff; }
+        .btn-primary:hover { background: #be123c; box-shadow: 0 4px 20px rgba(225, 29, 72, 0.3); }
+
+        .store-badge {
+            display: inline-flex;
+            align-items: center;
+            height: 44px;
+            padding: 0 20px;
+            background: #18181b;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #fafafa;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: background 0.2s ease;
+        }
+
+        .store-badge:hover { background: #27272a; text-decoration: none; }
+
+        a[aria-label="Download on the App Store"] img { transition: opacity 0.15s ease; }
+        a[aria-label="Download on the App Store"]:hover img { opacity: 0.85; }
+
+        /* Steps */
+        .steps {
+            background: #0f0f12;
+        }
+
+        .steps h2, .migrate h2, .faq h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .step {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(225, 29, 72, 0.12);
+            color: #e11d48;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .step h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.35rem; }
+        .step p { color: #a1a1aa; }
+
+        /* Migrate */
+        .migrate ul { list-style: none; }
+        .migrate li {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            color: #d4d4d8;
+        }
+        .migrate li:last-child { border-bottom: none; }
+        .migrate .hostage-note {
+            margin-top: 1.75rem;
+            color: #a1a1aa;
+            font-size: 0.95rem;
+        }
+
+        /* FAQ */
+        .faq-item { margin-bottom: 1.75rem; }
+        .faq-item h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .faq-item p { color: #a1a1aa; }
+
+        /* Footer */
+        .footer {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px 24px;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links a { color: #a1a1aa; font-size: 0.9rem; }
+        .footer-links a:hover { color: #e11d48; }
+        .footer p { color: #52525b; font-size: 0.8rem; }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .section { padding: 48px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <section class="section hero">
+        <h1>The TV Time alternative that imports your history</h1>
+        <p class="subheadline">TV Time shut down July 15, 2026. Your export file still works — bring every show, episode, film, and watchlist item into PocketStubs in about a minute.</p>
+        <div class="cta-group">
+            <a class="btn btn-primary" href="/settings/tvtime-import">Import in your browser</a>
+            <a href="https://apps.apple.com/app/pocketstubs/id6760832346" aria-label="Download on the App Store">
+                <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
+            </a>
+            <a href="https://play.google.com/store/apps/details?id=com.pocketstubs.app" class="store-badge">Get it on Google Play</a>
+        </div>
+    </section>
+
+    <section class="section steps">
+        <h2>How it works</h2>
+        <div class="step-list">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div>
+                    <h3>Find your gdpr-data.zip</h3>
+                    <p>TV Time emailed every user a full data export before the shutdown. That zip file is your TV Time history — shows, episodes, films, ratings, and your watchlist, all in one place.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div>
+                    <h3>Drop it at pocketstubs.com or in the app</h3>
+                    <p>Upload the export at pocketstubs.com/tv-time-import or through the PocketStubs import screen. No manual re-entry, no retyping titles.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div>
+                    <h3>Everything gets matched in about a minute</h3>
+                    <p>Every show, episode, film, and watchlist item is matched against our movie and TV database automatically, so your history looks the way it did on TV Time.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section migrate">
+        <h2>What comes with you</h2>
+        <p style="color:#a1a1aa; margin-bottom: 1.5rem;">PocketStubs is built as a full TV Time replacement, not just an import tool. When you import your TV Time history, here's what migrates:</p>
+        <ul>
+            <li>Shows and episode progress</li>
+            <li>Films you've logged</li>
+            <li>Ratings</li>
+            <li>Your watchlist</li>
+        </ul>
+        <p class="hostage-note">Your history stays exportable once it's here too — no hostages. If you ever want your data out, it's yours to take.</p>
+    </section>
+
+    <section class="section faq">
+        <h2>Frequently asked questions</h2>
+        <div class="faq-item">
+            <h3>TV Time is closed, does my export still work?</h3>
+            <p>Yes, forever. Your TV Time gdpr-data.zip export works with PocketStubs' import tool whenever you're ready — there's no deadline.</p>
+        </div>
+        <div class="faq-item">
+            <h3>Do I need the app to import my TV Time history?</h3>
+            <p>No. The importer runs right in your browser at pocketstubs.com. Apps are also available for iOS and Android if you want to keep tracking on your phone.</p>
+        </div>
+        <div class="faq-item">
+            <h3>Is it free?</h3>
+            <p>Yes. Importing your TV Time history and using PocketStubs' core tracking features is free.</p>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-links">
+            <a href="/about">About</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/support">Support</a>
+        </div>
+        <p>&copy; 2026 PocketStubs. All rights reserved.</p>
+    </footer>
+</body>
+</html>

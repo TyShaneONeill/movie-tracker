@@ -80,6 +80,7 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/support", "destination": "/support.html" },
+    { "source": "/tv-time-import", "destination": "/tv-time-import.html" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }
