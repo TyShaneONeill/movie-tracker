@@ -85,12 +85,29 @@
  * mirror, so prod-vs-staging presence is reported but not a hard failure. See
  * PROD_ONLY_SOURCE_GAP_ALLOWLIST / REPO_ONLY_ALLOWLIST for reviewed carve-outs.
  *
+ * EPISODES-WATCHED DATA-DRIFT AUDIT (added 2026-07-18)
+ * A fourth, independent check counts (user, show) rows in `user_tv_shows` whose
+ * `episodes_watched` counter disagrees with the actual count of that show's
+ * `user_episode_watches` rows (watch_number = 1) — the same semantics as the
+ * `recompute_episodes_watched`/`recompute_episodes_watched_all` RPCs. Unlike the
+ * other three probes this looks at DATA, not DDL: the #696 RPC only heals shows
+ * touched by the TV Time importer, on import, so organic accounts can carry
+ * silent historical drift the RPC never reaches — exactly what #707 found on
+ * Ty's own account (the Continue-Watching progress bar gates on
+ * episodes_watched > 0, so drift means the bar never renders, with no error to
+ * page anyone). "Broken profiles should page us, not wait for a user to
+ * notice." Reports a per-environment mismatch COUNT only (never row-level data)
+ * to Discord; a fix-it callable (`recompute_episodes_watched_all()`, added in
+ * the same migration as this check) is available for on-call to run against
+ * staging or prod as needed — this script itself never writes.
+ *
  * USAGE
  *   doppler run -p pocketstubs -c prd -- node scripts/check-schema-drift.mjs
  * (prd config is used only for SUPABASE_MANAGEMENT_TOKEN, which can read both
- * projects. Reads only information_schema / pg_catalog. Prints object NAMES
- * only — never data or secret values.) Exits 1 on CRITICAL drift, a DEFINER
- * finding, or function-inventory drift; 0 when clean. IN-FLIGHT / PENDING PROD
+ * projects. Reads only information_schema / pg_catalog / user_tv_shows counts.
+ * Prints object NAMES and mismatch COUNTS only — never row-level data or secret
+ * values.) Exits 1 on CRITICAL drift, a DEFINER finding, function-inventory
+ * drift, or episodes_watched data drift; 0 when clean. IN-FLIGHT / PENDING PROD
  * DEPLOY findings are reported but never fail the check — see SEVERITY MODEL.
  * The IN-FLIGHT/PENDING classification needs all origin/* branches fetched
  * locally (git grep reads them by ref) — see the workflow's fetch step.
@@ -332,6 +349,21 @@ const DEFINER_GRANT_PROBE = `
   where grantee in ('PUBLIC', 'anon')
   order by fn, grantee`;
 
+// Count of (user, show) rows whose stored episodes_watched disagrees with the
+// actual count of watch_number=1 rows in user_episode_watches. Same semantics
+// as recompute_episodes_watched / recompute_episodes_watched_all. A single
+// scalar count — deliberately not the row list, per the "counts/names only"
+// posture of this script.
+const EPISODES_WATCHED_DRIFT_PROBE = `
+  select count(*) as mismatch_count
+  from user_tv_shows t
+  where t.episodes_watched is distinct from (
+    select count(*)
+    from user_episode_watches w
+    where w.user_tv_show_id = t.id
+      and w.watch_number = 1
+  )`;
+
 async function fetchRows(ref, sql) {
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
     method: 'POST',
@@ -362,6 +394,12 @@ async function auditDefinerGrants(ref, envLabel) {
   return rows
     .filter((r) => !DEFINER_EXECUTE_ALLOWLIST.has(r.fn))
     .map((r) => ({ env: envLabel, fn: r.fn, grantee: r.grantee }));
+}
+
+// episodes_watched mismatch count for one project, tagged with its env label.
+async function auditEpisodesWatchedDrift(ref, envLabel) {
+  const rows = await fetchRows(ref, EPISODES_WATCHED_DRIFT_PROBE);
+  return { env: envLabel, mismatchCount: Number(rows[0]?.mismatch_count ?? 0) };
 }
 
 // Slugs of every ACTIVE Edge Function on a project (Management API list).
@@ -490,16 +528,28 @@ async function main() {
   );
   const inventoryFindings = prodMissingFromRepo.length + repoMissingFromProd.length;
 
+  // Independent episodes_watched data-drift audit across BOTH databases.
+  const episodesDriftFindings = [
+    await auditEpisodesWatchedDrift(PROD_REF, 'PROD'),
+    await auditEpisodesWatchedDrift(STAGING_REF, 'STAGING'),
+  ].filter((f) => f.mismatchCount > 0);
+
   const totalInFlight = Object.values(report).reduce((n, r) => n + r.inFlight.length, 0);
   const totalPending = Object.values(report).reduce((n, r) => n + r.pendingProdDeploy.length, 0);
 
-  if (driftCount === 0 && definerFindings.length === 0 && inventoryFindings === 0) {
+  if (
+    driftCount === 0 &&
+    definerFindings.length === 0 &&
+    inventoryFindings === 0 &&
+    episodesDriftFindings.length === 0
+  ) {
     console.log('✓ Schema in sync — prod and staging public DDL match (tables, columns, functions, policies).');
     if (totalInFlight > 0 || totalPending > 0) {
       console.log(formatNonFailingDrift(report));
     }
     console.log('✓ DEFINER grants clean — no SECURITY DEFINER function is anon/PUBLIC-executable (prod + staging).');
     console.log(`✓ Function inventory clean — every prod Edge Function has repo source and every repo function is deployed to prod (staging mirrors ${stagingFns.length}/${prodFns.length}; partial by design).`);
+    console.log('✓ episodes_watched clean — no (user, show) row disagrees with its actual watch count (prod + staging).');
     process.exit(0);
   }
 
@@ -571,6 +621,25 @@ async function main() {
     const message = lines.join('\n');
     console.error(message);
     await sendDiscordAlert('Function-inventory drift (prod ↔ repo)', message);
+  }
+
+  if (episodesDriftFindings.length > 0) {
+    const lines = [
+      `✖ EPISODES_WATCHED DRIFT: mismatched user_tv_shows rows detected.`,
+    ];
+    for (const f of episodesDriftFindings) {
+      lines.push(`  [${f.env}] ${f.mismatchCount} row(s) where episodes_watched != actual watch count`);
+    }
+    lines.push(
+      '\nA drifted row means that show\'s Continue-Watching progress bar silently never renders',
+      '(the bar gates on episodes_watched > 0) — #707. Historical drift on organic accounts is not',
+      'healed by recompute_episodes_watched (importer-only, on import). Fix: call',
+      'public.recompute_episodes_watched_all() against the affected environment (service_role only;',
+      'see 20260718090000_backfill_episodes_watched_all.sql), then re-run this check to confirm 0.'
+    );
+    const message = lines.join('\n');
+    console.error(message);
+    await sendDiscordAlert('episodes_watched data drift (#707)', message);
   }
 
   process.exit(1);
