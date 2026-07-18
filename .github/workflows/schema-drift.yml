@@ -3,6 +3,11 @@ name: Schema Drift Guard
 # Fails (and pings Discord) when PROD and STAGING public-schema DDL diverge —
 # the automated catch for a migration applied to one database but not the other
 # (burned 2026-07-07: the edited_at migration missed prod, broke every feed).
+# A STAGING-only object whose migration is still on an unmerged PR branch (or
+# merged to main but not yet hand-applied to prod) is classified IN-FLIGHT /
+# PENDING PROD DEPLOY and does NOT fail — see the SEVERITY MODEL doc in
+# scripts/check-schema-drift.mjs (burned 2026-07-17: PRs #711/#712's staged
+# work red-alerted as if prod had been forgotten).
 #
 # ALSO fails when any SECURITY DEFINER function in schema public is anon/PUBLIC-
 # executable (checked against both prod and staging). That closes a privilege-
@@ -12,7 +17,8 @@ name: Schema Drift Guard
 # the script. See scripts/check-schema-drift.mjs for the full rationale.
 #
 # Requires repo secrets: SUPABASE_MANAGEMENT_TOKEN (reads both projects),
-# and optionally DISCORD_METRICS_WEBHOOK_URL for alerts.
+# and optionally DISCORD_ALERTS_WEBHOOK_URL for alerts (falls back to
+# DISCORD_METRICS_WEBHOOK_URL if unset).
 
 on:
   schedule:
@@ -28,11 +34,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: IN-FLIGHT classification greps other branches
+      - name: Fetch all branches (for in-flight migration classification)
+        run: git fetch origin '+refs/heads/*:refs/remotes/origin/*'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Check schema drift
         env:
           SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_MANAGEMENT_TOKEN }}
+          DISCORD_ALERTS_WEBHOOK_URL: ${{ secrets.DISCORD_ALERTS_WEBHOOK_URL }}
           DISCORD_METRICS_WEBHOOK_URL: ${{ secrets.DISCORD_METRICS_WEBHOOK_URL }}
         run: node scripts/check-schema-drift.mjs
