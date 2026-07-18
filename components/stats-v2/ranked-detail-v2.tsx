@@ -37,7 +37,7 @@ export interface RankedDetailConfig {
   getSubtitle: (count: number) => string;
 }
 
-// Mixed-type lists show the Movie/TV badge (mirrors AnalyticsDetailList).
+// Mixed-type lists show the Movie/TV badge.
 const MIXED_TYPES: AnalyticsDetailType[] = ['monthly', 'genre', 'other-genres'];
 
 // Same copy as `components/analytics/analytics-detail-list.tsx` (v1) — kept
