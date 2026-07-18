@@ -4,6 +4,7 @@ Allow: /about
 Allow: /privacy
 Allow: /terms
 Allow: /support
+Allow: /welcome
 Allow: /movie/
 
 Sitemap: https://pocketstubs.com/sitemap.xml

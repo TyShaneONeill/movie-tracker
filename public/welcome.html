@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PocketStubs — Track Your Movie Journey</title>
-    <meta name="description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
+    <title>PocketStubs — Movie & TV Show Tracker</title>
+    <meta name="description" content="Track every movie and TV show you watch. Log episodes, build your collection, and keep the stub for every night you've watched. Free on web, iOS, and Android.">
     <link rel="canonical" href="https://pocketstubs.com/welcome">
-    <meta property="og:title" content="PocketStubs — Track Your Movie Journey">
-    <meta property="og:description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
+    <meta property="og:title" content="PocketStubs — Movie & TV Show Tracker">
+    <meta property="og:description" content="Track every movie and TV show you watch. Log episodes, build your collection, and keep the stub for every night you've watched.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://pocketstubs.com/welcome">
     <meta property="og:site_name" content="PocketStubs">
-    <meta property="og:image" content="https://pocketstubs.com/images/landing/home.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
+    <meta property="og:image" content="https://pocketstubs.com/images/landing/og-home.jpg">
+    <meta property="og:image:width" content="960">
+    <meta property="og:image:height" content="1200">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="PocketStubs — Track Your Movie Journey">
-    <meta name="twitter:description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
-    <meta name="twitter:image" content="https://pocketstubs.com/images/landing/home.png">
+    <meta name="twitter:title" content="PocketStubs — Movie & TV Show Tracker">
+    <meta name="twitter:description" content="Track every movie and TV show you watch. Log episodes, build your collection, and keep the stub for every night you've watched.">
+    <meta name="twitter:image" content="https://pocketstubs.com/images/landing/og-home.jpg">
     <!-- Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5311715630678079" crossorigin="anonymous"></script>
     <!-- Structured Data -->
@@ -26,7 +26,7 @@
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "PocketStubs",
-      "description": "Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.",
+      "description": "Track every movie and TV show you watch. Log episodes, build your collection, and keep the stub for every night you've watched.",
       "url": "https://pocketstubs.com",
       "applicationCategory": "EntertainmentApplication",
       "operatingSystem": "iOS, Android, Web",
@@ -135,6 +135,39 @@
             opacity: 0.85;
         }
 
+        .store-badge {
+            display: inline-flex;
+            align-items: center;
+            height: 44px;
+            padding: 0 20px;
+            background: #18181b;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #fafafa;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: background 0.2s ease;
+        }
+
+        .store-badge:hover {
+            background: #27272a;
+            text-decoration: none;
+        }
+
+        .secondary-links {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 1.75rem;
+        }
+
+        .secondary-links a {
+            font-size: 0.95rem;
+            color: #d4d4d8;
+        }
+
+        .secondary-links a:hover { color: #e11d48; }
+
         /* Phone mockup */
         .phone-mockup {
             flex-shrink: 0;
@@ -169,6 +202,80 @@
             z-index: 1;
         }
 
+        /* How it works */
+        .steps-section {
+            background: #0f0f12;
+        }
+
+        .steps-heading {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .steps-heading h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .steps-heading p {
+            color: #a1a1aa;
+            font-size: 1.1rem;
+        }
+
+        .step-list {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .step {
+            text-align: center;
+        }
+
+        .step-number {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(225, 29, 72, 0.12);
+            color: #e11d48;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .step h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+        .step p { color: #a1a1aa; font-size: 0.95rem; }
+
+        /* TV Time switcher banner */
+        .switcher-banner {
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            background: linear-gradient(180deg, rgba(225, 29, 72, 0.08) 0%, rgba(225, 29, 72, 0.02) 100%);
+        }
+
+        .switcher-card {
+            max-width: 720px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 56px 24px;
+        }
+
+        .switcher-card h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .switcher-card p {
+            color: #a1a1aa;
+            font-size: 1.05rem;
+            margin-bottom: 1.75rem;
+        }
+
         /* Features */
         .features-section {
             background: #0f0f12;
@@ -192,7 +299,7 @@
 
         .features-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 24px;
         }
 
@@ -317,9 +424,18 @@
                 justify-content: center;
             }
 
+            .secondary-links {
+                align-items: center;
+            }
+
             .phone-mockup {
                 width: 240px;
                 height: 480px;
+            }
+
+            .step-list {
+                grid-template-columns: 1fr;
+                gap: 32px;
             }
 
             .features-grid {
@@ -329,59 +445,69 @@
             .section {
                 padding: 60px 20px;
             }
-        }
 
-        /* Email capture */
-        .email-capture { padding-top: 40px; }
-        .capture-card {
-            max-width: 560px;
-            margin: 0 auto;
-            text-align: center;
-            background: #18181b;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 40px 32px;
+            .switcher-card {
+                padding: 48px 20px;
+            }
         }
-        .capture-card h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.75rem; }
-        .capture-sub { color: #a1a1aa; font-size: 1rem; margin-bottom: 1.5rem; }
-        .capture-form { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-        .capture-input {
-            flex: 1;
-            min-width: 220px;
-            padding: 14px 16px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: #09090b;
-            color: #fafafa;
-            font-size: 1rem;
-            font-family: inherit;
-        }
-        .capture-input:focus { outline: none; border-color: #e11d48; }
-        .capture-form .btn { cursor: pointer; border: none; font-family: inherit; }
-        .capture-form .btn[disabled] { opacity: 0.6; cursor: default; transform: none; }
-        .capture-micro { color: #52525b; font-size: 0.8rem; margin-top: 1rem; }
-        .capture-msg { font-size: 0.9rem; margin-top: 1rem; min-height: 1.2em; }
-        .capture-msg.success { color: #4ade80; }
-        .capture-msg.error { color: #f87171; }
-        .hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
-        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
     </style>
 </head>
 <body>
     <!-- Hero -->
     <section class="section hero">
         <div class="hero-content">
-            <h1>Your Movie Journey, Tracked</h1>
-            <p class="subheadline">Build watchlists, log every viewing, create AI-powered journey art, and share your taste with friends. Free on web, coming to iOS and Android.</p>
+            <h1>Every night you've ever watched, kept.</h1>
+            <!-- Alt candidates for Ty:
+                 "Your watch history deserves a home."
+                 "Track films and shows. Keep the stubs." -->
+            <p class="subheadline">PocketStubs tracks every movie and TV show you watch — log episodes, build your collection, and turn each night into a stub you keep for good.</p>
             <div class="cta-group">
-                <a href="/" class="btn btn-primary" onclick="document.cookie='pocketstubs_visited=1;path=/;max-age=31536000'">Browse Movies Free</a>
                 <a href="https://apps.apple.com/app/pocketstubs/id6760832346" aria-label="Download on the App Store">
                     <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
                 </a>
+                <a href="https://play.google.com/store/apps/details?id=com.pocketstubs.app" class="store-badge">Get it on Google Play</a>
+            </div>
+            <div class="secondary-links">
+                <a href="/tv-time-import">Import your TV Time history &rarr;</a>
+                <a href="/" onclick="document.cookie='pocketstubs_visited=1;path=/;max-age=31536000'">Browse without an account &rarr;</a>
             </div>
         </div>
         <div class="phone-mockup">
-            <img src="/images/landing/home.png" alt="PocketStubs home screen showing trending and now playing movies" loading="eager" width="280" height="560">
+            <img src="/images/landing/v2-collection.webp" alt="PocketStubs collection wall showing tracked movies and TV shows as ticket stubs" loading="eager" width="280" height="560">
+        </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section steps-section">
+        <div class="steps-heading">
+            <h2>How it works</h2>
+            <p>Three steps between watching and remembering.</p>
+        </div>
+        <div class="step-list">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Watch</h3>
+                <p>A movie, an episode, a whole season — whatever you put on tonight.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Stub it</h3>
+                <p>Log it in seconds. Rate it, review it, or just mark it watched.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Your wall grows</h3>
+                <p>Every stub joins your collection — a running record of everything you've watched.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- TV Time switcher (permanent) -->
+    <section class="section switcher-banner">
+        <div class="switcher-card">
+            <h2>Coming from TV Time?</h2>
+            <p>TV Time shut down July 15, 2026 — but your export file still works. Import your full show, episode, film, and watchlist history into PocketStubs in about a minute.</p>
+            <a href="/tv-time-import" class="btn btn-primary">Import your TV Time history</a>
         </div>
     </section>
 
@@ -390,32 +516,26 @@
     <section class="section">
         <div class="features-heading">
             <h2>Everything You Need</h2>
-            <p>One app. Every movie. Your story.</p>
+            <p>One app. Every movie and show. Your story.</p>
         </div>
         <div class="features-grid">
             <div class="feature-card">
+                <span class="feature-icon">📺</span>
+                <h3>Track Shows Episode by Episode</h3>
+                <p>Follow every series you're watching. Mark episodes and seasons as you go, and pick up right where you left off.</p>
+                <img class="feature-screenshot" src="/images/landing/v2-episodes.webp" alt="PocketStubs episode tracking screen for a TV series" loading="lazy">
+            </div>
+            <div class="feature-card">
                 <span class="feature-icon">🔥</span>
                 <h3>Discover What's Trending</h3>
-                <p>Browse trending, now playing, and upcoming films. Every movie includes cast, trailers, and ratings from IMDb, Rotten Tomatoes, and Metacritic.</p>
-                <img class="feature-screenshot" src="/images/landing/home.png" alt="PocketStubs home screen with trending and now playing movie lists" loading="lazy">
+                <p>Browse trending and upcoming movies and shows, with cast, trailers, and ratings from IMDb, Rotten Tomatoes, and Metacritic.</p>
+                <img class="feature-screenshot" src="/images/landing/v2-discover.webp" alt="PocketStubs discover screen with trending movies and TV shows" loading="lazy">
             </div>
             <div class="feature-card">
-                <span class="feature-icon">🎨</span>
-                <h3>Journey Cards &amp; AI Art</h3>
-                <p>Every viewing becomes a journey with metadata — where you watched, who you were with, your seat, the format. Each journey gets unique AI-generated poster art.</p>
-                <img class="feature-screenshot" src="/images/landing/journey.png" alt="Journey card for Scream 7 showing AI-generated art, viewing date, cinema, and seat" loading="lazy">
-            </div>
-            <div class="feature-card">
-                <span class="feature-icon">💬</span>
-                <h3>Reviews &amp; Social</h3>
-                <p>Write First Takes (quick ratings) or full reviews. Follow friends, see what they're watching, and discover films through people you trust — not algorithms.</p>
-                <img class="feature-screenshot" src="/images/landing/feed.png" alt="Activity feed showing friends' ratings, reviews, and First Takes" loading="lazy">
-            </div>
-            <div class="feature-card">
-                <span class="feature-icon">📋</span>
-                <h3>Track Everything</h3>
-                <p>Watchlist, watching, watched — with full rewatch support. Build custom lists, earn achievements, and see your stats and viewing history at a glance.</p>
-                <img class="feature-screenshot" src="/images/landing/movie-detail.png" alt="Movie detail page for Interstellar showing ratings, trailer, cast, and tracking buttons" loading="lazy">
+                <span class="feature-icon">📊</span>
+                <h3>See Your Year in Stats</h3>
+                <p>Hours watched, favorite genres, top actors and directors — your viewing habits, laid out at a glance.</p>
+                <img class="feature-screenshot" src="/images/landing/v2-stats.webp" alt="PocketStubs stats screen showing viewing habits and history" loading="lazy">
             </div>
         </div>
     </section>
@@ -426,27 +546,11 @@
         <h2>Start Tracking for Free</h2>
         <p class="subtext">No account required to browse. Sign up when you're ready.</p>
         <div class="cta-group">
-            <a href="/" class="btn btn-primary" onclick="document.cookie='pocketstubs_visited=1;path=/;max-age=31536000'">Browse Movies Free</a>
+            <a href="/" class="btn btn-primary" onclick="document.cookie='pocketstubs_visited=1;path=/;max-age=31536000'">Browse Free</a>
             <a href="https://apps.apple.com/app/pocketstubs/id6760832346" aria-label="Download on the App Store">
                 <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
             </a>
-        </div>
-    </section>
-
-    <!-- Email capture -->
-    <section class="section email-capture" id="keep-your-seat">
-        <div class="capture-card">
-            <h2>Not on iOS yet? Keep your seat.</h2>
-            <p class="capture-sub">Drop your email and we'll send you one thing: a heads-up the moment PocketStubs lands on your platform — plus first access when journey-art seasons drop. No newsletter churn, no noise.</p>
-            <form class="capture-form" id="leadForm" novalidate>
-                <!-- honeypot: hidden from humans; bots that fill it are silently dropped -->
-                <input type="text" name="company" id="lead-company" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
-                <label for="lead-email" class="sr-only">Email address</label>
-                <input type="email" name="email" id="lead-email" class="capture-input" placeholder="you@email.com" autocomplete="email" required>
-                <button type="submit" class="btn btn-primary" id="lead-submit">Save my seat</button>
-            </form>
-            <p class="capture-micro">One email when it matters. Unsubscribe in a tap.</p>
-            <p class="capture-msg" id="lead-msg" role="status" aria-live="polite"></p>
+            <a href="https://play.google.com/store/apps/details?id=com.pocketstubs.app" class="store-badge">Get it on Google Play</a>
         </div>
     </section>
 
@@ -457,66 +561,9 @@
             <a href="/privacy">Privacy</a>
             <a href="/terms">Terms</a>
             <a href="/support">Support</a>
+            <a href="/tv-time-import">TV Time Import</a>
         </div>
         <p>&copy; 2026 PocketStubs. All rights reserved.</p>
     </footer>
-
-    <!-- Email capture handler: posts to the public email_leads table (insert-only RLS) -->
-    <script>
-    (function () {
-        // Posts to the capture-lead edge function (verify_jwt=false), which validates and
-        // inserts server-side via the service role. No Supabase key is embedded in this page.
-        var CAPTURE_ENDPOINT = 'https://wliblwulvsrfgqcnbzeh.supabase.co/functions/v1/capture-lead';
-        var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
-        var form = document.getElementById('leadForm');
-        if (!form) return;
-        var emailInput = document.getElementById('lead-email');
-        var honeypot = document.getElementById('lead-company');
-        var submitBtn = document.getElementById('lead-submit');
-        var msg = document.getElementById('lead-msg');
-
-        function show(text, kind) {
-            msg.textContent = text;
-            msg.className = 'capture-msg ' + kind;
-        }
-
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            // Honeypot filled => bot. Pretend success, send nothing.
-            if (honeypot && honeypot.value) { show("You're on the list — we'll be in touch.", 'success'); form.reset(); return; }
-
-            var email = (emailInput.value || '').trim().toLowerCase();
-            if (!EMAIL_RE.test(email) || email.length > 254) {
-                show('Please enter a valid email address.', 'error');
-                return;
-            }
-
-            var prevLabel = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Saving…';
-
-            fetch(CAPTURE_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, source: 'web_welcome' })
-            }).then(function (res) {
-                // Function returns 200 for both new and duplicate captures.
-                if (res.ok) {
-                    show("You're on the list — we'll be in touch.", 'success');
-                    form.reset();
-                } else {
-                    show('Something went wrong. Please try again.', 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = prevLabel;
-                }
-            }).catch(function () {
-                show('Network error. Please try again.', 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = prevLabel;
-            });
-        });
-    })();
-    </script>
 </body>
 </html>
