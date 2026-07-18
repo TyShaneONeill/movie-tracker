@@ -17,6 +17,35 @@
  * `schema_migrations` (unreliable given the manual-apply workflow) — it diffs
  * the live effects, which is what actually broke.
  *
+ * SEVERITY MODEL (added 2026-07-18)
+ * A STAGING-only object (present in staging, missing from prod) is not
+ * automatically a red alert: the manual-apply workflow means staging is
+ * *expected* to run ahead of prod — both while a migration's PR is still open,
+ * and again for the window between "merged to main" and "hand-applied to
+ * prod." Burned 2026-07-17: 6 staging-only functions from open PRs #711/#712
+ * red-alerted as if prod had been forgotten, when they were normal in-flight
+ * work. Classify each STAGING-only object by where its defining migration
+ * lives — found by `git grep`-ing `supabase/migrations/` for the object's name
+ * at different refs (see findMigrationFiles / classifyStagingOnly):
+ *   🟡 IN-FLIGHT (expected) — the migration exists on some origin/* branch
+ *                             that is NOT yet merged to origin/main (an open
+ *                             PR). Staged work awaiting its normal merge +
+ *                             prod-promotion path. Reported, does NOT fail.
+ *   🟠 PENDING PROD DEPLOY  — the migration IS on origin/main, but the object
+ *                             hasn't reached prod yet (merged, just not
+ *                             hand-applied). Reported with the migration
+ *                             filename, actionable but does NOT fail.
+ *   🔴 CRITICAL             — no migration for the object exists on
+ *                             origin/main or any origin/* branch. Either
+ *                             staging was hand-edited outside the migration
+ *                             workflow, or the name-matching heuristic missed
+ *                             — either way this fails safe to CRITICAL, never
+ *                             a silent downgrade.
+ * A PROD-only object (present in prod, missing from staging) is ALWAYS 🔴
+ * CRITICAL, unconditionally — prod touched directly, bypassing the
+ * staging-first workflow, is this guard's original reason to exist, and
+ * direction never changes that.
+ *
  * DEFINER-GRANT AUDIT (added 2026-07-10)
  * A second, independent check runs against BOTH prod and staging: it flags every
  * SECURITY DEFINER function in schema `public` that `anon` or `PUBLIC` can
@@ -60,8 +89,16 @@
  *   doppler run -p pocketstubs -c prd -- node scripts/check-schema-drift.mjs
  * (prd config is used only for SUPABASE_MANAGEMENT_TOKEN, which can read both
  * projects. Reads only information_schema / pg_catalog. Prints object NAMES
- * only — never data or secret values.) Exits 1 on drift or DEFINER finding,
- * 0 when both are clean.
+ * only — never data or secret values.) Exits 1 on CRITICAL drift, a DEFINER
+ * finding, or function-inventory drift; 0 when clean. IN-FLIGHT / PENDING PROD
+ * DEPLOY findings are reported but never fail the check — see SEVERITY MODEL.
+ * The IN-FLIGHT/PENDING classification needs all origin/* branches fetched
+ * locally (git grep reads them by ref) — see the workflow's fetch step.
+ *
+ * Alerts prefer DISCORD_ALERTS_WEBHOOK_URL, falling back to
+ * DISCORD_METRICS_WEBHOOK_URL (with a notice appended to the message) if
+ * unset. Set DRIFT_GUARD_DRY_RUN=1 to print what would be posted instead of
+ * actually posting — use this for local/PR verification.
  *
  * CI: .github/workflows/schema-drift.yml runs this daily + on migration changes.
  */
@@ -69,11 +106,17 @@
 import { readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const MANAGEMENT_TOKEN = process.env.SUPABASE_MANAGEMENT_TOKEN;
 const PROD_REF = process.env.PROD_SUPABASE_REF || 'wliblwulvsrfgqcnbzeh';
 const STAGING_REF = process.env.STAGING_SUPABASE_REF || 'scleidoemjpkbxrpyqyv';
-const DISCORD_WEBHOOK = process.env.DISCORD_METRICS_WEBHOOK_URL; // optional alert
+// Alerts prefer the dedicated alerts webhook; DISCORD_METRICS_WEBHOOK_URL is
+// the fallback (with a notice appended) for orgs where the alerts secret
+// isn't provisioned yet. See sendDiscordAlert.
+const DISCORD_ALERTS_WEBHOOK = process.env.DISCORD_ALERTS_WEBHOOK_URL;
+const DISCORD_METRICS_WEBHOOK = process.env.DISCORD_METRICS_WEBHOOK_URL;
+const DRY_RUN = process.env.DRIFT_GUARD_DRY_RUN === '1'; // print instead of POST
 
 // Functions intentionally left anon/PUBLIC-executable, keyed by the exact
 // `name(identity args)` signature the audit emits. Suppressing an entry here is
@@ -155,6 +198,102 @@ const PROBES = {
     where table_schema = 'public' and table_type = 'BASE TABLE'
     order by id`,
 };
+
+const MIGRATIONS_PATH = 'supabase/migrations';
+
+// Extracts the DB object's bare name from a probe id, to grep migration SQL
+// for it (see SEVERITY MODEL above). Deliberately a simple substring
+// heuristic, not exact parsing — a miss fails safe to CRITICAL rather than
+// silently downgrading, so over-caution here is fine; false matches are the
+// only real risk, and CREATE-statement names are distinctive enough in
+// practice.
+function extractSearchTerm(probeName, id) {
+  switch (probeName) {
+    case 'tables':
+      return id;
+    case 'columns': {
+      const dot = id.indexOf('.');
+      const colon = id.indexOf(':', dot + 1);
+      return dot === -1 || colon === -1 ? null : id.slice(dot + 1, colon);
+    }
+    case 'functions': {
+      const paren = id.indexOf('(');
+      return paren === -1 ? null : id.slice(0, paren);
+    }
+    case 'policies': {
+      const parts = id.split(':');
+      return parts.length >= 2 ? parts[1] : null;
+    }
+    default:
+      return null;
+  }
+}
+
+// Migration files under supabase/migrations/ at a given git ref (a branch
+// name, e.g. 'origin/main') that mention `term`. Fails safe: any git error —
+// unknown ref, no match, missing path — resolves to no matches rather than
+// throwing, so a mapping gap becomes CRITICAL instead of crashing the run.
+// `git grep <ref>` prefixes each hit with `<ref>:`, so that's stripped off —
+// callers already have the ref and would otherwise see it twice.
+function findMigrationFiles(ref, term) {
+  try {
+    const out = execFileSync(
+      'git',
+      ['grep', '-l', '-F', '-i', term, ref, '--', MIGRATIONS_PATH],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    );
+    const prefix = `${ref}:`;
+    return out
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => (line.startsWith(prefix) ? line.slice(prefix.length) : line));
+  } catch {
+    return [];
+  }
+}
+
+// origin/* branch names other than main/HEAD, for the IN-FLIGHT scan. Requires
+// the workflow to have fetched all remote branches (see schema-drift.yml) —
+// if only origin/main is present locally, this returns [] and every
+// not-yet-merged migration falls through to CRITICAL, never silently
+// misclassified as IN-FLIGHT.
+function listOtherBranches() {
+  try {
+    const out = execFileSync(
+      'git',
+      ['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin'],
+      { encoding: 'utf8' }
+    );
+    return out
+      .split('\n')
+      .filter(Boolean)
+      .filter((b) => b !== 'origin/main' && b !== 'origin/HEAD');
+  } catch {
+    return [];
+  }
+}
+
+// Classifies one STAGING-only object per the SEVERITY MODEL doc above:
+// PENDING_PROD_DEPLOY if its migration is already on origin/main, IN_FLIGHT if
+// it's only on some other (unmerged) origin/* branch, else CRITICAL —
+// unmapped, whether from hand-edited staging or a heuristic miss.
+function classifyStagingOnly(probeName, id, otherBranches) {
+  const term = extractSearchTerm(probeName, id);
+  if (!term) {
+    return { id, severity: 'CRITICAL', reason: 'object name not extractable from probe id' };
+  }
+  const mainMatches = findMigrationFiles('origin/main', term);
+  if (mainMatches.length > 0) {
+    return { id, severity: 'PENDING_PROD_DEPLOY', files: mainMatches };
+  }
+  for (const branch of otherBranches) {
+    const matches = findMigrationFiles(branch, term);
+    if (matches.length > 0) {
+      return { id, severity: 'IN_FLIGHT', branch, files: matches };
+    }
+  }
+  return { id, severity: 'CRITICAL', reason: 'no migration found on origin/main or any origin/* branch' };
+}
 
 // Every SECURITY DEFINER function in `public` that anon or PUBLIC can EXECUTE.
 // Emits one row per (function, grantee) finding. See ACL PARSING NOTES above:
@@ -250,14 +389,28 @@ function repoFunctionSlugs() {
     .sort();
 }
 
-// Best-effort Discord alert in the script's existing style; never masks exit code.
+// Best-effort Discord alert in the script's existing style; never masks exit
+// code. Prefers DISCORD_ALERTS_WEBHOOK_URL, falling back to
+// DISCORD_METRICS_WEBHOOK_URL (with a notice appended) if the alerts secret
+// isn't set. DRIFT_GUARD_DRY_RUN=1 prints instead of posting.
 async function sendDiscordAlert(title, body) {
-  if (!DISCORD_WEBHOOK) return;
+  const webhook = DISCORD_ALERTS_WEBHOOK || DISCORD_METRICS_WEBHOOK;
+  if (!webhook) return;
+  const fallbackNotice =
+    !DISCORD_ALERTS_WEBHOOK && DISCORD_METRICS_WEBHOOK
+      ? '\n(routed to metrics: alerts webhook unset)'
+      : '';
+  const content = `🔴 **${title}**\n\`\`\`\n${(body + fallbackNotice).slice(0, 1800)}\n\`\`\``;
+  if (DRY_RUN) {
+    const target = DISCORD_ALERTS_WEBHOOK ? 'alerts' : 'metrics (fallback)';
+    console.log(`[dry-run] would POST to Discord (${target} webhook):\n${content}`);
+    return;
+  }
   try {
-    await fetch(DISCORD_WEBHOOK, {
+    await fetch(webhook, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: `🔴 **${title}**\n\`\`\`\n${body.slice(0, 1800)}\n\`\`\`` }),
+      body: JSON.stringify({ content }),
     });
   } catch {
     /* best-effort; never mask the real exit code */
@@ -273,13 +426,31 @@ export function diff(prodList, stagingList) {
   };
 }
 
+// Compact, non-alarming listing of IN-FLIGHT / PENDING PROD DEPLOY findings —
+// printed even on an otherwise-clean run (or folded into a failure caused by a
+// different audit) so staged/pending work stays visible without tripping the
+// exit code or reading as a red alert. Empty string when there's nothing to show.
+function formatNonFailingDrift(report) {
+  const lines = [];
+  for (const [name, r] of Object.entries(report)) {
+    for (const c of r.inFlight) {
+      lines.push(`  🟡 IN-FLIGHT (expected)  [${name}] ${c.id}  ← ${c.branch}: ${c.files.join(', ')}`);
+    }
+    for (const c of r.pendingProdDeploy) {
+      lines.push(`  🟠 PENDING PROD DEPLOY   [${name}] ${c.id}  ← ${c.files.join(', ')}`);
+    }
+  }
+  return lines.join('\n');
+}
+
 async function main() {
   if (!MANAGEMENT_TOKEN) {
     console.error('✖ SUPABASE_MANAGEMENT_TOKEN not set (run via `doppler run -c prd --`).');
     process.exit(2);
   }
   const report = {};
-  let driftCount = 0;
+  let driftCount = 0; // CRITICAL only — IN-FLIGHT/PENDING never count here.
+  const otherBranches = listOtherBranches();
 
   for (const [name, sql] of Object.entries(PROBES)) {
     const [prod, staging] = await Promise.all([
@@ -287,8 +458,14 @@ async function main() {
       runQuery(STAGING_REF, sql),
     ]);
     const d = diff(prod, staging);
-    report[name] = d;
-    driftCount += d.onlyProd.length + d.onlyStaging.length;
+    const classified = d.onlyStaging.map((id) => classifyStagingOnly(name, id, otherBranches));
+    report[name] = {
+      onlyProd: d.onlyProd, // PROD-only is ALWAYS CRITICAL — see SEVERITY MODEL.
+      inFlight: classified.filter((c) => c.severity === 'IN_FLIGHT'),
+      pendingProdDeploy: classified.filter((c) => c.severity === 'PENDING_PROD_DEPLOY'),
+      criticalStagingOnly: classified.filter((c) => c.severity === 'CRITICAL'),
+    };
+    driftCount += d.onlyProd.length + report[name].criticalStagingOnly.length;
   }
 
   // Independent DEFINER-grant audit across BOTH databases.
@@ -313,28 +490,45 @@ async function main() {
   );
   const inventoryFindings = prodMissingFromRepo.length + repoMissingFromProd.length;
 
+  const totalInFlight = Object.values(report).reduce((n, r) => n + r.inFlight.length, 0);
+  const totalPending = Object.values(report).reduce((n, r) => n + r.pendingProdDeploy.length, 0);
+
   if (driftCount === 0 && definerFindings.length === 0 && inventoryFindings === 0) {
     console.log('✓ Schema in sync — prod and staging public DDL match (tables, columns, functions, policies).');
+    if (totalInFlight > 0 || totalPending > 0) {
+      console.log(formatNonFailingDrift(report));
+    }
     console.log('✓ DEFINER grants clean — no SECURITY DEFINER function is anon/PUBLIC-executable (prod + staging).');
     console.log(`✓ Function inventory clean — every prod Edge Function has repo source and every repo function is deployed to prod (staging mirrors ${stagingFns.length}/${prodFns.length}; partial by design).`);
     process.exit(0);
   }
 
   if (driftCount > 0) {
-    const lines = [`✖ SCHEMA DRIFT: ${driftCount} object(s) differ between prod and staging.`];
-    for (const [name, d] of Object.entries(report)) {
-      if (!d.onlyProd.length && !d.onlyStaging.length) continue;
+    const lines = [`✖ SCHEMA DRIFT: ${driftCount} CRITICAL object(s) differ between prod and staging.`];
+    for (const [name, r] of Object.entries(report)) {
+      if (!r.onlyProd.length && !r.criticalStagingOnly.length) continue;
       lines.push(`\n[${name}]`);
-      for (const x of d.onlyProd) lines.push(`  PROD only (missing in staging):    ${x}`);
-      for (const x of d.onlyStaging) lines.push(`  STAGING only (missing in PROD):    ${x}`);
+      for (const x of r.onlyProd) lines.push(`  🔴 PROD only (missing in staging):                    ${x}`);
+      for (const c of r.criticalStagingOnly) {
+        lines.push(`  🔴 STAGING only, no migration found (${c.reason}):  ${c.id}`);
+      }
     }
     lines.push(
-      '\nMost likely cause: a migration was applied to one database but not the other.',
-      'Reconcile before shipping — a client selecting a prod-missing column will 400 for all users (burned 2026-07-07).'
+      '\nMost likely cause: a migration was applied to one database but not the other, or staging was',
+      'hand-edited outside the migration workflow. Reconcile before shipping — a client selecting a',
+      'prod-missing column will 400 for all users (burned 2026-07-07).'
     );
+    const nonFailing = formatNonFailingDrift(report);
+    if (nonFailing) {
+      lines.push('\n--- non-failing (expected) state, not counted above — see SEVERITY MODEL ---', nonFailing);
+    }
     const message = lines.join('\n');
     console.error(message);
     await sendDiscordAlert('Schema drift (prod ↔ staging)', message);
+  } else if (totalInFlight > 0 || totalPending > 0) {
+    // Nothing CRITICAL in the DDL diff itself, but another audit below failed
+    // the run — still surface the non-failing IN-FLIGHT/PENDING state.
+    console.log(formatNonFailingDrift(report));
   }
 
   if (definerFindings.length > 0) {
