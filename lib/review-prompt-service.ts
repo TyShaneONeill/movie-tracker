@@ -47,31 +47,35 @@ export async function hasReviewPromptBeenShown(): Promise<boolean> {
   }
 }
 
-async function markReviewPromptShown(): Promise<void> {
-  try {
-    await AsyncStorage.setItem(REVIEW_PROMPT_SHOWN_STORAGE_KEY, 'true');
-  } catch {
-    // Best-effort; worst case we re-evaluate (and may re-show) next import.
-  }
-}
-
 /**
  * Call once the TV Time import done screen renders a fresh completion
- * (never on `resume`). Resolves to whether the sheet should be presented;
- * marks it shown (so it never re-appears) as a side effect of returning
- * `true`, before the user has responded.
+ * (never on `resume`). Read-only — resolves to whether the sheet SHOULD be
+ * presented, but does not persist the shown-flag or fire analytics. The
+ * caller must call `markReviewPromptShown()` only once the sheet actually
+ * becomes visible (e.g. after confirming the screen is still mounted),
+ * otherwise a user who navigates away during this async gap would
+ * permanently lose the prompt without ever seeing it.
  */
 export async function checkImportDoneReviewPrompt(itemCount: number): Promise<{ show: boolean }> {
   if (Platform.OS === 'web') return { show: false };
 
   const alreadyShown = await hasReviewPromptBeenShown();
-  if (!shouldShowReviewPrompt(itemCount, alreadyShown)) {
-    return { show: false };
-  }
+  return { show: shouldShowReviewPrompt(itemCount, alreadyShown) };
+}
 
-  await markReviewPromptShown();
+/**
+ * Persist the once-ever shown-flag and fire `review_prompt_requested`. Call
+ * this at the moment the sheet actually becomes visible to the user — not
+ * earlier — so an unmounted/navigated-away screen never burns the flag for
+ * a prompt the user never saw.
+ */
+export async function markReviewPromptShown(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(REVIEW_PROMPT_SHOWN_STORAGE_KEY, 'true');
+  } catch {
+    // Best-effort; worst case we re-evaluate (and may re-show) next import.
+  }
   analytics.track('review_prompt_requested', { source: SOURCE });
-  return { show: true };
 }
 
 /** User tapped through to the store listing. */

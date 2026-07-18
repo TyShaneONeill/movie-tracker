@@ -11,7 +11,7 @@
  * dialog (expo-store-review isn't installed; see lib/review-prompt-service.ts).
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { hapticImpact } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme-context';
@@ -29,19 +29,30 @@ export function ReviewPromptSheet({ visible, onAccept, onDecline }: ReviewPrompt
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
 
+  // Guards against a fast double-tap firing onAccept/onDecline (and, for
+  // accept, Linking.openURL) twice — first tap wins, both buttons disable.
+  const [handled, setHandled] = useState(false);
+  useEffect(() => {
+    if (visible) setHandled(false);
+  }, [visible]);
+
   const handleAccept = () => {
+    if (handled) return;
+    setHandled(true);
     hapticImpact();
     onAccept();
   };
 
   const handleDecline = () => {
+    if (handled) return;
+    setHandled(true);
     hapticImpact();
     onDecline();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDecline}>
-      <Pressable style={styles.overlay} onPress={onDecline}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleDecline}>
+      <Pressable style={styles.overlay} onPress={handleDecline}>
         <Pressable
           style={[styles.modalContent, { backgroundColor: colors.card }]}
           onPress={(e) => e.stopPropagation()}
@@ -58,9 +69,10 @@ export function ReviewPromptSheet({ visible, onAccept, onDecline }: ReviewPrompt
 
           <View style={styles.buttonContainer}>
             <Pressable
+              disabled={handled}
               style={({ pressed }) => [
                 styles.primaryButton,
-                { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+                { backgroundColor: colors.tint, opacity: pressed || handled ? 0.9 : 1 },
               ]}
               onPress={handleAccept}
               accessibilityLabel="Leave a review"
@@ -69,7 +81,8 @@ export function ReviewPromptSheet({ visible, onAccept, onDecline }: ReviewPrompt
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.7 : 1 }]}
+              disabled={handled}
+              style={({ pressed }) => [styles.textButton, { opacity: pressed || handled ? 0.7 : 1 }]}
               onPress={handleDecline}
               accessibilityLabel="Not now"
             >

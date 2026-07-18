@@ -45,6 +45,7 @@ import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
 import { ReviewPromptSheet } from '@/components/review-prompt-sheet';
 import {
   checkImportDoneReviewPrompt,
+  markReviewPromptShown,
   acceptReviewPrompt,
   declineReviewPrompt,
 } from '@/lib/review-prompt-service';
@@ -608,20 +609,30 @@ function DoneScreen({
 
   // Post-import review ask — fresh completion only (never on a resume visit),
   // once per user ever, and only when something actually got imported. See
-  // lib/review-prompt-service.ts for the once-ever gate.
+  // lib/review-prompt-service.ts for the once-ever gate. The shown-flag is
+  // burned only once the sheet actually becomes visible (`cancelled` guards
+  // the async gap between the timer firing and the check resolving) — a user
+  // who taps Done and unmounts mid-check must not permanently lose the
+  // prompt without ever seeing it.
   const [showReviewPrompt, setShowReviewPrompt] = useState(false);
   const reviewCheckStartedRef = useRef(false);
   useEffect(() => {
     if (resume || reviewCheckStartedRef.current) return;
     reviewCheckStartedRef.current = true;
+    let cancelled = false;
     const timer = setTimeout(() => {
       checkImportDoneReviewPrompt(stubs)
         .then(({ show }) => {
-          if (show) setShowReviewPrompt(true);
+          if (!show || cancelled) return;
+          setShowReviewPrompt(true);
+          markReviewPromptShown().catch(() => {});
         })
         .catch(() => {});
     }, REVIEW_PROMPT_DELAY_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [resume, stubs]);
 
   return (

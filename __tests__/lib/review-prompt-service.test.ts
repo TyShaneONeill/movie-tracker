@@ -4,6 +4,7 @@ import {
   shouldShowReviewPrompt,
   hasReviewPromptBeenShown,
   checkImportDoneReviewPrompt,
+  markReviewPromptShown,
   acceptReviewPrompt,
   declineReviewPrompt,
 } from '@/lib/review-prompt-service';
@@ -59,17 +60,15 @@ describe('hasReviewPromptBeenShown', () => {
   });
 });
 
-describe('checkImportDoneReviewPrompt', () => {
-  it('shows and persists the shown-flag when >0 items and never shown', async () => {
+describe('checkImportDoneReviewPrompt — read-only, no side effects', () => {
+  it('resolves show:true when >0 items and never shown, without persisting or tracking', async () => {
     getItemMock.mockResolvedValue(null);
 
     const result = await checkImportDoneReviewPrompt(12);
 
     expect(result).toEqual({ show: true });
-    expect(setItemMock).toHaveBeenCalledWith('review_prompt.shown', 'true');
-    expect(trackMock).toHaveBeenCalledWith('review_prompt_requested', {
-      source: 'tvtime_import_done',
-    });
+    expect(setItemMock).not.toHaveBeenCalled();
+    expect(trackMock).not.toHaveBeenCalled();
   });
 
   it('does not show when already shown, even with items imported', async () => {
@@ -78,8 +77,6 @@ describe('checkImportDoneReviewPrompt', () => {
     const result = await checkImportDoneReviewPrompt(12);
 
     expect(result).toEqual({ show: false });
-    expect(setItemMock).not.toHaveBeenCalled();
-    expect(trackMock).not.toHaveBeenCalled();
   });
 
   it('does not show when the import returned 0 items', async () => {
@@ -88,8 +85,6 @@ describe('checkImportDoneReviewPrompt', () => {
     const result = await checkImportDoneReviewPrompt(0);
 
     expect(result).toEqual({ show: false });
-    expect(setItemMock).not.toHaveBeenCalled();
-    expect(trackMock).not.toHaveBeenCalled();
   });
 
   it('does not show on web, even with items and never shown', async () => {
@@ -100,7 +95,27 @@ describe('checkImportDoneReviewPrompt', () => {
 
     expect(result).toEqual({ show: false });
     expect(getItemMock).not.toHaveBeenCalled();
-    expect(trackMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('markReviewPromptShown', () => {
+  it('persists the shown-flag and fires review_prompt_requested', async () => {
+    await markReviewPromptShown();
+
+    expect(setItemMock).toHaveBeenCalledWith('review_prompt.shown', 'true');
+    expect(trackMock).toHaveBeenCalledWith('review_prompt_requested', {
+      source: 'tvtime_import_done',
+    });
+  });
+
+  it('still fires the event even if AsyncStorage.setItem throws (best-effort persistence)', async () => {
+    setItemMock.mockRejectedValue(new Error('storage unavailable'));
+
+    await markReviewPromptShown();
+
+    expect(trackMock).toHaveBeenCalledWith('review_prompt_requested', {
+      source: 'tvtime_import_done',
+    });
   });
 });
 
