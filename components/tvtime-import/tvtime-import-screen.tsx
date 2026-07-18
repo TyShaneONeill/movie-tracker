@@ -42,6 +42,16 @@ import { importScreenView } from '@/lib/tvtime-import/import-run-view';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
 import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
+import { ReviewPromptSheet } from '@/components/review-prompt-sheet';
+import {
+  checkImportDoneReviewPrompt,
+  acceptReviewPrompt,
+  declineReviewPrompt,
+} from '@/lib/review-prompt-service';
+
+// Delay before the post-import review sheet appears on a fresh done screen —
+// lets the success moment (stub count, haptic) land first.
+const REVIEW_PROMPT_DELAY_MS = 2000;
 
 const AMBER = '#f59e0b';
 
@@ -596,6 +606,24 @@ function DoneScreen({
   const watched = preview?.moviesWatched ?? 0;
   const watchlist = preview?.moviesWatchlist ?? 0;
 
+  // Post-import review ask — fresh completion only (never on a resume visit),
+  // once per user ever, and only when something actually got imported. See
+  // lib/review-prompt-service.ts for the once-ever gate.
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+  const reviewCheckStartedRef = useRef(false);
+  useEffect(() => {
+    if (resume || reviewCheckStartedRef.current) return;
+    reviewCheckStartedRef.current = true;
+    const timer = setTimeout(() => {
+      checkImportDoneReviewPrompt(stubs)
+        .then(({ show }) => {
+          if (show) setShowReviewPrompt(true);
+        })
+        .catch(() => {});
+    }, REVIEW_PROMPT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [resume, stubs]);
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scrollBody}>
@@ -658,6 +686,18 @@ function DoneScreen({
           <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Done</Text>
         </Pressable>
       </View>
+
+      <ReviewPromptSheet
+        visible={showReviewPrompt}
+        onAccept={() => {
+          setShowReviewPrompt(false);
+          acceptReviewPrompt();
+        }}
+        onDecline={() => {
+          setShowReviewPrompt(false);
+          declineReviewPrompt();
+        }}
+      />
     </View>
   );
 }
