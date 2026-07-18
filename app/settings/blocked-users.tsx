@@ -19,7 +19,7 @@ import { useBlockedUsersWithProfiles } from '@/hooks/use-blocked-users-with-prof
 import { Avatar } from '@/components/ui/avatar';
 import { Ionicons } from '@expo/vector-icons';
 import type { Profile } from '@/lib/database.types';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -146,7 +146,7 @@ function createStyles(colors: typeof Colors.dark) {
       marginBottom: Spacing.lg,
       paddingHorizontal: Spacing.md,
       paddingTop: Platform.OS === 'web' ? Spacing.md : undefined,
-      ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+      ...formWidthStyle,
     },
     loadingContainer: {
       flex: 1,
@@ -157,7 +157,7 @@ function createStyles(colors: typeof Colors.dark) {
       paddingHorizontal: Spacing.md,
       paddingBottom: 100,
       flexGrow: 1,
-      ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+      ...formWidthStyle,
     },
     userRow: {
       flexDirection: 'row',

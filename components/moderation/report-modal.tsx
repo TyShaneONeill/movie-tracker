@@ -15,6 +15,7 @@ import { useTheme } from '@/lib/theme-context';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useReport } from '@/hooks/use-report';
+import { formWidthStyle } from '@/components/content-container';
 import type { ReportTargetType, ReportReason } from '@/lib/report-service';
 
 interface ReportModalProps {
@@ -172,7 +173,7 @@ function createStyles(colors: typeof Colors.dark) {
       paddingHorizontal: Spacing.lg,
       paddingBottom: Spacing.xl + (Platform.OS === 'ios' ? 20 : 0),
       maxHeight: '80%',
-      ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+      ...formWidthStyle,
     },
     handleBar: {
       width: 36,

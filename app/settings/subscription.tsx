@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
 import { useTheme } from '@/lib/theme-context';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 import { usePremium } from '@/hooks/use-premium';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -214,12 +214,12 @@ function createStyles(colors: typeof Colors.dark) {
       marginBottom: Spacing.lg,
       paddingHorizontal: Spacing.md,
       paddingTop: Platform.OS === 'web' ? Spacing.md : undefined,
-      ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+      ...formWidthStyle,
     },
     scrollContent: {
       paddingHorizontal: Spacing.md,
       paddingBottom: 100,
-      ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+      ...formWidthStyle,
     },
     planCard: {
       flexDirection: 'row',

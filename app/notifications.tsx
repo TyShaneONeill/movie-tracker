@@ -37,7 +37,7 @@ import { notificationTargetExists } from '@/lib/notification-service';
 import { NotificationItem } from '@/components/social/NotificationItem';
 import { supabase } from '@/lib/supabase';
 import type { Notification, Profile } from '@/lib/database.types';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
   <Svg
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: 100,
     flexGrow: 1,
-    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+    ...formWidthStyle,
   },
   emptyContainer: {
     flex: 1,

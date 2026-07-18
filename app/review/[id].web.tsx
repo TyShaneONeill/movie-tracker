@@ -1,10 +1,11 @@
-import { Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Colors, Spacing, Fonts, FontSizes } from '@/constants/theme';
 import { ShareableReviewCard } from '@/components/share/shareable-review-card';
 import { GetPocketStubsCTA } from '@/components/share/get-pocketstubs-cta';
+import { formWidthStyle } from '@/components/content-container';
 import type { Review } from '@/lib/database.types';
 
 /**
@@ -108,7 +109,9 @@ function Page({ children }: { children: React.ReactNode }) {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {children}
+      {/* maxWidth on contentContainerStyle doesn't constrain children on web —
+          cap this inner View instead. */}
+      <View style={styles.inner}>{children}</View>
     </ScrollView>
   );
 }
@@ -124,6 +127,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.xxl,
+  },
+  inner: {
+    width: '100%',
+    alignItems: 'center',
+    ...formWidthStyle,
   },
   unavailableTitle: {
     fontFamily: Fonts.outfit.bold,

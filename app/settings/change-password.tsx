@@ -18,7 +18,7 @@ import { getFriendlyErrorMessage } from '@/lib/error-messages';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import Svg, { Path } from 'react-native-svg';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 import { PasswordInput } from '@/components/forms/password-input';
 
 function ChevronLeftIcon({ color }: { color: string }) {
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   },
   form: {
     paddingHorizontal: Spacing.md,
-    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+    ...formWidthStyle,
   },
   inputGroup: {
     marginBottom: Spacing.lg,

@@ -14,7 +14,7 @@ import { useBugReport } from '@/contexts/BugReportContext';
 import { captureBugReportScreenshot } from '@/lib/bug-report-screenshot';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 import { FaqAccordion } from '@/components/help/faq-accordion';
 import { FAQ } from '@/lib/help/faq';
 
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100,
-    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+    ...formWidthStyle,
   },
   header: {
     flexDirection: 'row',

@@ -28,7 +28,7 @@ import { useProfilePrivacyGate } from '@/hooks/use-profile-privacy-gate';
 import { FollowButton } from '@/components/social/FollowButton';
 import { Avatar } from '@/components/ui/avatar';
 import type { Profile } from '@/lib/database.types';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 
 const BackIcon = ({ color = 'white' }: { color?: string }) => (
   <Svg
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: 100,
-    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+    ...formWidthStyle,
   },
   userRow: {
     flexDirection: 'row',
