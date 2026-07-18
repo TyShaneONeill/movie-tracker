@@ -64,7 +64,7 @@ export function ReviewPromptSheet({ visible, onAccept, onDecline }: ReviewPrompt
           <Text style={[styles.title, { color: colors.text }]}>Enjoying PocketStubs?</Text>
           <Text style={[styles.message, { color: colors.textSecondary }]}>
             Your TV Time history just became a stack of stubs. If you have a moment, a review
-            helps other movie fans find us.
+            helps other film & TV fans find us.
           </Text>
 
           <View style={styles.buttonContainer}>
