@@ -2,13 +2,14 @@
  * Release Calendar v2 Screen
  * Results-first layout (mock Variant B, locked 2026-07-09): always-visible
  * filter chips + release list own the screen; the calendar is a docked
- * bottom sheet (week strip / month grid). Behind the `release_calendar_v2`
- * flag — see hooks/use-release-calendar-v2.ts.
+ * bottom sheet (week strip / month grid). Rendered unconditionally by
+ * app/release-calendar.tsx since the `release_calendar_v2` flag strip
+ * (2026-07-18, issue #660).
  *
- * Data wiring intentionally mirrors app/release-calendar.tsx (v1) rather
- * than sharing a hook, matching the stats_v2 precedent (StatsV2Screen also
- * re-derives its own state instead of importing from AnalyticsV1Screen) —
- * keeps v1's file byte-identical when the flag is off.
+ * Data wiring intentionally re-derives its own state rather than sharing a
+ * hook with app/release-calendar.tsx, matching the stats_v2 precedent
+ * (StatsV2Screen also re-derives its own state instead of importing from the
+ * analytics tab).
  */
 
 import { useState, useMemo, useCallback } from 'react';

@@ -3,7 +3,6 @@ import { render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ReleaseCalendarScreen from '@/app/release-calendar';
-import { useReleaseCalendarV2 } from '@/hooks/use-release-calendar-v2';
 import { WEEK_SNAP_BASE_HEIGHT } from '@/components/release-calendar-v2/release-calendar-dock';
 
 // Mock @expo/vector-icons — pulls in expo-asset which isn't in transformIgnorePatterns.
@@ -51,10 +50,6 @@ jest.mock('react-native-safe-area-context', () => {
 
 jest.mock('@/lib/theme-context', () => ({
   useTheme: () => ({ effectiveTheme: 'light' }),
-}));
-
-jest.mock('@/hooks/use-release-calendar-v2', () => ({
-  useReleaseCalendarV2: jest.fn(),
 }));
 
 jest.mock('@/hooks/use-release-calendar', () => ({
@@ -111,8 +106,6 @@ jest.mock('@gorhom/bottom-sheet', () => {
   return { __esModule: true, default: BottomSheet, BottomSheetView };
 });
 
-const mockUseReleaseCalendarV2 = useReleaseCalendarV2 as jest.Mock;
-
 function renderScreen() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -122,25 +115,14 @@ function renderScreen() {
   );
 }
 
-describe('ReleaseCalendarScreen release_calendar_v2 gate', () => {
+// The `release_calendar_v2` flag gate was stripped 2026-07-18 (issue #660) —
+// the route now renders `ReleaseCalendarV2Screen` unconditionally.
+describe('ReleaseCalendarScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('flag OFF → renders the v1 screen (no v2 chip row or dock)', () => {
-    mockUseReleaseCalendarV2.mockReturnValue({ variant: 'v1', resolving: false });
-    const { queryByTestId, getByText, getByLabelText } = renderScreen();
-
-    expect(queryByTestId('release-calendar-v2-screen')).toBeNull();
-    expect(queryByTestId('release-calendar-v2-chip-row')).toBeNull();
-    expect(queryByTestId('release-calendar-v2-dock')).toBeNull();
-    expect(getByText('Release Calendar')).toBeTruthy();
-    // v1 keeps its own gear button + full filter sheet, untouched by the v2 dedupe.
-    expect(getByLabelText('Open filters')).toBeTruthy();
-  });
-
-  it('flag ON → renders the v2 screen with the chip row and docked calendar, no redundant filter sheet', () => {
-    mockUseReleaseCalendarV2.mockReturnValue({ variant: 'v2', resolving: false });
+  it('renders the v2 screen with the chip row and docked calendar, no redundant filter sheet', () => {
     const { getByTestId, getByText, getByLabelText, queryByLabelText, queryByText } = renderScreen();
 
     expect(getByTestId('release-calendar-v2-screen')).toBeTruthy();
@@ -148,9 +130,9 @@ describe('ReleaseCalendarScreen release_calendar_v2 gate', () => {
     expect(getByTestId('release-calendar-v2-dock')).toBeTruthy();
     expect(getByText('Release Calendar')).toBeTruthy();
 
-    // The chip row is the canonical filter UI in v2 — no header gear button
-    // and no duplicate "Filters" sheet (the v1 sheet surfaced exactly the
-    // same watchlist toggle + FILTER_CHIPS the chip row already shows).
+    // The chip row is the canonical filter UI — no header gear button and no
+    // duplicate "Filters" sheet (the old v1 sheet surfaced exactly the same
+    // watchlist toggle + FILTER_CHIPS the chip row already shows).
     expect(queryByLabelText('Open filters')).toBeNull();
     expect(queryByText('Filters')).toBeNull();
     // Back button remains — the header still has a single, balanced action.
@@ -166,13 +148,5 @@ describe('ReleaseCalendarScreen release_calendar_v2 gate', () => {
     expect(scroll.props.contentContainerStyle).toEqual({
       paddingBottom: WEEK_SNAP_BASE_HEIGHT + MOCK_SAFE_AREA_BOTTOM_INSET,
     });
-  });
-
-  it('resolving → holds a neutral screen (neither v1 nor v2)', () => {
-    mockUseReleaseCalendarV2.mockReturnValue({ variant: 'v1', resolving: true });
-    const { queryByTestId, queryByText } = renderScreen();
-
-    expect(queryByTestId('release-calendar-v2-screen')).toBeNull();
-    expect(queryByText('Release Calendar')).toBeNull();
   });
 });

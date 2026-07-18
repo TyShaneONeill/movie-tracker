@@ -1,14 +1,15 @@
 /**
- * Scanner tab entry — Ticket Scan v1/v2 gate.
+ * Scanner tab entry.
  *
- * Resolves the `ticket_scan_v2` PostHog flag (env-override short-circuit) and
- * branches:
- *   - v2 (beta testers) -> the redesigned live-camera capture flow (`ScanV2Flow`).
- *   - v1 (everyone else / default) -> the existing button-focused scanner.
+ * Renders the redesigned live-camera capture flow (`ScanV2Flow`) by default.
+ * Formerly gated behind the `ticket_scan_v2` PostHog flag; stripped
+ * 2026-07-18 after 100% rollout since 2026-07-05 (issue #659).
  *
- * While the flag is still resolving we render a neutral dark screen to avoid
- * flashing v1 and snapping to v2 for a tester. With the flag OFF the v1 scanner
- * (and its `/scan/*` routes) render byte-for-byte unchanged.
+ * The ExpoCamera CAPABILITY check is NOT part of that flag and is preserved:
+ * on binaries without the native module (pre-1.5.1), `hasExpoCameraModule()`
+ * is false and the legacy button-focused `ScannerV1` renders instead — this
+ * guards a device capability, not a rollout, so it stays regardless of the
+ * flag strip.
  */
 
 import React, { Suspense } from 'react';
@@ -16,33 +17,28 @@ import { View } from 'react-native';
 
 import { ScannerV1 } from '@/components/scanner/scanner-v1';
 import { useScanColors } from '@/constants/scan-v2-theme';
-import { useTicketScanV2 } from '@/hooks/use-ticket-scan-v2';
+import { hasExpoCameraModule } from '@/hooks/use-scan-capability';
 
 // LAZY on purpose: statically importing scan-v2-flow evaluates `expo-camera`,
 // whose module scope calls requireNativeModule('ExpoCamera') — an immediate
 // throw on binaries without the pod (iOS 1.5.0 b32), crashing the Scan tab at
-// route load BEFORE any flag check can run. React.lazy defers that evaluation
-// until a v2 render is actually attempted, which useTicketScanV2 only permits
-// when the native module exists (HAS_EXPO_CAMERA). Burned 2026-07-07.
+// route load BEFORE the capability check below can run. React.lazy defers
+// that evaluation until a v2 render is actually attempted, which only
+// happens when hasExpoCameraModule() is true. Burned 2026-07-07.
 const ScanV2Flow = React.lazy(() =>
   import('@/components/scan-v2/scan-v2-flow').then((m) => ({ default: m.ScanV2Flow }))
 );
 
 export default function ScannerScreen() {
-  const { variant, resolving } = useTicketScanV2();
   const c = useScanColors();
 
-  if (resolving) {
-    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!hasExpoCameraModule()) {
+    return <ScannerV1 />;
   }
 
-  if (variant === 'v2') {
-    return (
-      <Suspense fallback={<View style={{ flex: 1, backgroundColor: c.bg }} />}>
-        <ScanV2Flow />
-      </Suspense>
-    );
-  }
-
-  return <ScannerV1 />;
+  return (
+    <Suspense fallback={<View style={{ flex: 1, backgroundColor: c.bg }} />}>
+      <ScanV2Flow />
+    </Suspense>
+  );
 }

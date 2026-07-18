@@ -2,7 +2,6 @@ import { render } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import AnalyticsDetailScreen from '@/app/analytics/[type]';
-import { useStatsV2 } from '@/hooks/use-stats-v2';
 import { usePremiumGate } from '@/hooks/use-premium';
 import { useAnalyticsDetail } from '@/hooks/use-analytics-detail';
 
@@ -22,12 +21,6 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'light' },
 }));
 
-// The v1 header renders an inline react-native-svg chevron.
-jest.mock('react-native-svg', () => {
-  const { View } = require('react-native');
-  return { __esModule: true, default: View, Path: View, Circle: View, Rect: View, G: View };
-});
-
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({ type: 'movies' })),
   router: { push: jest.fn(), back: jest.fn() },
@@ -38,10 +31,6 @@ jest.mock('@/lib/theme-context', () => ({
   useEffectiveColorScheme: () => 'dark',
 }));
 
-jest.mock('@/hooks/use-stats-v2', () => ({
-  useStatsV2: jest.fn(),
-}));
-
 jest.mock('@/hooks/use-premium', () => ({
   usePremiumGate: jest.fn(),
 }));
@@ -50,11 +39,12 @@ jest.mock('@/hooks/use-analytics-detail', () => ({
   useAnalyticsDetail: jest.fn(),
 }));
 
-const mockUseStatsV2 = useStatsV2 as jest.Mock;
 const mockUsePremiumGate = usePremiumGate as jest.Mock;
 const mockUseAnalyticsDetail = useAnalyticsDetail as jest.Mock;
 
-describe('AnalyticsDetailScreen stats_v2 gate', () => {
+// The `stats_v2` flag gate was stripped 2026-07-18 (issue #661) — the route
+// now renders the v2 reskin (`RankedDetailV2`) unconditionally.
+describe('AnalyticsDetailScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
@@ -79,24 +69,14 @@ describe('AnalyticsDetailScreen stats_v2 gate', () => {
     });
   });
 
-  it('flag OFF → renders the v1 detail (no v2 shell)', () => {
-    mockUseStatsV2.mockReturnValue({ variant: 'v1', resolving: false });
-    const { queryByTestId, getByText } = render(<AnalyticsDetailScreen />);
-
-    expect(queryByTestId('ranked-detail-v2')).toBeNull();
-    expect(getByText('Movies Watched')).toBeTruthy();
-  });
-
-  it('flag ON → renders the v2 reskin', () => {
-    mockUseStatsV2.mockReturnValue({ variant: 'v2', resolving: false });
+  it('renders the v2 reskin', () => {
     const { getByTestId, getByText } = render(<AnalyticsDetailScreen />);
 
     expect(getByTestId('ranked-detail-v2')).toBeTruthy();
-    expect(getByText('Movies Watched')).toBeTruthy(); // reuses the v1 SCREEN_CONFIGS titles
+    expect(getByText('Movies Watched')).toBeTruthy();
   });
 
-  it('flag ON + free user → v2 shell renders the reused v1 paywall', () => {
-    mockUseStatsV2.mockReturnValue({ variant: 'v2', resolving: false });
+  it('free user → v2 shell renders the reused paywall', () => {
     mockUsePremiumGate.mockReturnValue({ isUnlocked: false, isLoading: false });
     const { getByTestId, getByText, queryByTestId } = render(<AnalyticsDetailScreen />);
 
@@ -104,13 +84,5 @@ describe('AnalyticsDetailScreen stats_v2 gate', () => {
     expect(getByText('Unlock Advanced Stats')).toBeTruthy();
     expect(getByText('See Plans')).toBeTruthy();
     expect(queryByTestId('ranked-row-compact')).toBeNull();
-  });
-
-  it('resolving → holds a neutral screen (neither v1 nor v2)', () => {
-    mockUseStatsV2.mockReturnValue({ variant: 'v1', resolving: true });
-    const { queryByTestId, queryByText } = render(<AnalyticsDetailScreen />);
-
-    expect(queryByTestId('ranked-detail-v2')).toBeNull();
-    expect(queryByText('Movies Watched')).toBeNull();
   });
 });
