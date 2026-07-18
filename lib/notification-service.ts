@@ -61,3 +61,36 @@ export async function markAllAsRead(userId: string): Promise<void> {
 
   if (error) throw new Error(error.message || 'Failed to mark all as read');
 }
+
+// True if the notification's target content still exists — false for
+// orphaned notifications whose comment/review/first-take was deleted
+// (historical orphans predating the delete-cleanup triggers in
+// 20260718090000/20260718090100, or a delete/tap race). Driven by which
+// entity id is present in `data` rather than notification type, since
+// friend_reviewed carries either review_id or first_take_id depending on
+// which trigger wrote it (see #709).
+export async function notificationTargetExists(
+  notification: Pick<Notification, 'data'>
+): Promise<boolean> {
+  const data = (notification.data ?? {}) as Record<string, unknown>;
+
+  if (typeof data.review_id === 'string') {
+    const { data: review } = await (supabase.from('reviews') as any)
+      .select('id')
+      .eq('id', data.review_id)
+      .maybeSingle();
+    return !!review;
+  }
+
+  if (typeof data.first_take_id === 'string') {
+    const { data: firstTake } = await (supabase.from('first_takes') as any)
+      .select('id')
+      .eq('id', data.first_take_id)
+      .maybeSingle();
+    return !!firstTake;
+  }
+
+  // Nothing content-specific to verify (follow, follow_request,
+  // achievement_unlock, etc.) — always resolvable.
+  return true;
+}
