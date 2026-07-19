@@ -41,10 +41,25 @@ interface FirstTakeInitialValues {
 interface FirstTakeModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { rating: number | null; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility }) => Promise<void>;
+  onSubmit: (data: {
+    rating: number | null;
+    quoteText: string;
+    isSpoiler: boolean;
+    visibility: ReviewVisibility;
+    seasonNumber?: number | null;
+    episodeNumber?: number | null;
+  }) => Promise<void>;
   movieTitle: string;
   moviePosterUrl?: string;
   isSubmitting?: boolean;
+  /**
+   * Episode Rooms: when set, the take is scoped to one episode. The values are
+   * forwarded verbatim in the onSubmit payload so the caller can persist an
+   * episode-level First Take (media_type 'tv_episode'). Absent for movie /
+   * show-level takes, which every existing caller keeps posting unchanged.
+   */
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
   /** When provided, the modal opens pre-filled for editing an existing First Take. */
   initialValues?: FirstTakeInitialValues | null;
   /** Optional explicit edit flag; defaults to whether initialValues was passed. */
@@ -68,6 +83,8 @@ export function FirstTakeModal({
   initialValues,
   isEditing: isEditingProp,
   contentLocked = false,
+  seasonNumber,
+  episodeNumber,
 }: FirstTakeModalProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -116,6 +133,8 @@ export function FirstTakeModal({
       quoteText: quoteText.trim(),
       isSpoiler,
       visibility,
+      seasonNumber,
+      episodeNumber,
     });
 
     Toast.show({
@@ -267,7 +286,14 @@ export function FirstTakeModal({
                   </View>
                   <View style={styles.spoilerTextContainer}>
                     <Text style={styles.spoilerTitle}>Contains Spoilers</Text>
-                    <Text style={styles.spoilerSubtitle}>Content hidden until tapped</Text>
+                    {/* Episode takes travel beyond the watched-gated room (feed,
+                        profile), and room-mates may not have watched PAST this
+                        episode — so the flag covers both directions (Ty, 07-19). */}
+                    <Text style={styles.spoilerSubtitle}>
+                      {seasonNumber != null
+                        ? 'For this episode or future episodes — hidden until tapped'
+                        : 'Content hidden until tapped'}
+                    </Text>
                   </View>
                 </View>
                 <ToggleSwitch
@@ -535,6 +561,11 @@ const createStyles = (colors: typeof Colors.dark) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.md,
+      // Shrink beside the toggle so the (longer, episode-aware) subtitle wraps
+      // instead of clipping off the card edge.
+      flex: 1,
+      minWidth: 0,
+      paddingRight: Spacing.sm,
     },
     warningIcon: {
       width: 24,
@@ -548,6 +579,8 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     spoilerTextContainer: {
       gap: 2,
+      flex: 1,
+      minWidth: 0,
     },
     spoilerTitle: {
       ...Typography.body.sm,

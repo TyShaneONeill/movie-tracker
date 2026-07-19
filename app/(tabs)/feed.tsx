@@ -27,6 +27,7 @@ import { usePrioritizedFeed } from '@/hooks/use-prioritized-feed';
 import { useNotifications } from '@/hooks/use-notifications';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime, type FeedListItem, type FeedFilter } from '@/hooks/use-activity-feed';
+import { formatSeasonEpisode } from '@/lib/first-takes-v2-logic';
 import { SuggestedUsersSection } from '@/components/social/SuggestedUsersSection';
 import { ReportModal } from '@/components/moderation/report-modal';
 import { analytics } from '@/lib/analytics';
@@ -224,6 +225,14 @@ function LegacyAuthenticatedFeed() {
           isSpoiler={feed.isSpoiler ?? undefined}
           isCurrentUser={isOwn}
           mediaType={feed.mediaType}
+          episodeLabel={
+            feed.seasonNumber != null
+              ? formatSeasonEpisode({
+                  season_number: feed.seasonNumber,
+                  episode_number: feed.episodeNumber ?? null,
+                })
+              : null
+          }
           sourceId={feed.id}
           sourceType={feed.activityType === 'review' ? 'review' : 'first_take'}
           userId={feed.userId}
@@ -245,7 +254,8 @@ function LegacyAuthenticatedFeed() {
           }}
           onMoviePress={() => {
             analytics.track('feed:item_tap', { item_type: feed.activityType, target: 'poster', tmdb_id: feed.tmdbId });
-            if (feed.mediaType === 'tv_show') {
+            // tv_episode takes route to the show too — the poster is the show's.
+            if (feed.mediaType === 'tv_show' || feed.mediaType === 'tv_episode') {
               router.push(`/tv/${feed.tmdbId}`);
             } else {
               router.push(`/movie/${feed.tmdbId}`);

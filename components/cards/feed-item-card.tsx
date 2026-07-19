@@ -77,9 +77,16 @@ interface FeedItemCardProps {
   isCurrentUser?: boolean;
 
   /**
-   * Media type ('movie' or 'tv_show')
+   * Media type ('movie', 'tv_show', or 'tv_episode')
    */
   mediaType?: string;
+
+  /**
+   * Episode scope label for episode-level takes (e.g. "S1 · E2"). When set, an
+   * episode chip renders next to the title so the take can't be mistaken for a
+   * take on the whole show.
+   */
+  episodeLabel?: string | null;
 
   /**
    * Source ID for the review or first take (enables like button)
@@ -159,6 +166,7 @@ export function FeedItemCard({
   isSpoiler = false,
   isCurrentUser = false,
   mediaType,
+  episodeLabel,
   sourceId,
   sourceType,
   userId,
@@ -339,10 +347,18 @@ export function FeedItemCard({
             >
               {movieTitle}
             </Text>
-            {mediaType === 'tv_show' && (
-              <View style={[styles.tvBadge, { backgroundColor: colors.tint }]}>
-                <Text style={styles.tvBadgeText}>TV</Text>
+            {episodeLabel ? (
+              <View style={[styles.episodeChip, { borderColor: colors.border }]}>
+                <Text style={[styles.episodeChipText, { color: colors.textSecondary }]}>
+                  {episodeLabel}
+                </Text>
               </View>
+            ) : (
+              mediaType === 'tv_show' && (
+                <View style={[styles.tvBadge, { backgroundColor: colors.tint }]}>
+                  <Text style={styles.tvBadgeText}>TV</Text>
+                </View>
+              )
             )}
           </View>
 
@@ -451,6 +467,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  episodeChip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    alignSelf: 'flex-start',
+  },
+  episodeChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   ratingText: {
     fontSize: 12,

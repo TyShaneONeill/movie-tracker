@@ -12,6 +12,7 @@ import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { formatRelativeTime } from '@/lib/utils';
+import { formatSeasonEpisode } from '@/lib/first-takes-v2-logic';
 import type { FirstTake, ReviewVisibility } from '@/lib/database.types';
 import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
@@ -372,7 +373,8 @@ export default function FirstTakeDetailScreen() {
               <Pressable
                 onPress={() =>
                   router.push(
-                    firstTake.media_type === 'tv_show'
+                    // tv_episode takes route to the show too — the poster is the show's.
+                    firstTake.media_type?.startsWith('tv')
                       ? `/tv/${firstTake.tmdb_id}`
                       : `/movie/${firstTake.tmdb_id}`
                   )
@@ -399,6 +401,13 @@ export default function FirstTakeDetailScreen() {
                 <Text style={styles.movieTitle} numberOfLines={2}>
                   {firstTake.movie_title}
                 </Text>
+                {formatSeasonEpisode(firstTake) && (
+                  <View style={[styles.episodeChip, { borderColor: colors.border }]}>
+                    <Text style={[styles.episodeChipText, { color: colors.textSecondary }]}>
+                      {formatSeasonEpisode(firstTake)}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.timeText}>
                   Posted {formatRelativeTime(firstTake.created_at ?? '')}
                 </Text>
@@ -597,6 +606,19 @@ function createStyles(colors: typeof Colors.dark) {
       ...Typography.body.sm,
       color: colors.textSecondary,
       marginTop: Spacing.xs,
+    },
+    episodeChip: {
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      marginTop: Spacing.xs,
+    },
+    episodeChipText: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.5,
     },
     editedRow: {
       marginTop: Spacing.xs,

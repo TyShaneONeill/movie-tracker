@@ -153,6 +153,16 @@ export const analytics = {
     posthogClient?.reloadFeatureFlags();
   },
 
+  /**
+   * Subscribe to feature-flag resolution. The callback fires once flags have
+   * loaded (and again on any later refresh). Returns an unsubscribe fn; a no-op
+   * unsubscribe when PostHog isn't initialized. Lets a caller gate on ACTUAL
+   * flag readiness instead of a fixed timer.
+   */
+  onFeatureFlags(callback: () => void): () => void {
+    return posthogClient?.onFeatureFlags?.(() => callback()) ?? (() => {});
+  },
+
   /** Set user properties without tracking an event */
   setPersonProperties(properties: UserProperties) {
     posthogClient?.setPersonProperties(properties);

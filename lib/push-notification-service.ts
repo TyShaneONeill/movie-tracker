@@ -6,6 +6,8 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { analytics } from './analytics';
+import { episodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
+import { episodeRoomSlug } from '@/lib/episode-room-logic';
 
 // ============================================================================
 // Types
@@ -311,7 +313,7 @@ export function handleNotificationResponse(
   response: Notifications.NotificationResponse
 ): void {
   const data = response.notification.request.content.data;
-  const url = getNotificationUrl(response.notification);
+  let url = getNotificationUrl(response.notification);
 
   // Fires for every tapped push, regardless of feature — makes
   // "notification-triggered session" measurable (PS-15 PR 0).
@@ -326,9 +328,34 @@ export function handleNotificationResponse(
       category: typeof data.category === 'string' ? data.category : null,
     });
   }
+
+  // Episode reminders: CLIENT-side upgrade to the Episode Room. The server
+  // payload always ships /tv/{id} (reaches old bundles too), so this override is
+  // the only thing that routes into the room — and only when this build has the
+  // room route AND the flag is on. Old bundles never run this code, so they keep
+  // the /tv/{id} destination regardless of when the edge function deploys.
+  if (
+    data &&
+    data.feature === 'tv_episode_reminders' &&
+    typeof data.tmdb_id === 'number' &&
+    typeof data.season === 'number' &&
+    typeof data.episode === 'number' &&
+    episodeRoomsEnabled()
+  ) {
+    url = `/episode-room/${episodeRoomSlug(data.tmdb_id, data.season, data.episode)}`;
+  }
+
+  // Belt-and-braces: never leave a tap dead-ended. If there's no usable url but
+  // the payload identifies a show, fall back to its detail page rather than
+  // pushing nothing (or a route this build can't resolve).
+  if (!url && data && typeof data.tmdb_id === 'number') {
+    url = `/tv/${data.tmdb_id}`;
+  }
+
   if (url) {
+    const target = url;
     setTimeout(() => {
-      router.push(url as any);
+      router.push(target as any);
     }, 0);
   }
 }

@@ -41,6 +41,12 @@ interface FirstTakeCardProps {
   rating?: number | null;
 
   /**
+   * Episode scope label for episode-level takes (e.g. "S1 · E2"). Renders as a
+   * chip next to the title so the take can't be mistaken for a show-level take.
+   */
+  episodeLabel?: string | null;
+
+  /**
    * ISO date string when the take was created
    */
   createdAt: string;
@@ -81,6 +87,7 @@ export function FirstTakeCard({
   emoji,
   quote,
   rating,
+  episodeLabel,
   createdAt,
   editedAt,
   isLatest = false,
@@ -126,6 +133,13 @@ export function FirstTakeCard({
               {movieTitle}
             </Text>
             <View style={styles.metaRow}>
+              {episodeLabel && (
+                <View style={[styles.episodeChip, { borderColor: colors.border }]}>
+                  <Text style={[styles.episodeChipText, { color: colors.textSecondary }]}>
+                    {episodeLabel}
+                  </Text>
+                </View>
+              )}
               <Text style={[styles.timestamp, { color: colors.textSecondary }]}>
                 {formatRelativeTime(createdAt)}
               </Text>
@@ -197,6 +211,17 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     ...Typography.body.xs,
+  },
+  episodeChip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  episodeChipText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   emoji: {
     fontSize: 24,

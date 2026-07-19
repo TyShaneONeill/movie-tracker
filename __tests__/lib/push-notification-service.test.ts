@@ -31,6 +31,8 @@ jest.mock('@/lib/analytics', () => ({
   analytics: {
     track: jest.fn(),
     setPersonProperties: jest.fn(),
+    getFeatureFlag: jest.fn(),
+    onFeatureFlags: jest.fn(() => () => {}),
   },
 }));
 
@@ -408,6 +410,64 @@ describe('handleNotificationResponse', () => {
       feature: null,
       has_url: false,
     });
+  });
+
+  // ── Episode Rooms: client-side room upgrade (P1) ──────────────────────────
+  // The server payload always ships /tv/{id}; the room destination is decided
+  // here, gated on the episode_rooms flag, so old bundles are unaffected.
+  const episodeReminder = () =>
+    makeNotificationResponse({
+      url: '/tv/1396',
+      tmdb_id: 1396,
+      season: 2,
+      episode: 4,
+      feature: 'tv_episode_reminders',
+    });
+
+  it('upgrades an episode-reminder tap to the Episode Room when the flag is ON', () => {
+    const { analytics } = require('@/lib/analytics');
+    (analytics.getFeatureFlag as jest.Mock).mockReturnValue(true);
+
+    handleNotificationResponse(episodeReminder());
+    jest.runAllTimers();
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/episode-room/1396-2-4');
+  });
+
+  it('keeps the /tv/{id} payload destination for an episode reminder when the flag is OFF', () => {
+    const { analytics } = require('@/lib/analytics');
+    (analytics.getFeatureFlag as jest.Mock).mockReturnValue(false);
+
+    handleNotificationResponse(episodeReminder());
+    jest.runAllTimers();
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/tv/1396');
+  });
+
+  it('does not upgrade to the room when season/episode are absent, even with the flag ON', () => {
+    const { analytics } = require('@/lib/analytics');
+    (analytics.getFeatureFlag as jest.Mock).mockReturnValue(true);
+
+    const response = makeNotificationResponse({
+      url: '/tv/1396',
+      tmdb_id: 1396,
+      feature: 'tv_episode_reminders',
+    });
+    handleNotificationResponse(response);
+    jest.runAllTimers();
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/tv/1396');
+  });
+
+  it('falls back to /tv/{tmdb_id} when there is no url but the payload has a tmdb_id', () => {
+    const { analytics } = require('@/lib/analytics');
+    (analytics.getFeatureFlag as jest.Mock).mockReturnValue(false);
+
+    const response = makeNotificationResponse({ tmdb_id: 777, feature: 'some_future_feature' });
+    handleNotificationResponse(response);
+    jest.runAllTimers();
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/tv/777');
   });
 });
 

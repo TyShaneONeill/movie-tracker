@@ -39,6 +39,11 @@ export interface ActivityFeedItem {
   activityType: 'first_take' | 'review' | 'comment';
   // First-take-specific: rewatch flag (drives the Rewatch chip in Feed v2)
   isRewatch?: boolean;
+  // First-take-specific: episode scope (Episode Room takes). Null/undefined for
+  // show-level takes, movies, and reviews. Drives the S·E chip so an episode
+  // take is never mistaken for a take on the whole show.
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
   // Review-specific fields
   reviewTitle?: string;
   // Comment-specific fields
@@ -65,6 +70,8 @@ export interface FirstTakeWithProfile {
   media_type: string | null;
   edited_at: string | null;
   is_rewatch?: boolean | null;
+  season_number?: number | null;
+  episode_number?: number | null;
   profiles: {
     full_name: string | null;
     username: string | null;
@@ -74,7 +81,7 @@ export interface FirstTakeWithProfile {
 
 /** The JOINed select string used by both hooks */
 export const ACTIVITY_FEED_SELECT =
-  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, is_rewatch, profiles(full_name, username, avatar_url)';
+  'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, is_rewatch, season_number, episode_number, profiles(full_name, username, avatar_url)';
 
 /** Map a JOINed row to an ActivityFeedItem */
 export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
@@ -95,6 +102,8 @@ export function mapToFeedItem(row: FirstTakeWithProfile): ActivityFeedItem {
     userAvatarUrl: row.profiles?.avatar_url ?? null,
     activityType: 'first_take',
     isRewatch: row.is_rewatch ?? false,
+    seasonNumber: row.season_number ?? null,
+    episodeNumber: row.episode_number ?? null,
     editedAt: row.edited_at,
   };
 }
