@@ -5,8 +5,9 @@
  * quiet variant — no green/yellow/rose); the footer is the fine-print ledger
  * line (thumb, caps title, chips, time, ♥).
  *
- * All legacy interactions are preserved: tap → detail, long-press (native) /
- * trash (web) delete on the owner's profile, the interactive like button + its
+ * All legacy interactions are preserved: tap → detail, long-press delete on
+ * the owner's profile (now also surfaced via a visible "..." button since
+ * long-press alone wasn't discoverable), the interactive like button + its
  * count, and the "liked by" indicator. A spoiler redacts the BODY in place
  * (headline stays visible, per Decision 1); reveal is local and remounts with
  * the card key so a new review at the same slot starts redacted (the #662
@@ -32,7 +33,7 @@ import { ReviewChips } from './review-chips';
 interface ReviewProgrammeCardProps {
   review: Review;
   onPress: () => void;
-  /** Owner's profile only — enables long-press (native) / trash (web) delete. */
+  /** Owner's profile only — enables delete via long-press or the "..." button. */
   onDelete?: () => void;
 }
 
@@ -122,18 +123,20 @@ export function ReviewProgrammeCard({ review, onPress, onDelete }: ReviewProgram
             initialLikeCount={review.like_count ?? undefined}
             size="sm"
           />
-          {Platform.OS === 'web' && onDelete && (
+          {/* Visible trigger for the same delete confirm long-press already opens —
+              long-press alone wasn't discoverable (PS edit-affordance polish). */}
+          {onDelete && (
             <Pressable
               onPress={(e: any) => {
                 e.stopPropagation?.();
                 handleDelete();
               }}
               hitSlop={8}
-              style={styles.webTrash}
+              style={styles.moreButton}
               accessibilityRole="button"
-              accessibilityLabel="Delete review"
+              accessibilityLabel="More options"
             >
-              <Ionicons name="trash-outline" size={14} color={colors.textTertiary} />
+              <Ionicons name="ellipsis-horizontal" size={14} color={colors.textTertiary} />
             </Pressable>
           )}
         </View>
@@ -210,7 +213,7 @@ const createStyles = (colors: typeof Colors.dark) =>
       alignItems: 'center',
       gap: 10,
     },
-    webTrash: {
+    moreButton: {
       justifyContent: 'center',
       alignItems: 'center',
     },

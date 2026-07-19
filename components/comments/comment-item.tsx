@@ -162,6 +162,19 @@ export function CommentItem({
               <Text style={styles.authorBadgeText}>by author</Text>
             </View>
           )}
+          {/* Visible trigger for the same menu the long-press already opens —
+              long-press alone wasn't discoverable (PS edit-affordance polish). */}
+          {isOwnComment && !comment.isHidden && (onEdit || onDelete) && (
+            <Pressable
+              onPress={handleLongPress}
+              hitSlop={8}
+              style={styles.moreButton}
+              accessibilityRole="button"
+              accessibilityLabel="More options"
+            >
+              <Ionicons name="ellipsis-horizontal" size={14} color={colors.textTertiary} />
+            </Pressable>
+          )}
         </View>
 
         {/* Body */}
@@ -369,6 +382,10 @@ function createStyles(colors: typeof Colors.dark) {
       color: colors.textTertiary,
       fontSize: 11,
       marginTop: 2,
+    },
+    moreButton: {
+      marginLeft: 'auto',
+      padding: 2,
     },
   });
 }
