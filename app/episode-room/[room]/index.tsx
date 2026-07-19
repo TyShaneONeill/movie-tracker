@@ -17,7 +17,7 @@
  * carries all three ids from the route, the push payload, and deep links.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -76,6 +76,13 @@ export default function EpisodeRoomScreen() {
   // unlock animation finishes — only then does the watched probe flip, so the
   // veil plays out instead of being yanked on refetch.
   const [gateUnlocking, setGateUnlocking] = useState(false);
+  // Prev/next reuses this screen instance — an in-flight unlock must not
+  // follow the user to a different episode's gate.
+  const roomRef = useRef(room);
+  roomRef.current = room;
+  useEffect(() => {
+    setGateUnlocking(false);
+  }, [room]);
 
   // Flag off = invisible. A stale push / deep link when the flag is off bounces
   // back to the show detail (its prior destination), so the room never surfaces.
@@ -133,6 +140,7 @@ export default function EpisodeRoomScreen() {
       router.replace(`/tv/${coords.tmdbId}`);
       return;
     }
+    const startedRoom = room;
     try {
       await unlockMutation.mutateAsync({
         // Detail carries every TMDBTvShow field except popularity.
@@ -140,6 +148,10 @@ export default function EpisodeRoomScreen() {
         episode,
         totalEpisodesInSeason: episodes.length,
       });
+      // The mark can resolve after a prev/next hop — never unlock a gate the
+      // user has already left. (The probe invalidation still unlocks the
+      // marked episode's room on their next visit.)
+      if (roomRef.current !== startedRoom) return;
       setGateUnlocking(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
@@ -282,7 +294,11 @@ export default function EpisodeRoomScreen() {
     if (watchedLoading) return <FirstTakesSkeleton />;
     if (!isWatched) {
       return (
+        // Keyed by episode (the #662 lesson): prev/next reuses this screen
+        // instance, and an unkeyed gate would carry unlock animation state —
+        // and a stale onUnlocked — across episodes.
         <WatchedGate
+          key={`${coords.tmdbId}-${coords.season}-${coords.episode}`}
           episodeLabel={episodeLabel}
           onMarkWatched={handleMarkWatched}
           pending={unlockMutation.isPending}
