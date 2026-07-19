@@ -4,6 +4,8 @@ import {
   formatEpisodeLabel,
   formatEpisodeShort,
   selectHeroTake,
+  sortTakesByEngagement,
+  ROOM_LEDGER_CAP,
 } from '../../lib/episode-room-logic';
 
 interface TestTake {
@@ -121,6 +123,58 @@ describe('selectHeroTake', () => {
     const c: TestTake = { id: 'c', commentCount: 3, createdAt: '2026-07-19T12:00:00Z' };
     expect(pick([a, b, c]).hero?.id).toBe('b');
     expect(pick([c, b, a]).hero?.id).toBe('b');
+  });
+});
+
+describe('sortTakesByEngagement', () => {
+  const sort = (takes: TestTake[]) => sortTakesByEngagement(takes, engagement, createdAt);
+
+  it('orders by engagement descending', () => {
+    const takes: TestTake[] = [
+      { id: 'low', commentCount: 1, createdAt: '2026-07-19T12:00:00Z' },
+      { id: 'high', commentCount: 9, createdAt: '2026-07-19T10:00:00Z' },
+      { id: 'mid', commentCount: 4, createdAt: '2026-07-19T11:00:00Z' },
+    ];
+    expect(sort(takes).map((t) => t.id)).toEqual(['high', 'mid', 'low']);
+  });
+
+  it('breaks ties newest-first, matching the hero comparator', () => {
+    const takes: TestTake[] = [
+      { id: 'older', commentCount: 3, createdAt: '2026-07-19T09:00:00Z' },
+      { id: 'newer', commentCount: 3, createdAt: '2026-07-19T12:00:00Z' },
+    ];
+    expect(sort(takes).map((t) => t.id)).toEqual(['newer', 'older']);
+  });
+
+  it('does not mutate the input array', () => {
+    const takes: TestTake[] = [
+      { id: 'a', commentCount: 0, createdAt: '2026-07-19T10:00:00Z' },
+      { id: 'b', commentCount: 5, createdAt: '2026-07-19T11:00:00Z' },
+    ];
+    sort(takes);
+    expect(takes.map((t) => t.id)).toEqual(['a', 'b']);
+  });
+
+  it('agrees with selectHeroTake: sorted[0] is always the hero', () => {
+    const takes: TestTake[] = [
+      { id: 'a', commentCount: 2, createdAt: '2026-07-19T12:00:00Z' },
+      { id: 'b', commentCount: 8, createdAt: '2026-07-19T11:00:00Z' },
+      { id: 'c', commentCount: 8, createdAt: '2026-07-19T13:00:00Z' },
+    ];
+    expect(sort(takes)[0].id).toBe(pick(takes).hero?.id);
+  });
+
+  it('caps the room ledger via ROOM_LEDGER_CAP (hero + cap on screen)', () => {
+    const takes: TestTake[] = Array.from({ length: 9 }, (_, i) => ({
+      id: `t${i}`,
+      commentCount: i,
+      createdAt: `2026-07-19T0${i}:00:00Z`,
+    }));
+    const { rest } = pick(takes);
+    const ledger = sortTakesByEngagement(rest, engagement, createdAt).slice(0, ROOM_LEDGER_CAP);
+    expect(ledger).toHaveLength(ROOM_LEDGER_CAP);
+    // Highest-engagement of the rest lead the ledger.
+    expect(ledger.map((t) => t.id)).toEqual(['t7', 't6', 't5', 't4']);
   });
 });
 

@@ -8,12 +8,13 @@
  * (avatar + handle). The S·E / TV chips are dropped for the same reason — they
  * would just repeat the room header.
  *
- * The newest take renders as the torn-stub hero with an accent (rose) stamp;
- * earlier takes fall to quiet ledger rows. Each take carries an expand/collapse
- * comment thread that reuses the shared CommentThread stack.
+ * The most popular take renders as the torn-stub hero with an accent (rose)
+ * stamp; the rest fall to quiet ledger rows. The card is a single tap target
+ * that opens the take's detail page — deep comment threads deliberately live
+ * there, not inline in the room (Ty, 2026-07-19). The 💬 count in the footer
+ * is the affordance hint.
  */
 
-import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -25,13 +26,14 @@ import { RatingStamp } from '@/components/first-takes-v2/rating-stamp';
 import { SpoilerRedaction } from '@/components/first-takes-v2/spoiler-redaction';
 import { Chip } from '@/components/first-takes-v2/chip';
 import { Avatar } from '@/components/ui/avatar';
-import { CommentThread } from '@/components/comments/comment-thread';
 import type { EpisodeRoomTake } from '@/hooks/use-episode-room';
 
 interface RoomTakeCardProps {
   entry: EpisodeRoomTake;
-  /** The newest take gets the torn-stub hero treatment; the rest are ledger rows. */
+  /** The most popular take gets the torn-stub hero treatment; the rest are ledger rows. */
   variant: 'hero' | 'ledger';
+  /** Opens the take's detail page (full comment thread lives there). */
+  onPress?: () => void;
 }
 
 function authorHandle(entry: EpisodeRoomTake): string {
@@ -74,54 +76,18 @@ function TakeFooter({ entry }: { entry: EpisodeRoomTake }) {
             <Text style={[styles.countText, { color: colors.textTertiary }]}>{likeCount}</Text>
           </View>
         )}
-        {commentCount > 0 && (
-          <View style={styles.count}>
-            <Ionicons name="chatbubble-outline" size={12} color={colors.textTertiary} />
+        <View style={styles.count}>
+          <Ionicons name="chatbubble-outline" size={12} color={colors.textTertiary} />
+          {commentCount > 0 && (
             <Text style={[styles.countText, { color: colors.textTertiary }]}>{commentCount}</Text>
-          </View>
-        )}
+          )}
+        </View>
       </View>
     </View>
   );
 }
 
-function CommentToggle({ entry }: { entry: EpisodeRoomTake }) {
-  const { effectiveTheme } = useTheme();
-  const colors = Colors[effectiveTheme];
-  const [expanded, setExpanded] = useState(false);
-  const count = entry.take.comment_count ?? 0;
-
-  const label = expanded
-    ? count > 0
-      ? `Hide ${count} comment${count === 1 ? '' : 's'}`
-      : 'Hide comments'
-    : count > 0
-      ? `View ${count} comment${count === 1 ? '' : 's'}`
-      : 'Add a comment';
-
-  return (
-    <View style={styles.thread}>
-      <Pressable
-        onPress={() => setExpanded((v) => !v)}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        style={({ pressed }) => [styles.threadToggle, { opacity: pressed ? 0.7 : 1 }]}
-      >
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={11}
-          color={colors.textTertiary}
-        />
-        <Text style={[styles.threadToggleText, { color: colors.textTertiary }]}>{label}</Text>
-      </Pressable>
-      {/* Mounted only on expand so a long room doesn't fire a comments fetch per
-          take. CommentThread owns its own input, threading, and author avatars. */}
-      {expanded && <CommentThread targetType="first_take" targetId={entry.take.id} />}
-    </View>
-  );
-}
-
-export function RoomTakeCard({ entry, variant }: RoomTakeCardProps) {
+export function RoomTakeCard({ entry, variant, onPress }: RoomTakeCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { take } = entry;
@@ -155,14 +121,26 @@ export function RoomTakeCard({ entry, variant }: RoomTakeCardProps) {
         )}
       </View>
       <TakeFooter entry={entry} />
-      <CommentToggle entry={entry} />
     </>
   );
 
-  if (isHero) {
-    return <TornStub>{body}</TornStub>;
-  }
-  return <View style={styles.ledgerRow}>{body}</View>;
+  const card = isHero ? (
+    <TornStub>{body}</TornStub>
+  ) : (
+    <View style={styles.ledgerRow}>{body}</View>
+  );
+
+  if (!onPress) return card;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${authorHandle(entry)}'s take`}
+      style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+    >
+      {card}
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -226,20 +204,5 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 10,
     fontVariant: ['tabular-nums'],
-  },
-  thread: {
-    marginTop: 6,
-  },
-  threadToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 6,
-  },
-  threadToggleText: {
-    fontSize: 9.5,
-    letterSpacing: 1,
-    fontWeight: '700',
-    textTransform: 'uppercase',
   },
 });

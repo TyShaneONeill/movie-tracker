@@ -92,3 +92,29 @@ export function selectHeroTake<T>(
     rest: takes.filter((_, i) => i !== heroIdx),
   };
 }
+
+/**
+ * How many takes the room shows below the hero before collapsing behind the
+ * "View all takes" affordance (Ty, 2026-07-19 — the room is a room, not an
+ * endless feed).
+ */
+export const ROOM_LEDGER_CAP = 4;
+
+/**
+ * Popularity order for the room ledger and the view-all screen: engagement
+ * descending, newest-first on ties — the same comparator the hero uses, so the
+ * ledger reads as "the next most popular" rather than a second timeline.
+ * Non-mutating.
+ */
+export function sortTakesByEngagement<T>(
+  takes: T[],
+  engagement: (t: T) => number,
+  createdAt: (t: T) => string | null
+): T[] {
+  return [...takes].sort((a, b) => {
+    const diff = engagement(b) - engagement(a);
+    if (diff !== 0) return diff;
+    // ISO timestamps compare lexicographically; missing dates sort last.
+    return (createdAt(b) ?? '').localeCompare(createdAt(a) ?? '');
+  });
+}

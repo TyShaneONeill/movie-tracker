@@ -25,6 +25,7 @@ import type { ActivityFeedItem } from '@/hooks/use-activity-feed';
 import { RatingStamp } from '@/components/first-takes-v2/rating-stamp';
 import { SpoilerRedaction } from '@/components/first-takes-v2/spoiler-redaction';
 import { Chip } from '@/components/first-takes-v2/chip';
+import { formatSeasonEpisode } from '@/lib/first-takes-v2-logic';
 import { LikeButton } from '@/components/like-button';
 import { Attribution } from './attribution';
 
@@ -43,6 +44,15 @@ export function FeedArtifact({ item, timeLabel, isOwn = false, onReport }: FeedA
 
   const isReview = item.activityType === 'review';
   const isTv = item.mediaType !== 'movie';
+  // Episode-scoped takes carry S/E; their chip replaces the generic "TV" chip
+  // so the artifact can't be mistaken for a take on the whole show.
+  const episodeLabel =
+    item.seasonNumber != null
+      ? formatSeasonEpisode({
+          season_number: item.seasonNumber,
+          episode_number: item.episodeNumber ?? null,
+        })
+      : null;
   const hasRating = item.rating != null && item.rating > 0;
   const posterUri = getTMDBImageUrl(item.posterPath, 'w92') ?? undefined;
 
@@ -125,7 +135,11 @@ export function FeedArtifact({ item, timeLabel, isOwn = false, onReport }: FeedA
           <Text style={[styles.title, { color: colors.textSecondary }]} numberOfLines={1}>
             {item.movieTitle}
           </Text>
-          {isTv && <Chip label="TV" color={colors.textSecondary} border={colors.border} />}
+          {episodeLabel ? (
+            <Chip label={episodeLabel} color={colors.textSecondary} border={colors.border} />
+          ) : (
+            isTv && <Chip label="TV" color={colors.textSecondary} border={colors.border} />
+          )}
           {item.isRewatch && <Chip label="Rewatch" color={colors.tint} border={colors.tint} />}
           <View style={styles.counts}>
             <LikeButton targetType={isReview ? 'review' : 'first_take'} targetId={item.id} size="sm" />

@@ -42,7 +42,7 @@ function makeRow(overrides?: Partial<FirstTakeWithProfile>): FirstTakeWithProfil
 describe('ACTIVITY_FEED_SELECT', () => {
   it('is a single JOINed select string with profiles', () => {
     expect(ACTIVITY_FEED_SELECT).toBe(
-      'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, is_rewatch, profiles(full_name, username, avatar_url)'
+      'id, user_id, tmdb_id, movie_title, poster_path, rating, quote_text, is_spoiler, visibility, created_at, media_type, edited_at, is_rewatch, season_number, episode_number, profiles(full_name, username, avatar_url)'
     );
   });
 });
@@ -67,8 +67,18 @@ describe('mapToFeedItem', () => {
       userAvatarUrl: 'https://example.com/avatar.jpg',
       activityType: 'first_take',
       isRewatch: false,
+      seasonNumber: null,
+      episodeNumber: null,
       editedAt: null,
     });
+  });
+
+  it('carries episode scope through for tv_episode takes', () => {
+    const result = mapToFeedItem(
+      makeRow({ media_type: 'tv_episode', season_number: 1, episode_number: 2 })
+    );
+    expect(result.seasonNumber).toBe(1);
+    expect(result.episodeNumber).toBe(2);
   });
 
   it.each([

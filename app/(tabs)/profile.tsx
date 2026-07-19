@@ -30,6 +30,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CollectionGridCard } from '@/components/cards/collection-grid-card';
 import { ListCard } from '@/components/cards/list-card';
 import { FirstTakeCard } from '@/components/cards/first-take-card';
+import { formatSeasonEpisode } from '@/lib/first-takes-v2-logic';
 import { FirstTakesTab } from '@/components/first-takes-v2/first-takes-tab';
 import { useFirstTakesV2 } from '@/hooks/use-first-takes-v2';
 import { ReviewsTab } from '@/components/reviews-v2/reviews-tab';
@@ -837,6 +838,7 @@ export default function ProfileScreen() {
                                 emoji={take.reaction_emoji}
                                 quote={take.quote_text}
                                 rating={take.rating}
+                                episodeLabel={formatSeasonEpisode(take)}
                                 createdAt={take.created_at ?? ''}
                                 editedAt={take.edited_at}
                                 isLatest={index === 0}

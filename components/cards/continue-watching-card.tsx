@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -14,6 +15,12 @@ interface ContinueWatchingCardProps {
   episodesWatched: number | null;
   totalEpisodes: number | null;
   onPress: () => void;
+  /**
+   * Opens the Episode Room for the show's current episode. When absent (flag
+   * off, or no current episode) the card renders exactly as before — the bubble
+   * is the only addition, sharing the progress row so nothing shifts.
+   */
+  onRoomPress?: () => void;
 }
 
 type ThemeColors = typeof Colors.dark;
@@ -29,6 +36,7 @@ export function ContinueWatchingCard({
   episodesWatched,
   totalEpisodes,
   onPress,
+  onRoomPress,
 }: ContinueWatchingCardProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -76,7 +84,22 @@ export function ContinueWatchingCard({
         {name}
       </Text>
       {progressText && (
-        <Text style={dynamicStyles.progress}>{progressText}</Text>
+        <View style={dynamicStyles.progressRow}>
+          <Text style={dynamicStyles.progress}>{progressText}</Text>
+          {onRoomPress && (
+            <Pressable
+              onPress={onRoomPress}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Open the Episode Room for ${progressText}`}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              {/* Same icon as the show screen's episode rows — one affordance,
+                  learned once. */}
+              <Ionicons name="chatbubbles-outline" size={14} color={colors.textSecondary} />
+            </Pressable>
+          )}
+        </View>
       )}
       {progressRatio > 0 && (
         <View style={dynamicStyles.progressBarContainer}>
@@ -121,10 +144,15 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
       marginTop: Spacing.xs,
     },
+    progressRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 2,
+    },
     progress: {
       ...Typography.body.xs,
       color: colors.textSecondary,
-      marginTop: 2,
     },
     progressBarContainer: {
       height: 3,

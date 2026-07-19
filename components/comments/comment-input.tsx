@@ -138,7 +138,10 @@ function createStyles(colors: typeof Colors.dark) {
       borderTopColor: colors.border,
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
-      backgroundColor: colors.background,
+      // Transparent, not colors.background: the thread renders both on plain
+      // screens and on card surfaces (take stubs), and a page-background fill
+      // reads as a black patch on a gray card.
+      backgroundColor: 'transparent',
     },
     replyBar: {
       flexDirection: 'row',

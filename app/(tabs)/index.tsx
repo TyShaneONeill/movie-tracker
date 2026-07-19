@@ -30,6 +30,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { ContinueWatchingCard } from '@/components/cards/continue-watching-card';
+import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
+import { episodeRoomSlug } from '@/lib/episode-room-logic';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { TvTimeImportCard } from '@/components/tvtime-import/tvtime-import-card';
 import { useTvTimeImportCard } from '@/hooks/use-tvtime-import-card';
@@ -137,6 +139,17 @@ export default function HomeScreen() {
     router.push(`/tv/${showId}`);
   }, []);
 
+  // Episode Rooms entry from Continue Watching — the fast path from "S1 E4" to
+  // what everyone is saying about S1 E4. Flag-gated; when off the card renders
+  // exactly as before (no affordance, no layout shift).
+  const episodeRoomsEnabled = useEpisodeRoomsEnabled();
+  const handleRoomPress = useCallback(
+    (showId: number, season: number, episodeNum: number) => {
+      router.push(`/episode-room/${episodeRoomSlug(showId, season, episodeNum)}`);
+    },
+    []
+  );
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -230,6 +243,11 @@ export default function HomeScreen() {
                   episodesWatched={item.episodes_watched}
                   totalEpisodes={item.number_of_episodes}
                   onPress={() => handleTvShowPress(item.tmdb_id)}
+                  onRoomPress={
+                    episodeRoomsEnabled && item.current_season != null && item.current_episode != null
+                      ? () => handleRoomPress(item.tmdb_id, item.current_season!, item.current_episode!)
+                      : undefined
+                  }
                 />
               )}
               showsHorizontalScrollIndicator={false}

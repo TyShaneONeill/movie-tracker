@@ -2,10 +2,12 @@
  * Episode Room — per-episode discussion (day-1 cut).
  *
  * The TV Time signature surface, rebuilt as First Takes' sibling: every take
- * here is already scoped to one episode, so the newest take renders as a
- * torn-stub hero and the rest fall to quiet ledger rows, each with an inline
- * comment thread. Reached from the episode row on the show screen, from the
- * post-watch nudge, and from the episode-reminder push (all flag-gated).
+ * here is already scoped to one episode. The most popular take renders as a
+ * torn-stub hero, the next-most-popular fall to a capped ledger, and the full
+ * list lives behind "View all takes". Tapping any take opens its detail page
+ * (deep comment threads live there, not inline). Reached from the episode row
+ * on the show screen, from the post-watch nudge, from the home continue-watching
+ * card, and from the episode-reminder push (all flag-gated).
  *
  * Locked design calls (Ty, 2026-07-19): feature name "Episode Room"; HARD
  * watched-gate with no peek (no take content is fetched until the viewer has
@@ -37,6 +39,8 @@ import {
   formatEpisodeLabel,
   formatEpisodeShort,
   selectHeroTake,
+  sortTakesByEngagement,
+  ROOM_LEDGER_CAP,
 } from '@/lib/episode-room-logic';
 import { createFirstTake } from '@/lib/first-take-service';
 import type { ReviewVisibility } from '@/lib/database.types';
@@ -252,24 +256,52 @@ export default function EpisodeRoomScreen() {
     }
 
     // Hero = highest-engagement take (comment count today), newest as the
-    // tie-break; the ledger stays chronological with the hero removed.
-    const { hero, rest } = selectHeroTake(
-      takes,
-      (entry) => entry.take.comment_count ?? 0,
-      (entry) => entry.take.created_at
-    );
+    // tie-break. The ledger below is ALSO popularity-ordered and capped — the
+    // room shows the top of the conversation, not an endless scroll; the full
+    // list lives behind "View all takes" (Ty, 2026-07-19).
+    const engagement = (entry: (typeof takes)[number]) => entry.take.comment_count ?? 0;
+    const createdAt = (entry: (typeof takes)[number]) => entry.take.created_at;
+    const { hero, rest } = selectHeroTake(takes, engagement, createdAt);
+    const ledger = sortTakesByEngagement(rest, engagement, createdAt).slice(0, ROOM_LEDGER_CAP);
+    const overflow = rest.length - ledger.length;
     return (
       <>
-        {hero && <RoomTakeCard key={hero.take.id} entry={hero} variant="hero" />}
-        {rest.length > 0 && (
+        {hero && (
+          <RoomTakeCard
+            key={hero.take.id}
+            entry={hero}
+            variant="hero"
+            onPress={() => router.push(`/first-take/${hero.take.id}`)}
+          />
+        )}
+        {ledger.length > 0 && (
           <View style={styles.ledger}>
-            {rest.map((entry, index) => (
+            {ledger.map((entry, index) => (
               <View key={entry.take.id}>
                 {index > 0 && <Perforation />}
-                <RoomTakeCard entry={entry} variant="ledger" />
+                <RoomTakeCard
+                  entry={entry}
+                  variant="ledger"
+                  onPress={() => router.push(`/first-take/${entry.take.id}`)}
+                />
               </View>
             ))}
           </View>
+        )}
+        {overflow > 0 && (
+          <Pressable
+            onPress={() =>
+              router.push(`/episode-room/${episodeRoomSlug(coords.tmdbId, coords.season, coords.episode)}/all`)
+            }
+            accessibilityRole="button"
+            accessibilityLabel="View all takes for this episode"
+            style={({ pressed }) => [styles.viewAll, { borderColor: dashColor, opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={[styles.viewAllText, { color: colors.textSecondary }]}>
+              View all {takes.length} takes for this episode
+            </Text>
+            <Ionicons name="arrow-forward" size={13} color={colors.textTertiary} />
+          </Pressable>
         )}
       </>
     );
@@ -583,6 +615,23 @@ function createStyles(colors: typeof Colors.dark) {
     },
     ledger: {
       marginTop: 4,
+    },
+    viewAll: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 7,
+      marginTop: 14,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderRadius: 12,
+      paddingVertical: 11,
+    },
+    viewAllText: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
     },
     inRoomNote: {
       flexDirection: 'row',
