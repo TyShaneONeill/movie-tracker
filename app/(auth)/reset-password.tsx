@@ -19,6 +19,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { getFriendlyErrorMessage } from '@/lib/error-messages';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 
 export default function ResetPasswordScreen() {
   const { effectiveTheme } = useTheme();
@@ -67,6 +68,7 @@ export default function ResetPasswordScreen() {
   if (isSuccess) {
     return (
       <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ContentContainer style={formWidthStyle}>
         <View style={styles.header}>
           <View style={[styles.iconCircle, { backgroundColor: '#22c55e20' }]}>
             <Ionicons name="checkmark-circle-outline" size={48} color="#22c55e" />
@@ -88,6 +90,7 @@ export default function ResetPasswordScreen() {
         >
           <ThemedText style={styles.primaryButtonText}>Go to Sign In</ThemedText>
         </Pressable>
+        </ContentContainer>
       </ThemedView>
     );
   }
@@ -102,6 +105,7 @@ export default function ResetPasswordScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+          <ContentContainer style={formWidthStyle}>
           {/* Header */}
           <View style={styles.header}>
             <View style={[styles.iconCircle, { backgroundColor: colors.tint + '20' }]}>
@@ -176,6 +180,7 @@ export default function ResetPasswordScreen() {
               )}
             </Pressable>
           </View>
+          </ContentContainer>
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>

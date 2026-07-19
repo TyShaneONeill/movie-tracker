@@ -20,6 +20,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { getFriendlyErrorMessage } from '@/lib/error-messages';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 
 export default function ForgotPasswordScreen() {
   const { effectiveTheme } = useTheme();
@@ -66,6 +67,7 @@ export default function ForgotPasswordScreen() {
   if (emailSent) {
     return (
       <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ContentContainer style={formWidthStyle}>
         <View style={styles.header}>
           <View style={[styles.iconCircle, { backgroundColor: colors.tint + '20' }]}>
             <Ionicons name="mail-outline" size={48} color={colors.tint} />
@@ -111,6 +113,7 @@ export default function ForgotPasswordScreen() {
             </ThemedText>
           </Pressable>
         </View>
+        </ContentContainer>
       </ThemedView>
     );
   }
@@ -134,6 +137,7 @@ export default function ForgotPasswordScreen() {
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
 
+          <ContentContainer style={formWidthStyle}>
           {/* Header */}
           <View style={styles.header}>
             <Image
@@ -196,6 +200,7 @@ export default function ForgotPasswordScreen() {
               )}
             </Pressable>
           </View>
+          </ContentContainer>
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>

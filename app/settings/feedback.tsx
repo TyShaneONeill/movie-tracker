@@ -24,7 +24,7 @@ import { hapticImpact } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 import { formatRelativeTime } from '@/lib/utils';
 import {
   pickFeedbackScreenshot,
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
   },
   form: {
     paddingHorizontal: Spacing.md,
-    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+    ...formWidthStyle,
   },
   field: {
     marginTop: Spacing.lg,

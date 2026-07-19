@@ -29,7 +29,7 @@ import { ProfilePicturePicker } from '@/components/profile-picture-picker';
 import { Avatar } from '@/components/ui/avatar';
 import type { AvatarConfig, AvatarType } from '@/lib/avatar-config';
 import { captureException } from '@/lib/sentry';
-import { ContentContainer } from '@/components/content-container';
+import { ContentContainer, formWidthStyle } from '@/components/content-container';
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   },
   formSection: {
     paddingHorizontal: Spacing.lg,
-    ...(Platform.OS === 'web' ? { maxWidth: 500, width: '100%', alignSelf: 'center' as const } : {}),
+    ...formWidthStyle,
   },
   inputGroup: {
     marginBottom: Spacing.lg,
