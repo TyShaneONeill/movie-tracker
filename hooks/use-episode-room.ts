@@ -204,6 +204,15 @@ export function useUnlockEpisodeRoom(tmdbId: number) {
       // Keep the show screen honest (checkboxes, progress, status flips).
       queryClient.invalidateQueries({ queryKey: ['episodeWatches'] });
       queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id] });
+      // And the watched probe — but WITHOUT refetching the active one:
+      // refetchType 'none' marks probes stale so an episode the user hopped
+      // away from mid-mark unlocks on their next visit, while the CURRENT
+      // gate's probe stays false until the unlock animation finishes (the
+      // screen flips it via setQueryData in onUnlocked).
+      queryClient.invalidateQueries({
+        queryKey: ['episode-room-watched'],
+        refetchType: 'none',
+      });
       triggerAchievementCheck();
     },
   });
