@@ -286,7 +286,14 @@ export function FirstTakeModal({
                   </View>
                   <View style={styles.spoilerTextContainer}>
                     <Text style={styles.spoilerTitle}>Contains Spoilers</Text>
-                    <Text style={styles.spoilerSubtitle}>Content hidden until tapped</Text>
+                    {/* Episode takes travel beyond the watched-gated room (feed,
+                        profile), and room-mates may not have watched PAST this
+                        episode — so the flag covers both directions (Ty, 07-19). */}
+                    <Text style={styles.spoilerSubtitle}>
+                      {seasonNumber != null
+                        ? 'For this episode or future episodes — hidden until tapped'
+                        : 'Content hidden until tapped'}
+                    </Text>
                   </View>
                 </View>
                 <ToggleSwitch

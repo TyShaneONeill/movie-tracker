@@ -96,7 +96,10 @@ export function RoomTakeCard({ entry, variant, onPress }: RoomTakeCardProps) {
   const heroQuote = (
     <View>
       <Text style={[styles.quoteMark, { color: colors.tint }]}>&ldquo;</Text>
-      <Text style={[styles.heroQuote, { color: colors.text }]}>{take.quote_text}</Text>
+      <Text style={[styles.heroQuote, { color: colors.text }]}>
+        {take.quote_text}
+        <Text style={{ color: colors.tint }}>&rdquo;</Text>
+      </Text>
     </View>
   );
 
