@@ -37,7 +37,7 @@ export interface RankedDetailConfig {
   getSubtitle: (count: number) => string;
 }
 
-// Mixed-type lists show the Movie/TV badge (mirrors AnalyticsDetailList).
+// Mixed-type lists show the Movie/TV badge.
 const MIXED_TYPES: AnalyticsDetailType[] = ['monthly', 'genre', 'other-genres'];
 
 // Same copy as `components/analytics/analytics-detail-list.tsx` (v1) — kept
@@ -243,11 +243,11 @@ interface RankedDetailV2Props {
 
 /**
  * Stats v2 ranked detail (design section 2 — `RankedListScreen`, vault PS-05,
- * PR 4 of 4). The v2-styled counterpart of `RankedDetailV1` in
- * `app/analytics/[type].tsx`: back + centered title/subtitle header, a
- * persisted density toggle (list ↔ cards), skeleton→content cross-fade +
- * pull-to-refresh consistent with the stats-v2 tab, and the same premium
- * gating (free → paywall, member → ranked list).
+ * PR 4 of 4). Rendered unconditionally by `app/analytics/[type].tsx` since
+ * the `stats_v2` flag strip (2026-07-18, issue #661): back + centered
+ * title/subtitle header, a persisted density toggle (list ↔ cards),
+ * skeleton→content cross-fade + pull-to-refresh consistent with the stats-v2
+ * tab, and the same premium gating (free → paywall, member → ranked list).
  */
 export function RankedDetailV2({ configs, renderPaywall }: RankedDetailV2Props) {
   const { type, month, label, genreId, genreName, genreIds } = useLocalSearchParams<{

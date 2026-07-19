@@ -24,7 +24,7 @@ const ENV_OVERRIDE = process.env.EXPO_PUBLIC_SEARCH_V2_OVERRIDE;
  * timeout. `resolving` lets the gate hold a neutral screen instead of flashing
  * v1 and snapping to v2 for a tester.
  *
- * Mirrors `hooks/use-release-calendar-v2.ts` / `hooks/use-stats-v2.ts`.
+ * Follows the flag-gate hook pattern (formerly mirrored by the since-stripped release-calendar-v2/stats-v2 hooks).
  */
 export function useSearchV2(): { enabled: boolean; resolving: boolean } {
   const initial = analytics.getFeatureFlag(SEARCH_V2_FLAG);

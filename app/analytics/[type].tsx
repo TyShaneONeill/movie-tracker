@@ -1,28 +1,12 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
-import { usePremiumGate } from '@/hooks/use-premium';
-import { useStatsV2 } from '@/hooks/use-stats-v2';
-import { useAnalyticsDetail } from '@/hooks/use-analytics-detail';
 import { RankedDetailV2 } from '@/components/stats-v2/ranked-detail-v2';
-import { AnalyticsDetailList } from '@/components/analytics/analytics-detail-list';
 import type { AnalyticsDetailType } from '@/lib/analytics-detail-service';
-import { ContentContainer } from '@/components/content-container';
-
-function ChevronLeftIcon({ color }: { color: string }) {
-  return (
-    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
-      <Path d="M19 12H5M12 19l-7-7 7-7" />
-    </Svg>
-  );
-}
 
 interface ScreenConfig {
   title: string;
@@ -99,189 +83,28 @@ function UpgradePaywall({ colors }: { colors: typeof Colors.dark }) {
   );
 }
 
-const VALID_TYPES = new Set<AnalyticsDetailType>([
-  'movies',
-  'tv-shows',
-  'episodes',
-  'tv-watch-time',
-  'first-takes',
-  'ratings',
-  'monthly',
-  'genre',
-  'other-genres',
-]);
-
 /**
- * Ranked detail gate — this screen is SHARED by v1 and v2 stats, so it
- * branches on the `stats_v2` flag exactly like `app/(tabs)/analytics.tsx`:
- * flag OFF → the untouched v1 detail below; flag ON → the v2 reskin
- * (`RankedDetailV2`, vault PS-05 PR 4 of 4). The per-type title/subtitle
- * config and the `UpgradePaywall` are passed through so v2 reuses them
- * verbatim instead of forking the copy.
+ * Ranked detail screen — renders the v2 reskin (`RankedDetailV2`)
+ * unconditionally. The per-type title/subtitle config and the
+ * `UpgradePaywall` are passed through so v2 reuses them verbatim instead of
+ * forking the copy.
+ *
+ * Formerly gated behind the `stats_v2` PostHog flag alongside
+ * `app/(tabs)/analytics.tsx`; stripped 2026-07-18 after 100% rollout since
+ * 2026-07-11 (issue #661). The legacy v1 detail screen has been removed.
  */
 export default function AnalyticsDetailScreen() {
-  const { variant, resolving } = useStatsV2();
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
-  // Hold a neutral screen while PostHog resolves the flag so testers don't
-  // see v1 flash and snap to v2 (same gate as the analytics tab).
-  if (resolving) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
-  if (variant === 'v2') {
-    return (
-      <RankedDetailV2
-        configs={SCREEN_CONFIGS}
-        renderPaywall={() => <UpgradePaywall colors={colors} />}
-      />
-    );
-  }
-  return <RankedDetailV1 />;
-}
-
-function RankedDetailV1() {
-  const { type, month, label, genreId, genreName, genreIds } = useLocalSearchParams<{
-    type: string;
-    month?: string;
-    label?: string;
-    genreId?: string;
-    genreName?: string;
-    genreIds?: string;
-  }>();
-
-  const { effectiveTheme } = useTheme();
-  const colors = Colors[effectiveTheme];
-
-  const { isUnlocked, isLoading: premiumLoading } = usePremiumGate('advanced_stats');
-
-  const detailType = VALID_TYPES.has(type as AnalyticsDetailType)
-    ? (type as AnalyticsDetailType)
-    : 'movies';
-
-  const filter =
-    detailType === 'monthly' && month
-      ? { month }
-      : detailType === 'genre' && genreId
-      ? { genreId: parseInt(genreId, 10) }
-      : detailType === 'other-genres' && genreIds
-      ? { otherGenreIds: genreIds.split(',').map(Number).filter(Boolean) }
-      : undefined;
-
-  const {
-    data,
-    isLoading: dataLoading,
-    isError,
-    error,
-  } = useAnalyticsDetail(detailType, filter, isUnlocked);
-
-  const [compact, setCompact] = useState(true);
-
-  const config = SCREEN_CONFIGS[detailType];
-  const title =
-    detailType === 'monthly' ? (label ?? 'Monthly Activity') :
-    detailType === 'genre' ? (genreName ?? 'Genre') :
-    config.title;
-  const subtitle = isUnlocked && data ? config.getSubtitle(data.length) : '';
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ContentContainer style={{ flex: 1 }}>
-      {/* Header */}
-      <View style={[styles.header, Platform.OS === 'web' && styles.headerWeb]}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }]}
-        >
-          <ChevronLeftIcon color={colors.text} />
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={[Typography.display.h4, { color: colors.text }]} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
-        {/* Compact / detailed toggle — only show when there's data */}
-        {isUnlocked && data && data.length > 0 ? (
-          <Pressable
-            onPress={() => setCompact((c) => !c)}
-            style={({ pressed }) => [styles.toggleButton, { opacity: pressed ? 0.6 : 1 }]}
-            accessibilityLabel={compact ? 'Switch to detailed view' : 'Switch to compact view'}
-          >
-            <Ionicons
-              name={compact ? 'albums-outline' : 'list-outline'}
-              size={22}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
-      </View>
-
-      {/* Premium loading */}
-      {premiumLoading ? (
-        <View style={styles.centerFlex}>
-          <ActivityIndicator size="large" color={colors.tint} />
-        </View>
-      ) : !isUnlocked ? (
-        <UpgradePaywall colors={colors} />
-      ) : (
-        <View style={styles.content}>
-          <AnalyticsDetailList
-            type={detailType}
-            data={data}
-            isLoading={dataLoading}
-            isError={isError}
-            errorMessage={error?.message}
-            compact={compact}
-          />
-        </View>
-      )}
-      </ContentContainer>
-    </SafeAreaView>
+    <RankedDetailV2
+      configs={SCREEN_CONFIGS}
+      renderPaywall={() => <UpgradePaywall colors={colors} />}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  headerWeb: {
-    paddingTop: Spacing.md,
-  },
-  backButton: {
-    padding: Spacing.xs,
-    width: 40,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  toggleButton: {
-    width: 40,
-    alignItems: 'flex-end',
-    padding: Spacing.xs,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-  },
-  centerFlex: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   paywallContainer: {
     flex: 1,
     alignItems: 'center',

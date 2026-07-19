@@ -48,8 +48,7 @@ import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { hapticImpact, ImpactFeedbackStyle } from '@/lib/haptics';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
 import { ContentContainer } from '@/components/content-container';
-import { useTicketScanV2 } from '@/hooks/use-ticket-scan-v2';
-import { useScanColors } from '@/constants/scan-v2-theme';
+import { hasExpoCameraModule } from '@/hooks/use-scan-capability';
 import { JourneyScreenV2 } from '@/components/scan-v2/journey-screen';
 
 // Type for the colors object
@@ -460,23 +459,21 @@ type CarouselItem =
   | { type: 'journey'; journey: UserMovie }
   | { type: 'add' };
 
-// Ticket Scan v2 gate: when the `ticket_scan_v2` flag resolves true, render the
-// dark-only v2 journey screen; otherwise the v1 carousel below renders
-// byte-identical. A neutral dark screen holds while the flag resolves (mirrors
-// the scanner-tab gate) so v1 never flashes for a v2 tester.
+// Renders the dark-only v2 journey screen by default. Formerly gated behind
+// the `ticket_scan_v2` PostHog flag alongside the scanner tab; stripped
+// 2026-07-18 after 100% rollout since 2026-07-05 (issue #659).
+//
+// The ExpoCamera CAPABILITY check is NOT part of that flag and is preserved:
+// on binaries without the native module (pre-1.5.1), the v1 carousel below
+// still renders — this keeps the journey screen consistent with the
+// scanner tab's own capability fallback, which is a device guard, not a
+// rollout.
 export default function JourneyScreen() {
-  const { variant, resolving } = useTicketScanV2();
-  const c = useScanColors();
-
-  if (resolving) {
-    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!hasExpoCameraModule()) {
+    return <JourneyCarouselScreen />;
   }
 
-  if (variant === 'v2') {
-    return <JourneyScreenV2 />;
-  }
-
-  return <JourneyCarouselScreen />;
+  return <JourneyScreenV2 />;
 }
 
 function JourneyCarouselScreen() {
