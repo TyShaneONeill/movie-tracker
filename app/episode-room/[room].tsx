@@ -36,8 +36,8 @@ import {
   episodeRoomSlug,
   formatEpisodeLabel,
   formatEpisodeShort,
+  selectHeroTake,
 } from '@/lib/episode-room-logic';
-import { splitHeroAndRest } from '@/lib/first-takes-v2-logic';
 import { createFirstTake } from '@/lib/first-take-service';
 import type { ReviewVisibility } from '@/lib/database.types';
 import { FirstTakeModal } from '@/components/first-take-modal';
@@ -227,7 +227,13 @@ export default function EpisodeRoomScreen() {
     if (takesError) return <FirstTakesError onRetry={refetch} message="We couldn't load this room." />;
     if (takes.length === 0) return <RoomEmpty onCompose={() => setShowComposeModal(true)} />;
 
-    const { hero, rest } = splitHeroAndRest(takes);
+    // Hero = highest-engagement take (comment count today), newest as the
+    // tie-break; the ledger stays chronological with the hero removed.
+    const { hero, rest } = selectHeroTake(
+      takes,
+      (entry) => entry.take.comment_count ?? 0,
+      (entry) => entry.take.created_at
+    );
     return (
       <>
         {hero && <RoomTakeCard key={hero.take.id} entry={hero} variant="hero" />}

@@ -48,3 +48,47 @@ export function formatEpisodeLabel(season: number, episode: number): string {
 export function formatEpisodeShort(season: number, episode: number): string {
   return `S${season}E${episode}`;
 }
+
+/**
+ * Picks the torn-stub hero and the chronological ledger for a room.
+ *
+ * The hero is the take with the highest ENGAGEMENT (comment count for day-1 —
+ * likes/reactions don't exist yet), tie-broken by newest-first. At zero/low
+ * engagement this degrades to newest-first, so an empty or early room behaves
+ * exactly as a plain chronological list. The ledger is the remaining takes in
+ * their incoming (newest-first) order, with the hero removed so it never
+ * appears twice.
+ *
+ * Deliberately isolated + order-independent so the ranking can later swap to an
+ * engagement-with-recency-decay score (Reddit-hot style: engagement / age^k)
+ * without touching the screen — only the compare below would change.
+ * `engagement` and `createdAt` are accessors so this stays generic over the
+ * room take shape.
+ */
+export function selectHeroTake<T>(
+  takes: T[],
+  engagement: (t: T) => number,
+  createdAt: (t: T) => string | null
+): { hero: T | null; rest: T[] } {
+  if (takes.length === 0) return { hero: null, rest: [] };
+
+  let heroIdx = 0;
+  for (let i = 1; i < takes.length; i++) {
+    const candEngagement = engagement(takes[i]);
+    const bestEngagement = engagement(takes[heroIdx]);
+    if (candEngagement > bestEngagement) {
+      heroIdx = i;
+    } else if (candEngagement === bestEngagement) {
+      // Tie → newest wins. ISO timestamps compare lexicographically, so this
+      // holds regardless of the incoming order.
+      if ((createdAt(takes[i]) ?? '') > (createdAt(takes[heroIdx]) ?? '')) {
+        heroIdx = i;
+      }
+    }
+  }
+
+  return {
+    hero: takes[heroIdx],
+    rest: takes.filter((_, i) => i !== heroIdx),
+  };
+}
