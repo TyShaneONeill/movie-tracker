@@ -53,6 +53,10 @@ export function useEpisodeActions(
       queryKey: ['episodeWatches', user?.id, userTvShowId, seasonNumber],
     });
     queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id] });
+    // Episode Rooms' HARD gate reads this probe — any mark/unmark (single or
+    // whole-season) must re-lock/unlock the room immediately, not after the
+    // probe's staleTime. Partial key: covers every episode of every show.
+    queryClient.invalidateQueries({ queryKey: ['episode-room-watched'] });
     triggerAchievementCheck();
   };
 

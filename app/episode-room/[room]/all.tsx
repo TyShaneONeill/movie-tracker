@@ -116,9 +116,11 @@ export default function EpisodeRoomAllTakesScreen() {
     if (!isWatched) {
       return (
         <View style={styles.gateWrap}>
+          {/* The unlock-in-place flow lives on the room screen — send the rare
+              gated deep-link visitor there rather than duplicating it here. */}
           <WatchedGate
             episodeLabel={episodeLabel}
-            onMarkWatched={() => router.replace(`/tv/${coords.tmdbId}`)}
+            onMarkWatched={() => router.replace(`/episode-room/${room}`)}
           />
         </View>
       );

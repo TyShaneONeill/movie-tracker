@@ -1,9 +1,16 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
+import { useAchievementCheck } from '@/lib/achievement-context';
+import {
+  getTvShowByTmdbId,
+  addTvShowToLibrary,
+  markEpisodeWatched,
+} from '@/lib/tv-show-service';
 import type { FirstTake } from '@/lib/database.types';
+import type { TMDBEpisode, TMDBTvShow } from '@/lib/tmdb.types';
 
 /** Author identity shown on a room take's fine-print footer. */
 export interface RoomAuthor {
@@ -19,6 +26,16 @@ export interface EpisodeRoomTake {
   author: RoomAuthor | null;
 }
 
+/** Single source for the watched-probe key — the unlock flow flips it in place. */
+export function episodeRoomWatchedKey(
+  userId: string | undefined,
+  tmdbId: number,
+  season: number,
+  episode: number
+) {
+  return ['episode-room-watched', userId, tmdbId, season, episode] as const;
+}
+
 /**
  * HARD watched-gate probe (Decision, Ty 2026-07-19 — no peek). Resolves whether
  * the signed-in user has ANY watch row for this exact episode. The room must not
@@ -30,7 +47,7 @@ export function useEpisodeWatched(tmdbId: number, season: number, episode: numbe
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['episode-room-watched', user?.id, tmdbId, season, episode],
+    queryKey: episodeRoomWatchedKey(user?.id, tmdbId, season, episode),
     queryFn: async () => {
       const { count, error } = await supabase
         .from('user_episode_watches')
@@ -147,4 +164,47 @@ export function useEpisodeRoomTakes(
     isError: query.isError,
     refetch: query.refetch,
   };
+}
+
+/**
+ * Marks the episode watched from INSIDE the room — the unlock flow (Ty,
+ * 2026-07-19: "Mark as watched" on the veil should open the gate right there,
+ * not bounce to the show screen). Ensures a library row first (a room can be
+ * reached by someone who never added the show), then fires the same
+ * mark_episode_watched RPC the show screen uses.
+ *
+ * Deliberately does NOT touch the watched probe: the screen flips it via
+ * episodeRoomWatchedKey AFTER the gate's unlock animation finishes, so the
+ * veil isn't yanked out mid-animation.
+ */
+export function useUnlockEpisodeRoom(tmdbId: number) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { triggerAchievementCheck } = useAchievementCheck();
+
+  return useMutation({
+    mutationFn: async ({
+      show,
+      episode,
+      totalEpisodesInSeason,
+    }: {
+      show: TMDBTvShow | null;
+      episode: TMDBEpisode;
+      totalEpisodesInSeason: number;
+    }) => {
+      if (!user) throw new Error('Not authenticated');
+      let userShow = await getTvShowByTmdbId(user.id, tmdbId);
+      if (!userShow) {
+        if (!show) throw new Error('Show details unavailable');
+        userShow = await addTvShowToLibrary(user.id, show, 'watching');
+      }
+      return markEpisodeWatched(user.id, userShow.id, tmdbId, episode, totalEpisodesInSeason);
+    },
+    onSuccess: () => {
+      // Keep the show screen honest (checkboxes, progress, status flips).
+      queryClient.invalidateQueries({ queryKey: ['episodeWatches'] });
+      queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id] });
+      triggerAchievementCheck();
+    },
+  });
 }

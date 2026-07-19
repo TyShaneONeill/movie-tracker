@@ -32,7 +32,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTvShowDetail } from '@/hooks/use-tv-show-detail';
 import { useSeasonEpisodes } from '@/hooks/use-season-episodes';
 import { useEpisodeRoomsGate } from '@/hooks/use-episode-rooms-enabled';
-import { useEpisodeWatched, useEpisodeRoomTakes, useUserEpisodeTake } from '@/hooks/use-episode-room';
+import {
+  useEpisodeWatched,
+  useEpisodeRoomTakes,
+  useUserEpisodeTake,
+  useUnlockEpisodeRoom,
+  episodeRoomWatchedKey,
+} from '@/hooks/use-episode-room';
 import {
   parseEpisodeRoomParam,
   episodeRoomSlug,
@@ -66,6 +72,10 @@ export default function EpisodeRoomScreen() {
 
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Unlock-in-place (Ty, 07-19): true from "mark succeeded" until the gate's
+  // unlock animation finishes — only then does the watched probe flip, so the
+  // veil plays out instead of being yanked on refetch.
+  const [gateUnlocking, setGateUnlocking] = useState(false);
 
   // Flag off = invisible. A stale push / deep link when the flag is off bounces
   // back to the show detail (its prior destination), so the room never surfaces.
@@ -112,6 +122,45 @@ export default function EpisodeRoomScreen() {
     coords?.season ?? 0,
     coords?.episode ?? 0
   );
+
+  const unlockMutation = useUnlockEpisodeRoom(coords?.tmdbId ?? 0);
+
+  const handleMarkWatched = async () => {
+    if (!coords) return;
+    // Episode metadata is required by the mark RPC path; if TMDB data hasn't
+    // loaded (rare — offline/deep-link race), fall back to the show screen.
+    if (!episode) {
+      router.replace(`/tv/${coords.tmdbId}`);
+      return;
+    }
+    try {
+      await unlockMutation.mutateAsync({
+        // Detail carries every TMDBTvShow field except popularity.
+        show: show ? { ...show, popularity: 0 } : null,
+        episode,
+        totalEpisodesInSeason: episodes.length,
+      });
+      setGateUnlocking(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      Toast.show({
+        type: 'error',
+        text1:
+          message === 'Episode has not aired yet'
+            ? 'This episode has not aired yet'
+            : 'Could not mark it watched',
+        visibilityTime: 3000,
+      });
+    }
+  };
+
+  const handleGateUnlocked = () => {
+    if (!coords) return;
+    // Flip the probe in place — the takes query enables on the next render,
+    // with no gate flash while a refetch settles.
+    queryClient.setQueryData(episodeRoomWatchedKey(user?.id, coords.tmdbId, coords.season, coords.episode), true);
+    setGateUnlocking(false);
+  };
 
   const episode = useMemo(
     () => episodes.find((e) => e.episode_number === coords?.episode),
@@ -235,7 +284,10 @@ export default function EpisodeRoomScreen() {
       return (
         <WatchedGate
           episodeLabel={episodeLabel}
-          onMarkWatched={() => router.replace(`/tv/${coords.tmdbId}`)}
+          onMarkWatched={handleMarkWatched}
+          pending={unlockMutation.isPending}
+          unlocking={gateUnlocking}
+          onUnlocked={handleGateUnlocked}
         />
       );
     }
