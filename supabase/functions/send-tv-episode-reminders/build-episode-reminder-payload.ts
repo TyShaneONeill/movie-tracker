@@ -48,10 +48,13 @@ export function groupEpisodeRemindersByEpisode(
         title: `📺 ${r.show_name} — S${pad2(r.season_number)}E${pad2(r.episode_number)} is out`,
         body: '',
         data: {
-          // Deep-link straight into the Episode Room for this S/E. When the
-          // `episode_rooms` flag is off the room screen redirects to /tv/{id},
-          // preserving the reminder's prior destination.
-          url: `/episode-room/${r.tmdb_id}-${r.season_number}-${r.episode_number}`,
+          // Stays /tv/{id} — this server payload reaches EVERY installed binary,
+          // including bundles that predate the Episode Room route. The client
+          // push-tap handler upgrades to /episode-room/{tmdb_id}-{season}-{episode}
+          // when the flag is on, using these season/episode fields to build that
+          // URL. Old bundles keep this destination no matter when this edge
+          // function deploys.
+          url: `/tv/${r.tmdb_id}`,
           tmdb_id: r.tmdb_id,
           season: r.season_number,
           episode: r.episode_number,

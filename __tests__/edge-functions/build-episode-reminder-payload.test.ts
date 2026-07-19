@@ -20,7 +20,7 @@ describe('groupEpisodeRemindersByEpisode', () => {
       title: '📺 Breaking Bad — S03E04 is out',
       body: '',
       data: {
-        url: '/episode-room/1396-3-4',
+        url: '/tv/1396',
         tmdb_id: 1396,
         season: 3,
         episode: 4,

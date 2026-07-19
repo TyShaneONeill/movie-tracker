@@ -29,7 +29,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTvShowDetail } from '@/hooks/use-tv-show-detail';
 import { useSeasonEpisodes } from '@/hooks/use-season-episodes';
-import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
+import { useEpisodeRoomsGate } from '@/hooks/use-episode-rooms-enabled';
 import { useEpisodeWatched, useEpisodeRoomTakes } from '@/hooks/use-episode-room';
 import {
   parseEpisodeRoomParam,
@@ -58,25 +58,21 @@ export default function EpisodeRoomScreen() {
   const dashColor = effectiveTheme === 'dark' ? '#3f3f46' : '#c9c9cf';
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const enabled = useEpisodeRoomsEnabled();
+  const { enabled, resolved } = useEpisodeRoomsGate();
 
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Flag off = invisible. A stale push / deep link when the flag is off bounces
   // back to the show detail (its prior destination), so the room never surfaces.
-  // A short settle window avoids a false redirect while PostHog resolves flags
-  // on a cold start from a notification tap.
-  const [settled, setSettled] = useState(false);
+  // The redirect waits on ACTUAL flag resolution (not a fixed timer), so a
+  // flag-ON user is never falsely bounced on a cold start where PostHog resolves
+  // flags slowly.
   useEffect(() => {
-    const t = setTimeout(() => setSettled(true), 1200);
-    return () => clearTimeout(t);
-  }, []);
-  useEffect(() => {
-    if (!enabled && settled && coords) {
+    if (resolved && !enabled && coords) {
       router.replace(`/tv/${coords.tmdbId}`);
     }
-  }, [enabled, settled, coords, router]);
+  }, [resolved, enabled, coords, router]);
 
   const { show } = useTvShowDetail({ showId: coords?.tmdbId ?? 0, enabled: !!coords });
   const { episodes } = useSeasonEpisodes({
