@@ -561,6 +561,11 @@ const createStyles = (colors: typeof Colors.dark) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.md,
+      // Shrink beside the toggle so the (longer, episode-aware) subtitle wraps
+      // instead of clipping off the card edge.
+      flex: 1,
+      minWidth: 0,
+      paddingRight: Spacing.sm,
     },
     warningIcon: {
       width: 24,
@@ -574,6 +579,8 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     spoilerTextContainer: {
       gap: 2,
+      flex: 1,
+      minWidth: 0,
     },
     spoilerTitle: {
       ...Typography.body.sm,
