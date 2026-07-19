@@ -30,7 +30,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTvShowDetail } from '@/hooks/use-tv-show-detail';
 import { useSeasonEpisodes } from '@/hooks/use-season-episodes';
 import { useEpisodeRoomsGate } from '@/hooks/use-episode-rooms-enabled';
-import { useEpisodeWatched, useEpisodeRoomTakes } from '@/hooks/use-episode-room';
+import { useEpisodeWatched, useEpisodeRoomTakes, useUserEpisodeTake } from '@/hooks/use-episode-room';
 import {
   parseEpisodeRoomParam,
   episodeRoomSlug,
@@ -100,6 +100,15 @@ export default function EpisodeRoomScreen() {
     isWatched
   );
 
+  // Does this user already have a take here (any visibility)? Gates the compose
+  // affordances so they can't be handed a blank composer that would dead-end on
+  // the per-episode unique index.
+  const { data: hasOwnTake } = useUserEpisodeTake(
+    coords?.tmdbId ?? 0,
+    coords?.season ?? 0,
+    coords?.episode ?? 0
+  );
+
   const episode = useMemo(
     () => episodes.find((e) => e.episode_number === coords?.episode),
     [episodes, coords]
@@ -151,8 +160,15 @@ export default function EpisodeRoomScreen() {
       setShowComposeModal(false);
       refetch();
       queryClient.invalidateQueries({ queryKey: ['first-takes', user.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['episode-room-own-take', user.id, coords.tmdbId, coords.season, coords.episode],
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
+      // Close the modal so the user is never stranded on a failed post, and
+      // surface the reason. DUPLICATE is the backstop for the race where the
+      // own-take gate was stale (e.g. a take posted from another device).
+      setShowComposeModal(false);
       Toast.show({
         type: 'error',
         text1:
@@ -221,7 +237,19 @@ export default function EpisodeRoomScreen() {
     }
     if (takesLoading) return <FirstTakesSkeleton />;
     if (takesError) return <FirstTakesError onRetry={refetch} message="We couldn't load this room." />;
-    if (takes.length === 0) return <RoomEmpty onCompose={() => setShowComposeModal(true)} />;
+    if (takes.length === 0) {
+      // The user's own take can be non-public (excluded from the public stream),
+      // so an "empty" room where they already posted must NOT offer a composer
+      // that would dup-fail — show a quiet in-room note instead.
+      return hasOwnTake ? (
+        <View style={styles.inRoomNote}>
+          <Ionicons name="checkmark-circle-outline" size={20} color={colors.textSecondary} />
+          <Text style={styles.inRoomText}>You&rsquo;re in this room — your take is posted.</Text>
+        </View>
+      ) : (
+        <RoomEmpty onCompose={() => setShowComposeModal(true)} />
+      );
+    }
 
     // Hero = highest-engagement take (comment count today), newest as the
     // tie-break; the ledger stays chronological with the hero removed.
@@ -292,7 +320,11 @@ export default function EpisodeRoomScreen() {
               style={[styles.epNavBtn, !prevEnabled && styles.epNavDisabled]}
             >
               <Ionicons name="chevron-back" size={12} color={colors.textTertiary} />
-              <Text style={styles.epNavText}>{formatEpisodeShort(coords.season, coords.episode - 1)}</Text>
+              {/* Only label a target that exists — a disabled prev at E1 must not
+                  advertise "S1E0". Keep the dimmed chevron as the affordance. */}
+              {prevEnabled && (
+                <Text style={styles.epNavText}>{formatEpisodeShort(coords.season, coords.episode - 1)}</Text>
+              )}
             </Pressable>
             <Text style={styles.roomLabel}>EPISODE ROOM</Text>
             <Pressable
@@ -302,13 +334,17 @@ export default function EpisodeRoomScreen() {
               accessibilityLabel="Next episode room"
               style={[styles.epNavBtn, !nextEnabled && styles.epNavDisabled]}
             >
-              <Text style={styles.epNavText}>{formatEpisodeShort(coords.season, coords.episode + 1)}</Text>
+              {nextEnabled && (
+                <Text style={styles.epNavText}>{formatEpisodeShort(coords.season, coords.episode + 1)}</Text>
+              )}
               <Ionicons name="chevron-forward" size={12} color={colors.textTertiary} />
             </Pressable>
           </View>
 
-          {/* Compose — only once the viewer has cleared the watched-gate */}
-          {user && isWatched && (
+          {/* Compose — only once the viewer has cleared the watched-gate, and
+              only when they don't already have a take here (else the composer
+              would dead-end on the per-episode unique index). */}
+          {user && isWatched && !hasOwnTake && (
             <Pressable
               onPress={() => setShowComposeModal(true)}
               accessibilityRole="button"
@@ -547,6 +583,19 @@ function createStyles(colors: typeof Colors.dark) {
     },
     ledger: {
       marginTop: 4,
+    },
+    inRoomNote: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 24,
+      paddingHorizontal: 16,
+    },
+    inRoomText: {
+      fontSize: 13.5,
+      color: colors.textSecondary,
+      textAlign: 'center',
     },
   });
 }

@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { analytics } from './analytics';
 import { episodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
+import { episodeRoomSlug } from '@/lib/episode-room-logic';
 
 // ============================================================================
 // Types
@@ -341,7 +342,7 @@ export function handleNotificationResponse(
     typeof data.episode === 'number' &&
     episodeRoomsEnabled()
   ) {
-    url = `/episode-room/${data.tmdb_id}-${data.season}-${data.episode}`;
+    url = `/episode-room/${episodeRoomSlug(data.tmdb_id, data.season, data.episode)}`;
   }
 
   // Belt-and-braces: never leave a tap dead-ended. If there's no usable url but
