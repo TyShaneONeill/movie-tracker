@@ -41,10 +41,25 @@ interface FirstTakeInitialValues {
 interface FirstTakeModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { rating: number | null; quoteText: string; isSpoiler: boolean; visibility: ReviewVisibility }) => Promise<void>;
+  onSubmit: (data: {
+    rating: number | null;
+    quoteText: string;
+    isSpoiler: boolean;
+    visibility: ReviewVisibility;
+    seasonNumber?: number | null;
+    episodeNumber?: number | null;
+  }) => Promise<void>;
   movieTitle: string;
   moviePosterUrl?: string;
   isSubmitting?: boolean;
+  /**
+   * Episode Rooms: when set, the take is scoped to one episode. The values are
+   * forwarded verbatim in the onSubmit payload so the caller can persist an
+   * episode-level First Take (media_type 'tv_episode'). Absent for movie /
+   * show-level takes, which every existing caller keeps posting unchanged.
+   */
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
   /** When provided, the modal opens pre-filled for editing an existing First Take. */
   initialValues?: FirstTakeInitialValues | null;
   /** Optional explicit edit flag; defaults to whether initialValues was passed. */
@@ -68,6 +83,8 @@ export function FirstTakeModal({
   initialValues,
   isEditing: isEditingProp,
   contentLocked = false,
+  seasonNumber,
+  episodeNumber,
 }: FirstTakeModalProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -116,6 +133,8 @@ export function FirstTakeModal({
       quoteText: quoteText.trim(),
       isSpoiler,
       visibility,
+      seasonNumber,
+      episodeNumber,
     });
 
     Toast.show({

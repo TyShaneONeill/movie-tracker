@@ -61,6 +61,9 @@ import { useSeasonEpisodes } from '@/hooks/use-season-episodes';
 import { useEpisodeActions } from '@/hooks/use-episode-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
 import { useReviewActions } from '@/hooks/use-review-actions';
+import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
+import { createFirstTake } from '@/lib/first-take-service';
+import { episodeRoomSlug } from '@/lib/episode-room-logic';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useUserLists } from '@/hooks/use-user-lists';
@@ -104,6 +107,9 @@ function SeasonAccordionItem({
   isSaved,
   onAllWatched,
   onAllUnwatched,
+  episodeRoomsEnabled,
+  onOpenRoom,
+  onEpisodeWatched,
 }: {
   season: TMDBSeason;
   showId: number;
@@ -113,6 +119,10 @@ function SeasonAccordionItem({
   isSaved: boolean;
   onAllWatched?: () => void;
   onAllUnwatched?: () => void;
+  /** Episode Rooms gate — hides the room affordance + post-watch nudge when off. */
+  episodeRoomsEnabled: boolean;
+  onOpenRoom: (episode: TMDBEpisode) => void;
+  onEpisodeWatched: (episode: TMDBEpisode) => void;
 }) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -159,6 +169,8 @@ function SeasonAccordionItem({
       // airedEpisodes.length is the authoritative aired count for this season —
       // matches what the RPC would evaluate for auto-flip purposes.
       await markWatched(episode, airedEpisodes.length);
+      // Episode Rooms: nudge a take now that the episode is freshly watched.
+      if (episodeRoomsEnabled) onEpisodeWatched(episode);
     }
   };
 
@@ -243,6 +255,20 @@ function SeasonAccordionItem({
                     {aired && episode.runtime && (
                       <Text style={dynamicStyles.episodeRuntime}>{episode.runtime}m</Text>
                     )}
+                    {aired && episodeRoomsEnabled && (
+                      <Pressable
+                        onPress={() => onOpenRoom(episode)}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open the Episode Room for episode ${episode.episode_number}`}
+                        style={({ pressed }) => [
+                          dynamicStyles.episodeRoomButton,
+                          pressed && { opacity: 0.6 },
+                        ]}
+                      >
+                        <Ionicons name="chatbubbles-outline" size={18} color={colors.textSecondary} />
+                      </Pressable>
+                    )}
                   </Pressable>
                 );
               })}
@@ -273,6 +299,14 @@ export default function TvShowDetailScreen() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   // PS-12 (D1): review editing is gated behind the `social_editing` flag.
   const socialEditingEnabled = useSocialEditingEnabled();
+  // Episode Rooms: an episode-scoped First Take composer, opened by the
+  // post-watch nudge when a single episode is freshly marked watched.
+  const episodeRoomsEnabled = useEpisodeRoomsEnabled();
+  const [episodeTakeTarget, setEpisodeTakeTarget] = useState<
+    { season: number; episode: number; episodeName: string } | null
+  >(null);
+  const [showEpisodeTakeModal, setShowEpisodeTakeModal] = useState(false);
+  const [isSubmittingEpisodeTake, setIsSubmittingEpisodeTake] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
@@ -721,6 +755,66 @@ export default function TvShowDetailScreen() {
     }
   };
 
+  // Episode Rooms: navigate to the room for a given episode (row affordance).
+  const handleOpenEpisodeRoom = (episode: TMDBEpisode) => {
+    hapticImpact();
+    router.push(
+      `/episode-room/${episodeRoomSlug(Number(tmdbId), episode.season_number, episode.episode_number)}`
+    );
+  };
+
+  // Episode Rooms: post-watch nudge — open the episode-scoped composer after a
+  // single episode is freshly marked watched. Respects the user's take-prompt
+  // preference, exactly like the show-level "mark watched" prompt.
+  const handleEpisodeWatchedNudge = (episode: TMDBEpisode) => {
+    if (!episodeRoomsEnabled || !firstTakePromptEnabled) return;
+    setEpisodeTakeTarget({
+      season: episode.season_number,
+      episode: episode.episode_number,
+      episodeName: episode.name,
+    });
+    setShowEpisodeTakeModal(true);
+  };
+
+  const handleEpisodeTakeSubmit = async (data: {
+    rating: number | null;
+    quoteText: string;
+    isSpoiler: boolean;
+    visibility: import('@/lib/database.types').ReviewVisibility;
+  }) => {
+    if (!user || !show || !episodeTakeTarget) return;
+    setIsSubmittingEpisodeTake(true);
+    try {
+      await createFirstTake(user.id, {
+        tmdbId: show.id,
+        movieTitle: show.name,
+        posterPath: show.poster_path,
+        reactionEmoji: '',
+        quoteText: data.quoteText,
+        isSpoiler: data.isSpoiler,
+        rating: data.rating,
+        visibility: data.visibility,
+        mediaType: 'tv_episode',
+        seasonNumber: episodeTakeTarget.season,
+        episodeNumber: episodeTakeTarget.episode,
+        showName: show.name,
+      });
+      setShowEpisodeTakeModal(false);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      Toast.show({
+        type: 'error',
+        text1:
+          message === 'DUPLICATE_FIRST_TAKE'
+            ? 'You already tore off a take for this episode'
+            : 'Failed to post your take',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsSubmittingEpisodeTake(false);
+    }
+  };
+
   // Dynamic styles based on theme
   const insets = useSafeAreaInsets();
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
@@ -997,6 +1091,9 @@ export default function TvShowDetailScreen() {
                     isSaved={isSaved}
                     onAllWatched={handleAutoPromoteWatched}
                     onAllUnwatched={handleAutoDemoteWatching}
+                    episodeRoomsEnabled={episodeRoomsEnabled}
+                    onOpenRoom={handleOpenEpisodeRoom}
+                    onEpisodeWatched={handleEpisodeWatchedNudge}
                   />
                 ))}
               {/* Specials season at the bottom if it exists */}
@@ -1013,6 +1110,9 @@ export default function TvShowDetailScreen() {
                   isSaved={isSaved}
                   onAllWatched={handleAutoPromoteWatched}
                   onAllUnwatched={handleAutoDemoteWatching}
+                  episodeRoomsEnabled={episodeRoomsEnabled}
+                  onOpenRoom={handleOpenEpisodeRoom}
+                  onEpisodeWatched={handleEpisodeWatchedNudge}
                 />
               ))}
             </>
@@ -1177,7 +1277,7 @@ export default function TvShowDetailScreen() {
         </ContentContainer>
       </ScrollView>
 
-      {/* First Take Modal */}
+      {/* First Take Modal (show-level) */}
       <FirstTakeModal
         visible={showFirstTakeModal}
         onClose={() => setShowFirstTakeModal(false)}
@@ -1186,6 +1286,24 @@ export default function TvShowDetailScreen() {
         moviePosterUrl={posterUrl ?? undefined}
         isSubmitting={isCreatingFirstTake}
       />
+
+      {/* Episode Rooms: episode-scoped First Take composer (post-watch nudge) */}
+      {episodeRoomsEnabled && episodeTakeTarget && (
+        <FirstTakeModal
+          visible={showEpisodeTakeModal}
+          onClose={() => setShowEpisodeTakeModal(false)}
+          onSubmit={handleEpisodeTakeSubmit}
+          movieTitle={
+            show?.name
+              ? `${show.name} · S${episodeTakeTarget.season}E${episodeTakeTarget.episode}`
+              : `S${episodeTakeTarget.season}E${episodeTakeTarget.episode}`
+          }
+          moviePosterUrl={posterUrl ?? undefined}
+          isSubmitting={isSubmittingEpisodeTake}
+          seasonNumber={episodeTakeTarget.season}
+          episodeNumber={episodeTakeTarget.episode}
+        />
+      )}
 
       {/* Review Modal */}
       <ReviewModal
@@ -1768,6 +1886,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   episodeRuntime: {
     ...Typography.caption.default,
     color: colors.textSecondary,
+  },
+  episodeRoomButton: {
+    padding: 2,
+    marginLeft: 2,
   },
 
   // Loading state styles

@@ -163,7 +163,8 @@ type ContentRoute =
   | { type: 'movie'; id: string }
   | { type: 'tv'; id: string }
   | { type: 'review'; id: string }
-  | { type: 'firsttake'; id: string };
+  | { type: 'firsttake'; id: string }
+  | { type: 'episoderoom'; id: string };
 
 function parseContentUrl(url: string): ContentRoute | null {
   let pathname: string;
@@ -204,6 +205,10 @@ function parseContentUrl(url: string): ContentRoute | null {
     case 'first-take':
     case 'firsttake':
       return { type: 'firsttake', id: rawId };
+    // Episode Rooms: the id is the compound `{tmdbId}-{season}-{episode}` slug
+    // (hyphens pass the safe-charset check above); the room screen parses it.
+    case 'episode-room':
+      return { type: 'episoderoom', id: rawId };
     default:
       return null;
   }
@@ -233,6 +238,9 @@ export function handleContentDeepLink(url: string): boolean {
         return true;
       case 'firsttake':
         router.push(`/first-take/${match.id}` as never);
+        return true;
+      case 'episoderoom':
+        router.push(`/episode-room/${match.id}` as never);
         return true;
     }
   } catch (err) {

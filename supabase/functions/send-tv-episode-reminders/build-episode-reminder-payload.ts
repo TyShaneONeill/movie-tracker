@@ -48,7 +48,10 @@ export function groupEpisodeRemindersByEpisode(
         title: `📺 ${r.show_name} — S${pad2(r.season_number)}E${pad2(r.episode_number)} is out`,
         body: '',
         data: {
-          url: `/tv/${r.tmdb_id}`,
+          // Deep-link straight into the Episode Room for this S/E. When the
+          // `episode_rooms` flag is off the room screen redirects to /tv/{id},
+          // preserving the reminder's prior destination.
+          url: `/episode-room/${r.tmdb_id}-${r.season_number}-${r.episode_number}`,
           tmdb_id: r.tmdb_id,
           season: r.season_number,
           episode: r.episode_number,
