@@ -260,7 +260,7 @@ function SeasonAccordionItem({
                         onPress={() => onOpenRoom(episode)}
                         hitSlop={8}
                         accessibilityRole="button"
-                        accessibilityLabel={`Open the Episode Room for episode ${episode.episode_number}`}
+                        accessibilityLabel={`Open the Debrief Room for episode ${episode.episode_number}`}
                         style={({ pressed }) => [
                           dynamicStyles.episodeRoomButton,
                           pressed && { opacity: 0.6 },

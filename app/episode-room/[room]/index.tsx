@@ -9,9 +9,11 @@
  * on the show screen, from the post-watch nudge, from the home continue-watching
  * card, and from the episode-reminder push (all flag-gated).
  *
- * Locked design calls (Ty, 2026-07-19): feature name "Episode Room"; HARD
- * watched-gate with no peek (no take content is fetched until the viewer has
- * marked the episode watched); no film-grain overlay.
+ * Locked design calls (Ty, 2026-07-19): HARD watched-gate with no peek (no
+ * take content is fetched until the viewer has marked the episode watched);
+ * no film-grain overlay. Renamed "Episode Room" → "Debrief Room" (Ty,
+ * 2026-07-20) — user-facing copy only; the flag (`episode_rooms`), routes
+ * (`/episode-room/*`), and code identifiers deliberately keep the old name.
  *
  * Addressed by the compound slug `{tmdbId}-{season}-{episode}` so one route
  * carries all three ids from the route, the push payload, and deep links.
@@ -327,7 +329,7 @@ export default function EpisodeRoomScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <SafeAreaView style={styles.container}>
-          <TopBar title="Episode Room" onBack={handleGoBack} colors={colors} styles={styles} />
+          <TopBar title="Debrief Room" onBack={handleGoBack} colors={colors} styles={styles} />
           <View style={styles.centered}>
             <Text style={styles.notFound}>This room could not be opened.</Text>
           </View>
@@ -361,7 +363,7 @@ export default function EpisodeRoomScreen() {
       return (
         <View style={styles.signInBox}>
           <Ionicons name="people-outline" size={34} color={colors.textSecondary} />
-          <Text style={styles.notFound}>Sign in to join the Episode Room.</Text>
+          <Text style={styles.notFound}>Sign in to join the Debrief Room.</Text>
         </View>
       );
     }
@@ -454,7 +456,7 @@ export default function EpisodeRoomScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={styles.container}>
         <TopBar
-          title={show?.name ?? 'Episode Room'}
+          title={show?.name ?? 'Debrief Room'}
           onBack={handleGoBack}
           colors={colors}
           styles={styles}
@@ -490,7 +492,7 @@ export default function EpisodeRoomScreen() {
               onPress={() => prevTarget && goToEpisode(prevTarget.season, prevTarget.episode)}
               disabled={!prevEnabled}
               accessibilityRole="button"
-              accessibilityLabel="Previous episode room"
+              accessibilityLabel="Previous episode's Debrief Room"
               style={[styles.epNavBtn, !prevEnabled && styles.epNavDisabled]}
             >
               <Ionicons name="chevron-back" size={12} color={colors.textTertiary} />
@@ -501,12 +503,12 @@ export default function EpisodeRoomScreen() {
                 <Text style={styles.epNavText}>{formatEpisodeShort(prevTarget.season, prevTarget.episode)}</Text>
               )}
             </Pressable>
-            <Text style={styles.roomLabel}>EPISODE ROOM</Text>
+            <Text style={styles.roomLabel}>DEBRIEF ROOM</Text>
             <Pressable
               onPress={() => nextTarget && goToEpisode(nextTarget.season, nextTarget.episode)}
               disabled={!nextEnabled}
               accessibilityRole="button"
-              accessibilityLabel="Next episode room"
+              accessibilityLabel="Next episode's Debrief Room"
               style={[styles.epNavBtn, !nextEnabled && styles.epNavDisabled]}
             >
               {nextTarget && (
@@ -540,7 +542,7 @@ export default function EpisodeRoomScreen() {
           {/* Section label */}
           {user && isWatched && (
             <Text style={styles.sectionLabel}>
-              The Room{' '}
+              The Debrief{' '}
               <Text style={styles.sectionCount}>
                 · {takes.length} take{takes.length === 1 ? '' : 's'}
               </Text>

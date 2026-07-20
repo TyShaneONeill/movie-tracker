@@ -100,7 +100,7 @@ export function WatchedGate({
         />
       </Animated.View>
       <Text style={[styles.title, { color: colors.text }]}>
-        {open ? 'Welcome to the room' : 'Mark it watched to join the room'}
+        {open ? 'Welcome to the debrief' : 'Mark it watched to join the debrief'}
       </Text>
       <Text style={[styles.body, { color: colors.textSecondary }]}>
         Takes on {episodeLabel} stay spoiler-free until you&rsquo;ve seen it.
@@ -109,7 +109,7 @@ export function WatchedGate({
         onPress={onMarkWatched}
         disabled={pending || unlocking}
         accessibilityRole="button"
-        accessibilityLabel="Mark this episode watched and enter the room"
+        accessibilityLabel="Mark this episode watched and enter the debrief"
         style={({ pressed }) => [
           styles.cta,
           {

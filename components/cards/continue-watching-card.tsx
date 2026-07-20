@@ -103,7 +103,7 @@ export function ContinueWatchingCard({
               onPress={() => onRoomPress(roomSeason, roomEpisode)}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={`Open the Episode Room for ${progressText}`}
+              accessibilityLabel={`Open the Debrief Room for ${progressText}`}
               style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
             >
               {/* Same icon as the show screen's episode rows — one affordance,
