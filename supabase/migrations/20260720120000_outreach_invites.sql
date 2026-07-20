@@ -56,3 +56,9 @@ REVOKE ALL ON TABLE "public"."outreach_invites" FROM "anon", "authenticated", PU
 GRANT ALL ON TABLE "public"."outreach_invites" TO "service_role";
 
 COMMENT ON TABLE "public"."outreach_invites" IS 'Outreach feedback funnel ledger: one row per invited user. Tokenized email link → questionnaire → conditional PocketStubs+ promotional grant, fully timestamped (clicked/completed/grant start+expiry). RLS on, no client policies; only the outreach-form edge function (service role) reads/writes. Token is the sole credential, email-delivered only.';
+
+-- One invite per user per campaign — the double-send guard the seed relies on
+-- (cold-review P2, PR #733: this lived only in the seed script, which would
+-- drift a rebuild-from-migrations env and trip the schema-drift guard).
+CREATE UNIQUE INDEX IF NOT EXISTS outreach_invites_campaign_user_uniq
+  ON public.outreach_invites (campaign, user_id);

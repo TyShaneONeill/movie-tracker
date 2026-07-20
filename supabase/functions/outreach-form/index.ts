@@ -292,6 +292,16 @@ async function grantPromotional(
       .eq("id", invite.id);
     if (error) {
       console.error("[outreach-form] grant success update failed:", error.message);
+      // Distinguish "RC granted but we failed to record it" from "never
+      // granted" so a replay pass doesn't look identical to an unissued grant
+      // (cold-review P2). Replay is harmless anyway — verified 2026-07-20:
+      // re-POSTing the same promotional duration while active does NOT stack
+      // or extend the expiry — but the marker keeps the ledger honest.
+      await recordGrantError(
+        supabase,
+        invite.id,
+        `granted_but_unrecorded:${expiresAt.toISOString()}`
+      );
     }
 
     return { granted: true, expiresAt: expiresAt.toISOString(), error: null };
