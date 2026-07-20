@@ -23,6 +23,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useReducedMotion } from '@/components/onboarding/v2/shared/use-reduced-motion';
 import { analytics } from '@/lib/analytics';
+import { captureException } from '@/lib/sentry';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import { useTvTimeDeck } from '@/hooks/use-tvtime-deck';
 import { inkStubRating } from '@/lib/tvtime-deck/deck-service';
@@ -108,9 +109,16 @@ export function TvTimeDeckScreen() {
     advance();
     inFlightRef.current.add(item.key);
     inkStubRating(user.id, item, rating)
-      .catch(() => {
+      .catch((err) => {
         // Failed write: the item stays unrated server-side and returns next
-        // session — no in-place re-queue. Just tell the user it didn't stick.
+        // session — no in-place re-queue. Tell the user it didn't stick AND
+        // report the cause — a swallowed write error is exactly why #722 (every
+        // fractional rating failing a 22P02 integer coercion) stayed invisible.
+        captureException(err instanceof Error ? err : new Error(String(err)), {
+          context: 'tvtime-deck-ink-rating',
+          item_key: item.key,
+          rating,
+        });
         Toast.show({ type: 'error', text1: "Couldn't save that rating", visibilityTime: 2500 });
       })
       .finally(() => inFlightRef.current.delete(item.key));

@@ -191,7 +191,7 @@ export function ReviewModal({
               {/* Rating Section — shared 1–10 slider (also used by the TV Time deck) */}
               <View style={[styles.ratingSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Rating</Text>
-                <RatingSlider value={rating} onChange={setRating} disabled={contentLocked} />
+                <RatingSlider value={rating} onChange={setRating} step={1} disabled={contentLocked} />
               </View>
 
               {/* Title */}
