@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
+import { useNextEpisodeUp } from '@/hooks/use-next-episode-up';
 
 interface ContinueWatchingCardProps {
   showId: number;
@@ -16,11 +17,13 @@ interface ContinueWatchingCardProps {
   totalEpisodes: number | null;
   onPress: () => void;
   /**
-   * Opens the Episode Room for the show's current episode. When absent (flag
-   * off, or no current episode) the card renders exactly as before — the bubble
-   * is the only addition, sharing the progress row so nothing shifts.
+   * Opens the Episode Room for the given (season, episode) — the resolved
+   * NEXT-UP episode, or the last-watched one when next-up can't be computed.
+   * When absent (flag off, or no current episode) the card renders exactly as
+   * before — the bubble is the only addition, sharing the progress row so
+   * nothing shifts.
    */
-  onRoomPress?: () => void;
+  onRoomPress?: (season: number, episode: number) => void;
 }
 
 type ThemeColors = typeof Colors.dark;
@@ -29,6 +32,7 @@ const CARD_WIDTH = 130;
 const POSTER_HEIGHT = 195;
 
 export function ContinueWatchingCard({
+  showId,
   name,
   posterPath,
   currentSeason,
@@ -42,9 +46,17 @@ export function ContinueWatchingCard({
   const colors = Colors[effectiveTheme];
   const dynamicStyles = useMemo(() => createStyles(colors), [colors]);
 
+  // Next-up correctness: after finishing S4E14 the card should read "S5 E1", not
+  // the last-watched coordinate. Falls back to last-watched while the catalog
+  // loads or when caught up (never blank). Computed for everyone — the display
+  // fix isn't flag-gated; only the room bubble (onRoomPress) is.
+  const nextUp = useNextEpisodeUp(showId, currentSeason, currentEpisode);
+  const roomSeason = nextUp?.season ?? currentSeason;
+  const roomEpisode = nextUp?.episode ?? currentEpisode;
+
   const progressText =
-    currentSeason != null && currentEpisode != null
-      ? `S${currentSeason} E${currentEpisode}`
+    roomSeason != null && roomEpisode != null
+      ? `S${roomSeason} E${roomEpisode}`
       : episodesWatched != null && totalEpisodes != null
         ? `${episodesWatched}/${totalEpisodes} episodes`
         : null;
@@ -86,9 +98,9 @@ export function ContinueWatchingCard({
       {progressText && (
         <View style={dynamicStyles.progressRow}>
           <Text style={dynamicStyles.progress}>{progressText}</Text>
-          {onRoomPress && (
+          {onRoomPress && roomSeason != null && roomEpisode != null && (
             <Pressable
-              onPress={onRoomPress}
+              onPress={() => onRoomPress(roomSeason, roomEpisode)}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`Open the Episode Room for ${progressText}`}

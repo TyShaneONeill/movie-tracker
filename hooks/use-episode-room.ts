@@ -204,6 +204,10 @@ export function useUnlockEpisodeRoom(tmdbId: number) {
       // Keep the show screen honest (checkboxes, progress, status flips).
       queryClient.invalidateQueries({ queryKey: ['episodeWatches'] });
       queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id] });
+      // Home Continue Watching (['userTvShows']) reads current_season/
+      // current_episode — an in-room unlock moves that coordinate, so the card's
+      // next-up must refresh when the user returns home, no manual pull needed.
+      queryClient.invalidateQueries({ queryKey: ['userTvShows'] });
       // And the watched probe — but WITHOUT refetching the active one:
       // refetchType 'none' marks probes stale so an episode the user hopped
       // away from mid-mark unlocks on their next visit, while the CURRENT

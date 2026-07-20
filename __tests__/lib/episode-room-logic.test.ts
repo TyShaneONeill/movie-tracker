@@ -5,7 +5,11 @@ import {
   formatEpisodeShort,
   selectHeroTake,
   sortTakesByEngagement,
+  resolveNextUpEpisode,
+  resolvePrevEpisode,
+  maxAiredEpisode,
   ROOM_LEDGER_CAP,
+  type EpisodeAiredInfo,
 } from '../../lib/episode-room-logic';
 
 interface TestTake {
@@ -185,5 +189,171 @@ describe('formatEpisodeLabel / formatEpisodeShort', () => {
 
   it('formats the compact nav label', () => {
     expect(formatEpisodeShort(2, 5)).toBe('S2E5');
+  });
+});
+
+// A fixed "today" so aired/unaired is deterministic in tests.
+const TODAY = '2026-07-19';
+// Season of `count` episodes: 1..airedThrough aired last week, the rest next week.
+const season = (count: number, airedThrough: number): EpisodeAiredInfo[] =>
+  Array.from({ length: count }, (_, i) => ({
+    episodeNumber: i + 1,
+    airDate: i + 1 <= airedThrough ? '2026-07-12' : '2026-07-26',
+  }));
+
+describe('maxAiredEpisode', () => {
+  it('returns the highest aired episode number', () => {
+    expect(maxAiredEpisode(season(10, 6), TODAY)).toBe(6);
+  });
+
+  it('is 0 when nothing has aired', () => {
+    expect(maxAiredEpisode(season(3, 0), TODAY)).toBe(0);
+  });
+
+  it('ignores null air dates', () => {
+    expect(
+      maxAiredEpisode(
+        [
+          { episodeNumber: 1, airDate: '2026-07-12' },
+          { episodeNumber: 2, airDate: null },
+        ],
+        TODAY
+      )
+    ).toBe(1);
+  });
+});
+
+describe('resolveNextUpEpisode', () => {
+  it('advances within a season when the next episode has aired', () => {
+    expect(
+      resolveNextUpEpisode({
+        season: 1,
+        episode: 4,
+        currentSeasonEpisodes: season(10, 8),
+        nextSeasonEpisodes: null,
+        today: TODAY,
+      })
+    ).toEqual({ season: 1, episode: 5 });
+  });
+
+  it('is caught up when the next same-season episode has not aired', () => {
+    // Watched through the latest aired (E6); E7 exists but airs next week.
+    expect(
+      resolveNextUpEpisode({
+        season: 1,
+        episode: 6,
+        currentSeasonEpisodes: season(10, 6),
+        nextSeasonEpisodes: null,
+        today: TODAY,
+      })
+    ).toBeNull();
+  });
+
+  it('crosses the season boundary to the next premiere (S4E14 finale → S5E1)', () => {
+    expect(
+      resolveNextUpEpisode({
+        season: 4,
+        episode: 14,
+        currentSeasonEpisodes: season(14, 14),
+        nextSeasonEpisodes: season(10, 3),
+        today: TODAY,
+      })
+    ).toEqual({ season: 5, episode: 1 });
+  });
+
+  it('is caught up at a finale when the next premiere has not aired', () => {
+    expect(
+      resolveNextUpEpisode({
+        season: 4,
+        episode: 14,
+        currentSeasonEpisodes: season(14, 14),
+        nextSeasonEpisodes: season(10, 0),
+        today: TODAY,
+      })
+    ).toBeNull();
+  });
+
+  it('is caught up at a finale with no next season (catalog absent)', () => {
+    expect(
+      resolveNextUpEpisode({
+        season: 4,
+        episode: 14,
+        currentSeasonEpisodes: season(14, 14),
+        nextSeasonEpisodes: null,
+        today: TODAY,
+      })
+    ).toBeNull();
+  });
+
+  it('returns null (fallback) when the current-season catalog is not loaded', () => {
+    expect(
+      resolveNextUpEpisode({
+        season: 1,
+        episode: 4,
+        currentSeasonEpisodes: null,
+        nextSeasonEpisodes: null,
+        today: TODAY,
+      })
+    ).toBeNull();
+  });
+
+  it('never crosses out of specials (season 0) into a real season', () => {
+    expect(
+      resolveNextUpEpisode({
+        season: 0,
+        episode: 3,
+        currentSeasonEpisodes: season(3, 3),
+        nextSeasonEpisodes: season(10, 5),
+        today: TODAY,
+      })
+    ).toBeNull();
+  });
+});
+
+describe('resolvePrevEpisode', () => {
+  it('steps back within a season', () => {
+    expect(
+      resolvePrevEpisode({ season: 3, episode: 5, prevSeasonEpisodes: null, today: TODAY })
+    ).toEqual({ season: 3, episode: 4 });
+  });
+
+  it('crosses back from E1 to the prior season last aired episode', () => {
+    expect(
+      resolvePrevEpisode({
+        season: 3,
+        episode: 1,
+        prevSeasonEpisodes: season(12, 12),
+        today: TODAY,
+      })
+    ).toEqual({ season: 2, episode: 12 });
+  });
+
+  it('crosses back to the prior season LAST AIRED, not last listed', () => {
+    // Season 2 has 10 episodes but only 7 have aired.
+    expect(
+      resolvePrevEpisode({
+        season: 3,
+        episode: 1,
+        prevSeasonEpisodes: season(10, 7),
+        today: TODAY,
+      })
+    ).toEqual({ season: 2, episode: 7 });
+  });
+
+  it('does not cross from season 1 E1 into specials (season 0)', () => {
+    expect(
+      resolvePrevEpisode({
+        season: 1,
+        episode: 1,
+        prevSeasonEpisodes: season(5, 5),
+        today: TODAY,
+      })
+    ).toBeNull();
+  });
+
+  it('returns null at E1 when the prior-season catalog is not loaded', () => {
+    expect(
+      resolvePrevEpisode({ season: 3, episode: 1, prevSeasonEpisodes: null, today: TODAY })
+    ).toBeNull();
   });
 });
