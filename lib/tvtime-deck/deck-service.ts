@@ -24,17 +24,25 @@ import {
   computeEligibleItems,
   computeProgress,
   clampDeckRating,
+  buildTakeKeySet,
   type DeckItem,
   type DeckProgress,
   type EligibleMovieRow,
   type EligibleShowRow,
   type RatedReviewKey,
+  type ExistingTakeKey,
 } from './deck-logic';
 
 export interface DeckData {
   /** Eligible items that still need a rating (movies first). */
   eligible: DeckItem[];
   progress: DeckProgress;
+  /**
+   * `${media_type}:${tmdb_id}` keys for titles the user ALREADY has a First Take
+   * on — the ink→take bridge uses this to skip offering a take for a title
+   * that's already spoken for (cheap client dedup; see shouldOfferTakeBridge).
+   */
+  existingTakeKeys: Set<string>;
 }
 
 /**
@@ -43,7 +51,7 @@ export interface DeckData {
  * the user's review keys (a user has at most a few hundred reviews).
  */
 export async function fetchDeckData(userId: string): Promise<DeckData> {
-  const [moviesRes, showsRes, importedEpRes, reviewsRes] = await Promise.all([
+  const [moviesRes, showsRes, importedEpRes, reviewsRes, takesRes] = await Promise.all([
     supabase
       .from('user_movies')
       .select('tmdb_id, title, release_date, poster_path')
@@ -67,12 +75,18 @@ export async function fetchDeckData(userId: string): Promise<DeckData> {
       .from('reviews')
       .select('tmdb_id, media_type')
       .eq('user_id', userId),
+    // First Takes the user already posted — drives the ink→take bridge dedup.
+    supabase
+      .from('first_takes')
+      .select('tmdb_id, media_type')
+      .eq('user_id', userId),
   ]);
 
   if (moviesRes.error) throw moviesRes.error;
   if (showsRes.error) throw showsRes.error;
   if (importedEpRes.error) throw importedEpRes.error;
   if (reviewsRes.error) throw reviewsRes.error;
+  if (takesRes.error) throw takesRes.error;
 
   const importedShowIds = new Set(
     ((importedEpRes.data ?? []) as { tmdb_show_id: number }[]).map((r) => r.tmdb_show_id)
@@ -87,8 +101,9 @@ export async function fetchDeckData(userId: string): Promise<DeckData> {
   const eligible = computeEligibleItems(movies, shows, ratedKeys);
   const totalEligible = movies.length + shows.length;
   const progress = computeProgress(totalEligible, eligible.length);
+  const existingTakeKeys = buildTakeKeySet((takesRes.data ?? []) as ExistingTakeKey[]);
 
-  return { eligible, progress };
+  return { eligible, progress, existingTakeKeys };
 }
 
 /**

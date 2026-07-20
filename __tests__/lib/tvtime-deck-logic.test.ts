@@ -7,10 +7,13 @@ import {
   isSessionCheckpoint,
   deckItemKey,
   yearFromDate,
+  buildTakeKeySet,
+  shouldOfferTakeBridge,
   DECK_SESSION_SIZE,
   type EligibleMovieRow,
   type EligibleShowRow,
   type RatedReviewKey,
+  type ExistingTakeKey,
 } from '@/lib/tvtime-deck/deck-logic';
 
 const movie = (tmdb_id: number, title = `Movie ${tmdb_id}`): EligibleMovieRow => ({
@@ -168,5 +171,47 @@ describe('per-item state transitions (rate / skip mirror the read model)', () =>
     // Clearing skips re-surfaces movie:2.
     queue = buildDeckQueue(eligible, new Set());
     expect(queue.map((i) => i.key)).toEqual(['movie:2', 'movie:3']);
+  });
+});
+
+describe('ink→take bridge dedup (buildTakeKeySet + shouldOfferTakeBridge)', () => {
+  const takes = (...rows: ExistingTakeKey[]) => buildTakeKeySet(rows);
+
+  it('builds `${media_type}:${tmdb_id}` keys that line up with deck item keys', () => {
+    const keys = takes(
+      { tmdb_id: 1, media_type: 'movie' },
+      { tmdb_id: 2, media_type: 'tv_show' }
+    );
+    expect(keys.has('movie:1')).toBe(true);
+    expect(keys.has('tv_show:2')).toBe(true);
+    expect(keys.size).toBe(2);
+  });
+
+  it('empty take set → offers the bridge for every freshly inked item', () => {
+    const keys = takes();
+    expect(shouldOfferTakeBridge('movie:1', keys)).toBe(true);
+    expect(shouldOfferTakeBridge('tv_show:9', keys)).toBe(true);
+  });
+
+  it('suppresses the bridge for a title the user already has a take on', () => {
+    const keys = takes({ tmdb_id: 1, media_type: 'movie' });
+    expect(shouldOfferTakeBridge('movie:1', keys)).toBe(false); // already spoken for
+    expect(shouldOfferTakeBridge('movie:2', keys)).toBe(true); // different title
+  });
+
+  it('a movie take does not suppress the same tmdb_id as a show, and vice versa', () => {
+    const keys = takes({ tmdb_id: 42, media_type: 'movie' });
+    expect(shouldOfferTakeBridge('movie:42', keys)).toBe(false);
+    expect(shouldOfferTakeBridge('tv_show:42', keys)).toBe(true); // distinct target
+  });
+
+  it('an episode/season take never collides with a show-level deck key', () => {
+    // Deck keys are only ever 'movie:'/'tv_show:'; an episode take produces a key
+    // that never matches, so the show-level bridge still shows (intended).
+    const keys = takes(
+      { tmdb_id: 7, media_type: 'tv_episode' },
+      { tmdb_id: 7, media_type: 'tv_season' }
+    );
+    expect(shouldOfferTakeBridge('tv_show:7', keys)).toBe(true);
   });
 });
