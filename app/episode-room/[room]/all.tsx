@@ -8,8 +8,8 @@
  * does both fetch-gating and block-filtering).
  */
 
-import { useEffect, useMemo } from 'react';
-import { View, Text, Pressable, FlatList, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, FlatList, StyleSheet, Platform, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +53,7 @@ export default function EpisodeRoomAllTakesScreen() {
   );
   const isWatched = watchedData === true;
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { takes, isLoading, isError, refetch } = useEpisodeRoomTakes(
     coords?.tmdbId ?? 0,
     coords?.season ?? 0,
@@ -140,6 +141,21 @@ export default function EpisodeRoomAllTakesScreen() {
           />
         )}
         ItemSeparatorComponent={Perforation}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={async () => {
+              setIsRefreshing(true);
+              try {
+                await refetch();
+              } finally {
+                setIsRefreshing(false);
+              }
+            }}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
+          />
+        }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
