@@ -31,10 +31,14 @@ const n = (id: string, read: boolean) => ({
   created_at: '2026-07-03T00:00:00Z',
 });
 
+// Captures the QueryClient created for the most recent wrapper so a test can
+// drive it directly (e.g. force an in-flight refetch to reproduce a race).
+let lastQueryClient: QueryClient;
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  lastQueryClient = queryClient;
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return React.createElement(QueryClientProvider, { client: queryClient }, children);
   };
@@ -208,8 +212,14 @@ describe('useNotifications — clearUnreadForRequests (bell badge clears on acce
       await result.current.clearUnreadForRequests('actor-1');
     });
 
-    // Badge drops by the one unread follow_request card from actor-1.
-    expect(result.current.unreadCount).toBe(1);
+    // Badge drops by the one unread follow_request card from actor-1. The
+    // decrement lands in the cache synchronously, but the bell reads it through
+    // a useQuery observer whose re-render React Query dispatches on the next
+    // task — so assert the settled value via waitFor, exactly as the
+    // removeRequestCards suite above does for the list. (An immediate read here
+    // sees the pre-clear value even though the cache is already correct — that
+    // async gap is what #731's own tests read as a failure.)
+    await waitFor(() => expect(result.current.unreadCount).toBe(1));
   });
 
   it('drops duplicate request cards from the same actor (cancel + re-send, #588) once each', async () => {
@@ -229,7 +239,7 @@ describe('useNotifications — clearUnreadForRequests (bell badge clears on acce
       await result.current.clearUnreadForRequests('actor-1');
     });
 
-    expect(result.current.unreadCount).toBe(1);
+    await waitFor(() => expect(result.current.unreadCount).toBe(1));
   });
 
   it('does not go negative if the cached count already lags behind', async () => {
@@ -307,5 +317,53 @@ describe('useNotifications — clearUnreadForRequests (bell badge clears on acce
       await Promise.resolve();
     });
     expect(result.current.unreadCount).toBe(0);
+  });
+
+  it('a stale count refetch resolving AFTER the optimistic decrement is discarded, not restored', async () => {
+    // The prod stuck-badge repro with a real prior count: the badge has already
+    // loaded a value (2), then a refetch is in flight (the screen-open count
+    // snapshot that still counts the pending follow_request) when the user
+    // accepts. clearUnreadForRequests cancels that in-flight fetch first, then
+    // decrements to 1 — so when the fetch settles late with a stale value it
+    // must be discarded, leaving the badge at the decremented value rather than
+    // the stale pre-accept count.
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-1'), n('n1', true)],
+      hasMore: false,
+    });
+    let resolveStaleRefetch: (v: number) => void = () => {};
+    mockGetUnreadCount
+      .mockResolvedValueOnce(2) // initial screen load
+      .mockImplementationOnce(
+        () => new Promise<number>((res) => { resolveStaleRefetch = res; })
+      )
+      .mockResolvedValue(2); // any further refetch would also read the stale 2
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.unreadCount).toBe(2));
+
+    // Force a count refetch and leave it in flight (hanging) — mirrors the
+    // pre-accept snapshot fetch that has not settled yet.
+    act(() => {
+      lastQueryClient.invalidateQueries({ queryKey: ['notificationCount', 'user-1'] });
+    });
+    await waitFor(() => expect(mockGetUnreadCount).toHaveBeenCalledTimes(2));
+
+    // Accept resolves the request while that refetch is still in flight.
+    await act(async () => {
+      await result.current.clearUnreadForRequests('actor-1');
+    });
+    await waitFor(() => expect(result.current.unreadCount).toBe(1));
+
+    // The stale in-flight refetch settles LATE with a distinct value. It was
+    // cancelled before the decrement, so it must be dropped entirely: the badge
+    // must stay at the optimistic 1 — not jump to 99, not revert to 2.
+    await act(async () => {
+      resolveStaleRefetch(99);
+      await Promise.resolve();
+    });
+    expect(result.current.unreadCount).toBe(1);
   });
 });

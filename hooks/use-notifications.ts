@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, notifyManager } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import {
   getNotifications,
@@ -153,7 +153,22 @@ export function useNotifications(): UseNotificationsResult {
   // request cards being removed. The caller's invalidate reconciles against
   // server truth afterward (a fresh fetch post-accept reads the committed 0).
   // Must run BEFORE removeRequestCards so the rows are still in cache to count.
+  //
+  // The decrement is wrapped in notifyManager.batch() so this ad-hoc cache
+  // write flushes its observer notifications the same way a mutation's writes
+  // do — the bell is a useQuery observer that typically lives on a *different*
+  // screen than the notifications list (the feed / profile tab), and batching
+  // keeps every count observer's update on one consistent notification pass
+  // rather than the deferred per-write scheduler. Note #731's write already
+  // reached the cache correctly; its CI failure came from its own tests reading
+  // unreadCount synchronously right after awaiting this, which never observes
+  // the (async-dispatched) re-render — the count assertions must waitFor, as
+  // the removeRequestCards tests already do.
   const clearUnreadForRequests = async (actorId: string): Promise<void> => {
+    // Stop the race first: neutralize any in-flight pre-accept count fetch (the
+    // screen-open snapshot that still counts the pending follow_request, since
+    // those rows are excluded from mark-read) so it can't land stale on top of
+    // the value we're about to write.
     await queryClient.cancelQueries({ queryKey: ['notificationCount', user?.id] });
     const pages = queryClient.getQueriesData<{ notifications: Notification[]; hasMore: boolean }>({
       queryKey: ['notifications', user?.id],
@@ -167,9 +182,11 @@ export function useNotifications(): UseNotificationsResult {
       }
     }
     if (removedIds.size === 0) return;
-    queryClient.setQueryData<number>(['notificationCount', user?.id], (old) =>
-      Math.max(0, (old ?? 0) - removedIds.size)
-    );
+    notifyManager.batch(() => {
+      queryClient.setQueryData<number>(['notificationCount', user?.id], (old) =>
+        Math.max(0, (old ?? 0) - removedIds.size)
+      );
+    });
   };
 
   // Mutation to mark a single notification as read
