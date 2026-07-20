@@ -92,6 +92,7 @@ export default function NotificationsScreen() {
     markAsRead,
     markAllAsRead,
     removeRequestCards,
+    clearUnreadForRequests,
     isMarkingAllAsRead,
     loadMore,
     hasMore,
@@ -297,6 +298,11 @@ export default function NotificationsScreen() {
       }
       return next;
     });
+    // ...deterministically drop the badge count for those unread request
+    // cards (cancels the stale in-flight count fetch first) BEFORE the cache
+    // surgery removes the rows — otherwise there's nothing left to count and
+    // the badge stays lit on a device race (bell-badge-clear bug)...
+    await clearUnreadForRequests(actorId);
     // ...then drop them from the cached pages — instant cache convergence;
     // the server delete + invalidations below are reconciliation.
     removeRequestCards(actorId);
@@ -308,7 +314,7 @@ export default function NotificationsScreen() {
       .eq('type', 'follow_request');
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
     queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
-  }, [queryClient, user, removeRequestCards, notifications]);
+  }, [queryClient, user, removeRequestCards, clearUnreadForRequests, notifications]);
 
   const handleAcceptFollowRequest = useCallback(async (notification: Notification) => {
     if (!notification.actor_id || !user) return;

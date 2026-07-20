@@ -19,6 +19,7 @@ interface UseNotificationsResult {
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   removeRequestCards: (actorId: string) => void;
+  clearUnreadForRequests: (actorId: string) => Promise<void>;
   isMarkingAsRead: boolean;
   isMarkingAllAsRead: boolean;
   loadMore: () => void;
@@ -126,6 +127,51 @@ export function useNotifications(): UseNotificationsResult {
     }
   };
 
+  // Deterministically drop the badge count for the unread follow_request
+  // card(s) from an actor as they're resolved (accepted/declined).
+  //
+  // The badge is count(notifications WHERE read=false). A pending
+  // follow_request card is unread by design — the notifications screen's
+  // mark-read-on-open EXCLUDES follow_request so its badge survives until the
+  // Accept/Decline decision (#9 audit finding). Resolving it deletes the row
+  // server-side, so the true count drops; the resolve path then invalidates
+  // notificationCount to pick that up.
+  //
+  // But plain invalidation loses a race (the #580 class the list/cards are
+  // already hardened against): opening the screen fires a count refetch
+  // (markReadableNotificationsAsRead) that snapshots the count BEFORE the
+  // accept commits — and, because follow_request rows are excluded from
+  // mark-read, that snapshot still COUNTS the pending card. If the user
+  // accepts before that fetch resolves, React Query dedups the post-accept
+  // invalidation into the in-flight stale fetch, and the cache settles on the
+  // pre-accept count — the badge stays lit even though the server is already
+  // at 0 (confirmed in prod: unread=0, badge stuck). markAllAsRead guards the
+  // identical race with cancelQueries + setQueryData; this path did not.
+  //
+  // Fix, mirroring markAllAsRead's onMutate: cancel any in-flight count fetch
+  // (kills the stale snapshot), then deterministically subtract the unread
+  // request cards being removed. The caller's invalidate reconciles against
+  // server truth afterward (a fresh fetch post-accept reads the committed 0).
+  // Must run BEFORE removeRequestCards so the rows are still in cache to count.
+  const clearUnreadForRequests = async (actorId: string): Promise<void> => {
+    await queryClient.cancelQueries({ queryKey: ['notificationCount', user?.id] });
+    const pages = queryClient.getQueriesData<{ notifications: Notification[]; hasMore: boolean }>({
+      queryKey: ['notifications', user?.id],
+    });
+    const removedIds = new Set<string>();
+    for (const [, page] of pages) {
+      for (const notif of page?.notifications ?? []) {
+        if (notif.type === 'follow_request' && notif.actor_id === actorId && !notif.read) {
+          removedIds.add(notif.id);
+        }
+      }
+    }
+    if (removedIds.size === 0) return;
+    queryClient.setQueryData<number>(['notificationCount', user?.id], (old) =>
+      Math.max(0, (old ?? 0) - removedIds.size)
+    );
+  };
+
   // Mutation to mark a single notification as read
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId: string) => markAsReadService(notificationId),
@@ -200,6 +246,7 @@ export function useNotifications(): UseNotificationsResult {
     markAsRead,
     markAllAsRead,
     removeRequestCards,
+    clearUnreadForRequests,
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
     loadMore,

@@ -171,3 +171,141 @@ describe('useNotifications — removeRequestCards (in-place resolution of follow
     expect(ids).toEqual(['n1', 'r2']);
   });
 });
+
+describe('useNotifications — clearUnreadForRequests (bell badge clears on accept/decline)', () => {
+  const req = (id: string, actorId: string, read = false) => ({
+    id,
+    user_id: 'user-1',
+    actor_id: actorId,
+    type: 'follow_request',
+    data: {},
+    read,
+    created_at: '2026-07-03T00:00:00Z',
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockMarkAsRead.mockResolvedValue(undefined);
+    mockMarkAllAsRead.mockResolvedValue(undefined);
+  });
+
+  it('decrements the badge count by the unread request cards from the actor', async () => {
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-1'), n('n1', false)],
+      hasMore: false,
+    });
+    mockGetUnreadCount.mockResolvedValue(2);
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    // Both the list AND the count must be loaded — clearUnreadForRequests
+    // counts the unread request rows from the cached list.
+    await waitFor(() => expect(result.current.notifications).toHaveLength(2));
+    await waitFor(() => expect(result.current.unreadCount).toBe(2));
+
+    await act(async () => {
+      await result.current.clearUnreadForRequests('actor-1');
+    });
+
+    // Badge drops by the one unread follow_request card from actor-1.
+    expect(result.current.unreadCount).toBe(1);
+  });
+
+  it('drops duplicate request cards from the same actor (cancel + re-send, #588) once each', async () => {
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-1'), req('r2', 'actor-1'), n('n1', false)],
+      hasMore: false,
+    });
+    mockGetUnreadCount.mockResolvedValue(3);
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.notifications).toHaveLength(3));
+    await waitFor(() => expect(result.current.unreadCount).toBe(3));
+
+    await act(async () => {
+      await result.current.clearUnreadForRequests('actor-1');
+    });
+
+    expect(result.current.unreadCount).toBe(1);
+  });
+
+  it('does not go negative if the cached count already lags behind', async () => {
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-1')],
+      hasMore: false,
+    });
+    mockGetUnreadCount.mockResolvedValue(0);
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.notifications).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.clearUnreadForRequests('actor-1');
+    });
+
+    expect(result.current.unreadCount).toBe(0);
+  });
+
+  it('leaves the count untouched for actors with no unread request cards', async () => {
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-2'), req('r2', 'actor-1', true), n('n1', false)],
+      hasMore: false,
+    });
+    mockGetUnreadCount.mockResolvedValue(2);
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.unreadCount).toBe(2));
+
+    // actor-1's only card is already read → nothing to decrement.
+    await act(async () => {
+      await result.current.clearUnreadForRequests('actor-1');
+    });
+
+    expect(result.current.unreadCount).toBe(2);
+  });
+
+  it('wins the race against a stale in-flight count refetch (the stuck-badge repro)', async () => {
+    mockGetNotifications.mockResolvedValue({
+      notifications: [req('r1', 'actor-1'), n('n1', true)],
+      hasMore: false,
+    });
+    // The screen-open count fetch is still in flight when the user accepts —
+    // it will resolve LATE with a stale pre-accept value. cancelQueries in
+    // clearUnreadForRequests must neutralize it so its result is discarded and
+    // the deterministically-cleared badge is NOT overwritten (the exact race
+    // that left the badge stuck in prod).
+    let resolveStaleCount: (v: number) => void = () => {};
+    mockGetUnreadCount
+      .mockImplementationOnce(
+        () => new Promise<number>((res) => { resolveStaleCount = res; })
+      )
+      .mockResolvedValue(0);
+
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.notifications).toHaveLength(2));
+
+    // Accept resolves the request before the stale count fetch settles.
+    await act(async () => {
+      await result.current.clearUnreadForRequests('actor-1');
+    });
+    expect(result.current.unreadCount).toBe(0);
+
+    // The stale fetch resolves LATE with a clearly-distinct value — if it
+    // could write, the badge would jump to 5. cancelQueries must have
+    // discarded it, so the badge stays cleared.
+    await act(async () => {
+      resolveStaleCount(5);
+      await Promise.resolve();
+    });
+    expect(result.current.unreadCount).toBe(0);
+  });
+});
