@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A quick two minutes — PocketStubs</title>
+    <meta name="robots" content="noindex">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #09090b;
+            color: #fafafa;
+            min-height: 100vh;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { color: #e11d48; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .wrap {
+            max-width: 620px;
+            margin: 0 auto;
+            padding: 48px 22px 80px;
+        }
+
+        /* Ticket-stub card */
+        .stub {
+            background: #0f0f12;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 34px 28px;
+            position: relative;
+        }
+        /* perforation divider under the header */
+        .perf {
+            border: none;
+            border-top: 2px dashed rgba(255,255,255,0.14);
+            margin: 26px -28px;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #e11d48;
+            background: rgba(225, 29, 72, 0.12);
+            padding: 5px 11px;
+            border-radius: 999px;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 1.7rem;
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+        }
+
+        .lede { color: #a1a1aa; font-size: 1.02rem; }
+
+        .q { margin-top: 30px; }
+        .q-label {
+            display: block;
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .q-optional { color: #71717a; font-weight: 500; font-size: 0.85rem; }
+
+        .choices { display: flex; flex-direction: column; gap: 10px; }
+
+        .choice {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 15px;
+            background: #18181b;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .choice:hover { background: #21212494; }
+        .choice input { accent-color: #e11d48; width: 18px; height: 18px; flex-shrink: 0; }
+        .choice.selected { border-color: #e11d48; background: rgba(225, 29, 72, 0.08); }
+        .choice span { font-size: 0.98rem; }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            background: #18181b;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #fafafa;
+            font-family: inherit;
+            font-size: 1rem;
+            padding: 13px 15px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #e11d48;
+        }
+        textarea { min-height: 84px; }
+        .subinput { margin-top: 10px; }
+
+        /* follow-up toggle */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 15px;
+            background: #18181b;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+        }
+        .toggle-row .t-label { font-size: 0.98rem; font-weight: 600; }
+        .switch { position: relative; width: 52px; height: 30px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0;
+            background: #3f3f46; border-radius: 999px;
+            transition: background 0.2s ease; cursor: pointer;
+        }
+        .slider::before {
+            content: ""; position: absolute;
+            width: 24px; height: 24px; left: 3px; top: 3px;
+            background: #fff; border-radius: 50%;
+            transition: transform 0.2s ease;
+        }
+        .switch input:checked + .slider { background: #e11d48; }
+        .switch input:checked + .slider::before { transform: translateX(22px); }
+
+        .btn-primary {
+            display: block;
+            width: 100%;
+            margin-top: 32px;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: #e11d48;
+            color: #fff;
+            font-size: 1.05rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .btn-primary:hover:not(:disabled) { background: #be123c; }
+        .btn-primary:active:not(:disabled) { transform: translateY(1px); }
+        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        .err-banner {
+            margin-top: 18px;
+            padding: 13px 15px;
+            border-radius: 12px;
+            background: rgba(225, 29, 72, 0.12);
+            border: 1px solid rgba(225, 29, 72, 0.4);
+            color: #fecdd3;
+            font-size: 0.92rem;
+            display: none;
+        }
+
+        /* centered state cards */
+        .state-center { text-align: center; padding: 20px 4px; }
+        .state-center .big-emoji { font-size: 2.6rem; margin-bottom: 14px; }
+        .state-center h1 { font-size: 1.55rem; }
+        .state-center p { color: #a1a1aa; margin-top: 10px; }
+        .reward {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 12px;
+            background: rgba(225, 29, 72, 0.1);
+            border: 1px solid rgba(225, 29, 72, 0.3);
+            color: #fecdd3;
+            font-weight: 600;
+        }
+
+        .spinner {
+            width: 34px; height: 34px;
+            border: 3px solid rgba(255,255,255,0.15);
+            border-top-color: #e11d48;
+            border-radius: 50%;
+            margin: 30px auto;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .footnote { text-align: center; color: #52525b; font-size: 0.8rem; margin-top: 26px; }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 640px) {
+            h1 { font-size: 1.5rem; }
+            .stub { padding: 28px 20px; }
+            .perf { margin: 22px -20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <!-- LOADING -->
+        <section id="state-loading" class="stub">
+            <div class="spinner"></div>
+        </section>
+
+        <!-- FORM -->
+        <section id="state-form" class="stub hidden">
+            <span class="eyebrow">PocketStubs</span>
+            <h1 id="greeting">Two quick minutes?</h1>
+            <p class="lede">You're one of the first people we personally invited in. Tell us what's working and what isn't — and PocketStubs+ is on us as a thank-you.</p>
+            <hr class="perf">
+
+            <form id="feedbackForm" novalidate>
+                <!-- Q1 -->
+                <div class="q">
+                    <label class="q-label">What brought you to PocketStubs?</label>
+                    <div class="choices" data-single="discovery">
+                        <label class="choice"><input type="radio" name="discovery" value="tv_time"><span>TV Time shut down</span></label>
+                        <label class="choice"><input type="radio" name="discovery" value="friend"><span>A friend</span></label>
+                        <label class="choice"><input type="radio" name="discovery" value="store"><span>Found it in the app store</span></label>
+                        <label class="choice"><input type="radio" name="discovery" value="other"><span>Something else</span></label>
+                    </div>
+                    <input type="text" class="subinput hidden" id="discovery_other" maxlength="300" placeholder="Tell us more…">
+                </div>
+
+                <!-- Q2 -->
+                <div class="q">
+                    <label class="q-label" for="one_thing">What's the ONE thing you want this app to do brilliantly?</label>
+                    <textarea id="one_thing" maxlength="1000" placeholder="The thing that would make PocketStubs a keeper for you…"></textarea>
+                </div>
+
+                <!-- Q3 -->
+                <div class="q">
+                    <label class="q-label">Did anything almost stop you from sticking around?</label>
+                    <div class="choices" data-single="friction">
+                        <label class="choice"><input type="radio" name="friction" value="import"><span>Import was confusing or slow</span></label>
+                        <label class="choice"><input type="radio" name="friction" value="app_confusing"><span>The app was confusing</span></label>
+                        <label class="choice"><input type="radio" name="friction" value="missing_feature"><span>Missing a feature I need</span></label>
+                        <label class="choice"><input type="radio" name="friction" value="nothing"><span>Nothing — smooth so far</span></label>
+                    </div>
+                    <input type="text" class="subinput hidden" id="friction_missing" maxlength="300" placeholder="Which feature?">
+                    <textarea class="subinput" id="friction_note" maxlength="1000" placeholder="Anything else on this? (optional)"></textarea>
+                </div>
+
+                <!-- Q4 -->
+                <div class="q">
+                    <label class="q-label">What did TV Time do that we don't yet? <span class="q-optional">(optional)</span></label>
+                    <textarea id="tv_time_gap" maxlength="1000" placeholder="Skip if TV Time wasn't your thing…"></textarea>
+                </div>
+
+                <!-- Q5 -->
+                <div class="q">
+                    <label class="q-label">One last thing</label>
+                    <div class="toggle-row">
+                        <span class="t-label">OK if Ty emails you a quick follow-up?</span>
+                        <label class="switch">
+                            <input type="checkbox" id="followup_ok" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" id="submitBtn">Send it &amp; claim PocketStubs+</button>
+                <div class="err-banner" id="errBanner"></div>
+            </form>
+        </section>
+
+        <!-- THANK YOU -->
+        <section id="state-thankyou" class="stub state-center hidden">
+            <div class="big-emoji">🎬</div>
+            <h1>Thank you — genuinely.</h1>
+            <p>This is exactly the kind of thing that shapes what we build next.</p>
+            <div class="reward" id="rewardMsg">PocketStubs+ is now active on your account. Restart the app to see it.</div>
+        </section>
+
+        <!-- ALREADY COMPLETED -->
+        <section id="state-completed" class="stub state-center hidden">
+            <div class="big-emoji">✅</div>
+            <h1>You're all set.</h1>
+            <p>You've already filled this out — thank you again. Your PocketStubs+ is active; restart the app if you don't see it yet.</p>
+        </section>
+
+        <!-- INVALID -->
+        <section id="state-invalid" class="stub state-center hidden">
+            <div class="big-emoji">🎟️</div>
+            <h1>This link isn't valid.</h1>
+            <p>The link may have been mistyped or expired. If you think that's a mistake, just reply to the email we sent you.</p>
+        </section>
+
+        <p class="footnote">&copy; 2026 PocketStubs</p>
+    </div>
+
+    <script>
+        (function () {
+            var ENDPOINT = 'https://wliblwulvsrfgqcnbzeh.supabase.co/functions/v1/outreach-form';
+
+            function $(id) { return document.getElementById(id); }
+            function show(id) {
+                ['state-loading', 'state-form', 'state-thankyou', 'state-completed', 'state-invalid']
+                    .forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
+            }
+
+            var params = new URLSearchParams(window.location.search);
+            var token = params.get('t');
+
+            if (!token) { show('state-invalid'); return; }
+
+            // Highlight selected choice + reveal conditional sub-inputs.
+            document.querySelectorAll('.choices').forEach(function (group) {
+                group.addEventListener('change', function () {
+                    group.querySelectorAll('.choice').forEach(function (c) {
+                        c.classList.toggle('selected', c.querySelector('input').checked);
+                    });
+                    var name = group.getAttribute('data-single');
+                    var val = (group.querySelector('input:checked') || {}).value;
+                    if (name === 'discovery') {
+                        $('discovery_other').classList.toggle('hidden', val !== 'other');
+                    } else if (name === 'friction') {
+                        $('friction_missing').classList.toggle('hidden', val !== 'missing_feature');
+                    }
+                });
+            });
+
+            function post(payload) {
+                return fetch(ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            // Load
+            post({ action: 'load', token: token })
+                .then(function (res) {
+                    if (!res.ok) { show('state-invalid'); return null; }
+                    return res.json();
+                })
+                .then(function (data) {
+                    if (!data) return;
+                    if (data.completed) { show('state-completed'); return; }
+                    if (data.firstName) {
+                        $('greeting').textContent = 'Hi ' + data.firstName + ' — two quick minutes?';
+                    }
+                    show('state-form');
+                })
+                .catch(function () { show('state-invalid'); });
+
+            // Submit
+            var form = $('feedbackForm');
+            var submitBtn = $('submitBtn');
+            var errBanner = $('errBanner');
+            var submitting = false;
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                if (submitting) return;
+                errBanner.style.display = 'none';
+
+                var discovery = (form.querySelector('input[name="discovery"]:checked') || {}).value || null;
+                var friction = (form.querySelector('input[name="friction"]:checked') || {}).value || null;
+
+                var answers = {
+                    discovery: discovery,
+                    discovery_other: $('discovery_other').value.trim() || null,
+                    one_thing: $('one_thing').value.trim() || null,
+                    friction: friction,
+                    friction_missing: $('friction_missing').value.trim() || null,
+                    friction_note: $('friction_note').value.trim() || null,
+                    tv_time_gap: $('tv_time_gap').value.trim() || null
+                };
+
+                submitting = true;
+                submitBtn.disabled = true;
+                var prev = submitBtn.textContent;
+                submitBtn.textContent = 'Sending…';
+
+                post({ action: 'submit', token: token, answers: answers, followup_ok: $('followup_ok').checked })
+                    .then(function (res) {
+                        return res.json().then(function (body) { return { status: res.status, body: body }; });
+                    })
+                    .then(function (r) {
+                        if (r.status === 200 && r.body.ok) {
+                            var months = r.body.grant_months || 3;
+                            $('rewardMsg').textContent =
+                                months + ' months of PocketStubs+ is now active on your account — restart the app to see it.';
+                            show('state-thankyou');
+                            return;
+                        }
+                        if (r.status === 409) { show('state-completed'); return; }
+                        throw new Error('submit_failed');
+                    })
+                    .catch(function () {
+                        submitting = false;
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = prev;
+                        errBanner.textContent = 'Something went wrong sending that. Please try again in a moment.';
+                        errBanner.style.display = 'block';
+                    });
+            });
+        })();
+    </script>
+</body>
+</html>
