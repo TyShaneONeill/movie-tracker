@@ -53,6 +53,11 @@ export function useEpisodeActions(
       queryKey: ['episodeWatches', user?.id, userTvShowId, seasonNumber],
     });
     queryClient.invalidateQueries({ queryKey: ['userTvShow', user?.id] });
+    // Home Continue Watching reads user_tv_shows (['userTvShows']) for its
+    // current_season/current_episode — marking an episode moves the last-watched
+    // coordinate, so the card's next-up must refresh on return without a manual
+    // pull. (['userTvShow'] above is the singular per-show key; this is the list.)
+    queryClient.invalidateQueries({ queryKey: ['userTvShows'] });
     // Episode Rooms' HARD gate reads this probe — any mark/unmark (single or
     // whole-season) must re-lock/unlock the room immediately, not after the
     // probe's staleTime. Partial key: covers every episode of every show.

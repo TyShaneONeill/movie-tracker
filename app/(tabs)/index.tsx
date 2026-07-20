@@ -245,7 +245,7 @@ export default function HomeScreen() {
                   onPress={() => handleTvShowPress(item.tmdb_id)}
                   onRoomPress={
                     episodeRoomsEnabled && item.current_season != null && item.current_episode != null
-                      ? () => handleRoomPress(item.tmdb_id, item.current_season!, item.current_episode!)
+                      ? (season, episode) => handleRoomPress(item.tmdb_id, season, episode)
                       : undefined
                   }
                 />

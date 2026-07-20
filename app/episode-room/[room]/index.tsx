@@ -17,7 +17,7 @@
  * carries all three ids from the route, the push payload, and deep links.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,6 +46,9 @@ import {
   formatEpisodeShort,
   selectHeroTake,
   sortTakesByEngagement,
+  resolveNextUpEpisode,
+  resolvePrevEpisode,
+  localDateString,
   ROOM_LEDGER_CAP,
 } from '@/lib/episode-room-logic';
 import { createFirstTake } from '@/lib/first-take-service';
@@ -56,6 +59,10 @@ import { FirstTakesSkeleton, FirstTakesError } from '@/components/first-takes-v2
 import { RoomTakeCard } from '@/components/episode-room/room-take-card';
 import { RoomEmpty } from '@/components/episode-room/room-empty';
 import { WatchedGate } from '@/components/episode-room/watched-gate';
+import { SeasonInterstitial } from '@/components/episode-room/season-interstitial';
+
+/** Rapid prev/next taps within this window are ignored (ref-based, no render). */
+const NAV_THROTTLE_MS = 350;
 
 export default function EpisodeRoomScreen() {
   const router = useRouter();
@@ -72,6 +79,11 @@ export default function EpisodeRoomScreen() {
 
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Non-null while the season-crossing stamp plays; the interstitial clears it.
+  const [interstitialSeason, setInterstitialSeason] = useState<number | null>(null);
+  const clearInterstitial = useCallback(() => setInterstitialSeason(null), []);
+  // Rapid prev/next tap guard — a ref so it never triggers a render.
+  const lastNavRef = useRef(0);
   // Unlock-in-place (Ty, 07-19): true from "mark succeeded" until the gate's
   // unlock animation finishes — only then does the watched probe flip, so the
   // veil plays out instead of being yanked on refetch.
@@ -179,14 +191,69 @@ export default function EpisodeRoomScreen() {
     [episodes, coords]
   );
 
-  // Prev/next stay within this season and never point past the latest aired
-  // episode, so the nav row never lands the viewer in a room for an episode that
-  // doesn't exist yet (it disables instead of hiding, keeping the row stable).
-  const today = new Date().toISOString().slice(0, 10);
-  const maxAired = useMemo(() => {
-    const aired = episodes.filter((e) => e.air_date != null && e.air_date <= today);
-    return aired.reduce((m, e) => Math.max(m, e.episode_number), 0);
-  }, [episodes, today]);
+  // Prev/next never point past the latest aired episode — but at a season edge
+  // they cross into the adjacent season (finale → next premiere, S>=2 E1 → the
+  // prior season's last aired episode) instead of dead-ending. The adjacent
+  // season's episode catalog is fetched ONLY at the boundary, and only when the
+  // show actually has that season, so mid-season rooms pull nothing extra.
+  const today = localDateString();
+  const currentAired = useMemo(
+    () => episodes.map((e) => ({ episodeNumber: e.episode_number, airDate: e.air_date })),
+    [episodes]
+  );
+
+  const showHasSeason = useCallback(
+    (seasonNumber: number) =>
+      seasonNumber >= 1 &&
+      (show?.seasons?.some((s) => s.season_number === seasonNumber && s.episode_count > 0) ?? false),
+    [show]
+  );
+
+  const atNextSeasonBoundary =
+    !!coords &&
+    episodes.length > 0 &&
+    !episodes.some((e) => e.episode_number === coords.episode + 1) &&
+    showHasSeason(coords.season + 1);
+  const atPrevSeasonBoundary =
+    !!coords && coords.episode === 1 && showHasSeason((coords?.season ?? 0) - 1);
+
+  const { episodes: nextSeasonEpisodes } = useSeasonEpisodes({
+    showId: coords?.tmdbId ?? 0,
+    seasonNumber: (coords?.season ?? 0) + 1,
+    enabled: atNextSeasonBoundary,
+  });
+  const { episodes: prevSeasonEpisodes } = useSeasonEpisodes({
+    showId: coords?.tmdbId ?? 0,
+    seasonNumber: (coords?.season ?? 0) - 1,
+    enabled: atPrevSeasonBoundary,
+  });
+
+  const nextTarget = useMemo(() => {
+    if (!coords) return null;
+    return resolveNextUpEpisode({
+      season: coords.season,
+      episode: coords.episode,
+      currentSeasonEpisodes: episodes.length > 0 ? currentAired : null,
+      nextSeasonEpisodes:
+        atNextSeasonBoundary && nextSeasonEpisodes.length > 0
+          ? nextSeasonEpisodes.map((e) => ({ episodeNumber: e.episode_number, airDate: e.air_date }))
+          : null,
+      today,
+    });
+  }, [coords, episodes.length, currentAired, atNextSeasonBoundary, nextSeasonEpisodes, today]);
+
+  const prevTarget = useMemo(() => {
+    if (!coords) return null;
+    return resolvePrevEpisode({
+      season: coords.season,
+      episode: coords.episode,
+      prevSeasonEpisodes:
+        atPrevSeasonBoundary && prevSeasonEpisodes.length > 0
+          ? prevSeasonEpisodes.map((e) => ({ episodeNumber: e.episode_number, airDate: e.air_date }))
+          : null,
+      today,
+    });
+  }, [coords, atPrevSeasonBoundary, prevSeasonEpisodes, today]);
 
   const handleGoBack = () => {
     if (router.canGoBack()) router.back();
@@ -194,9 +261,16 @@ export default function EpisodeRoomScreen() {
     else router.replace('/');
   };
 
-  const goToEpisode = (episodeNumber: number) => {
+  // Nav to an explicit (season, episode). Ref-based throttle swallows rapid
+  // taps (and repeat crossings) without a render; a genuine season change fires
+  // the interstitial before the replace so the stamp plays as the new room lands.
+  const goToEpisode = (season: number, episodeNumber: number) => {
     if (!coords) return;
-    router.replace(`/episode-room/${episodeRoomSlug(coords.tmdbId, coords.season, episodeNumber)}`);
+    const now = Date.now();
+    if (now - lastNavRef.current < NAV_THROTTLE_MS) return;
+    lastNavRef.current = now;
+    if (season !== coords.season) setInterstitialSeason(season);
+    router.replace(`/episode-room/${episodeRoomSlug(coords.tmdbId, season, episodeNumber)}`);
   };
 
   const handleComposeSubmit = async (data: {
@@ -279,8 +353,8 @@ export default function EpisodeRoomScreen() {
   const episodeLabel = formatEpisodeLabel(coords.season, coords.episode);
   const posterUri = show?.poster_path ? getTMDBImageUrl(show.poster_path, 'w185') ?? undefined : undefined;
   const airDate = episode?.air_date ?? null;
-  const prevEnabled = coords.episode > 1;
-  const nextEnabled = coords.episode < maxAired;
+  const prevEnabled = prevTarget != null;
+  const nextEnabled = nextTarget != null;
 
   const renderStream = () => {
     if (!user) {
@@ -413,29 +487,30 @@ export default function EpisodeRoomScreen() {
           {/* Episode nav — quiet, disables (not hides) at the season edges */}
           <View style={styles.epNav}>
             <Pressable
-              onPress={() => prevEnabled && goToEpisode(coords.episode - 1)}
+              onPress={() => prevTarget && goToEpisode(prevTarget.season, prevTarget.episode)}
               disabled={!prevEnabled}
               accessibilityRole="button"
               accessibilityLabel="Previous episode room"
               style={[styles.epNavBtn, !prevEnabled && styles.epNavDisabled]}
             >
               <Ionicons name="chevron-back" size={12} color={colors.textTertiary} />
-              {/* Only label a target that exists — a disabled prev at E1 must not
-                  advertise "S1E0". Keep the dimmed chevron as the affordance. */}
-              {prevEnabled && (
-                <Text style={styles.epNavText}>{formatEpisodeShort(coords.season, coords.episode - 1)}</Text>
+              {/* Only label a target that exists — a disabled prev at S1E1 must
+                  not advertise a room. At a season edge the label shows the
+                  cross-season target (e.g. "S3E10"). */}
+              {prevTarget && (
+                <Text style={styles.epNavText}>{formatEpisodeShort(prevTarget.season, prevTarget.episode)}</Text>
               )}
             </Pressable>
             <Text style={styles.roomLabel}>EPISODE ROOM</Text>
             <Pressable
-              onPress={() => nextEnabled && goToEpisode(coords.episode + 1)}
+              onPress={() => nextTarget && goToEpisode(nextTarget.season, nextTarget.episode)}
               disabled={!nextEnabled}
               accessibilityRole="button"
               accessibilityLabel="Next episode room"
               style={[styles.epNavBtn, !nextEnabled && styles.epNavDisabled]}
             >
-              {nextEnabled && (
-                <Text style={styles.epNavText}>{formatEpisodeShort(coords.season, coords.episode + 1)}</Text>
+              {nextTarget && (
+                <Text style={styles.epNavText}>{formatEpisodeShort(nextTarget.season, nextTarget.episode)}</Text>
               )}
               <Ionicons name="chevron-forward" size={12} color={colors.textTertiary} />
             </Pressable>
@@ -474,6 +549,7 @@ export default function EpisodeRoomScreen() {
 
           {renderStream()}
         </ScrollView>
+        <SeasonInterstitial season={interstitialSeason} onDone={clearInterstitial} />
       </SafeAreaView>
 
       <FirstTakeModal
