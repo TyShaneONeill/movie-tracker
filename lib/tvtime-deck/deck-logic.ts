@@ -76,13 +76,17 @@ export function yearFromDate(date: string | null | undefined): string | null {
 
 /**
  * Clamp a slider value to the app's valid 1–10 rating domain (reviews.rating
- * CHECK is 1..10). The deck uses the SAME 1–10 slider as review-modal and stores
- * the value directly — no star mapping. Fractional values are passed through as
- * the organic review flow does (the integer reviews.rating column rounds on
- * insert), so an inked stub is stored identically to a slider review.
+ * CHECK is 1..10) and ROUND to an integer. The deck uses the SAME 0–10 slider as
+ * review-modal (step 0.1, so it emits fractional values). reviews.rating is an
+ * integer column, and PostgREST's insert coercion (json_populate_record) does a
+ * TEXT cast that REJECTS a fractional value with 22P02 — it does not round. So a
+ * fractional value MUST be rounded before the write or the insert fails and the
+ * rating is silently lost (#722). Rounding here mirrors createReview's own
+ * write-boundary round, so an inked stub is stored identically to a slider
+ * review of the same value.
  */
 export function clampDeckRating(value: number): number {
-  return Math.min(10, Math.max(1, value));
+  return Math.round(Math.min(10, Math.max(1, value)));
 }
 
 /**

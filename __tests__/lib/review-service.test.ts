@@ -87,6 +87,19 @@ describe('createReview', () => {
     );
   });
 
+  it('rounds a fractional rating to an integer before inserting (#722)', async () => {
+    // reviews.rating is an integer column; PostgREST rejects a fractional value
+    // with 22P02 (it text-casts, not rounds). The 0–10 slider (step 0.1) emits
+    // fractional values, so createReview must round or the insert fails silently.
+    mockSingle.mockResolvedValueOnce({ data: { id: 'rev-1' }, error: null });
+
+    await createReview('user-1', makeReviewData({ rating: 7.5 }));
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ rating: 8 })
+    );
+  });
+
   it('throws DUPLICATE_REVIEW on unique constraint violation', async () => {
     mockSingle.mockResolvedValueOnce({
       data: null,
