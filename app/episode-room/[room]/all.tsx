@@ -108,7 +108,7 @@ export default function EpisodeRoomAllTakesScreen() {
     if (!user) {
       return (
         <View style={styles.centered}>
-          <Text style={styles.muted}>Sign in to join the Episode Room.</Text>
+          <Text style={styles.muted}>Sign in to join the Debrief Room.</Text>
         </View>
       );
     }
