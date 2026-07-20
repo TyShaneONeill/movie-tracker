@@ -233,3 +233,16 @@ export function resolvePrevEpisode(params: {
   const lastAired = maxAiredEpisode(prevSeasonEpisodes, today);
   return lastAired >= 1 ? { season: season - 1, episode: lastAired } : null;
 }
+
+/**
+ * Today as a LOCAL-timezone YYYY-MM-DD string for air-date comparisons.
+ * `toISOString()` is UTC — for a US-evening user it has already rolled to
+ * tomorrow, which would mark an episode airing tomorrow-local as aired a few
+ * hours early (cold-review nit, PR #723).
+ */
+export function localDateString(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}

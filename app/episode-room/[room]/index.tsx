@@ -48,6 +48,7 @@ import {
   sortTakesByEngagement,
   resolveNextUpEpisode,
   resolvePrevEpisode,
+  localDateString,
   ROOM_LEDGER_CAP,
 } from '@/lib/episode-room-logic';
 import { createFirstTake } from '@/lib/first-take-service';
@@ -195,7 +196,7 @@ export default function EpisodeRoomScreen() {
   // prior season's last aired episode) instead of dead-ending. The adjacent
   // season's episode catalog is fetched ONLY at the boundary, and only when the
   // show actually has that season, so mid-season rooms pull nothing extra.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
   const currentAired = useMemo(
     () => episodes.map((e) => ({ episodeNumber: e.episode_number, airDate: e.air_date })),
     [episodes]

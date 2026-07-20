@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSeasonEpisodes } from '@/hooks/use-season-episodes';
-import { resolveNextUpEpisode, type EpisodeCoords } from '@/lib/episode-room-logic';
+import { resolveNextUpEpisode, localDateString, type EpisodeCoords } from '@/lib/episode-room-logic';
 import type { TMDBEpisode } from '@/lib/tmdb.types';
 
 const toAiredInfo = (episodes: TMDBEpisode[]) =>
@@ -25,7 +25,7 @@ export function useNextEpisodeUp(
   currentEpisode: number | null,
   enabled = true
 ): EpisodeCoords | null {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
 
   const canCompute =
     enabled &&
