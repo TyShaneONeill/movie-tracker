@@ -80,6 +80,7 @@ export function TvTimeDeckScreen() {
   const [bridgeOffer, setBridgeOffer] = useState<BridgeOffer | null>(null);
   const [takeTarget, setTakeTarget] = useState<BridgeOffer | null>(null);
   const [isPostingTake, setIsPostingTake] = useState(false);
+  const postingLatchRef = useRef(false);
   const takeKeysRef = useRef<Set<string>>(new Set());
   const bridgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -127,6 +128,9 @@ export function TvTimeDeckScreen() {
         decided_total: next,
       });
       setCheckpoint(true);
+      // The strip is hidden during the checkpoint; clear the offer so a stale
+      // strip can't flash back in for a passed card on "Keep going".
+      setBridgeOffer(null);
     }
   };
 
@@ -234,6 +238,11 @@ export function TvTimeDeckScreen() {
   }) => {
     const item = takeTarget?.item;
     if (!user?.id || !item) return;
+    // Synchronous latch (the scan surface's postingRef pattern): state-based
+    // isSubmitting can't stop two same-frame taps; the DB unique index would
+    // catch the dup, but don't fire the second call at all.
+    if (postingLatchRef.current) return;
+    postingLatchRef.current = true;
     setIsPostingTake(true);
     try {
       await createFirstTake(user.id, {
@@ -267,6 +276,7 @@ export function TvTimeDeckScreen() {
       }
       throw err instanceof Error ? err : new Error(String(err));
     } finally {
+      postingLatchRef.current = false;
       setIsPostingTake(false);
     }
   };
@@ -452,6 +462,10 @@ const createStyles = (colors: typeof Colors.dark) =>
       right: 0,
       bottom: Spacing.xxl,
       alignItems: 'center',
+      // The wrap spans full width but only the centered strip is visible —
+      // box-none keeps the empty flanks from eating taps meant for the card
+      // beneath (cold-review P2, PR #727).
+      pointerEvents: 'box-none',
     },
     centerMsg: { alignItems: 'center', paddingHorizontal: Spacing.lg, gap: Spacing.md },
     msgTitle: { ...Typography.display.h3, color: colors.text, textAlign: 'center' },
