@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Platform, ActivityIndicator, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -177,6 +177,27 @@ export default function EpisodeRoomScreen() {
             : 'Could not mark it watched',
         visibilityTime: 3000,
       });
+    }
+  };
+
+  // Pull-to-refresh: a Debrief Room is a live social surface — refetch the
+  // takes, the watched probe, and the own-take probe together (Ty, 07-20).
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    if (!coords) return;
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({
+          queryKey: episodeRoomWatchedKey(user?.id, coords.tmdbId, coords.season, coords.episode),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['episode-room-own-take', user?.id, coords.tmdbId, coords.season, coords.episode],
+        }),
+      ]);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -420,9 +441,12 @@ export default function EpisodeRoomScreen() {
         )}
         {ledger.length > 0 && (
           <View style={styles.ledger}>
-            {ledger.map((entry, index) => (
+            {ledger.map((entry) => (
               <View key={entry.take.id}>
-                {index > 0 && <Perforation />}
+                {/* Perforation above EVERY row — including the first, which
+                    otherwise flowed straight out of the hero stub with no
+                    divider (Ty, 07-20 device pass). */}
+                <Perforation />
                 <RoomTakeCard
                   entry={entry}
                   variant="ledger"
@@ -465,6 +489,14 @@ export default function EpisodeRoomScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.tint}
+              colors={[colors.tint]}
+            />
+          }
         >
           {/* Episode identity */}
           <View style={styles.episodeId}>
