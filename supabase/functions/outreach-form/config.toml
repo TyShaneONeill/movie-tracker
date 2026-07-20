@@ -1,0 +1,5 @@
+# Tokenized outreach feedback funnel — invoked from public/outreach.html with no
+# Supabase key. verify_jwt = false lets the gateway accept unauthenticated calls;
+# the unguessable per-invite token IS the credential, validated server-side, and
+# all DB access is via the service role. Deploy with `--no-verify-jwt`.
+verify_jwt = false
