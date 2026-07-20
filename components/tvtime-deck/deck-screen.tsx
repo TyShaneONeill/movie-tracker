@@ -26,15 +26,28 @@ import { analytics } from '@/lib/analytics';
 import { captureException } from '@/lib/sentry';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import { useTvTimeDeck } from '@/hooks/use-tvtime-deck';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { inkStubRating } from '@/lib/tvtime-deck/deck-service';
 import { addSkipped, clearSkipped } from '@/lib/tvtime-deck/skip-store';
 import {
   buildDeckQueue,
   sessionSlot,
   isSessionCheckpoint,
+  shouldOfferTakeBridge,
   type DeckItem,
 } from '@/lib/tvtime-deck/deck-logic';
+import { createFirstTake } from '@/lib/first-take-service';
+import type { ReviewVisibility } from '@/lib/database.types';
+import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import { FirstTakeModal } from '@/components/first-take-modal';
 import { DeckCard } from './deck-card';
+import { InkTakeBridgeStrip } from './ink-take-bridge-strip';
+
+/** How long the ink→take invitation lingers before it slips away on its own. */
+const BRIDGE_AUTO_DISMISS_MS = 7000;
+
+/** A just-inked item plus the rating chosen, carried into the take composer. */
+type BridgeOffer = { item: DeckItem; rating: number };
 
 export function TvTimeDeckScreen() {
   const { user } = useAuth();
@@ -42,6 +55,7 @@ export function TvTimeDeckScreen() {
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
   const reduced = useReducedMotion();
+  const { preferences } = useUserPreferences();
 
   const { isLoading, isError, data, refetch } = useTvTimeDeck(user?.id, true);
 
@@ -58,6 +72,26 @@ export function TvTimeDeckScreen() {
   const inFlightRef = useRef<Set<string>>(new Set());
   const decidedRef = useRef(0);
 
+  // Ink→take bridge: the just-inked item the invitation strip is offering (null
+  // when nothing to offer), the frozen target while the composer is open, and
+  // whether that post is in flight. Each offer carries the rating just inked so
+  // the composer opens pre-filled with it. Keys the user already has a take on
+  // live in takeKeysRef so the bridge is cheaply suppressed for spoken-for titles.
+  const [bridgeOffer, setBridgeOffer] = useState<BridgeOffer | null>(null);
+  const [takeTarget, setTakeTarget] = useState<BridgeOffer | null>(null);
+  const [isPostingTake, setIsPostingTake] = useState(false);
+  const takeKeysRef = useRef<Set<string>>(new Set());
+  const bridgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearBridgeTimer = () => {
+    if (bridgeTimerRef.current) {
+      clearTimeout(bridgeTimerRef.current);
+      bridgeTimerRef.current = null;
+    }
+  };
+  // Tear the auto-dismiss timer down on unmount so it can't fire into a gone tree.
+  useEffect(() => clearBridgeTimer, []);
+
   useEffect(() => {
     if (data && !seededRef.current) {
       seededRef.current = true;
@@ -65,6 +99,7 @@ export function TvTimeDeckScreen() {
       setQueue(initial);
       setDeckSize(initial.length);
       setSkippedKeys(new Set(data.skippedKeys));
+      takeKeysRef.current = new Set(data.existingTakeKeys);
       analytics.track('deck_opened', {
         eligible_count: initial.length,
         inked: data.progress.inked,
@@ -107,6 +142,18 @@ export function TvTimeDeckScreen() {
       decided_total: decidedRef.current + 1,
     });
     advance();
+    // Ink→take bridge: the ink itself stays a quiet private review (untouched
+    // above). Separately, offer ONE optional public First Take for this title,
+    // rating carried over — unless the user already has a take for it. The deck
+    // has ALREADY advanced, so a pure inker never feels this.
+    if (shouldOfferTakeBridge(item.key, takeKeysRef.current)) {
+      clearBridgeTimer();
+      setBridgeOffer({ item, rating });
+      analytics.track('deck_take_bridge_shown', { media_type: item.target.mediaType });
+      bridgeTimerRef.current = setTimeout(() => {
+        setBridgeOffer((cur) => (cur?.item.key === item.key ? null : cur));
+      }, BRIDGE_AUTO_DISMISS_MS);
+    }
     inFlightRef.current.add(item.key);
     inkStubRating(user.id, item, rating)
       .catch((err) => {
@@ -157,9 +204,77 @@ export function TvTimeDeckScreen() {
     clearSkipped(user.id);
   };
 
+  // Ink→take bridge: tapping the invitation freezes its item+rating as the
+  // composer target and opens the modal (the deck stays where it is behind it).
+  const openTakeComposer = (item: DeckItem) => {
+    clearBridgeTimer();
+    if (bridgeOffer && bridgeOffer.item.key === item.key) {
+      setTakeTarget(bridgeOffer);
+    }
+    setBridgeOffer(null);
+    analytics.track('deck_take_bridge_tapped', { media_type: item.target.mediaType });
+  };
+
+  const dismissBridge = (item: DeckItem) => {
+    clearBridgeTimer();
+    setBridgeOffer((cur) => (cur?.item.key === item.key ? null : cur));
+    analytics.track('deck_take_bridge_dismissed', { media_type: item.target.mediaType });
+  };
+
+  // Post the optional First Take. This is a NORMAL organic take (public-default,
+  // visibility picker in the modal) — it SHOULD hit the feed/notifications like
+  // any take. It does NOT touch the quiet-ink review. Rethrows so the modal
+  // skips its "posted!" confirmation on failure; the duplicate path is only a
+  // fallback (the bridge already dedupes eligible titles).
+  const handleTakeSubmit = async (data: {
+    rating: number | null;
+    quoteText: string;
+    isSpoiler: boolean;
+    visibility: ReviewVisibility;
+  }) => {
+    const item = takeTarget?.item;
+    if (!user?.id || !item) return;
+    setIsPostingTake(true);
+    try {
+      await createFirstTake(user.id, {
+        tmdbId: item.target.tmdbId,
+        movieTitle: item.title,
+        posterPath: item.posterPath,
+        reactionEmoji: '',
+        quoteText: data.quoteText,
+        isSpoiler: data.isSpoiler,
+        rating: data.rating,
+        visibility: data.visibility,
+        mediaType: item.target.mediaType,
+        showName: item.target.mediaType === 'tv_show' ? item.title : null,
+      });
+      takeKeysRef.current.add(item.key);
+      analytics.track('deck_take_posted', {
+        media_type: item.target.mediaType,
+        rating: data.rating,
+        has_quote: data.quoteText.trim().length > 0,
+      });
+      setTakeTarget(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (message === 'DUPLICATE_FIRST_TAKE') {
+        // Already spoken for (raced another surface) — treat as done, don't nag.
+        takeKeysRef.current.add(item.key);
+        setTakeTarget(null);
+        Toast.show({ type: 'info', text1: 'You already have a take for this', visibilityTime: 2500 });
+      } else {
+        Toast.show({ type: 'error', text1: "Couldn't post your take", visibilityTime: 2500 });
+      }
+      throw err instanceof Error ? err : new Error(String(err));
+    } finally {
+      setIsPostingTake(false);
+    }
+  };
+
   const top = queue[0];
   const done = !isLoading && !isError && queue.length === 0;
   const skippedCount = skippedKeys.size;
+  const bridgePosterUrl = takeTarget ? getTMDBImageUrl(takeTarget.item.posterPath, 'w342') : null;
 
   const header = (
     <View style={styles.header}>
@@ -236,6 +351,20 @@ export function TvTimeDeckScreen() {
         )}
       </View>
 
+      {/* Ink→take bridge: optional "say a line about it" invitation after an ink.
+          Non-blocking — the deck already advanced; hidden during the checkpoint. */}
+      {bridgeOffer && !checkpoint && (
+        <View style={styles.bridgeWrap}>
+          <InkTakeBridgeStrip
+            key={bridgeOffer.item.key}
+            item={bridgeOffer.item}
+            reduced={reduced}
+            onTap={openTakeComposer}
+            onDismiss={dismissBridge}
+          />
+        </View>
+      )}
+
       {!done && !isLoading && !isError && deckSize > 0 && (
         <Text style={styles.counter}>
           {position} OF {deckSize}
@@ -259,6 +388,30 @@ export function TvTimeDeckScreen() {
           </View>
         </View>
       )}
+
+      {/* Ink→take composer. A NORMAL organic First Take (public-default visibility
+          picker), pre-filled with the rating just inked. isEditing={false} keeps
+          CREATE copy ("Your First Take" / "Post First Take") even though we seed
+          initialValues — the quiet-ink review it rides on is left untouched. */}
+      <FirstTakeModal
+        visible={!!takeTarget}
+        onClose={() => setTakeTarget(null)}
+        onSubmit={handleTakeSubmit}
+        movieTitle={takeTarget?.item.title ?? ''}
+        moviePosterUrl={bridgePosterUrl ?? undefined}
+        isSubmitting={isPostingTake}
+        isEditing={false}
+        initialValues={
+          takeTarget
+            ? {
+                rating: takeTarget.rating,
+                quoteText: '',
+                isSpoiler: false,
+                visibility: preferences?.reviewVisibility ?? 'public',
+              }
+            : null
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -290,6 +443,15 @@ const createStyles = (colors: typeof Colors.dark) =>
       color: colors.textTertiary,
       letterSpacing: 1.5,
       paddingBottom: Spacing.md,
+    },
+    // The invitation floats over the bottom of the deck so it never shifts the
+    // card when it arrives or auto-dismisses (fixed inset — no % on iOS new-arch).
+    bridgeWrap: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: Spacing.xxl,
+      alignItems: 'center',
     },
     centerMsg: { alignItems: 'center', paddingHorizontal: Spacing.lg, gap: Spacing.md },
     msgTitle: { ...Typography.display.h3, color: colors.text, textAlign: 'center' },

@@ -52,6 +52,38 @@ export interface RatedReviewKey {
   media_type: string;
 }
 
+/** Identifies an existing First Take so the ink→take bridge can skip duplicates. */
+export interface ExistingTakeKey {
+  tmdb_id: number;
+  media_type: string;
+}
+
+/**
+ * Ink→take bridge dedup keys. A First Take row's `${media_type}:${tmdb_id}` is
+ * the SAME shape as a DeckItem key, so a movie/show-level take lines up directly
+ * with the deck item it would block. Episode/season takes (media_type
+ * 'tv_episode'/'tv_season') produce keys that never collide with a deck key
+ * (which is only ever 'movie:'/'tv_show:'), so having an episode take does NOT
+ * suppress the show-level bridge — that's intended (a show take ≠ an episode take).
+ */
+export function buildTakeKeySet(rows: ExistingTakeKey[]): Set<string> {
+  return new Set(rows.map((r) => `${r.media_type}:${r.tmdb_id}`));
+}
+
+/**
+ * Whether to offer the "say a line about it" take bridge after inking `item`.
+ * True unless the user already has a First Take for that exact target — the
+ * cheap client-side dedup that keeps the affordance off titles already spoken
+ * for (the failed-post duplicate toast is only a fallback, never the primary
+ * path). Pure so it stays unit-tested and I/O-free like the rest of the deck.
+ */
+export function shouldOfferTakeBridge(
+  itemKey: string,
+  existingTakeKeys: ReadonlySet<string>
+): boolean {
+  return !existingTakeKeys.has(itemKey);
+}
+
 export interface DeckProgress {
   /** Imported items that CAN be inked (rated + still-unrated). */
   totalEligible: number;
