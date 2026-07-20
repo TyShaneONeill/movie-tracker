@@ -25,6 +25,13 @@ interface RatingSliderProps {
   onChange: (value: number) => void;
   onSlidingComplete?: (value: number) => void;
   disabled?: boolean;
+  /**
+   * Slider granularity. Surfaces whose backing column is INTEGER (reviews —
+   * the deck inks + the review modal) must pass 1, so the value the user sees
+   * IS the value that's stored (#722/#725: write-boundary rounding alone would
+   * show 7.5 while storing 8). First takes keep the 0.1 default (numeric col).
+   */
+  step?: number;
   /** Deck: render "—" and a muted thumb until first touch. */
   unset?: boolean;
   /** Shrink the value read for tight surfaces (the deck card). */
@@ -37,6 +44,7 @@ export function RatingSlider({
   onChange,
   onSlidingComplete,
   disabled = false,
+  step = 0.1,
   unset = false,
   valueFontSize = 48,
   style,
@@ -44,6 +52,8 @@ export function RatingSlider({
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
+  // Snap to the step grid; the *10/10 round kills float dust (0.7000000001).
+  const quantize = (v: number) => Math.round(Math.round(v / step) * step * 10) / 10;
 
   return (
     <View style={[styles.wrapper, style]}>
@@ -64,11 +74,11 @@ export function RatingSlider({
           style={styles.slider}
           minimumValue={0}
           maximumValue={10}
-          step={0.1}
+          step={step}
           value={value}
           disabled={disabled}
-          onValueChange={(v) => onChange(Math.round(v * 10) / 10)}
-          onSlidingComplete={onSlidingComplete ? (v) => onSlidingComplete(Math.round(v * 10) / 10) : undefined}
+          onValueChange={(v) => onChange(quantize(v))}
+          onSlidingComplete={onSlidingComplete ? (v) => onSlidingComplete(quantize(v)) : undefined}
           minimumTrackTintColor={unset ? colors.textTertiary : colors.tint}
           maximumTrackTintColor={colors.backgroundSecondary}
           // Theme-aware thumb: colors.text is near-white on dark (as before) and

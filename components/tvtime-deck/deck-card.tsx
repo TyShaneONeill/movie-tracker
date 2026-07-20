@@ -95,6 +95,7 @@ export function DeckCard({ item, reduced, disabled, onRate, onSkip }: DeckCardPr
             value={rating}
             onChange={markRated}
             onSlidingComplete={markRated}
+            step={1}
             unset={!touched}
             disabled={disabled}
             valueFontSize={40}
