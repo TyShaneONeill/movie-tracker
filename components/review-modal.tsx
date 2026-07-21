@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
 import type { ReviewVisibility } from '@/lib/database.types';
 
 const MAX_REVIEW_TEXT_LENGTH = 2000;
@@ -81,6 +82,7 @@ export function ReviewModal({
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
+  const keyboardGuardEnabled = useModalKeyboardGuardEnabled();
 
   const [rating, setRating] = useState<number>(existingReview?.rating ?? initialRating ?? 5);
   const [title, setTitle] = useState(existingReview?.title ?? '');
@@ -90,16 +92,29 @@ export function ReviewModal({
     existingReview?.visibility ?? preferences?.reviewVisibility ?? 'public'
   );
 
-  // Reset form when modal opens with new data
+  // Reset form when modal opens with new data. With the keyboard guard on,
+  // resets happen only on the false→true `visible` transition AND only when the
+  // target movie changed or a submit cleared the draft — an accidental close
+  // (backdrop swipe near the keyboard, Android back) keeps the in-memory draft
+  // for the next open. Legacy path keeps the historical reset-on-dep-change.
+  const prevVisibleRef = useRef(false);
+  const draftTargetRef = useRef<string | null>(null);
   useEffect(() => {
-    if (visible) {
-      setRating(existingReview?.rating ?? initialRating ?? 5);
-      setTitle(existingReview?.title ?? '');
-      setReviewText(existingReview?.reviewText ?? '');
-      setIsSpoiler(existingReview?.isSpoiler ?? false);
-      setVisibility(existingReview?.visibility ?? preferences?.reviewVisibility ?? 'public');
+    const opening = visible && !prevVisibleRef.current;
+    prevVisibleRef.current = visible;
+    if (!visible) return;
+    if (keyboardGuardEnabled) {
+      if (!opening) return;
+      const hasDraftForTarget = draftTargetRef.current === movieTitle;
+      draftTargetRef.current = movieTitle;
+      if (hasDraftForTarget) return;
     }
-  }, [visible, existingReview, initialRating, preferences?.reviewVisibility]);
+    setRating(existingReview?.rating ?? initialRating ?? 5);
+    setTitle(existingReview?.title ?? '');
+    setReviewText(existingReview?.reviewText ?? '');
+    setIsSpoiler(existingReview?.isSpoiler ?? false);
+    setVisibility(existingReview?.visibility ?? preferences?.reviewVisibility ?? 'public');
+  }, [visible, existingReview, initialRating, preferences?.reviewVisibility, keyboardGuardEnabled, movieTitle]);
 
   // When content is locked the user can still save a visibility-only change, so
   // the button stays enabled regardless of the (read-only) content values.
@@ -127,11 +142,27 @@ export function ReviewModal({
       visibilityTime: 2000,
     });
     hapticNotification(NotificationFeedbackType.Success);
+    // Submitted content is no longer a draft — next open re-pulls fresh data.
+    draftTargetRef.current = null;
   };
 
   const handleClose = () => {
     hapticImpact();
     onClose();
+  };
+
+  // A swipe that starts on the backdrop strip above the keyboard stays inside
+  // the backdrop's bounds, so Pressable fires onPress on release — with the
+  // keyboard up that swipe was closing the whole sheet. Guarded: first press
+  // just drops the keyboard; only a press with the keyboard already down
+  // closes. The ✕ button and submit are unaffected (explicit intents).
+  const handleBackdropPress = () => {
+    const keyboardUp = Keyboard.isVisible() || TextInput.State.currentlyFocusedInput() != null;
+    if (keyboardGuardEnabled && keyboardUp) {
+      Keyboard.dismiss();
+      return;
+    }
+    handleClose();
   };
 
   return (
@@ -145,10 +176,11 @@ export function ReviewModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <Pressable style={styles.overlay} onPress={handleClose}>
+        <Pressable style={styles.overlay} onPress={handleBackdropPress} testID="review-backdrop">
           <View style={styles.container}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={keyboardGuardEnabled ? 'on-drag' : 'none'}
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
