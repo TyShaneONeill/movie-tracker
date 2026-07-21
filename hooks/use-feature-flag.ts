@@ -108,3 +108,25 @@ export function useStreakSpineEnabled(): boolean {
   if (envOverride === 'false') return false;
   return flagOn;
 }
+
+/**
+ * Returns true when the modal keyboard guard is active: in the First Take /
+ * Review / Multi First Take sheets, a backdrop press while the keyboard is up
+ * dismisses the keyboard instead of closing the sheet (a swipe that starts on
+ * the strip above the keyboard registers as a backdrop press and was silently
+ * closing the sheet, losing the typed draft), and an accidental close keeps
+ * the in-memory draft for the next open of the same title/episode.
+ *
+ * Ships dark for Ty-only device validation on the production channel first,
+ * then widens — same rollout playbook as streak_spine. Env override
+ * EXPO_PUBLIC_MODAL_KEYBOARD_GUARD_OVERRIDE = "true" | "false" for dev.
+ * Fails closed (legacy dismiss behavior) while the flag is loading.
+ */
+export function useModalKeyboardGuardEnabled(): boolean {
+  const { enabled: flagOn } = useFeatureFlag('modal_keyboard_guard');
+  const envOverride = process.env.EXPO_PUBLIC_MODAL_KEYBOARD_GUARD_OVERRIDE;
+
+  if (envOverride === 'true') return true;
+  if (envOverride === 'false') return false;
+  return flagOn;
+}

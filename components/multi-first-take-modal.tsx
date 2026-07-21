@@ -31,6 +31,7 @@ import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { createFirstTake } from '@/lib/first-take-service';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
 import { captureException } from '@/lib/sentry';
 import type { ReviewVisibility } from '@/lib/database.types';
 
@@ -72,6 +73,7 @@ export function MultiFirstTakeModal({
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
+  const keyboardGuardEnabled = useModalKeyboardGuardEnabled();
 
   // Current movie index
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -110,6 +112,18 @@ export function MultiFirstTakeModal({
     resetAll();
     onComplete();
   }, [resetAll, onComplete]);
+
+  // A swipe that starts on the backdrop strip above the keyboard registers as
+  // a backdrop press and was abandoning the WHOLE batch (handleClose calls
+  // onComplete). Guarded: with the keyboard up, a backdrop press only drops
+  // the keyboard; a press with the keyboard already down closes as before.
+  const handleBackdropPress = useCallback(() => {
+    if (keyboardGuardEnabled && Keyboard.isVisible()) {
+      Keyboard.dismiss();
+      return;
+    }
+    handleClose();
+  }, [keyboardGuardEnabled, handleClose]);
 
   // Handle skip current movie
   const handleSkip = useCallback(() => {
@@ -223,10 +237,11 @@ export function MultiFirstTakeModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <Pressable style={styles.overlay} onPress={handleClose}>
+        <Pressable style={styles.overlay} onPress={handleBackdropPress} testID="multi-first-take-backdrop">
           <View style={styles.container}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={keyboardGuardEnabled ? 'on-drag' : 'none'}
               showsVerticalScrollIndicator={false}
               bounces={false}
             >

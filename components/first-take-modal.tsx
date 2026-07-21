@@ -21,6 +21,7 @@ import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
 import type { ReviewVisibility } from '@/lib/database.types';
 
 const MAX_QUOTE_LENGTH = 140;
@@ -90,6 +91,7 @@ export function FirstTakeModal({
   const colors = Colors[effectiveTheme];
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
+  const keyboardGuardEnabled = useModalKeyboardGuardEnabled();
   const isEditing = isEditingProp ?? !!initialValues;
   // Preserve a null/absent rating on the EDIT path — a rating-less First Take
   // must NOT be coerced to 5 (that would stamp an edit the user never made).
@@ -108,15 +110,25 @@ export function FirstTakeModal({
   // and the preferences default inside the guard so an actual open reflects the
   // latest values.
   const prevVisibleRef = useRef(false);
+  // Keyboard guard: an accidental close (backdrop swipe, Android back) keeps
+  // the typed draft in memory; reopening for the SAME title/episode restores
+  // it instead of resetting. Any other target (or a successful submit, which
+  // nulls the key) resets as before. Client-memory only — nothing persisted.
+  const draftTargetRef = useRef<string | null>(null);
+  const targetKey = `${movieTitle}|${seasonNumber ?? ''}|${episodeNumber ?? ''}`;
   useEffect(() => {
     if (visible && !prevVisibleRef.current) {
-      setRating(initialValues ? initialValues.rating : 5);
-      setQuoteText(initialValues?.quoteText ?? '');
-      setIsSpoiler(initialValues?.isSpoiler ?? false);
-      setVisibility(initialValues?.visibility ?? preferences?.reviewVisibility ?? 'public');
+      const hasDraftForTarget = keyboardGuardEnabled && draftTargetRef.current === targetKey;
+      if (!hasDraftForTarget) {
+        setRating(initialValues ? initialValues.rating : 5);
+        setQuoteText(initialValues?.quoteText ?? '');
+        setIsSpoiler(initialValues?.isSpoiler ?? false);
+        setVisibility(initialValues?.visibility ?? preferences?.reviewVisibility ?? 'public');
+      }
+      draftTargetRef.current = targetKey;
     }
     prevVisibleRef.current = visible;
-  }, [visible, initialValues, preferences?.reviewVisibility]);
+  }, [visible, initialValues, preferences?.reviewVisibility, keyboardGuardEnabled, targetKey]);
 
   // When content is locked the user can still save a visibility-only change, so
   // the button stays enabled regardless of the (read-only) content values.
@@ -145,6 +157,7 @@ export function FirstTakeModal({
     hapticNotification(NotificationFeedbackType.Success);
     // Reset state after successful submit (create defaults; a subsequent open
     // re-pulls initialValues via the visible-transition effect).
+    draftTargetRef.current = null;
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
@@ -153,12 +166,27 @@ export function FirstTakeModal({
 
   const handleClose = () => {
     hapticImpact();
-    // Reset state on close
-    setRating(5);
-    setQuoteText('');
-    setIsSpoiler(false);
-    setVisibility(preferences?.reviewVisibility ?? 'public');
+    if (!keyboardGuardEnabled) {
+      // Legacy behavior: reset state on close
+      setRating(5);
+      setQuoteText('');
+      setIsSpoiler(false);
+      setVisibility(preferences?.reviewVisibility ?? 'public');
+    }
     onClose();
+  };
+
+  // A swipe that starts on the backdrop strip above the keyboard stays inside
+  // the backdrop's bounds, so Pressable fires onPress on release — with the
+  // keyboard up that swipe was closing the whole sheet. Guarded: first press
+  // just drops the keyboard; only a press with the keyboard already down
+  // closes. The ✕ button and submit are unaffected (explicit intents).
+  const handleBackdropPress = () => {
+    if (keyboardGuardEnabled && Keyboard.isVisible()) {
+      Keyboard.dismiss();
+      return;
+    }
+    handleClose();
   };
 
   // Format rating display (show decimal only when needed)
@@ -177,10 +205,11 @@ export function FirstTakeModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <Pressable style={styles.overlay} onPress={handleClose}>
+        <Pressable style={styles.overlay} onPress={handleBackdropPress} testID="first-take-backdrop">
           <View style={styles.container}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={keyboardGuardEnabled ? 'on-drag' : 'none'}
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
