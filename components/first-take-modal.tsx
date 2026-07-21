@@ -210,7 +210,7 @@ export function FirstTakeModal({
           <View style={styles.container}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={keyboardGuardEnabled ? 'on-drag' : 'none'}
+              keyboardDismissMode={keyboardGuardEnabled && Platform.OS === 'ios' ? 'interactive' : 'none'}
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
