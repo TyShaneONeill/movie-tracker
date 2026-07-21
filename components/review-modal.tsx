@@ -22,6 +22,7 @@ import { useTheme } from '@/lib/theme-context';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
+import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import type { ReviewVisibility } from '@/lib/database.types';
 
 const MAX_REVIEW_TEXT_LENGTH = 2000;
@@ -83,6 +84,7 @@ export function ReviewModal({
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
   const keyboardGuardEnabled = useModalKeyboardGuardEnabled();
+  const keyboardVisible = useKeyboardVisible();
 
   const [rating, setRating] = useState<number>(existingReview?.rating ?? initialRating ?? 5);
   const [title, setTitle] = useState(existingReview?.title ?? '');
@@ -177,7 +179,7 @@ export function ReviewModal({
         style={styles.keyboardView}
       >
         <Pressable style={styles.overlay} onPress={handleBackdropPress} testID="review-backdrop">
-          <View style={styles.container}>
+          <View style={[styles.container, keyboardGuardEnabled && keyboardVisible && styles.containerKeyboardUp]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={keyboardGuardEnabled && Platform.OS === 'ios' ? 'interactive' : 'none'}
@@ -355,6 +357,11 @@ const createStyles = (colors: typeof Colors.dark) =>
       paddingBottom: 34,
       maxHeight: '90%',
       ...(Platform.OS === 'web' ? { maxWidth: 768, width: '100%', alignSelf: 'center' as const } : {}),
+    },
+    // With the keyboard up, the keyboard covers the home-indicator area, so
+    // the 34pt clearance is dead space that clips content (Ty, 07-21).
+    containerKeyboardUp: {
+      paddingBottom: Spacing.sm,
     },
     content: {
       padding: Spacing.lg,
