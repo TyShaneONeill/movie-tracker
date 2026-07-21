@@ -32,6 +32,7 @@ import { createFirstTake } from '@/lib/first-take-service';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
+import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import { captureException } from '@/lib/sentry';
 import type { ReviewVisibility } from '@/lib/database.types';
 
@@ -74,6 +75,7 @@ export function MultiFirstTakeModal({
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
   const keyboardGuardEnabled = useModalKeyboardGuardEnabled();
+  const keyboardVisible = useKeyboardVisible();
 
   // Current movie index
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -239,7 +241,7 @@ export function MultiFirstTakeModal({
         style={styles.keyboardView}
       >
         <Pressable style={styles.overlay} onPress={handleBackdropPress} testID="multi-first-take-backdrop">
-          <View style={styles.container}>
+          <View style={[styles.container, keyboardGuardEnabled && keyboardVisible && styles.containerKeyboardUp]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={keyboardGuardEnabled && Platform.OS === 'ios' ? 'interactive' : 'none'}
@@ -458,6 +460,11 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderTopColor: colors.border,
       paddingBottom: 34, // Safe area
       maxHeight: '90%',
+    },
+    // With the keyboard up, the keyboard covers the home-indicator area, so
+    // the 34pt clearance is dead space that clips content (Ty, 07-21).
+    containerKeyboardUp: {
+      paddingBottom: Spacing.sm,
     },
     content: {
       padding: Spacing.lg,

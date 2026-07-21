@@ -22,6 +22,7 @@ import { useTheme } from '@/lib/theme-context';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
+import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import type { ReviewVisibility } from '@/lib/database.types';
 
 const MAX_QUOTE_LENGTH = 140;
@@ -92,6 +93,7 @@ export function FirstTakeModal({
   const styles = createStyles(colors);
   const { preferences } = useUserPreferences();
   const keyboardGuardEnabled = useModalKeyboardGuardEnabled();
+  const keyboardVisible = useKeyboardVisible();
   const isEditing = isEditingProp ?? !!initialValues;
   // Preserve a null/absent rating on the EDIT path — a rating-less First Take
   // must NOT be coerced to 5 (that would stamp an edit the user never made).
@@ -207,7 +209,7 @@ export function FirstTakeModal({
         style={styles.keyboardView}
       >
         <Pressable style={styles.overlay} onPress={handleBackdropPress} testID="first-take-backdrop">
-          <View style={styles.container}>
+          <View style={[styles.container, keyboardGuardEnabled && keyboardVisible && styles.containerKeyboardUp]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={keyboardGuardEnabled && Platform.OS === 'ios' ? 'interactive' : 'none'}
@@ -406,9 +408,14 @@ const createStyles = (colors: typeof Colors.dark) =>
       borderTopRightRadius: BorderRadius.lg,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingBottom: 34, // Safe area
+      paddingBottom: 34, // Home-indicator clearance — collapsed while the keyboard is up
       maxHeight: '90%',
       ...(Platform.OS === 'web' ? { maxWidth: 768, width: '100%', alignSelf: 'center' as const } : {}),
+    },
+    // With the keyboard up, the keyboard covers the home-indicator area, so
+    // the 34pt clearance is dead space that clips content (Ty, 07-21).
+    containerKeyboardUp: {
+      paddingBottom: Spacing.sm,
     },
     content: {
       padding: Spacing.lg,
