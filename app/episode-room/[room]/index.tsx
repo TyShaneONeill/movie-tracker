@@ -34,6 +34,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTvShowDetail } from '@/hooks/use-tv-show-detail';
 import { useSeasonEpisodes } from '@/hooks/use-season-episodes';
 import { useEpisodeRoomsGate } from '@/hooks/use-episode-rooms-enabled';
+import { isDoubleLengthEpisode, DOUBLE_LENGTH_HINT } from '@/lib/episode-length';
 import {
   useEpisodeWatched,
   useEpisodeRoomTakes,
@@ -212,6 +213,13 @@ export default function EpisodeRoomScreen() {
   const episode = useMemo(
     () => episodes.find((e) => e.episode_number === coords?.episode),
     [episodes, coords]
+  );
+
+  // See lib/episode-length.ts — a double-length episode may appear as two
+  // parts on the viewer's streaming service, so the room says so up front.
+  const isDoubleLength = useMemo(
+    () => (episode ? isDoubleLengthEpisode(episode, episodes) : false),
+    [episode, episodes]
   );
 
   // Prev/next never point past the latest aired episode — but at a season edge
@@ -515,6 +523,7 @@ export default function EpisodeRoomScreen() {
                 {episode?.name ?? 'Episode'}
               </Text>
               {airDate && <Text style={styles.epSub}>Aired {airDate}</Text>}
+              {isDoubleLength && <Text style={styles.epSub}>{DOUBLE_LENGTH_HINT}</Text>}
             </View>
           </View>
 
