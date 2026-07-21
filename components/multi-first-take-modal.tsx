@@ -118,7 +118,8 @@ export function MultiFirstTakeModal({
   // onComplete). Guarded: with the keyboard up, a backdrop press only drops
   // the keyboard; a press with the keyboard already down closes as before.
   const handleBackdropPress = useCallback(() => {
-    if (keyboardGuardEnabled && Keyboard.isVisible()) {
+    const keyboardUp = Keyboard.isVisible() || TextInput.State.currentlyFocusedInput() != null;
+    if (keyboardGuardEnabled && keyboardUp) {
       Keyboard.dismiss();
       return;
     }

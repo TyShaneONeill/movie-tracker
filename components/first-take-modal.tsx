@@ -182,7 +182,8 @@ export function FirstTakeModal({
   // just drops the keyboard; only a press with the keyboard already down
   // closes. The ✕ button and submit are unaffected (explicit intents).
   const handleBackdropPress = () => {
-    if (keyboardGuardEnabled && Keyboard.isVisible()) {
+    const keyboardUp = Keyboard.isVisible() || TextInput.State.currentlyFocusedInput() != null;
+    if (keyboardGuardEnabled && keyboardUp) {
       Keyboard.dismiss();
       return;
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Keyboard } from 'react-native';
+import { Keyboard, TextInput } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -87,6 +87,24 @@ describe('FirstTakeModal keyboard guard (backdrop dismiss)', () => {
     fireEvent.press(getByTestId('first-take-backdrop'));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('guard ON: falls back to focused-input check when Keyboard.isVisible() is stale-false', () => {
+    // Android inside a Modal can report isVisible()=false while an input is
+    // focused and the IME is up — the focused-input fallback must still guard.
+    setGuard(true);
+    isVisibleSpy.mockReturnValue(false);
+    const focusedSpy = jest
+      .spyOn(TextInput.State, 'currentlyFocusedInput')
+      .mockReturnValue({} as ReturnType<typeof TextInput.State.currentlyFocusedInput>);
+    const onClose = jest.fn();
+    const { getByTestId } = render(<FirstTakeModal {...baseProps} onClose={onClose} />);
+
+    fireEvent.press(getByTestId('first-take-backdrop'));
+
+    expect(dismissSpy).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    focusedSpy.mockRestore();
   });
 
   it('guard OFF: backdrop press closes even with keyboard visible (legacy behavior)', () => {
