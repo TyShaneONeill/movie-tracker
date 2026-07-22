@@ -76,6 +76,7 @@ import { DiscoveryTvCard } from '@/components/share/discovery-tv-card';
 import { GetPocketStubsCTA } from '@/components/share/get-pocketstubs-cta';
 import { addTvShowToLibrary, batchMarkEpisodesWatched, updateTvShowStatus } from '@/lib/tv-show-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
+import { isDoubleLengthEpisode } from '@/lib/episode-length';
 import type { TMDBTvShow, TMDBWatchProviders, TMDBSeason, TMDBEpisode } from '@/lib/tmdb.types';
 import type { TvShowStatus } from '@/lib/database.types';
 import { TvWatchedSelectionModal } from '@/components/tv/tv-watched-selection-modal';
@@ -156,6 +157,20 @@ function SeasonAccordionItem({
   const hasUnaired = airedEpisodes.length < episodes.length;
 
   const isAllWatched = allWatched(airedEpisodes.length);
+
+  // Double-length episodes (hour-long premieres/finales in a 22-minute show)
+  // often appear as TWO parts on streaming services even though TMDB's aired
+  // order has one record — surface that so progress mismatches don't read as
+  // wrong data (Ty hit this with The Office S5E1 on Peacock, 2026-07-21).
+  const doubleEpisodeNumbers = useMemo(
+    () =>
+      new Set(
+        episodes
+          .filter((e) => isDoubleLengthEpisode(e, episodes))
+          .map((e) => e.episode_number)
+      ),
+    [episodes]
+  );
 
   const seasonYear = season.air_date?.split('-')[0] ?? '';
   const posterUrl = getTMDBImageUrl(season.poster_path, 'w185');
@@ -249,6 +264,11 @@ function SeasonAccordionItem({
                       {!aired && episode.air_date && (
                         <Text style={[dynamicStyles.episodeRuntime, { fontSize: 11 }]}>
                           Airs {episode.air_date}
+                        </Text>
+                      )}
+                      {aired && doubleEpisodeNumbers.has(episode.episode_number) && (
+                        <Text style={[dynamicStyles.episodeRuntime, { fontSize: 11 }]} numberOfLines={1}>
+                          Double-length episode
                         </Text>
                       )}
                     </View>
