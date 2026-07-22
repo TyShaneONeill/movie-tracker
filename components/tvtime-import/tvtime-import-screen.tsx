@@ -49,10 +49,23 @@ import {
   acceptReviewPrompt,
   declineReviewPrompt,
 } from '@/lib/review-prompt-service';
+import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
+import { usePremium } from '@/hooks/use-premium';
+import { usePostImportUpsellEnabled } from '@/hooks/use-feature-flag';
+import {
+  checkPostImportUpsell,
+  markPostImportUpsellShown,
+} from '@/lib/post-import-upsell-service';
 
 // Delay before the post-import review sheet appears on a fresh done screen —
 // lets the success moment (stub count, haptic) land first.
 const REVIEW_PROMPT_DELAY_MS = 2000;
+
+// Delay before the post-import premium upsell slides up, measured from the
+// moment the review ask is resolved (never shown, or dismissed). Sequencing
+// them keeps only one sheet on screen at a time — the review ask keeps its
+// exact existing timing, the upsell layers after it.
+const POST_IMPORT_UPSELL_DELAY_MS = 400;
 
 const AMBER = '#f59e0b';
 
@@ -607,6 +620,15 @@ function DoneScreen({
   const watched = preview?.moviesWatched ?? 0;
   const watchlist = preview?.moviesWatchlist ?? 0;
 
+  // The library they just brought over — feeds the tailored upsell copy. Shows
+  // are the followed series; movies are watched + Pile. Matches the header line
+  // the user just read.
+  const showCount = counts.showsUpserted;
+  const movieCount = watched + watchlist;
+
+  const { isPremium } = usePremium();
+  const upsellEnabled = usePostImportUpsellEnabled();
+
   // Post-import review ask — fresh completion only (never on a resume visit),
   // once per user ever, and only when something actually got imported. See
   // lib/review-prompt-service.ts for the once-ever gate. The shown-flag is
@@ -614,7 +636,12 @@ function DoneScreen({
   // the async gap between the timer firing and the check resolving) — a user
   // who taps Done and unmounts mid-check must not permanently lose the
   // prompt without ever seeing it.
+  //
+  // `reviewResolved` flips true when the review moment is settled (it won't
+  // show, or it was dismissed) — that's the gate that lets the premium upsell
+  // slide up next, so the two sheets never stack.
   const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+  const [reviewResolved, setReviewResolved] = useState(false);
   const reviewCheckStartedRef = useRef(false);
   useEffect(() => {
     if (resume || reviewCheckStartedRef.current) return;
@@ -623,17 +650,58 @@ function DoneScreen({
     const timer = setTimeout(() => {
       checkImportDoneReviewPrompt(stubs)
         .then(({ show }) => {
-          if (!show || cancelled) return;
-          setShowReviewPrompt(true);
-          markReviewPromptShown().catch(() => {});
+          if (cancelled) return;
+          if (show) {
+            setShowReviewPrompt(true);
+            markReviewPromptShown().catch(() => {});
+          } else {
+            setReviewResolved(true);
+          }
         })
-        .catch(() => {});
+        .catch(() => {
+          if (!cancelled) setReviewResolved(true);
+        });
     }, REVIEW_PROMPT_DELAY_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
   }, [resume, stubs]);
+
+  // Post-import PocketStubs+ upsell — the board's first-dollar lever, shown at
+  // the highest-intent moment (someone who just imported their whole library).
+  // Guards: non-premium only (re-checked live), flag/env gated (fails closed),
+  // once ever via AsyncStorage (a re-import never re-triggers it), fresh
+  // completion only, and only after the review ask is resolved so a single
+  // sheet is on screen at a time. Never fires on a partial/failed import — the
+  // done screen only renders on terminal SUCCESS (see importScreenView).
+  const [showUpsell, setShowUpsell] = useState(false);
+  const upsellCheckStartedRef = useRef(false);
+  useEffect(() => {
+    if (resume || !reviewResolved || !upsellEnabled || isPremium) return;
+    if (upsellCheckStartedRef.current) return;
+    upsellCheckStartedRef.current = true;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      checkPostImportUpsell({ isPremium, itemCount: stubs })
+        .then(({ show }) => {
+          if (!show || cancelled) return;
+          setShowUpsell(true);
+          markPostImportUpsellShown({ showCount, movieCount }).catch(() => {});
+        })
+        .catch(() => {});
+    }, POST_IMPORT_UPSELL_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [resume, reviewResolved, upsellEnabled, isPremium, stubs, showCount, movieCount]);
+
+  // Re-check premium at present time: if entitlement resolves to premium after
+  // the sheet was queued/shown (e.g. a restore completes), pull it down.
+  useEffect(() => {
+    if (isPremium) setShowUpsell(false);
+  }, [isPremium]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -703,11 +771,25 @@ function DoneScreen({
         onAccept={() => {
           setShowReviewPrompt(false);
           acceptReviewPrompt();
+          setReviewResolved(true);
         }}
         onDecline={() => {
           setShowReviewPrompt(false);
           declineReviewPrompt();
+          setReviewResolved(true);
         }}
+      />
+
+      {/* Post-import PocketStubs+ moment — reuses the shared upgrade sheet with
+          library-tailored copy, routed at /upgrade?source=post-import (the
+          tap-through is tracked by that screen's premium:upgrade_view event). */}
+      <UpgradePromptSheet
+        visible={showUpsell}
+        featureKey="advanced_stats"
+        source="post-import"
+        title="Your taste, across your whole library"
+        message={`You just brought over ${showCount} ${showCount === 1 ? 'show' : 'shows'} and ${movieCount} ${movieCount === 1 ? 'movie' : 'movies'}. See your taste profile — rating personality, blind spots, and more — across everything you've watched with PocketStubs+.`}
+        onClose={() => setShowUpsell(false)}
       />
     </View>
   );
