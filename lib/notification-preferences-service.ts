@@ -21,7 +21,8 @@ export type NotificationFeature =
   | 'tv_episode_reminders'
   | 'day2_bridge'
   | 'weekly_recap'
-  | 'streak_at_risk';
+  | 'streak_at_risk'
+  | 'continue_watching_nudges';
 
 /**
  * Default enabled-state per feature when no `notification_preferences` row
@@ -39,6 +40,11 @@ export type NotificationFeature =
  * an explicit enabled=true row, so the send-push-notification absent-row =
  * enabled default never sends this to a user who hasn't toggled it on. The UI
  * default here (OFF) and delivery therefore agree.
+ * `continue_watching_nudges` is ON by default (opt-out). The delivery payload
+ * uses feature='continue_watching' (so the log/dedup key stays that), so the
+ * opt-out is enforced server-side in get_continue_watching_nudge_candidates as
+ * a NOT EXISTS (enabled=false) check on this preference key — UI, candidates,
+ * and delivery agree.
  */
 export const NOTIFICATION_FEATURE_DEFAULTS: Record<NotificationFeature, boolean> = {
   release_reminders: true,
@@ -46,6 +52,7 @@ export const NOTIFICATION_FEATURE_DEFAULTS: Record<NotificationFeature, boolean>
   day2_bridge: true,
   weekly_recap: true,
   streak_at_risk: false,
+  continue_watching_nudges: true,
 };
 
 export async function getNotificationPreference(
