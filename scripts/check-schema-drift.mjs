@@ -185,7 +185,12 @@ const PROD_ONLY_SOURCE_GAP_ALLOWLIST = new Set([]);
 // Functions with repo source that are intentionally NOT deployed to prod.
 // (update-comment was here 2026-07-11: it turned out to be a missed prod
 // deploy of PS-12 #612 — deployed to prod same day, entry removed.)
-const REPO_ONLY_ALLOWLIST = new Set([]);
+//
+// send-continue-watching-nudges: pending-deploy carve-out (2026-07-22). The
+// continue-watching nudge merges before its founder-only prod deploy; this
+// entry is REMOVED in the same session once the function is live on prod, so
+// the removal re-arms the guard and verifies the deploy actually landed.
+const REPO_ONLY_ALLOWLIST = new Set(['send-continue-watching-nudges']);
 
 // Each probe returns a sorted list of opaque identity strings for one object
 // class. Only public-schema DDL; no data. Keep these deterministic (ORDER BY).
