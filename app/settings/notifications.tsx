@@ -21,6 +21,7 @@ import { hapticImpact } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
 import type { NotificationFeature } from '@/lib/notification-preferences-service';
 import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
+import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
 
 /**
  * Open the OS-level settings page for the app so the user can change the
@@ -103,6 +104,7 @@ export default function NotificationsSettingsScreen() {
   const colors = Colors[effectiveTheme];
   const { permissionStatus, requestPermission, isAvailable } = usePushNotifications();
   const streakSpineEnabled = useStreakSpineEnabled();
+  const episodeRoomsEnabled = useEpisodeRoomsEnabled();
 
   const handleMasterToggle = async (next: boolean) => {
     hapticImpact();
@@ -204,6 +206,19 @@ export default function NotificationsSettingsScreen() {
                 feature="streak_at_risk"
                 title="Streak reminders"
                 description="An evening nudge when your daily streak is about to lapse."
+                colors={colors}
+              />
+            )}
+            {/* DRAFT copy — Content Queue review pending (retention experiment,
+                2026-07-21). Founder-only: the nudge sends only to the
+                get_continue_watching_nudge_candidates allowlist, and the toggle
+                stays hidden behind episode_rooms (the room it deep-links into)
+                until the experiment widens. */}
+            {episodeRoomsEnabled && (
+              <FeatureToggleRow
+                feature="continue_watching_nudges"
+                title="Continue watching"
+                description="An evening nudge to pick a show back up where you left off."
                 colors={colors}
               />
             )}
