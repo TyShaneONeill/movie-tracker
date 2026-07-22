@@ -3,6 +3,8 @@ import {
   mapMatchToImportItems,
   runTvTimeImport,
   ChunkTooLargeError,
+  FIRST_CHUNK_CAPS,
+  STEADY_CHUNK_CAPS,
   type ImportChunk,
 } from '@/lib/tvtime-import/import-client';
 import { emptyImportCounts, type ImportCounts, type ImportMovie, type ImportShow } from '@/lib/tvtime-import/import-types';
@@ -279,5 +281,90 @@ describe('runTvTimeImport', () => {
     // Only the first chunk is sent; the loop bails before the rest.
     expect(send).toHaveBeenCalledTimes(1);
     expect(counts.moviesInserted).toBe(1);
+  });
+});
+
+describe('runTvTimeImport — progressive progress (#720)', () => {
+  // Regression guard for the heavy-import freeze: with the default (production)
+  // caps a huge import was packed into ~2 chunks, so the first round-trip took
+  // ~50s and the counter read 0/N that whole time. Progress now advances in
+  // small early steps — the first non-zero update reflects only a tiny first
+  // chunk, not the whole import.
+
+  it('sends a small first chunk so the first round-trip returns promptly', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const send = jest.fn(async (_chunk: ImportChunk) => emptyImportCounts());
+    // One heavy show — far larger than a single default chunk.
+    await runTvTimeImport({
+      shows: [show(1, 2000)],
+      movies: [],
+      importKey: 'k',
+      accessToken: 't',
+      send,
+    });
+
+    const firstChunk = send.mock.calls[0][0];
+    const firstEpisodes = firstChunk.shows.reduce((s, sh) => s + sh.episodes.length, 0);
+    expect(firstEpisodes).toBeGreaterThan(0);
+    expect(firstEpisodes).toBeLessThanOrEqual(FIRST_CHUNK_CAPS.maxEpisodes as number);
+  });
+
+  it('advances the counter in small early steps instead of one jump to total', async () => {
+    const send = jest.fn(async (chunk: ImportChunk) =>
+      countsWith({
+        episodesInserted: chunk.shows.reduce((s, sh) => s + sh.episodes.length, 0),
+        moviesInserted: chunk.movies.length,
+      })
+    );
+    const progress: number[] = [];
+
+    const counts = await runTvTimeImport({
+      shows: [show(1, 2000)],
+      movies: [],
+      importKey: 'k',
+      accessToken: 't',
+      send,
+      onProgress: (p) => progress.push(p.processed),
+    });
+
+    // Initial report is 0 (baseline paint), before any chunk lands.
+    expect(progress[0]).toBe(0);
+
+    // The FIRST non-zero update must reflect only the tiny first chunk — the
+    // whole point of #720. Before the fix this was ~total (one late jump).
+    const firstNonZero = progress.find((n) => n > 0);
+    expect(firstNonZero).toBeGreaterThan(0);
+    expect(firstNonZero).toBeLessThanOrEqual(FIRST_CHUNK_CAPS.maxEpisodes as number);
+
+    // Many incremental updates (not two), ending at the true total, and
+    // monotonically non-decreasing so the counter never goes backwards.
+    expect(progress.length).toBeGreaterThan(3);
+    expect(progress[progress.length - 1]).toBe(2000);
+    for (let i = 1; i < progress.length; i++) {
+      expect(progress[i]).toBeGreaterThanOrEqual(progress[i - 1]);
+    }
+    expect(counts.episodesInserted).toBe(2000);
+  });
+
+  it('ramps to steady chunks after the small first ones (bounded round-trips)', async () => {
+    const sizes: number[] = [];
+    const send = jest.fn(async (chunk: ImportChunk) => {
+      sizes.push(chunk.shows.reduce((s, sh) => s + sh.episodes.length, 0));
+      return emptyImportCounts();
+    });
+
+    await runTvTimeImport({
+      shows: [show(1, 3000)],
+      movies: [],
+      importKey: 'k',
+      accessToken: 't',
+      send,
+    });
+
+    // Every chunk stays within the steady ceiling (so we never regress to the
+    // 5,000-episode mega-chunk), and a later chunk is bigger than the first —
+    // proving we ramp up rather than paying a tiny-chunk round-trip the whole way.
+    sizes.forEach((n) => expect(n).toBeLessThanOrEqual(STEADY_CHUNK_CAPS.maxEpisodes as number));
+    expect(Math.max(...sizes)).toBeGreaterThan(FIRST_CHUNK_CAPS.maxEpisodes as number);
   });
 });

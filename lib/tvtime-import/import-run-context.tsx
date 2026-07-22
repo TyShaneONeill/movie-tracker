@@ -206,6 +206,10 @@ export function ImportRunProvider({ children }: { children: React.ReactNode }) {
           // even when the user has navigated away.
           await saveNeedsReview(args.userId, args.reviewItems);
           await markImportCompleted(args.userId);
+          // #720 part 2: server-side completion marker + next-open "finished
+          // while you were away" reconciliation would hook in here (this block
+          // only runs when the app survived to completion). Deferred — out of
+          // scope for the progress-counter PR.
           invalidateTvTimeImportQueries(queryClient);
           invalidateHasTvTimeImport(queryClient);
 
