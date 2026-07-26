@@ -419,17 +419,29 @@ export function JourneyScreenV2() {
           >
             {currentIndex >= journeys.length ? 'NEW JOURNEY' : `JOURNEY ${currentIndex + 1} OF ${journeys.length}`}
           </ScanText>
-          <ScanText
-            numberOfLines={1}
-            style={{
-              fontFamily: Fonts.outfit.bold,
-              fontSize: s(17),
-              color: c.text,
-              marginTop: s(1),
-            }}
+          {/* hitSlop (not padding) widens the tap target toward the ~44pt
+              guideline without touching the layout box — padding here would
+              shift the title/spacer alignment. Vertical only: horizontal
+              would overlap the back button and the "JOURNEY X OF Y" label. */}
+          <Pressable
+            onPress={() => router.push(`/movie/${parsedTmdbId}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`View details for ${movieTitle}`}
+            style={{ maxWidth: '100%' }}
+            hitSlop={{ top: 12, bottom: 12 }}
           >
-            {movieTitle}
-          </ScanText>
+            <ScanText
+              numberOfLines={1}
+              style={{
+                fontFamily: Fonts.outfit.bold,
+                fontSize: s(17),
+                color: c.text,
+                marginTop: s(1),
+              }}
+            >
+              {movieTitle}
+            </ScanText>
+          </Pressable>
         </View>
         <View style={{ width: s(38) }} />
       </View>
