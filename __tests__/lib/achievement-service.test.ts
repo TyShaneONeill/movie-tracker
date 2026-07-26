@@ -248,17 +248,29 @@ describe('checkAchievements', () => {
       },
     ];
     mockInvoke.mockResolvedValue({
-      data: { newly_awarded: newlyAwarded },
+      data: { newly_awarded: newlyAwarded, revoked: [] },
       error: null,
     });
 
     const result = await checkAchievements();
 
     expect(mockInvoke).toHaveBeenCalledWith('check-achievements');
-    expect(result).toEqual(newlyAwarded);
+    expect(result).toEqual({ newlyAwarded, revoked: [] });
   });
 
-  it('returns empty array when no new achievements', async () => {
+  it('returns revoked levels alongside newly awarded ones', async () => {
+    const revoked = [{ achievement_id: 'ach-1', level: 2 }];
+    mockInvoke.mockResolvedValue({
+      data: { newly_awarded: [], revoked },
+      error: null,
+    });
+
+    const result = await checkAchievements();
+
+    expect(result).toEqual({ newlyAwarded: [], revoked });
+  });
+
+  it('defaults revoked to [] when the field is absent (client ahead of a not-yet-deployed edge function)', async () => {
     mockInvoke.mockResolvedValue({
       data: { newly_awarded: [] },
       error: null,
@@ -266,10 +278,21 @@ describe('checkAchievements', () => {
 
     const result = await checkAchievements();
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ newlyAwarded: [], revoked: [] });
   });
 
-  it('returns empty array when data is null', async () => {
+  it('returns empty award/revoke lists when no new achievements', async () => {
+    mockInvoke.mockResolvedValue({
+      data: { newly_awarded: [], revoked: [] },
+      error: null,
+    });
+
+    const result = await checkAchievements();
+
+    expect(result).toEqual({ newlyAwarded: [], revoked: [] });
+  });
+
+  it('returns empty award/revoke lists when data is null', async () => {
     mockInvoke.mockResolvedValue({
       data: null,
       error: null,
@@ -277,7 +300,7 @@ describe('checkAchievements', () => {
 
     const result = await checkAchievements();
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ newlyAwarded: [], revoked: [] });
   });
 
   it('throws on edge function error with message', async () => {
