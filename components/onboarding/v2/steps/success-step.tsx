@@ -14,6 +14,7 @@ import { MONO_FONT } from '@/components/onboarding/v2/shared/mono';
 import { useReducedMotion } from '@/components/onboarding/v2/shared/use-reduced-motion';
 import { useOnboardingV2 } from '@/components/onboarding/v2/onboarding-v2-context';
 import { useTour } from '@/lib/onboarding/tour-context';
+import { setPostOnboardingRoute } from '@/lib/post-onboarding-intent';
 import type { StepProps } from '@/components/onboarding/v2/types';
 import { TvTimeImportCard } from '@/components/tvtime-import/tvtime-import-card';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
@@ -66,6 +67,9 @@ export function SuccessStep(_props: StepProps) {
   // everything and swallows the landing (they never reach import). The tour still
   // runs for the normal "Enter" path (handleEnter). Guards isSubmitting against a
   // double-commit.
+  // The import push is handed off via post-onboarding-intent and performed by the
+  // home screen on mount — pushing from here after replace() races the navigator
+  // teardown and gets dropped, stranding the user on home.
   const handleImportFromTvTime = async () => {
     if (isSubmitting) return;
     const ok = await commit();
@@ -73,10 +77,8 @@ export function SuccessStep(_props: StepProps) {
       Toast.show({ type: 'error', text1: 'Something went wrong saving your profile', visibilityTime: 2500 });
       return;
     }
+    setPostOnboardingRoute('/settings/tvtime-import?from=onboarding_completion');
     router.replace('/(tabs)');
-    InteractionManager.runAfterInteractions(() => {
-      router.push('/settings/tvtime-import?from=onboarding_completion');
-    });
   };
 
   return (
