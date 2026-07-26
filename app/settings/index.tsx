@@ -20,6 +20,7 @@ import { Sentry, captureException } from '@/lib/sentry';
 import { exportCollectionCSV } from '@/lib/letterboxd-service';
 import { analytics } from '@/lib/analytics';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
+import { useOnboarding } from '@/hooks/use-onboarding';
 import { useHasTvTimeImport } from '@/hooks/use-has-tvtime-import';
 import { TicketIcon } from '@/components/tvtime-import/icons';
 import { formatExpiryDate, getDaysLeft } from '@/lib/subscription-format';
@@ -48,6 +49,7 @@ export default function SettingsScreen() {
   const { effectiveTheme, themePreference, setThemePreference } = useTheme();
   const colors = Colors[effectiveTheme];
   const { signOut, user } = useAuth();
+  const { resetOnboarding } = useOnboarding();
   const tvtime = useTvTimeImportGate();
   const { hasImport: hasTvTimeImport } = useHasTvTimeImport();
   const { preferences, isLoading: isLoadingPreferences, updatePreference, isUpdating } = useUserPreferences();
@@ -114,6 +116,15 @@ export default function SettingsScreen() {
         );
       }
     }
+  };
+
+  // Dev-only QA affordance: nothing in the UI ever called resetOnboarding(),
+  // making it impossible to re-trigger the onboarding flow without reinstalling
+  // or manually flipping the DB column. The protected-route guard in
+  // app/_layout.tsx redirects to /(onboarding) automatically once
+  // hasCompletedOnboarding flips false, so no manual navigation is needed here.
+  const handleResetOnboarding = () => {
+    resetOnboarding();
   };
 
   const handleTestSentry = () => {
@@ -615,8 +626,7 @@ export default function SettingsScreen() {
               style={({ pressed }) => [
                 styles.settingsItem,
                 styles.firstItem,
-                styles.lastItem,
-                { backgroundColor: colors.card },
+                { backgroundColor: colors.card, borderBottomColor: colors.border },
                 pressed && { backgroundColor: colors.backgroundSecondary }
               ]}
               onPress={handleTestSentry}
@@ -624,6 +634,22 @@ export default function SettingsScreen() {
               <View>
                 <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Test Sentry Error</Text>
                 <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Send a test error to Sentry</Text>
+              </View>
+              <ChevronRightIcon color={colors.textSecondary} />
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingsItem,
+                styles.lastItem,
+                { backgroundColor: colors.card },
+                pressed && { backgroundColor: colors.backgroundSecondary }
+              ]}
+              onPress={handleResetOnboarding}
+            >
+              <View>
+                <Text style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}>Reset Onboarding</Text>
+                <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>Re-trigger the onboarding flow for QA</Text>
               </View>
               <ChevronRightIcon color={colors.textSecondary} />
             </Pressable>
