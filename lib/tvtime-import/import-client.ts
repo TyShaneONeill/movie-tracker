@@ -264,6 +264,55 @@ export const FIRST_CHUNK_CAPS: ChunkCaps = { maxEpisodes: 150, maxMovies: 60, ma
  *  import, small enough that the counter advances every few seconds. */
 export const STEADY_CHUNK_CAPS: ChunkCaps = { maxEpisodes: 500, maxMovies: 400, maxShows: 150 };
 
+// ---------------------------------------------------------------------------
+// Light-import chunk-count floor (PR-CD)
+// ---------------------------------------------------------------------------
+// #720 fixed the HEAVY case (a huge import packed into ~2 giant chunks). It
+// does nothing for the opposite, far more common case: an import small enough
+// that it fits in a single FIRST_CHUNK_CAPS-sized chunk (e.g. a 40-item TV
+// Time import) sends exactly ONE chunk, so onProgress fires exactly twice —
+// {0,total} then {total,total} — and the bar reads "frozen at 0/N" for the
+// whole run. That's the common path: most real imports are this size.
+//
+// Fix: when the WHOLE import fits in a single steady chunk (i.e. it would
+// otherwise become one first-chunk request), floor that chunk's size so it
+// still splits into several real chunks — the existing boundary-only
+// reporting then has several real points to report instead of one jump.
+
+/** Target number of chunks a light import is split into, so progress reports
+ *  several real updates instead of one binary 0->total jump. */
+const TARGET_CHUNKS_FOR_LIGHT_IMPORT = 5;
+
+/** Never slice below this many units per chunk — an import this tiny finishes
+ *  in one round-trip anyway; there's nothing meaningful to show mid-flight. */
+const MIN_UNITS_PER_CHUNK = 8;
+
+/**
+ * Floor the first-chunk episode/movie caps for a LIGHT import (one that fits
+ * entirely inside a single steady chunk) so it still yields multiple chunks.
+ * `maxShows` is deliberately left at {@link FIRST_CHUNK_CAPS}'s value — the
+ * shows cap exists to bound a follows-heavy import (thousands of 0-episode
+ * shows contribute nothing to `totalUnits`), not to smooth progress, so
+ * flooring it here would only add pointless round-trips to that case.
+ *
+ * `Math.min` against FIRST_CHUNK_CAPS means this can only ever SHRINK the
+ * first-chunk caps for imports that were already going to be a single chunk;
+ * once `totalUnits` is large enough that the floor's desired size exceeds
+ * FIRST_CHUNK_CAPS, this is a no-op and FIRST_CHUNK_CAPS wins outright — so a
+ * heavy import (which never hits this path at all; see {@link buildChunkPlan})
+ * is never affected, and this can't reduce a light import to fewer chunks
+ * than FIRST_CHUNK_CAPS alone would have produced.
+ */
+function lightImportFirstCaps(totalUnits: number): ChunkCaps {
+  if (totalUnits <= MIN_UNITS_PER_CHUNK) return FIRST_CHUNK_CAPS; // nothing meaningful to show either way
+  const desired = Math.max(MIN_UNITS_PER_CHUNK, Math.ceil(totalUnits / TARGET_CHUNKS_FOR_LIGHT_IMPORT));
+  return {
+    maxEpisodes: Math.min(FIRST_CHUNK_CAPS.maxEpisodes ?? MAX_EPISODES_PER_CALL, desired),
+    maxMovies: Math.min(FIRST_CHUNK_CAPS.maxMovies ?? MAX_MOVIES_PER_CALL, desired),
+    maxShows: FIRST_CHUNK_CAPS.maxShows,
+  };
+}
+
 /** A chunk paired with the caps it should be re-sliced against on a 413. */
 interface PlannedChunk {
   chunk: ImportChunk;
@@ -279,6 +328,13 @@ interface PlannedChunk {
  * first steady-sized chunk is subdivided into small {@link FIRST_CHUNK_CAPS}
  * pieces so the very first round-trip returns quickly and the counter starts
  * moving, then the remainder ships as larger {@link STEADY_CHUNK_CAPS} chunks.
+ *
+ * When the WHOLE import fits inside that single first steady chunk (`rest` is
+ * empty) it's a LIGHT import — #720's fix alone still sends it as one
+ * FIRST_CHUNK_CAPS-sized chunk, which is the frozen-0/40 case (PR-CD). Floor
+ * that chunk's caps via {@link lightImportFirstCaps} so it splits into several
+ * real chunks instead. A HEAVY import (`rest.length > 0`) never takes this
+ * branch, so its first-chunk sizing is exactly what #720 shipped.
  */
 function buildChunkPlan(
   shows: ImportShow[],
@@ -298,9 +354,10 @@ function buildChunkPlan(
   if (steady.length === 0) return [];
 
   const [firstSteady, ...rest] = steady;
-  const firstSubs = chunkImportItems(firstSteady.shows, firstSteady.movies, FIRST_CHUNK_CAPS);
+  const firstCaps = rest.length === 0 ? lightImportFirstCaps(chunkUnitCount(firstSteady)) : FIRST_CHUNK_CAPS;
+  const firstSubs = chunkImportItems(firstSteady.shows, firstSteady.movies, firstCaps);
   return [
-    ...firstSubs.map((chunk) => ({ chunk, caps: FIRST_CHUNK_CAPS })),
+    ...firstSubs.map((chunk) => ({ chunk, caps: firstCaps })),
     ...rest.map((chunk) => ({ chunk, caps: STEADY_CHUNK_CAPS })),
   ];
 }

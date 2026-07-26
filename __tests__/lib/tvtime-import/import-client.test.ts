@@ -368,3 +368,82 @@ describe('runTvTimeImport — progressive progress (#720)', () => {
     expect(Math.max(...sizes)).toBeGreaterThan(FIRST_CHUNK_CAPS.maxEpisodes as number);
   });
 });
+
+describe('runTvTimeImport — light-import chunk floor (PR-CD)', () => {
+  // Regression guard for the frozen-"0/40" bug: #720 only fixed HEAVY imports
+  // (packed into ~2 giant chunks). A typical ~40-item TV Time import is
+  // already under FIRST_CHUNK_CAPS, so pre-fix it shipped as ONE chunk and
+  // onProgress fired exactly twice: {0,40} then {40,40} — a binary jump, not
+  // a moving bar.
+
+  it('splits a ~40-unit import into several chunks with an exact 0->8->16->24->32->40 sequence', async () => {
+    const send = jest.fn(async (chunk: ImportChunk) => countsWith({ moviesInserted: chunk.movies.length }));
+    const progress: number[] = [];
+
+    const counts = await runTvTimeImport({
+      shows: [],
+      movies: Array.from({ length: 40 }, (_, i) => movie(i + 1)),
+      importKey: 'k',
+      accessToken: 't',
+      send,
+      onProgress: (p) => progress.push(p.processed),
+    });
+
+    // The exact sequence the floor (TARGET_CHUNKS=5, MIN_UNITS_PER_CHUNK=8)
+    // produces for 40 units: 5 chunks of 8, not one binary {0,40} jump.
+    expect(progress).toEqual([0, 8, 16, 24, 32, 40]);
+    expect(send).toHaveBeenCalledTimes(5);
+    expect(counts.moviesInserted).toBe(40);
+  });
+
+  it('leaves a genuinely tiny import (below the floor) as a single chunk', async () => {
+    const send = jest.fn(async (chunk: ImportChunk) => countsWith({ moviesInserted: chunk.movies.length }));
+    const progress: number[] = [];
+
+    await runTvTimeImport({
+      shows: [],
+      movies: [movie(1), movie(2), movie(3), movie(4), movie(5)],
+      importKey: 'k',
+      accessToken: 't',
+      send,
+      onProgress: (p) => progress.push(p.processed),
+    });
+
+    // 5 units <= MIN_UNITS_PER_CHUNK: nothing meaningful to show mid-flight,
+    // so it stays a single chunk (one round-trip, not artificially split).
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(progress).toEqual([0, 5]);
+  });
+
+  it('does not shrink the first chunk of a HEAVY import (floor is a no-op once desired size exceeds FIRST_CHUNK_CAPS)', async () => {
+    const send = jest.fn(async (chunk: ImportChunk) => emptyImportCounts());
+
+    await runTvTimeImport({
+      shows: [show(1, 2000)], // spans multiple STEADY chunks -> never takes the light-import branch
+      movies: [],
+      importKey: 'k',
+      accessToken: 't',
+      send,
+    });
+
+    const firstChunk = send.mock.calls[0][0];
+    const firstEpisodes = firstChunk.shows.reduce((s, sh) => s + sh.episodes.length, 0);
+    // Exactly FIRST_CHUNK_CAPS, not floored down — proves the light-import
+    // floor never touches a heavy import's first-chunk sizing.
+    expect(firstEpisodes).toBe(FIRST_CHUNK_CAPS.maxEpisodes);
+  });
+
+  it('does not floor the shows cap (follows-heavy imports keep their existing round-trip bound)', async () => {
+    // 7 followed shows, all 0-episode: totalUnits (episodes+movies) is 0, so a
+    // units-based floor would otherwise shrink maxShows too and add pointless
+    // round-trips to a case the shows cap already governs (see import-types.ts).
+    const send = jest.fn(async (chunk: ImportChunk) => countsWith({ showsUpserted: chunk.shows.length }));
+    const shows = Array.from({ length: 7 }, (_, i) => show(i + 1, 0));
+
+    await runTvTimeImport({ shows, movies: [], importKey: 'k', accessToken: 't', send });
+
+    // All 7 fit in one chunk under the unmodified FIRST_CHUNK_CAPS.maxShows (40).
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].shows).toHaveLength(7);
+  });
+});

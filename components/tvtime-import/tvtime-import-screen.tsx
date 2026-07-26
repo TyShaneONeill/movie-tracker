@@ -39,6 +39,7 @@ import {
 import type { TvTimeMatchResult } from '@/lib/tvtime-import/types';
 import { useImportRun } from '@/lib/tvtime-import/import-run-context';
 import { importScreenView } from '@/lib/tvtime-import/import-run-view';
+import { useEasedProgress } from '@/lib/tvtime-import/import-progress-easing';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
 import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
@@ -553,7 +554,10 @@ function ImportErrorScreen({
 }
 
 function ImportingScreen({ styles, colors, progress, onHide }: { styles: Styles; colors: ThemeColors; progress: ImportProgress; onHide: () => void }) {
-  const pct = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
+  // Eased for smooth motion between chunk-boundary updates (PR-CD part 2) —
+  // never ahead of the real `progress` above, just smoothed toward it.
+  const eased = useEasedProgress(progress);
+  const pct = eased.total > 0 ? Math.round((eased.processed / eased.total) * 100) : 0;
   return (
     <View style={{ flex: 1 }}>
       <View style={styles.scrollBody}>
@@ -563,7 +567,7 @@ function ImportingScreen({ styles, colors, progress, onHide }: { styles: Styles;
             <View style={[styles.progressFill, { backgroundColor: colors.tint, width: `${pct}%` }]} />
           </View>
           <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
-            {progress.processed} / {progress.total || '…'}
+            {Math.round(eased.processed)} / {progress.total || '…'}
           </Text>
         </View>
         <Text style={[Typography.body.sm, styles.quiet, { color: colors.textTertiary }]}>
