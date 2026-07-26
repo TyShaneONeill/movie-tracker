@@ -130,3 +130,24 @@ export function useModalKeyboardGuardEnabled(): boolean {
   if (envOverride === 'false') return false;
   return flagOn;
 }
+
+/**
+ * Returns true when the post-import PocketStubs+ upsell should be active — the
+ * premium moment shown at the TV Time import success screen (the board's
+ * first-dollar lever). Combines the PostHog flag `post_import_upsell` and an
+ * env-var dev override (EXPO_PUBLIC_POST_IMPORT_UPSELL_OVERRIDE = "true" |
+ * "false"), mirroring useModalKeyboardGuardEnabled above.
+ *
+ * Ships founder-first: the flag is created dark and enabled only for the
+ * founder for on-device validation, then widens. Fails closed (no upsell)
+ * while the flag is still loading, since `useFeatureFlag`'s `enabled` is false
+ * for an undefined value.
+ */
+export function usePostImportUpsellEnabled(): boolean {
+  const { enabled: flagOn } = useFeatureFlag('post_import_upsell');
+  const envOverride = process.env.EXPO_PUBLIC_POST_IMPORT_UPSELL_OVERRIDE;
+
+  if (envOverride === 'true') return true;
+  if (envOverride === 'false') return false;
+  return flagOn;
+}

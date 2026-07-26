@@ -29,6 +29,15 @@ interface UpgradePromptSheetProps {
   featureKey: PremiumFeatureKey | null;
   /** Callback when sheet is closed */
   onClose: () => void;
+  /** Optional bespoke title, overriding the feature-derived one (e.g. the
+   *  post-import moment). The feature icon is still used. */
+  title?: string;
+  /** Optional bespoke body copy, overriding the feature description. */
+  message?: string;
+  /** Optional `source` appended to the /upgrade route for conversion
+   *  attribution (tracked via premium:upgrade_view). Defaults to a plain
+   *  /upgrade push. */
+  source?: string;
 }
 
 /**
@@ -45,6 +54,9 @@ export function UpgradePromptSheet({
   visible,
   featureKey,
   onClose,
+  title,
+  message,
+  source,
 }: UpgradePromptSheetProps) {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
@@ -52,10 +64,14 @@ export function UpgradePromptSheet({
   const feature = featureKey ? PREMIUM_FEATURES[featureKey] : null;
   const featureIcon = (feature?.icon ?? 'star-outline') as keyof typeof Ionicons.glyphMap;
 
+  const titleText = title ?? (feature ? `Unlock ${feature.label}` : 'Upgrade to PocketStubs+');
+  const messageText =
+    message ?? feature?.description ?? 'Get the most out of PocketStubs with premium features.';
+
   const handleSeePlans = () => {
     hapticImpact();
     onClose();
-    router.push('/upgrade');
+    router.push(source ? `/upgrade?source=${source}` : '/upgrade');
   };
 
   return (
@@ -79,12 +95,12 @@ export function UpgradePromptSheet({
 
           {/* Title */}
           <Text style={[styles.title, { color: colors.text }]}>
-            {feature ? `Unlock ${feature.label}` : 'Upgrade to PocketStubs+'}
+            {titleText}
           </Text>
 
           {/* Description */}
           <Text style={[styles.message, { color: colors.textSecondary }]}>
-            {feature?.description ?? 'Get the most out of PocketStubs with premium features.'}
+            {messageText}
           </Text>
 
           {/* Tier Badge */}

@@ -329,14 +329,28 @@ export function handleNotificationResponse(
     });
   }
 
-  // Episode reminders: CLIENT-side upgrade to the Episode Room. The server
-  // payload always ships /tv/{id} (reaches old bundles too), so this override is
-  // the only thing that routes into the room — and only when this build has the
-  // room route AND the flag is on. Old bundles never run this code, so they keep
-  // the /tv/{id} destination regardless of when the edge function deploys.
+  // Continue-watching nudge: feature-specific open event so the retention
+  // experiment can measure taps (and correlate downstream watch/take activity)
+  // separately from the generic push:open. Mirrors release_reminder:tapped.
+  if (data && data.feature === 'continue_watching') {
+    analytics.track('continue_watching:tapped', {
+      tmdb_id: typeof data.tmdb_id === 'number' ? data.tmdb_id : null,
+      season: typeof data.season === 'number' ? data.season : null,
+      episode: typeof data.episode === 'number' ? data.episode : null,
+    });
+  }
+
+  // Episode reminders + continue-watching nudges: CLIENT-side upgrade to the
+  // Episode (Debrief) Room. The server payload always ships /tv/{id} (reaches
+  // old bundles too), so this override is the only thing that routes into the
+  // room — and only when this build has the room route AND the flag is on. Old
+  // bundles never run this code, so they keep the /tv/{id} destination
+  // regardless of when the edge function deploys. Both features carry the same
+  // tmdb_id/season/episode shape, so they share the upgrade.
   if (
     data &&
-    data.feature === 'tv_episode_reminders' &&
+    (data.feature === 'tv_episode_reminders' ||
+      data.feature === 'continue_watching') &&
     typeof data.tmdb_id === 'number' &&
     typeof data.season === 'number' &&
     typeof data.episode === 'number' &&

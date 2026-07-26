@@ -185,6 +185,8 @@ const PROD_ONLY_SOURCE_GAP_ALLOWLIST = new Set([]);
 // Functions with repo source that are intentionally NOT deployed to prod.
 // (update-comment was here 2026-07-11: it turned out to be a missed prod
 // deploy of PS-12 #612 — deployed to prod same day, entry removed.)
+// (send-continue-watching-nudges was a pending-deploy carve-out 2026-07-22;
+// deployed to prod same day, entry removed — the guard now verifies it.)
 const REPO_ONLY_ALLOWLIST = new Set([]);
 
 // Each probe returns a sorted list of opaque identity strings for one object

@@ -46,6 +46,9 @@ describe('NOTIFICATION_FEATURE_DEFAULTS', () => {
       // PS-15 PR 3: loss-framed evening nudge is opt-in; opt-in is also enforced
       // server-side in get_streak_at_risk_candidates (explicit enabled=true row).
       streak_at_risk: false,
+      // Continue-watching retention experiment: opt-out (default ON). Opt-out is
+      // enforced server-side in get_continue_watching_nudge_candidates.
+      continue_watching_nudges: true,
     });
   });
 });
