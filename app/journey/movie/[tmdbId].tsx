@@ -721,7 +721,19 @@ function JourneyCarouselScreen() {
               ? 'NEW JOURNEY'
               : `JOURNEY ${currentJourneyIndex + 1} OF ${journeys.length}`}
           </Text>
-          <Text style={styles.headerTitle} numberOfLines={1}>{movieTitle}</Text>
+          {/* hitSlop (not padding) widens the tap target toward the ~44pt
+              guideline without touching the layout box — padding here would
+              shift the title/spacer alignment. Vertical only: horizontal
+              would overlap the back button and the "JOURNEY X OF Y" label. */}
+          <Pressable
+            onPress={() => router.push(`/movie/${parsedTmdbId}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`View details for ${movieTitle}`}
+            style={styles.headerTitlePressable}
+            hitSlop={{ top: 12, bottom: 12 }}
+          >
+            <Text style={styles.headerTitle} numberOfLines={1}>{movieTitle}</Text>
+          </Pressable>
         </View>
 
         {/* Next / Rewind button (hidden on "Add New Journey" card) */}
@@ -842,6 +854,9 @@ const createStyles = (colors: ThemeColors, ticketHeight: number, ticketWidth: nu
     ...Typography.body.baseMedium,
     color: colors.text,
     marginTop: 2,
+  },
+  headerTitlePressable: {
+    maxWidth: '100%',
   },
   iconButton: {
     width: 40,
