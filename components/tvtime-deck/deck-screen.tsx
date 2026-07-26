@@ -456,11 +456,13 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     // The invitation floats over the bottom of the deck so it never shifts the
     // card when it arrives or auto-dismisses (fixed inset — no % on iOS new-arch).
+    // Offset is Spacing.xxl (clear of the deck edge) plus Spacing.md to also
+    // clear the "N OF M" counter, which sits in normal flow just above this.
     bridgeWrap: {
       position: 'absolute',
       left: 0,
       right: 0,
-      bottom: Spacing.xxl,
+      bottom: Spacing.xxl + Spacing.md,
       alignItems: 'center',
       // The wrap spans full width but only the centered strip is visible —
       // box-none keeps the empty flanks from eating taps meant for the card
