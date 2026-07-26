@@ -64,6 +64,7 @@ import { useWidgetSync } from '@/hooks/use-widget-sync';
 import { useAiCreditRecovery } from '@/hooks/use-ai-credit-recovery';
 import { useAuthTokenSync } from '@/hooks/use-auth-token-sync';
 import { useProfileTimezoneSync } from '@/hooks/use-profile-timezone-sync';
+import { performGuardedNavigation } from '@/lib/guarded-navigation';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -80,6 +81,13 @@ function useProtectedRoute() {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const pendingPasswordReset = useRef(false);
+  // Live mirror of `segments`, read inside RAF callbacks scheduled below —
+  // those callbacks close over whatever `segments` was at schedule time, but
+  // need the CURRENT value at fire time to detect a stale redirect.
+  const segmentsRef = useRef(segments);
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
   // Holds an initial deep-link URL captured before the root <Stack> mounted.
   // RootLayoutNav renders an <ActivityIndicator> until auth/onboarding/guest
   // have hydrated, so router.push() before that point fires against a missing
@@ -184,13 +192,21 @@ function useProtectedRoute() {
 
     // Defer navigation to next frame to ensure all routes are mounted
     // requestAnimationFrame is more reliable than setTimeout(0) on Android
-    const performNavigation = (route: string, attempt = 0) => {
+    const performNavigation = (route: string) => {
       // No-op if we're already inside the target route group. Without this
       // guard, segments-driven re-runs could ping-pong RAF replaces and
       // exhaust the Hermes heap.
       const targetGroup = route.match(/^\/\(([^)]+)\)/)?.[1];
-      if (targetGroup && segments[0] === `(${targetGroup})`) return;
-      requestAnimationFrame(() => {
+      if (targetGroup && segments[0] === `(${targetGroup})`) {
+        return;
+      }
+      // The route group that justified this redirect, captured now — compared
+      // against the LIVE segments at RAF-fire time (via segmentsRef) so a stale
+      // redirect (user already navigated away, e.g. onboarding's "Import from TV
+      // Time" handoff) gets abandoned instead of stomping the user back.
+      const scheduledGroup = segments[0];
+      performGuardedNavigation(route, scheduledGroup, {
+        getCurrentGroup: () => segmentsRef.current[0],
         // navigationState.key being truthy gates this effect, but it's necessary
         // not sufficient: there's a cold-start window where the root nav has a
         // key while the container's isReady() is still false. On a low-end
@@ -199,19 +215,18 @@ function useProtectedRoute() {
         // "navigate before mounting the Root Layout" error (Sentry 2K / #510).
         // Tolerate it: re-schedule for the next frame (bounded), turning a crash
         // into a one-frame-late navigation. Report only if it never becomes ready.
-        try {
-          router.replace(route as '/(tabs)' | '/(auth)/signin' | '/(onboarding)');
-        } catch (e) {
-          if (attempt < 10) {
-            performNavigation(route, attempt + 1);
-          } else {
-            captureException(e instanceof Error ? e : new Error(String(e)), {
-              context: 'performNavigation:navigatorNotReady',
-              route,
-              attempts: attempt + 1,
-            });
-          }
-        }
+        navigate: (r) => router.replace(r as '/(tabs)' | '/(auth)/signin' | '/(onboarding)'),
+        requestFrame: requestAnimationFrame,
+        onAbandon: (r, scheduled, current) => {
+          console.log(`[NAV] abandoned stale redirect to ${r}: route group changed from ${scheduled} to ${current} before RAF fired`);
+        },
+        onExhausted: (e, r, attempts) => {
+          captureException(e instanceof Error ? e : new Error(String(e)), {
+            context: 'performNavigation:navigatorNotReady',
+            route: r,
+            attempts,
+          });
+        },
       });
     };
 

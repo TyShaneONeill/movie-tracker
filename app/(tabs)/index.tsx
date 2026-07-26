@@ -7,8 +7,9 @@ import {
   RefreshControl,
   Platform,
   ScrollView,
+  InteractionManager,
 } from 'react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
@@ -36,6 +37,7 @@ import { BannerAdComponent } from '@/components/ads/banner-ad';
 import { TvTimeImportCard } from '@/components/tvtime-import/tvtime-import-card';
 import { useTvTimeImportCard } from '@/hooks/use-tvtime-import-card';
 import { InkStubsCard } from '@/components/tvtime-deck/ink-stubs-card';
+import { consumePostOnboardingRoute } from '@/lib/post-onboarding-intent';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -87,6 +89,21 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const tvtimeCard = useTvTimeImportCard();
+
+  // Complete a navigation intent handed off from onboarding (e.g. the "Import
+  // from TV Time" CTA). Performed here, on the surviving screen's mount, because
+  // pushing from the onboarding screen right after replace('/(tabs)') races the
+  // navigator teardown and gets dropped.
+  useEffect(() => {
+    const route = consumePostOnboardingRoute();
+    if (!route) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      router.push(route as Parameters<typeof router.push>[0]);
+    });
+    return () => {
+      task.cancel();
+    };
+  }, []);
 
   // Fetch movie lists with validation and deduplication
   const {
