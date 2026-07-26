@@ -100,7 +100,9 @@ export default function HomeScreen() {
     const task = InteractionManager.runAfterInteractions(() => {
       router.push(route as Parameters<typeof router.push>[0]);
     });
-    return () => task.cancel();
+    return () => {
+      task.cancel();
+    };
   }, []);
 
   // Fetch movie lists with validation and deduplication
