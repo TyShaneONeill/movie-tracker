@@ -28,11 +28,10 @@ interface RatingSliderProps {
   /**
    * Slider granularity. reviews.rating became numeric(3,1) in 20260726150000
    * (was INTEGER — #722/#725's "step={1} so displayed == stored" fix no
-   * longer applies at the column level). The deck ink now defaults to 0.1 to
-   * match First Takes granularity. review-modal still passes step={1}
-   * deliberately — Ty: review ratings are a distinct, coarser surface from
-   * inks/First Takes even though they share the column — not a technical
-   * constraint, a product one.
+   * longer applies at the column level). Every rating surface — deck ink,
+   * First Takes, and reviews — now uses the 0.1 default: Ty's call once the
+   * integer column was gone, since the only reason reviews were ever
+   * whole-number was that technical constraint, not a product one.
    */
   step?: number;
   /** Deck: render "—" and a muted thumb until first touch. */
