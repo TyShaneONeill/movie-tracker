@@ -11,6 +11,7 @@ import type { ReviewItem, ReviewSortMode } from '@/lib/review-service';
 import { LikeButton } from '@/components/like-button';
 import { LikedByIndicator } from '@/components/liked-by-indicator';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
+import { formatRating } from '@/components/ui/rating-slider';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -185,7 +186,7 @@ function ReviewCard({
         </View>
         {review.rating !== null && (
           <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(review.rating) }]}>
-            <Text style={styles.ratingText}>{review.rating}</Text>
+            <Text style={styles.ratingText}>{formatRating(review.rating)}</Text>
           </View>
         )}
       </View>

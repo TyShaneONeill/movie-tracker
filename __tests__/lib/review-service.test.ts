@@ -87,16 +87,17 @@ describe('createReview', () => {
     );
   });
 
-  it('rounds a fractional rating to an integer before inserting (#722)', async () => {
-    // reviews.rating is an integer column; PostgREST rejects a fractional value
-    // with 22P02 (it text-casts, not rounds). The 0–10 slider (step 0.1) emits
-    // fractional values, so createReview must round or the insert fails silently.
+  it('passes a fractional rating through UNROUNDED (reviews.rating is numeric(3,1) as of 20260726150000)', async () => {
+    // Was Math.round() here when reviews.rating was an integer column and
+    // PostgREST rejected fractional inserts with 22P02 (#722/#725). The
+    // column now accepts fractions natively, so the write boundary must not
+    // mangle the slider's value.
     mockSingle.mockResolvedValueOnce({ data: { id: 'rev-1' }, error: null });
 
     await createReview('user-1', makeReviewData({ rating: 7.5 }));
 
     expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ rating: 8 })
+      expect.objectContaining({ rating: 7.5 })
     );
   });
 
@@ -116,6 +117,32 @@ describe('createReview', () => {
     });
 
     await expect(createReview('user-1', makeReviewData())).rejects.toThrow('Something went wrong');
+  });
+});
+
+describe('updateReview', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('passes a fractional rating through UNROUNDED (reviews.rating is numeric(3,1) as of 20260726150000)', async () => {
+    mockSingle.mockResolvedValueOnce({ data: { id: 'rev-1', rating: 6.5 }, error: null });
+
+    await updateReview('rev-1', { rating: 6.5 });
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ rating: 6.5 })
+    );
+  });
+
+  it('omits rating from the update payload when not provided', async () => {
+    mockSingle.mockResolvedValueOnce({ data: { id: 'rev-1' }, error: null });
+
+    await updateReview('rev-1', { title: 'New title' });
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ rating: expect.anything() })
+    );
   });
 });
 

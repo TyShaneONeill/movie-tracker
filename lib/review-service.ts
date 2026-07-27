@@ -102,13 +102,10 @@ export async function createReview(
     poster_path: data.posterPath,
     title: data.title.trim(),
     review_text: data.reviewText.trim(),
-    // reviews.rating is an integer column. PostgREST coerces the JSON insert
-    // payload via json_populate_record, which does a TEXT cast ('7.5'::integer)
-    // and REJECTS a fractional value with 22P02 — it does not round. The 1–10
-    // slider (step 0.1) emits fractional values, so round here at the write
-    // boundary (updateReview already does the same). Skipping this silently
-    // dropped every fractional deck rating (#722).
-    rating: Math.round(data.rating),
+    // reviews.rating is numeric(3,1) as of 20260726150000 — fractional
+    // values round-trip natively, no write-boundary rounding needed (was
+    // Math.round() here when the column was integer; #722/#725).
+    rating: data.rating,
     is_spoiler: data.isSpoiler,
     is_rewatch: data.isRewatch,
     visibility: data.visibility,
@@ -165,7 +162,7 @@ export async function updateReview(
   const updateData: ReviewUpdate = {
     ...(updates.title !== undefined && { title: updates.title.trim() }),
     ...(updates.reviewText !== undefined && { review_text: updates.reviewText.trim() }),
-    ...(updates.rating !== undefined && { rating: Math.round(updates.rating) }),
+    ...(updates.rating !== undefined && { rating: updates.rating }),
     ...(updates.isSpoiler !== undefined && { is_spoiler: updates.isSpoiler }),
     ...(updates.isRewatch !== undefined && { is_rewatch: updates.isRewatch }),
     ...(updates.visibility !== undefined && { visibility: updates.visibility }),
