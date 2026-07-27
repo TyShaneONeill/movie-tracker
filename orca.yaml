@@ -1,0 +1,45 @@
+# Orca project config — https://github.com/stablyai/orca
+#
+# Orca gives every agent workspace its own git worktree, which is exactly the
+# standing rule in CLAUDE.md ("ALWAYS work in a dedicated git worktree").
+# These hooks make an Orca-created worktree usable in seconds instead of after a
+# 3-4 minute `npm install`.
+#
+# Orca prompts for trust the first time it sees this file (and again whenever the
+# commands change), so review any diff to this file like you would a CI change.
+
+scripts:
+  # Runs inside the fresh worktree immediately after Orca creates it.
+  setup: |
+    set -euo pipefail
+    # First entry of `git worktree list` is always the primary checkout.
+    main="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+    if [ -z "$main" ] || [ ! -d "$main/node_modules" ]; then
+      echo "orca setup: no primary node_modules found — run 'npm install' here before using gates." >&2
+      exit 0
+    fi
+    if [ ! -e node_modules ]; then
+      ln -sfn "$main/node_modules" node_modules
+      echo "orca setup: linked node_modules -> $main/node_modules"
+    fi
+    # The symlink is enough for the gates: npm run lint / npx tsc --noEmit / npx jest.
+    # Anything that RUNS the app (expo start, EAS, playwright) needs a real
+    # `npm install` in this worktree plus `doppler run --`. See CLAUDE.md.
+
+  # Runs before Orca archives/removes the worktree.
+  archive: |
+    set -euo pipefail
+    # Remove the symlink first so worktree teardown never follows it into the
+    # primary checkout's node_modules.
+    if [ -L node_modules ]; then
+      rm -f node_modules
+      echo "orca archive: unlinked node_modules"
+    fi
+
+# Terminal tabs Orca opens once per new worktree. No auto-run commands on
+# purpose — a fresh worktree shouldn't kick off a 3-minute Jest run by itself.
+defaultTabs:
+  - title: gates
+    color: '#4ade80'
+  - title: git
+    color: '#60a5fa'
