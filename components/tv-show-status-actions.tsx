@@ -11,6 +11,14 @@ import type { TvShowStatus } from '@/lib/database.types';
 interface TvShowStatusActionsProps {
   /** Current status of the TV show (null if not in library) */
   currentStatus: TvShowStatus | null;
+  /**
+   * Derived "Caught Up" state — every aired episode of a Returning Series has
+   * been watched. Relabels the WATCHING pill (still the active/selected one;
+   * the underlying status stays 'watching') so users understand why a fully
+   * caught-up returning show doesn't flip to Watched. See
+   * hooks/use-show-caught-up.ts.
+   */
+  isCaughtUp?: boolean;
   /** Whether a mutation is in progress */
   isLoading?: boolean;
   /** Whether the buttons should be disabled (e.g. during pending mutations) */
@@ -132,6 +140,7 @@ function StatusButton({
 
 export function TvShowStatusActions({
   currentStatus,
+  isCaughtUp = false,
   isLoading = false,
   disabled = false,
   onStatusChange,
@@ -144,6 +153,8 @@ export function TvShowStatusActions({
   const isWatched = currentStatus === 'watched';
   const isOnHold = currentStatus === 'on_hold';
   const isDropped = currentStatus === 'dropped';
+
+  const watchingLabel = isWatching && isCaughtUp ? 'CAUGHT UP' : 'WATCHING';
 
   const inactiveColor = colors.textSecondary;
   const borderColor = 'rgba(255, 255, 255, 0.1)';
@@ -253,7 +264,7 @@ export function TvShowStatusActions({
         borderColor={borderColor}
       />
       <StatusButton
-        label="WATCHING"
+        label={watchingLabel}
         icon={<EyeIcon color={inactiveColor} />}
         activeIcon={<EyeIcon color={watchingColor} />}
         isActive={isWatching}

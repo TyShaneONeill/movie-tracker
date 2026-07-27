@@ -62,6 +62,7 @@ import { useEpisodeActions } from '@/hooks/use-episode-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
 import { useReviewActions } from '@/hooks/use-review-actions';
 import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
+import { useShowCaughtUp } from '@/hooks/use-show-caught-up';
 import { createFirstTake } from '@/lib/first-take-service';
 import { episodeRoomSlug } from '@/lib/episode-room-logic';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -353,6 +354,16 @@ export default function TvShowDetailScreen() {
     changeStatus,
     toggleLike,
   } = useTvShowActions(Number(tmdbId) || 0);
+
+  // "Caught Up" — a Returning Series where every aired episode has been
+  // watched (see hooks/use-show-caught-up.ts). Purely a display derivation
+  // on top of the WATCHING pill; the stored status stays 'watching'.
+  const isCaughtUp = useShowCaughtUp({
+    tmdbShowId: Number(tmdbId) || 0,
+    currentStatus,
+    tmdbStatus: show?.status,
+    episodesWatched: userTvShow?.episodes_watched,
+  });
 
   // First Take actions hook
   const {
@@ -1005,6 +1016,7 @@ export default function TvShowDetailScreen() {
           <View style={dynamicStyles.statusActionsContainer}>
             <TvShowStatusActions
               currentStatus={currentStatus}
+              isCaughtUp={isCaughtUp}
               isLoading={isSaving || isConfirming}
               disabled={isSaving || isConfirming}
               onStatusChange={handleStatusChange}

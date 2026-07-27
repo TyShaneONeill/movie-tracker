@@ -2411,7 +2411,7 @@ export type Database = {
       sync_profile_tier: { Args: { p_user_id: string }; Returns: undefined }
       sync_tv_show_progress: {
         Args: { p_user_tv_show_id: string }
-        Returns: undefined
+        Returns: Json
       }
     }
     Enums: {
