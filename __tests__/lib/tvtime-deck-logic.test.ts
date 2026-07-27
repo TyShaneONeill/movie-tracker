@@ -31,28 +31,30 @@ const show = (tmdb_id: number, name = `Show ${tmdb_id}`): EligibleShowRow => ({
   poster_path: `/s${tmdb_id}.jpg`,
 });
 
-describe('clampDeckRating (1–10 slider value, stored as an integer)', () => {
+describe('clampDeckRating (1–10 slider value, stored as numeric(3,1))', () => {
   it('passes whole 1–10 values through unchanged', () => {
     expect(clampDeckRating(1)).toBe(1);
     expect(clampDeckRating(8)).toBe(8);
     expect(clampDeckRating(10)).toBe(10);
   });
 
-  it('ROUNDS fractional slider values to an integer (#722)', () => {
-    // reviews.rating is an integer column; PostgREST rejects a fractional value
-    // with 22P02 (it text-casts, it does not round), so a fractional rating must
-    // be rounded before the write or the insert fails and the rating is lost.
-    expect(clampDeckRating(7.5)).toBe(8);
-    expect(clampDeckRating(7.4)).toBe(7);
-    expect(clampDeckRating(8.3)).toBe(8);
-    expect(Number.isInteger(clampDeckRating(6.7))).toBe(true);
+  it('passes fractional slider values through UNROUNDED (reviews.rating is numeric(3,1) as of 20260726150000)', () => {
+    // Was Math.round() here when reviews.rating was an integer column and
+    // PostgREST rejected fractional inserts with 22P02 (#722). The column now
+    // accepts fractions natively, so the deck ink stores exactly what the
+    // slider shows.
+    expect(clampDeckRating(7.5)).toBe(7.5);
+    expect(clampDeckRating(7.4)).toBe(7.4);
+    expect(clampDeckRating(8.3)).toBeCloseTo(8.3);
+    expect(clampDeckRating(6.7)).toBeCloseTo(6.7);
   });
 
-  it('clamps out-of-range values into 1..10', () => {
+  it('clamps out-of-range values into 1..10 without rounding in-range ones', () => {
     expect(clampDeckRating(0)).toBe(1);
     expect(clampDeckRating(0.4)).toBe(1);
     expect(clampDeckRating(11)).toBe(10);
     expect(clampDeckRating(-3)).toBe(1);
+    expect(clampDeckRating(10.4)).toBe(10);
   });
 });
 

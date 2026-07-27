@@ -407,13 +407,30 @@ export async function unmarkEpisodeWatched(
   void syncWidgetCache();
 }
 
+// Runs sync_tv_show_progress and extracts the `flipped` signal from its jsonb
+// return. Defensive fallback mirrors markEpisodeWatched: a null/legacy
+// response (e.g. before this migration is applied in some environment) reads
+// as flipped: false rather than throwing.
+async function syncTvShowProgress(userTvShowId: string): Promise<{ flipped: boolean }> {
+  const { data, error } = await supabase.rpc('sync_tv_show_progress', {
+    p_user_tv_show_id: userTvShowId,
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to sync TV show progress');
+  }
+
+  const flipped = (data as { flipped?: boolean } | null)?.flipped === true;
+  return { flipped };
+}
+
 // Mark an entire season as watched
 export async function markSeasonWatched(
   userId: string,
   userTvShowId: string,
   tmdbShowId: number,
   episodes: TMDBEpisode[]
-): Promise<void> {
+): Promise<{ flipped: boolean }> {
   // Filter unaired episodes: TMDB `air_date` is YYYY-MM-DD. Null air_date means
   // TBA — also filtered out. String comparison works because the format is sortable.
   const today = new Date().toISOString().slice(0, 10);
@@ -424,9 +441,9 @@ export async function markSeasonWatched(
   // Short-circuit when no episodes are aired — avoids an unnecessary SELECT
   // round-trip. Still fires sync + widget refresh so downstream state is current.
   if (airedEpisodes.length === 0) {
-    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    const result = await syncTvShowProgress(userTvShowId);
     void syncWidgetCache();
-    return;
+    return result;
   }
 
   // Pre-filter: skip episodes already recorded as watch_number=1 to avoid
@@ -448,9 +465,9 @@ export async function markSeasonWatched(
   );
 
   if (toInsert.length === 0) {
-    await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+    const result = await syncTvShowProgress(userTvShowId);
     void syncWidgetCache();
-    return;
+    return result;
   }
 
   const insertData: UserEpisodeWatchInsert[] = toInsert.map((episode) => ({
@@ -473,9 +490,11 @@ export async function markSeasonWatched(
     throw new Error(error.message || 'Failed to mark season as watched');
   }
 
-  await supabase.rpc('sync_tv_show_progress', { p_user_tv_show_id: userTvShowId });
+  const result = await syncTvShowProgress(userTvShowId);
 
   void syncWidgetCache();
+
+  return result;
 }
 
 // Unmark an entire season as watched
@@ -592,4 +611,27 @@ export async function getWatchedEpisodes(
   }
 
   return data ?? [];
+}
+
+// Count of episodes that have aired so far for a show, from the shared
+// tv_show_episodes catalog (the same air-date source of truth used by the
+// season accordion's aired-filter and the mark_episode_watched RPC guard).
+// Drives the "Caught Up" display state for Returning Series — see
+// hooks/use-show-caught-up.ts. Derived at read time rather than stored, so it
+// can never go stale when a new episode airs.
+export async function getAiredEpisodeCount(tmdbShowId: number): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { count, error } = await supabase
+    .from('tv_show_episodes')
+    .select('*', { count: 'exact', head: true })
+    .eq('tmdb_show_id', tmdbShowId)
+    .not('air_date', 'is', null)
+    .lte('air_date', today);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch aired episode count');
+  }
+
+  return count ?? 0;
 }

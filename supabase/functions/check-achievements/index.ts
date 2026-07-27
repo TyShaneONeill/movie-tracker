@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { enforceRateLimit } from '../_shared/rate-limit.ts';
+import { computeRevocations, type StatSnapshot } from './reconciliation.ts';
 
 // Simple deterministic hash (FNV-1a variant) — produces a positive 32-bit int
 function hashString(str: string): number {
@@ -35,6 +36,11 @@ interface AwardedAchievement {
   level: number;
   level_description: string;
   unlocked_at: string;
+}
+
+interface RevokedAchievementLevel {
+  achievement_id: string;
+  level: number;
 }
 
 Deno.serve(async (req: Request) => {
@@ -154,6 +160,19 @@ Deno.serve(async (req: Request) => {
         .eq('source', 'manual'),
     ]);
 
+    // Availability of each underlying query — a stat is only "available"
+    // when its query succeeded outright. Count queries (head:true) return a
+    // null count on error/timeout; data queries return null data. Treat
+    // anything short of that success shape as unavailable, never as 0 — an
+    // unavailable stat must never be able to drive a revocation (see
+    // reconciliation.ts SAFETY note).
+    const watchedAvailable = !watchedResult.error && watchedResult.count !== null;
+    const firstTakesAvailable = !firstTakesResult.error && firstTakesResult.count !== null;
+    const genresAvailable = !genresResult.error && genresResult.data !== null;
+    const nightOwlAvailable = !nightOwlResult.error && nightOwlResult.data !== null;
+    const tvAvailable = !tvResult.error && tvResult.data !== null;
+    const reviewsAvailable = !reviewsResult.error && reviewsResult.count !== null;
+
     const watchedCount = watchedResult.count ?? 0;
     const firstTakesCount = firstTakesResult.count ?? 0;
 
@@ -219,7 +238,48 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 4. Evaluate every unearned level for every achievement and award qualifying ones
+    // 4. Reconcile downward: revoke earned levels whose criteria_value now
+    // exceeds the live stat (e.g. bulk-mark-watched then un-check episodes).
+    // Silent — no notification, no push, no feed entry. Only criteria_types
+    // with a successfully-fetched stat this run are eligible; see the
+    // availability flags above and reconciliation.ts for the guard.
+    const stats: Record<string, StatSnapshot> = {
+      watched_count: { value: watchedCount, available: watchedAvailable },
+      first_take_count: { value: firstTakesCount, available: firstTakesAvailable },
+      night_owl: { value: nightOwlCount, available: nightOwlAvailable },
+      genre_count: { value: genreCount, available: genresAvailable },
+      tv_watched_count: { value: tvWatchedCount, available: tvAvailable },
+      tv_episodes_count: { value: tvEpisodesCount, available: tvAvailable },
+      tv_completed_count: { value: tvCompletedCount, available: tvAvailable },
+      tv_seasons_count: { value: tvSeasonsCount, available: tvAvailable },
+      tv_genre_count: { value: tvGenreCount, available: tvAvailable },
+      review_count: { value: reviewsCount, available: reviewsAvailable },
+    };
+
+    const revocations = computeRevocations(earnedRaw || [], achievements, levelsByAchievement, stats);
+    const revoked: RevokedAchievementLevel[] = [];
+
+    for (const revoke of revocations) {
+      // Intentionally NOT touching user_popcorn Milestone Kernel rows here —
+      // Popcorn is disabled app-wide (POPCORN_ENABLED=false); leaving stray
+      // kernel rows behind is lower risk than coupling this delete to a
+      // disabled feature's table.
+      const { error: deleteError } = await supabaseAdmin
+        .from('user_achievements')
+        .delete()
+        .eq('user_id', userId)
+        .eq('achievement_id', revoke.achievement_id)
+        .eq('level', revoke.level);
+
+      if (deleteError) {
+        console.error('[check-achievements] Failed to revoke achievement level:', deleteError.message);
+        continue;
+      }
+
+      revoked.push(revoke);
+    }
+
+    // 5. Evaluate every unearned level for every achievement and award qualifying ones
     const newlyAwarded: AwardedAchievement[] = [];
 
     for (const achievement of achievements) {
@@ -303,7 +363,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ newly_awarded: newlyAwarded }),
+      JSON.stringify({ newly_awarded: newlyAwarded, revoked }),
       {
         status: 200,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },

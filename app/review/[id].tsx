@@ -18,6 +18,7 @@ import { LikeButton } from '@/components/like-button';
 import { CommentThread } from '@/components/comments/comment-thread';
 import { EditedBadge } from '@/components/edited-badge';
 import { ShareableReviewCard } from '@/components/share/shareable-review-card';
+import { formatRating } from '@/components/ui/rating-slider';
 import { captureReviewCard, shareReview, shareReviewUrl } from '@/lib/share-service';
 import { analytics } from '@/lib/analytics';
 import { ContentContainer } from '@/components/content-container';
@@ -280,7 +281,7 @@ export default function ReviewDetailScreen() {
               </View>
 
               <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(review.rating, colors.tint) }]}>
-                <Text style={styles.ratingText}>{review.rating}</Text>
+                <Text style={styles.ratingText}>{formatRating(review.rating)}</Text>
               </View>
             </View>
 

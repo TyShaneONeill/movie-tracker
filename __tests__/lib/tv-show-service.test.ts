@@ -39,6 +39,7 @@ import {
   markSeasonWatched,
   batchMarkEpisodesWatched,
   getWatchedEpisodes,
+  getAiredEpisodeCount,
 } from '@/lib/tv-show-service';
 import { supabase } from '@/lib/supabase';
 import { getTvShowDetailsWithCache } from '@/lib/tv-show-cache-service';
@@ -1063,5 +1064,117 @@ describe('getWatchedEpisodes', () => {
     await expect(
       getWatchedEpisodes(USER_ID, USER_TV_SHOW_ID, 1)
     ).rejects.toThrow('Failed to fetch watched episodes');
+  });
+});
+
+// ----------------------------------------------------------------------------
+// markSeasonWatched — flipped signal from sync_tv_show_progress (N2)
+// ----------------------------------------------------------------------------
+
+describe('markSeasonWatched — flipped signal from RPC', () => {
+  const episodes = [makeTMDBEpisode({ episode_number: 1 })];
+
+  it('returns { flipped: true } when sync_tv_show_progress reports the show completed', async () => {
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
+    mockRpc.mockResolvedValue({ data: { flipped: true }, error: null });
+
+    const result = await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    expect(result).toEqual({ flipped: true });
+  });
+
+  it('returns { flipped: false } when sync_tv_show_progress reports no completion', async () => {
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
+    mockRpc.mockResolvedValue({ data: { flipped: false }, error: null });
+
+    const result = await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    expect(result).toEqual({ flipped: false });
+  });
+
+  it('returns { flipped: false } (defensive default) when sync_tv_show_progress data is null', async () => {
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    const result = await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    expect(result).toEqual({ flipped: false });
+  });
+
+  it('throws when sync_tv_show_progress RPC errors', async () => {
+    const selectChain = mockSupabaseQuery({ data: [], error: null });
+    const insertChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValueOnce(selectChain).mockReturnValueOnce(insertChain);
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'sync failed' } });
+
+    await expect(
+      markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes)
+    ).rejects.toThrow('sync failed');
+  });
+
+  it('propagates flipped through the short-circuit branch (all episodes already watched)', async () => {
+    const selectChain = mockSupabaseQuery({
+      data: [{ season_number: 1, episode_number: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValueOnce(selectChain);
+    mockRpc.mockResolvedValue({ data: { flipped: true }, error: null });
+
+    const result = await markSeasonWatched(USER_ID, USER_TV_SHOW_ID, TMDB_ID, episodes);
+
+    expect(result).toEqual({ flipped: true });
+  });
+});
+
+// ----------------------------------------------------------------------------
+// getAiredEpisodeCount (N2: "Caught Up" derivation)
+// ----------------------------------------------------------------------------
+
+describe('getAiredEpisodeCount', () => {
+  /** A count-style query chain: terminal `.then()` resolves { count, error }. */
+  function setupCountQueryChain(result: { count: number | null; error: unknown }) {
+    const chain = mockSupabaseQuery({ data: null, error: null });
+    (chain as any).then = (resolve: (value: unknown) => void) => resolve(result);
+    mockFrom.mockReturnValue(chain);
+    return chain;
+  }
+
+  it('queries tv_show_episodes filtered to aired episodes and returns the count', async () => {
+    const chain = setupCountQueryChain({ count: 24, error: null });
+
+    const result = await getAiredEpisodeCount(TMDB_ID);
+
+    expect(mockFrom).toHaveBeenCalledWith('tv_show_episodes');
+    expect(chain.select).toHaveBeenCalledWith('*', { count: 'exact', head: true });
+    expect(chain.eq).toHaveBeenCalledWith('tmdb_show_id', TMDB_ID);
+    expect(chain.not).toHaveBeenCalledWith('air_date', 'is', null);
+    expect(chain.lte).toHaveBeenCalledWith('air_date', expect.any(String));
+    expect(result).toBe(24);
+  });
+
+  it('returns 0 when count is null', async () => {
+    setupCountQueryChain({ count: null, error: null });
+
+    const result = await getAiredEpisodeCount(TMDB_ID);
+
+    expect(result).toBe(0);
+  });
+
+  it('throws on error', async () => {
+    setupCountQueryChain({ count: null, error: { message: 'count failed' } });
+
+    await expect(getAiredEpisodeCount(TMDB_ID)).rejects.toThrow('count failed');
+  });
+
+  it('throws fallback message when error has no message', async () => {
+    setupCountQueryChain({ count: null, error: {} });
+
+    await expect(getAiredEpisodeCount(TMDB_ID)).rejects.toThrow('Failed to fetch aired episode count');
   });
 });
