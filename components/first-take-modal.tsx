@@ -25,7 +25,14 @@ import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
 import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import type { ReviewVisibility } from '@/lib/database.types';
 
-const MAX_QUOTE_LENGTH = 140;
+// Matches the live scanner's FirstTakeSheet (scan-v2/first-take-sheet.tsx:46,
+// MAX_REACTION = 280). Scanning a ticket gave you 280 characters while marking
+// the SAME title watched from its detail page gave you 140 — same action, half
+// the room. The split dates to the ticket_scan_v2 strip (2026-07-18): the
+// scanner moved to FirstTakeSheet and the detail-page path was never migrated
+// off this modal. The column allows 2000
+// (first_takes_quote_text_length_check), so 140 was only ever a client choice.
+const MAX_QUOTE_LENGTH = 280;
 
 const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
   { value: 'public', label: 'Public' },
