@@ -42,7 +42,10 @@ const VISIBILITY_OPTIONS: { value: ReviewVisibility; label: string }[] = [
   { value: 'private', label: 'Private' },
 ];
 
-const MAX_QUOTE_LENGTH = 140;
+// Kept in step with FirstTakeModal and the scanner's FirstTakeSheet — all three
+// composers now give 280. Raising only the two Ty happened to compare would have
+// left the same inconsistency alive on the legacy batch-scan path.
+const MAX_QUOTE_LENGTH = 280;
 
 // ============================================================================
 // Types

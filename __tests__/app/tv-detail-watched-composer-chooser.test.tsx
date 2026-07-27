@@ -357,7 +357,7 @@ describe('tv detail: N3 watched-composer chooser — direct status change (handl
     await pressWatched(getByLabelText);
     // Press via the chooser row's description text — "Review" alone is
     // ambiguous with the (unrelated) action-grid Review button.
-    fireEvent.press(await findByText('A fuller take — share it only if you choose'));
+    fireEvent.press(await findByText('A longer, considered write-up'));
 
     expect(getByTestId('review-modal-state').props.children).toBe('open');
     expect(getByTestId('first-take-modal-state').props.children).toBe('closed');
@@ -428,7 +428,7 @@ describe('tv detail: N3 watched-composer chooser — batch completion (handleWat
     const screen = renderScreen();
 
     await pressWatchedThenConfirmBatch(screen);
-    fireEvent.press(screen.getByText('A fuller take — share it only if you choose'));
+    fireEvent.press(screen.getByText('A longer, considered write-up'));
 
     expect(screen.getByTestId('review-modal-state').props.children).toBe('open');
     expect(screen.getByTestId('first-take-modal-state').props.children).toBe('closed');

@@ -275,7 +275,7 @@ describe('movie detail: N3 watched-composer chooser', () => {
     expect(getByText('First Take')).toBeTruthy();
     // "Review" also labels the (unrelated) action-grid button, so assert via
     // the chooser option's unique description text instead.
-    expect(getByText('A fuller take — share it only if you choose')).toBeTruthy();
+    expect(getByText('A longer, considered write-up')).toBeTruthy();
     expect(getByTestId('first-take-modal-state').props.children).toBe('closed');
     expect(queryByText('First Take')).toBeTruthy();
   });
@@ -298,7 +298,7 @@ describe('movie detail: N3 watched-composer chooser', () => {
     await pressWatched(getByLabelText);
     // Press via the chooser row's description text — "Review" alone is
     // ambiguous with the (unrelated) action-grid Review button.
-    fireEvent.press(getByText('A fuller take — share it only if you choose'));
+    fireEvent.press(getByText('A longer, considered write-up'));
 
     expect(getByTestId('review-modal-state').props.children).toBe('open');
     expect(getByTestId('first-take-modal-state').props.children).toBe('closed');
