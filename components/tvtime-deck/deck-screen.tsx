@@ -16,6 +16,7 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -31,6 +32,7 @@ import { inkStubRating } from '@/lib/tvtime-deck/deck-service';
 import { addSkipped, clearSkipped } from '@/lib/tvtime-deck/skip-store';
 import {
   buildDeckQueue,
+  computeInkedNow,
   sessionSlot,
   isSessionCheckpoint,
   shouldOfferTakeBridge,
@@ -56,6 +58,7 @@ export function TvTimeDeckScreen() {
   const styles = createStyles(colors);
   const reduced = useReducedMotion();
   const { preferences } = useUserPreferences();
+  const queryClient = useQueryClient();
 
   const { isLoading, isError, data, refetch } = useTvTimeDeck(user?.id, true);
 
@@ -63,7 +66,11 @@ export function TvTimeDeckScreen() {
   // component owns it so decisions advance instantly (writes happen in the bg).
   const [queue, setQueue] = useState<DeckItem[]>([]);
   const [deckSize, setDeckSize] = useState(0); // items in the current deck pass (for "N OF M")
-  const [ratedThisSession, setRatedThisSession] = useState(0);
+  // Keys inked THIS session (not a plain counter) — a Set naturally dedupes a
+  // key against a double-fire, and computeInkedNow checks membership against
+  // currentEligibleKeys to know which of these are still pending vs. already
+  // folded into the server-confirmed baseInked below (identity, not a sum).
+  const [sessionInkedKeys, setSessionInkedKeys] = useState<Set<string>>(new Set());
   const [skippedKeys, setSkippedKeys] = useState<Set<string>>(new Set());
   const [checkpoint, setCheckpoint] = useState(false);
   const seededRef = useRef(false);
@@ -109,9 +116,18 @@ export function TvTimeDeckScreen() {
     }
   }, [data]);
 
+  // Both live off the query cache, so they pick up server truth once a
+  // successful ink invalidates it (see handleRate) — the banner and this
+  // screen's own progress bar clear/update without a restart or the 60s
+  // staleTime elapsing.
   const baseInked = data?.progress.inked ?? 0;
   const total = data?.progress.totalEligible ?? 0;
-  const inkedNow = baseInked + ratedThisSession;
+  // The keys the latest fetch still considers unrated. computeInkedNow uses
+  // this (not a plain sum) to tell whether a session-inked key has already
+  // been folded into baseInked by a landed refetch, or is still pending —
+  // the identity check that keeps a confirmed ink from being counted twice.
+  const currentEligibleKeys = new Set((data?.eligible ?? []).map((it) => it.key));
+  const inkedNow = computeInkedNow(baseInked, sessionInkedKeys, currentEligibleKeys, total);
   const progressPct = total > 0 ? Math.min(100, Math.round((inkedNow / total) * 100)) : 0;
   // 1-based position of the current card within this deck pass.
   const position = deckSize > 0 ? deckSize - queue.length + 1 : 0;
@@ -139,7 +155,7 @@ export function TvTimeDeckScreen() {
     if (inFlightRef.current.has(item.key)) return;
     hapticNotification(NotificationFeedbackType.Success); // confirms the rating committed
     setQueue((q) => q.filter((it) => it.key !== item.key));
-    setRatedThisSession((n) => n + 1);
+    setSessionInkedKeys((s) => new Set(s).add(item.key));
     analytics.track('deck_rating_submitted', {
       rating,
       session_index: sessionSlot(decidedRef.current).index,
@@ -160,6 +176,14 @@ export function TvTimeDeckScreen() {
     }
     inFlightRef.current.add(item.key);
     inkStubRating(user.id, item, rating)
+      .then(() => {
+        // The read model (progress + eligible list) is now stale — invalidate
+        // so THIS query key refreshes for every consumer: this screen's own
+        // baseInked/total (feeding computeInkedNow above), the home "Ink your
+        // imported stubs" banner (clears once remaining hits 0), and a re-entry
+        // into this screen (won't re-seed already-inked titles from stale data).
+        queryClient.invalidateQueries({ queryKey: ['tvtimeDeck', user.id] });
+      })
       .catch((err) => {
         // Failed write: the item stays unrated server-side and returns next
         // session — no in-place re-queue. Tell the user it didn't stick AND
