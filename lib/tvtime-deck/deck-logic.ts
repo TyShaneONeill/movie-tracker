@@ -186,6 +186,46 @@ export function computeProgress(
   return { totalEligible, inked };
 }
 
+/**
+ * The live "N of M inked" count shown during a deck session.
+ *
+ * `baseInked` is the server-confirmed count as of the latest fetch
+ * (progress.inked — moves once the query cache is invalidated after a
+ * successful ink). `sessionInkedKeys` are the item keys THIS session has
+ * fired an ink for, for instant feedback before that refetch lands.
+ * `currentEligibleKeys` are the keys still present in the latest eligible
+ * list (still unrated per the server as of the latest fetch).
+ *
+ * Summing `baseInked + sessionInkedKeys.size` is unsound: once an
+ * invalidated refetch lands, an inked item drops out of the eligible list
+ * AND is folded into `baseInked` — but it never leaves `sessionInkedKeys`,
+ * so the same ink gets counted twice. That surfaces either as an overshoot
+ * ("4 of 2 inked") or — when the sum lands exactly on `total` instead of
+ * over it — as a silent premature-complete reading ("2 of 2" with a stub
+ * still unrated). A plain integer sum has no way to know an item is already
+ * represented in both counts.
+ *
+ * The fix is identity, not quantity: a session-inked key only adds to the
+ * display while it's STILL sitting in `currentEligibleKeys` (i.e. the
+ * server hasn't confirmed it yet). Once the refetch lands and the key falls
+ * out of `currentEligibleKeys`, it's already inside `baseInked` and stops
+ * being counted as pending — so it's never counted twice. `total` is only a
+ * defensive backstop clamp here, never the mechanism that makes this
+ * correct.
+ */
+export function computeInkedNow(
+  baseInked: number,
+  sessionInkedKeys: ReadonlySet<string>,
+  currentEligibleKeys: ReadonlySet<string>,
+  total: number
+): number {
+  let pending = 0;
+  for (const key of sessionInkedKeys) {
+    if (currentEligibleKeys.has(key)) pending += 1;
+  }
+  return Math.max(0, Math.min(total, baseInked + pending));
+}
+
 export interface SessionSlot {
   /** 1-based position within the current 10-item session. */
   index: number;
