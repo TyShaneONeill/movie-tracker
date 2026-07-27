@@ -1,4 +1,5 @@
 import { render, fireEvent } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StyleSheet } from 'react-native';
 import React from 'react';
 
@@ -107,7 +108,11 @@ jest.mock('@/hooks/use-tvtime-deck', () => ({
 
 describe('TvTimeDeckScreen bridge strip clearance', () => {
   it('offsets the bridge strip wrapper by Spacing.xxl + Spacing.md so it clears the "N OF M" counter', async () => {
-    const { findByTestId, findByText } = render(<TvTimeDeckScreen />);
+    const { findByTestId, findByText } = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <TvTimeDeckScreen />
+      </QueryClientProvider>
+    );
 
     // Rate the top card so a second item remains — the deck stays visible (not
     // the "done" screen) and the bridge strip mounts alongside the counter.
