@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Colors, Spacing, BorderRadius, Fonts, FontSizes } from '@/constants/theme';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { buildAvatarUrl } from '@/lib/avatar-service';
+import { formatRating } from '@/components/ui/rating-slider';
 
 interface ShareableReviewCardProps {
   movieTitle: string;
@@ -59,7 +60,7 @@ const ShareableReviewCard = React.forwardRef<View, ShareableReviewCardProps>(
             )}
             {/* Rating badge overlapping top-right of poster */}
             <View style={[styles.ratingBadge, { backgroundColor: ratingColor }]}>
-              <Text style={styles.ratingText}>{rating}</Text>
+              <Text style={styles.ratingText}>{formatRating(rating)}</Text>
             </View>
           </View>
 

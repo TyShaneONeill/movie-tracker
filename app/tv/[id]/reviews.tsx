@@ -20,6 +20,7 @@ import { LikeButton } from '@/components/like-button';
 import { LikedByIndicator } from '@/components/liked-by-indicator';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/avatar';
+import { formatRating } from '@/components/ui/rating-slider';
 import { ContentContainer } from '@/components/content-container';
 
 const AVATAR_SIZE = 36;
@@ -101,7 +102,7 @@ function ReviewCard({
         </View>
         {review.rating !== null && (
           <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(review.rating) }]}>
-            <Text style={styles.ratingText}>{review.rating}</Text>
+            <Text style={styles.ratingText}>{formatRating(review.rating)}</Text>
           </View>
         )}
       </View>
