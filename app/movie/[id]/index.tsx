@@ -43,8 +43,10 @@ import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { ReviewModal } from '@/components/review-modal';
+import { WatchedComposerChooser } from '@/components/watched-composer-chooser';
 import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
 import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
+import { useWatchedComposerChooserEnabled } from '@/hooks/use-feature-flag';
 import { MovieStatusActions } from '@/components/movie-status-actions';
 import { LoginPromptModal } from '@/components/modals/login-prompt-modal';
 import { TrailerModal } from '@/components/modals/trailer-modal';
@@ -100,6 +102,9 @@ export default function MovieDetailScreen() {
   // Modal state for First Take and Review
   const [showFirstTakeModal, setShowFirstTakeModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  // N3: "First Take or Review?" chooser shown instead of auto-opening First Take.
+  const [showWatchedComposerChooser, setShowWatchedComposerChooser] = useState(false);
+  const watchedComposerChooserEnabled = useWatchedComposerChooserEnabled();
   // PS-12 (D1): review editing is gated behind the `social_editing` flag.
   const socialEditingEnabled = useSocialEditingEnabled();
   const [showTrailerModal, setShowTrailerModal] = useState(false);
@@ -397,7 +402,13 @@ export default function MovieDetailScreen() {
         // After successful status change to "watched", prompt for First Take
         // Only if user doesn't already have a First Take, preference is enabled, and movie is released/accessible
         if (isChangingToWatched && !hasFirstTake && firstTakePromptEnabled && canInteract) {
-          setShowFirstTakeModal(true);
+          // N3: offer the First Take/Review chooser when enabled; otherwise
+          // fall back to the legacy auto-open-First-Take behavior untouched.
+          if (watchedComposerChooserEnabled) {
+            setShowWatchedComposerChooser(true);
+          } else {
+            setShowFirstTakeModal(true);
+          }
         }
 
         // Success haptic after action completes
@@ -458,18 +469,22 @@ export default function MovieDetailScreen() {
       return;
     }
 
-    requireAuth(() => {
-      // PS-12 (D1): editing an EXISTING review is gated behind `social_editing`.
-      // Creating a new review is always allowed. When the flag is OFF and the
-      // user already has a review, there is no edit affordance — do nothing
-      // (behave as pre-PS-12, minus edit). When the flag is ON the editor opens
-      // even for a locked review; only the CONTENT fields are disabled inside
-      // (PS-12 D2), so visibility stays editable.
-      if (hasReview && existingReview && !socialEditingEnabled) {
-        return;
-      }
-      setShowReviewModal(true);
-    }, 'Sign in to write reviews');
+    requireAuth(openReviewComposer, 'Sign in to write reviews');
+  };
+
+  // PS-12 (D1): editing an EXISTING review is gated behind `social_editing`.
+  // Creating a new review is always allowed. When the flag is OFF and the
+  // user already has a review, there is no edit affordance — do nothing
+  // (behave as pre-PS-12, minus edit). When the flag is ON the editor opens
+  // even for a locked review; only the CONTENT fields are disabled inside
+  // (PS-12 D2), so visibility stays editable.
+  // Shared by handleReview (Review action button) and the N3 watched-composer
+  // chooser's Review option — both need this exact gate before opening.
+  const openReviewComposer = () => {
+    if (hasReview && existingReview && !socialEditingEnabled) {
+      return;
+    }
+    setShowReviewModal(true);
   };
 
   const handleReviewSubmit = async (data: {
@@ -902,6 +917,14 @@ export default function MovieDetailScreen() {
         {Platform.OS === 'web' && <GetPocketStubsCTA utmContent="movie" />}
         </ContentContainer>
       </ScrollView>
+
+      {/* N3: First Take or Review chooser, shown instead of auto-opening First Take */}
+      <WatchedComposerChooser
+        visible={showWatchedComposerChooser}
+        onClose={() => setShowWatchedComposerChooser(false)}
+        onSelectFirstTake={() => setShowFirstTakeModal(true)}
+        onSelectReview={openReviewComposer}
+      />
 
       {/* First Take Modal */}
       <FirstTakeModal
