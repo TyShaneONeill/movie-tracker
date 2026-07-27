@@ -9,6 +9,16 @@ export interface AwardedAchievementLevel {
   unlocked_at: string;
 }
 
+export interface RevokedAchievementLevel {
+  achievement_id: string;
+  level: number;
+}
+
+export interface CheckAchievementsResult {
+  newlyAwarded: AwardedAchievementLevel[];
+  revoked: RevokedAchievementLevel[];
+}
+
 export interface UserAchievementWithLevel {
   achievement: Achievement;
   level: number;
@@ -96,10 +106,15 @@ export async function fetchUserAchievements(
   }
 }
 
-export async function checkAchievements(): Promise<AwardedAchievementLevel[]> {
+export async function checkAchievements(): Promise<CheckAchievementsResult> {
   try {
+    // `revoked` is optional on the wire: the client ships via OTA and can
+    // reach an edge function still on the old (award-only) deploy, which
+    // won't send the field at all. Default it to [] rather than assuming
+    // its absence means "nothing to revoke" was computed — see the ?? below.
     const { data, error } = await supabase.functions.invoke<{
       newly_awarded: AwardedAchievementLevel[];
+      revoked?: RevokedAchievementLevel[];
     }>('check-achievements');
 
     if (error) {
@@ -107,10 +122,13 @@ export async function checkAchievements(): Promise<AwardedAchievementLevel[]> {
     }
 
     if (!data) {
-      return [];
+      return { newlyAwarded: [], revoked: [] };
     }
 
-    return data.newly_awarded;
+    return {
+      newlyAwarded: data.newly_awarded ?? [],
+      revoked: data.revoked ?? [],
+    };
   } catch (error) {
     captureException(error instanceof Error ? error : new Error(String(error)), {
       context: 'check-achievements',
