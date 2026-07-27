@@ -372,7 +372,7 @@ describe('useEpisodeActions', () => {
         makeEpisode({ episode_number: 2, id: 102, name: 'The Kingsroad' }),
         makeEpisode({ episode_number: 3, id: 103, name: 'Lord Snow' }),
       ];
-      mockMarkSeasonWatched.mockResolvedValue(undefined);
+      mockMarkSeasonWatched.mockResolvedValue({ flipped: false });
 
       const { wrapper } = createTestHarness();
       const { result } = renderHook(
@@ -398,7 +398,7 @@ describe('useEpisodeActions', () => {
 
     it('invalidates episodeWatches query on success', async () => {
       const episodes = [makeEpisode()];
-      mockMarkSeasonWatched.mockResolvedValue(undefined);
+      mockMarkSeasonWatched.mockResolvedValue({ flipped: false });
 
       const { queryClient, wrapper } = createTestHarness();
       const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
@@ -696,7 +696,7 @@ describe('useEpisodeActions', () => {
         makeEpisode({ episode_number: 9 }),
         makeEpisode({ episode_number: 10, id: 110, name: 'Finale' }),
       ];
-      mockMarkSeasonWatched.mockResolvedValue(undefined);
+      mockMarkSeasonWatched.mockResolvedValue({ flipped: false });
       const onAllWatched = jest.fn();
 
       const { queryClient, wrapper } = createTestHarness();
@@ -919,6 +919,125 @@ describe('useEpisodeActions', () => {
 
       await act(async () => {
         await result.current.markWatched(episode, 10);
+      });
+
+      expect(Toast.show).not.toHaveBeenCalled();
+      expect(onAllWatched).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // markAllWatched — flipped signal from RPC (N2: bulk-mark completion parity)
+  // ==========================================================================
+
+  describe('markAllWatched — flipped signal from RPC', () => {
+    function makeUserTvShow(overrides: Partial<UserTvShow> = {}): UserTvShow {
+      return {
+        id: USER_TV_SHOW_ID,
+        user_id: USER_ID,
+        tmdb_id: TMDB_SHOW_ID,
+        status: 'watching',
+        name: 'Love Island',
+        number_of_episodes: 40,
+        episodes_watched: 38,
+        backdrop_path: null,
+        poster_path: null,
+        number_of_seasons: 6,
+        vote_average: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        last_watched_at: null,
+        tmdb_status: 'Ended',
+        ...overrides,
+      } as UserTvShow;
+    }
+
+    it('fires "Series complete!" toast and skips onAllWatched when RPC returns flipped=true (bulk-mark of an Ended show)', async () => {
+      const episodes = [
+        makeEpisode({ episode_number: 1 }),
+        makeEpisode({ episode_number: 2, id: 102, name: 'Episode 2' }),
+      ];
+      mockMarkSeasonWatched.mockResolvedValue({ flipped: true });
+      const onAllWatched = jest.fn();
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(
+        ['userTvShow', USER_ID, TMDB_SHOW_ID],
+        makeUserTvShow({ status: 'watching' }),
+      );
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER, { onAllWatched }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.markAllWatched(episodes);
+      });
+
+      expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'success',
+        text1: expect.stringContaining('Series complete'),
+      }));
+      expect(onAllWatched).not.toHaveBeenCalled();
+    });
+
+    it('falls through to legacy count-based path when flipped=false and threshold met (Ended show)', async () => {
+      const episodes = [
+        makeEpisode({ episode_number: 9 }),
+        makeEpisode({ episode_number: 10, id: 110, name: 'Finale' }),
+      ];
+      mockMarkSeasonWatched.mockResolvedValue({ flipped: false });
+      const onAllWatched = jest.fn();
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(
+        ['userTvShow', USER_ID, TMDB_SHOW_ID],
+        makeUserTvShow({ tmdb_status: 'Ended', episodes_watched: 8, number_of_episodes: 10, status: 'watching' }),
+      );
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER, { onAllWatched }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.markAllWatched(episodes);
+      });
+
+      expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({
+        text1: expect.stringContaining('Series complete'),
+      }));
+      expect(onAllWatched).toHaveBeenCalled();
+    });
+
+    it('does NOT fire toast when flipped=false AND tmdb_status is Returning Series (a fully-caught-up returning show must not flip)', async () => {
+      const episodes = [
+        makeEpisode({ episode_number: 9 }),
+        makeEpisode({ episode_number: 10, id: 110, name: 'Finale' }),
+      ];
+      mockMarkSeasonWatched.mockResolvedValue({ flipped: false });
+      const onAllWatched = jest.fn();
+
+      const { queryClient, wrapper } = createTestHarness();
+      queryClient.setQueryData(
+        ['userTvShow', USER_ID, TMDB_SHOW_ID],
+        makeUserTvShow({ tmdb_status: 'Returning Series', episodes_watched: 8, number_of_episodes: 10, status: 'watching' }),
+      );
+
+      const { result } = renderHook(
+        () => useEpisodeActions(USER_TV_SHOW_ID, TMDB_SHOW_ID, SEASON_NUMBER, { onAllWatched }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.markAllWatched(episodes);
       });
 
       expect(Toast.show).not.toHaveBeenCalled();
