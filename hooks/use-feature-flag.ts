@@ -151,3 +151,22 @@ export function usePostImportUpsellEnabled(): boolean {
   if (envOverride === 'false') return false;
   return flagOn;
 }
+
+/**
+ * Returns true when marking a movie/show watched should offer a "First Take
+ * or Review?" chooser instead of auto-opening the (public) First Take
+ * composer (N3). Combines the PostHog flag `watched_composer_chooser` and an
+ * env-var dev override (EXPO_PUBLIC_WATCHED_COMPOSER_CHOOSER_OVERRIDE =
+ * "true" | "false"), mirroring usePostImportUpsellEnabled above.
+ *
+ * Fails closed: while the flag is loading (or off), the legacy auto-open-
+ * First-Take behavior is byte-identical to pre-chooser code.
+ */
+export function useWatchedComposerChooserEnabled(): boolean {
+  const { enabled: flagOn } = useFeatureFlag('watched_composer_chooser');
+  const envOverride = process.env.EXPO_PUBLIC_WATCHED_COMPOSER_CHOOSER_OVERRIDE;
+
+  if (envOverride === 'true') return true;
+  if (envOverride === 'false') return false;
+  return flagOn;
+}
