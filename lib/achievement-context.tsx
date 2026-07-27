@@ -29,7 +29,9 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
 
   const triggerAchievementCheck = useCallback(() => {
     checkAchievements()
-      .then((newlyAwarded) => {
+      .then(({ newlyAwarded = [], revoked = [] }) => {
+        // Celebration is award-only — a silent revoke must never pop the
+        // modal (it's usually just correcting the user's own mis-tap).
         if (newlyAwarded.length > 0) {
           const first = newlyAwarded[0];
           setCelebrationData({
@@ -39,6 +41,12 @@ export function AchievementProvider({ children }: { children: React.ReactNode })
             level: first.level,
           });
           setShowCelebration(true);
+        }
+
+        // Refresh the cached achievements list on either an award OR a
+        // revoke, so a bulk-mark-then-unmark doesn't leave a stale badge
+        // on screen after the silent revoke.
+        if (newlyAwarded.length > 0 || revoked.length > 0) {
           queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
         }
       })

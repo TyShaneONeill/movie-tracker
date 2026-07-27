@@ -48,8 +48,10 @@ export function useAchievements() {
   }, [achievementsQuery.data, levelsQuery.data, userAchievementsQuery.data]);
 
   const triggerCheck = async (): Promise<AwardedAchievementLevel[]> => {
-    const newlyAwarded = await checkAchievements();
-    if (newlyAwarded.length > 0) {
+    const { newlyAwarded = [], revoked = [] } = await checkAchievements();
+    // Invalidate on either an award or a silent revoke, so a stale badge
+    // from a revoked achievement doesn't linger in the cache.
+    if (newlyAwarded.length > 0 || revoked.length > 0) {
       queryClient.invalidateQueries({ queryKey: ['userAchievements', user?.id] });
     }
     return newlyAwarded;
