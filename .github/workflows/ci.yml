@@ -30,6 +30,26 @@ jobs:
       - name: Tests
         run: npm test -- --ci --passWithNoTests
 
+  definer-grants:
+    name: DEFINER Grants (migrations)
+    runs-on: ubuntu-latest
+    steps:
+      # Needs real history: the check inspects only the migrations this branch
+      # adds or modifies relative to the base, so a shallow clone would have
+      # nothing to diff and would silently pass.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No `npm ci`: the script is dependency-free Node, and keeping this job
+      # fast means nobody is tempted to route around it.
+      - name: Check SECURITY DEFINER grants in changed migrations
+        run: node scripts/check-definer-grants.mjs
+
   security:
     name: Security Audit
     runs-on: ubuntu-latest
