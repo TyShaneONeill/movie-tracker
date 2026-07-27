@@ -1,16 +1,20 @@
-// Atomic episodes_watched recompute — shared by the import-tvtime edge fn and
-// its Jest boundary test. Self-contained (no Deno/npm imports) so both runtimes
-// can load it.
+// Atomic episodes_watched + current_season/current_episode recompute — shared
+// by the import-tvtime edge fn and its Jest boundary test. Self-contained (no
+// Deno/npm imports) so both runtimes can load it.
 //
 // Replaces the old per-show COUNT-then-UPDATE (a non-atomic read-then-write with
 // a concurrent-stale-write race, 2 round-trips/show) with ONE set-based RPC call
 // per import call. The recompute_episodes_watched RPC does the actual work in a
-// single statement; this wrapper enforces the call contract:
+// single statement — episodes_watched (progress bar) AND, since PR-J
+// (2026-07-26), current_season/current_episode (Continue Watching label +
+// Debrief Room bubble entry point), set to the latest watched episode using
+// the same ORDER BY the organic writer (mark_episode_watched) uses. This
+// wrapper enforces the call contract:
 //   * exactly ONE rpc() call per import call (deduped ids), never per-show;
 //   * a no-op when nothing was touched;
 //   * best-effort — a failure is logged, never thrown, because a stuck counter
-//     must not strand the whole import (it self-heals on the next re-import,
-//     mirroring the poster self-heal).
+//     or stale current_* must not strand the whole import (it self-heals on
+//     the next re-import, mirroring the poster self-heal).
 
 export const RECOMPUTE_RPC = 'recompute_episodes_watched';
 

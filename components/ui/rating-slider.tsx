@@ -26,10 +26,12 @@ interface RatingSliderProps {
   onSlidingComplete?: (value: number) => void;
   disabled?: boolean;
   /**
-   * Slider granularity. Surfaces whose backing column is INTEGER (reviews —
-   * the deck inks + the review modal) must pass 1, so the value the user sees
-   * IS the value that's stored (#722/#725: write-boundary rounding alone would
-   * show 7.5 while storing 8). First takes keep the 0.1 default (numeric col).
+   * Slider granularity. reviews.rating became numeric(3,1) in 20260726150000
+   * (was INTEGER — #722/#725's "step={1} so displayed == stored" fix no
+   * longer applies at the column level). Every rating surface — deck ink,
+   * First Takes, and reviews — now uses the 0.1 default: Ty's call once the
+   * integer column was gone, since the only reason reviews were ever
+   * whole-number was that technical constraint, not a product one.
    */
   step?: number;
   /** Deck: render "—" and a muted thumb until first touch. */

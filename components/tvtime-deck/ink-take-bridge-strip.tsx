@@ -60,7 +60,9 @@ export function InkTakeBridgeStrip({ item, reduced, onTap, onDismiss }: InkTakeB
           <Text style={styles.title} numberOfLines={1}>
             Say a line about {item.title}
           </Text>
-          <Text style={styles.sub}>Turn your ink into a First Take</Text>
+          <Text style={styles.sub} numberOfLines={1}>
+            Turn your ink into a First Take
+          </Text>
         </View>
         <Ionicons name="arrow-forward" size={16} color={colors.tint} />
       </Pressable>

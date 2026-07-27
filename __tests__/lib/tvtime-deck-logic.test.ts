@@ -2,6 +2,7 @@ import {
   computeEligibleItems,
   buildDeckQueue,
   computeProgress,
+  computeInkedNow,
   clampDeckRating,
   sessionSlot,
   isSessionCheckpoint,
@@ -30,28 +31,30 @@ const show = (tmdb_id: number, name = `Show ${tmdb_id}`): EligibleShowRow => ({
   poster_path: `/s${tmdb_id}.jpg`,
 });
 
-describe('clampDeckRating (1–10 slider value, stored as an integer)', () => {
+describe('clampDeckRating (1–10 slider value, stored as numeric(3,1))', () => {
   it('passes whole 1–10 values through unchanged', () => {
     expect(clampDeckRating(1)).toBe(1);
     expect(clampDeckRating(8)).toBe(8);
     expect(clampDeckRating(10)).toBe(10);
   });
 
-  it('ROUNDS fractional slider values to an integer (#722)', () => {
-    // reviews.rating is an integer column; PostgREST rejects a fractional value
-    // with 22P02 (it text-casts, it does not round), so a fractional rating must
-    // be rounded before the write or the insert fails and the rating is lost.
-    expect(clampDeckRating(7.5)).toBe(8);
-    expect(clampDeckRating(7.4)).toBe(7);
-    expect(clampDeckRating(8.3)).toBe(8);
-    expect(Number.isInteger(clampDeckRating(6.7))).toBe(true);
+  it('passes fractional slider values through UNROUNDED (reviews.rating is numeric(3,1) as of 20260726150000)', () => {
+    // Was Math.round() here when reviews.rating was an integer column and
+    // PostgREST rejected fractional inserts with 22P02 (#722). The column now
+    // accepts fractions natively, so the deck ink stores exactly what the
+    // slider shows.
+    expect(clampDeckRating(7.5)).toBe(7.5);
+    expect(clampDeckRating(7.4)).toBe(7.4);
+    expect(clampDeckRating(8.3)).toBeCloseTo(8.3);
+    expect(clampDeckRating(6.7)).toBeCloseTo(6.7);
   });
 
-  it('clamps out-of-range values into 1..10', () => {
+  it('clamps out-of-range values into 1..10 without rounding in-range ones', () => {
     expect(clampDeckRating(0)).toBe(1);
     expect(clampDeckRating(0.4)).toBe(1);
     expect(clampDeckRating(11)).toBe(10);
     expect(clampDeckRating(-3)).toBe(1);
+    expect(clampDeckRating(10.4)).toBe(10);
   });
 });
 
@@ -128,6 +131,50 @@ describe('computeProgress (inked of total)', () => {
   });
   it('all rated → fully inked', () => {
     expect(computeProgress(10, 0)).toEqual({ totalEligible: 10, inked: 10 });
+  });
+});
+
+describe('computeInkedNow (live "N of M inked" — identity-based, not a plain sum)', () => {
+  it('one ink of two, before the refetch lands, reads "1 of 2"', () => {
+    // Server hasn't confirmed anything yet (baseInked=0, both keys still in
+    // currentEligibleKeys) — the session's own optimistic tally carries it.
+    expect(computeInkedNow(0, new Set(['hp']), new Set(['hp', 'joker']), 2)).toBe(1);
+  });
+
+  it('a key confirmed server-side AND still present in sessionInkedKeys counts ONCE, not twice', () => {
+    // The exact device bug (#device-QA): after inking Harry Potter, the
+    // invalidated refetch lands — baseInked becomes 1 and "hp" drops out of
+    // currentEligibleKeys — but sessionInkedKeys still holds "hp" from the
+    // optimistic tap. The old sum-based formula read this as
+    // computeInkedNow(1, 1, 2) = 2 ("2 of 2 inked" with Joker still unrated).
+    // Identity fixes it: "hp" is no longer pending (it's not in
+    // currentEligibleKeys), so it contributes 0 on top of baseInked.
+    expect(computeInkedNow(1, new Set(['hp']), new Set(['joker']), 2)).toBe(1);
+  });
+
+  it('never returns more than total for any combination of overlapping/non-overlapping keys', () => {
+    const universe = ['a', 'b', 'c'];
+    const subsets = (arr: string[]): string[][] =>
+      arr.reduce<string[][]>((acc, item) => acc.concat(acc.map((s) => [...s, item])), [[]]);
+    for (const session of subsets(universe)) {
+      for (const eligible of subsets(universe)) {
+        for (let base = 0; base <= 3; base++) {
+          expect(computeInkedNow(base, new Set(session), new Set(eligible), 3)).toBeLessThanOrEqual(3);
+        }
+      }
+    }
+  });
+
+  it('does not reach total while a stub is genuinely untouched (never session-inked, still eligible)', () => {
+    // Joker was never rated this session (absent from sessionInkedKeys) and
+    // the server still lists it as eligible — the count must stay at 1, not
+    // creep up to the 2-item total.
+    expect(computeInkedNow(1, new Set(['hp']), new Set(['joker']), 2)).toBeLessThan(2);
+  });
+
+  it('total 0 (nothing eligible) → always 0', () => {
+    expect(computeInkedNow(0, new Set(), new Set(), 0)).toBe(0);
+    expect(computeInkedNow(0, new Set(['x']), new Set(['x']), 0)).toBe(0);
   });
 });
 

@@ -257,13 +257,21 @@ async function importShows(
   // episodes_watched to its watch_number=1 row count in a single statement — the
   // same semantics the organic writer (sync_tv_show_progress) uses.
   //
-  // NOTE — current_season/current_episode are DELIBERATELY not set (the organic
-  // RPC sets them to the latest watched S/E). Two reasons: (1) it keeps the
-  // Continue Watching card showing the "N/total episodes" COUNT the founder
-  // expects — setting current_* flips that label to "S# E#"; (2) a "current"
-  // episode is ambiguous for a bulk import of scattered episodes. Deferred; the
-  // episodes_watched counter is what drives the progress bar. Best-effort: a
-  // recompute failure must not strand the import.
+  // REVERSAL (PR-J, 2026-07-26) — current_season/current_episode ARE now set,
+  // to the latest watched S/E (ORDER BY season DESC, episode DESC — same query
+  // the organic RPC mark_episode_watched runs, no watch_number filter, so a
+  // rewatch row still counts). The prior "leave them null" decision was to
+  // protect the "N/total episodes" COUNT label on Continue Watching; the
+  // founder has since said he prefers "S# E#" labelling for imported shows too,
+  // immediately after import — the old behaviour also meant an imported show
+  // never got a Debrief Room bubble (gated on non-null current_*) until the
+  // user manually opened it and marked an episode watched. "Current" is still
+  // ambiguous in the abstract for a scattered/out-of-order import, but
+  // latest-by-(season, episode) is the SAME answer the organic writer gives a
+  // user who marks episodes out of order, so imported and organic shows now
+  // share identical current_* semantics — see the migration
+  // (20260726120000_import_sets_current_episode.sql) for the SQL. Best-effort:
+  // a recompute failure must not strand the import.
   await recomputeEpisodesWatched(
     (name, args) => admin.rpc(name, args),
     touchedShowIds,
