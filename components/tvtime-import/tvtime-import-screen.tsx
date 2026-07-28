@@ -56,6 +56,7 @@ import {
   checkPostImportUpsell,
   markPostImportUpsellShown,
 } from '@/lib/post-import-upsell-service';
+import { postImportUpsellMessage } from '@/lib/post-import-upsell-copy';
 
 // Delay before the post-import review sheet appears on a fresh done screen —
 // lets the success moment (stub count, haptic) land first.
@@ -809,7 +810,11 @@ function DoneScreen({
         featureKey="advanced_stats"
         source="post-import"
         title="Your taste, across your whole library"
-        message={`You just brought over ${showCount} ${showCount === 1 ? 'show' : 'shows'} and ${movieCount} ${movieCount === 1 ? 'movie' : 'movies'}. See your taste profile — rating personality, blind spots, and more — across everything you've watched with PocketStubs+.`}
+        message={postImportUpsellMessage({
+          showCount,
+          movieCount,
+          episodeCount: counts.episodesInserted,
+        })}
         onClose={() => setShowUpsell(false)}
       />
     </View>
