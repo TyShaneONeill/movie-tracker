@@ -64,7 +64,8 @@ import { useEpisodeActions } from '@/hooks/use-episode-actions';
 import { useFirstTakeActions } from '@/hooks/use-first-take-actions';
 import { useReviewActions } from '@/hooks/use-review-actions';
 import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
-import { useShowCaughtUp } from '@/hooks/use-show-caught-up';
+import { useShowCurrency } from '@/hooks/use-show-currency';
+import { caughtUpSubline } from '@/lib/show-currency-copy';
 import { createFirstTake } from '@/lib/first-take-service';
 import { episodeRoomSlug } from '@/lib/episode-room-logic';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -360,15 +361,18 @@ export default function TvShowDetailScreen() {
     toggleLike,
   } = useTvShowActions(Number(tmdbId) || 0);
 
-  // "Caught Up" — a Returning Series where every aired episode has been
-  // watched (see hooks/use-show-caught-up.ts). Purely a display derivation
-  // on top of the WATCHING pill; the stored status stays 'watching'.
-  const isCaughtUp = useShowCaughtUp({
-    tmdbShowId: Number(tmdbId) || 0,
-    currentStatus,
-    tmdbStatus: show?.status,
-    episodesWatched: userTvShow?.episodes_watched,
-  });
+  // "Caught Up" — every AIRED episode of a returning series has been watched.
+  // The verdict comes from get_user_show_currency() rather than being derived
+  // here: the old client hook compared COUNTS, so watching a future-dated
+  // episode while an aired one sat unwatched still read as caught up.
+  //
+  // Still purely a display state on top of the WATCHING pill — the stored status
+  // stays 'watching', so a new episode airing reverts it on its own with no
+  // un-flip write path, and the user never "loses" a badge we granted them.
+  const currency = useShowCurrency(userTvShow?.id);
+  const isCaughtUp = currency?.is_current === true;
+  const caughtUpLine =
+    isCaughtUp && currency ? caughtUpSubline(currency, userTvShow?.current_season) : null;
 
   // First Take actions hook
   const {
@@ -1042,6 +1046,12 @@ export default function TvShowDetailScreen() {
               disabled={isSaving || isConfirming}
               onStatusChange={handleStatusChange}
             />
+            {/* The falsifiable half of the claim. Pairing "caught up" with the
+                next air date lets the user check the app against the episode
+                list right below it, instead of being asked to just trust it. */}
+            {caughtUpLine && (
+              <Text style={dynamicStyles.caughtUpSubline}>{caughtUpLine}</Text>
+            )}
           </View>
 
           {/* Action Grid - 4 items: Like, Lists, Review (Coming Soon), Share (Coming Soon) */}
@@ -1678,6 +1688,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // Status Actions
   statusActionsContainer: {
     marginTop: Spacing.lg,
+  },
+  caughtUpSubline: {
+    ...Typography.body.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
   },
 
   // Action Grid

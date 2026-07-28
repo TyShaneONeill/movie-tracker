@@ -12,11 +12,15 @@ interface TvShowStatusActionsProps {
   /** Current status of the TV show (null if not in library) */
   currentStatus: TvShowStatus | null;
   /**
-   * Derived "Caught Up" state — every aired episode of a Returning Series has
+   * Derived "Caught Up" state — every AIRED episode of a returning series has
    * been watched. Relabels the WATCHING pill (still the active/selected one;
    * the underlying status stays 'watching') so users understand why a fully
-   * caught-up returning show doesn't flip to Watched. See
-   * hooks/use-show-caught-up.ts.
+   * caught-up returning show doesn't flip to Watched.
+   *
+   * The verdict comes from get_user_show_currency() via hooks/use-show-currency.
+   * Do NOT re-derive it from counts: the previous hook compared
+   * episodesWatched >= airedCount, which reports caught-up while an aired
+   * episode sits unwatched if the user watched a future-dated one.
    */
   isCaughtUp?: boolean;
   /** Whether a mutation is in progress */

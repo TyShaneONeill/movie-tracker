@@ -31,6 +31,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { getTMDBImageUrl, getPrimaryGenre } from '@/lib/tmdb.types';
 import { ContinueWatchingCard } from '@/components/cards/continue-watching-card';
+import { useShowCurrencyMap } from '@/hooks/use-show-currency';
+import { caughtUpCardLine } from '@/lib/show-currency-copy';
 import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
 import { episodeRoomSlug } from '@/lib/episode-room-logic';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
@@ -124,6 +126,10 @@ export default function HomeScreen() {
 
   // Fetch continue watching shows
   const continueWatching = useContinueWatching();
+  // One RPC for every watching show — a per-card hook would fan out into N
+  // round trips on the app's first screen. Empty map while loading, so cards
+  // render normal progress until the verdict is actually known.
+  const showCurrency = useShowCurrencyMap().data ?? new Map();
   const { preferences } = useUserPreferences();
   const showContinueWatching = preferences?.showContinueWatching ?? true;
 
@@ -259,6 +265,11 @@ export default function HomeScreen() {
                   currentEpisode={item.current_episode}
                   episodesWatched={item.episodes_watched}
                   totalEpisodes={item.number_of_episodes}
+                  caughtUpLine={
+                    showCurrency.get(item.id)?.is_current
+                      ? caughtUpCardLine(showCurrency.get(item.id)!)
+                      : null
+                  }
                   onPress={() => handleTvShowPress(item.tmdb_id)}
                   onRoomPress={
                     episodeRoomsEnabled && item.current_season != null && item.current_episode != null
