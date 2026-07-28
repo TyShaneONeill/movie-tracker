@@ -105,7 +105,17 @@ export default function UpgradeScreen() {
       const result = await purchasePackage(packageId);
 
       if (result && typeof result === 'object' && 'success' in result && result.success) {
-        analytics.track('premium:subscribe', { plan: selectedPlan, trial: showTrial });
+        // `source` is carried onto the CONVERSION, not just the view. Without it
+        // the funnel can tell you how many people saw the post-import upsell and
+        // how many tapped through, but not which surface actually produced a
+        // payment — which is the only number that answers whether the import
+        // moment is the first-dollar lever it was built to be. Same vocabulary
+        // as premium:upgrade_view above, so the two join cleanly.
+        analytics.track('premium:subscribe', {
+          plan: selectedPlan,
+          trial: showTrial,
+          source: source ?? 'direct',
+        });
         setShowSuccess(true);
         setTimeout(() => {
           setShowSuccess(false);
@@ -129,7 +139,7 @@ export default function UpgradeScreen() {
     } finally {
       setIsPurchasing(false);
     }
-  }, [selectedPlan, purchasePackage, handleBack, showTrial]);
+  }, [selectedPlan, purchasePackage, handleBack, showTrial, source]);
 
   const handleRestore = useCallback(async () => {
     hapticImpact();
