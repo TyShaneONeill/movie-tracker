@@ -17,6 +17,14 @@ interface ContinueWatchingCardProps {
   totalEpisodes: number | null;
   onPress: () => void;
   /**
+   * When the user is current on this show, the line that replaces the usual
+   * "S2 E4" progress text (e.g. "Caught up · Jul 30"). Supplied only when the
+   * server-side certainty gate in get_user_show_currency() grants it; absent
+   * means render normal progress. Never inferred here — the card must not
+   * make the claim on its own.
+   */
+  caughtUpLine?: string | null;
+  /**
    * Opens the Episode Room for the given (season, episode) — the resolved
    * NEXT-UP episode, or the last-watched one when next-up can't be computed.
    * When absent (flag off, or no current episode) the card renders exactly as
@@ -39,6 +47,7 @@ export function ContinueWatchingCard({
   currentEpisode,
   episodesWatched,
   totalEpisodes,
+  caughtUpLine,
   onPress,
   onRoomPress,
 }: ContinueWatchingCardProps) {
@@ -54,12 +63,16 @@ export function ContinueWatchingCard({
   const roomSeason = nextUp?.season ?? currentSeason;
   const roomEpisode = nextUp?.episode ?? currentEpisode;
 
+  // Being current outranks next-up: pointing at "S3 E5" when that episode has
+  // not aired reads as something to watch tonight, which is the opposite of the
+  // truth. The date says what is actually going on.
   const progressText =
-    roomSeason != null && roomEpisode != null
+    caughtUpLine ??
+    (roomSeason != null && roomEpisode != null
       ? `S${roomSeason} E${roomEpisode}`
       : episodesWatched != null && totalEpisodes != null
         ? `${episodesWatched}/${totalEpisodes} episodes`
-        : null;
+        : null);
 
   const progressRatio =
     episodesWatched != null && totalEpisodes != null && totalEpisodes > 0
@@ -98,7 +111,7 @@ export function ContinueWatchingCard({
       {progressText && (
         <View style={dynamicStyles.progressRow}>
           <Text style={dynamicStyles.progress}>{progressText}</Text>
-          {onRoomPress && roomSeason != null && roomEpisode != null && (
+          {!caughtUpLine && onRoomPress && roomSeason != null && roomEpisode != null && (
             <Pressable
               onPress={() => onRoomPress(roomSeason, roomEpisode)}
               hitSlop={8}

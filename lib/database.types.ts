@@ -2413,6 +2413,20 @@ export type Database = {
         Args: { p_user_tv_show_id: string }
         Returns: Json
       }
+      // Hand-added for 20260728010000. `supabase gen types` overwrites this file
+      // and drops the custom aliases it carries, so new RPCs are declared by
+      // hand here — see memory project_cinetrak_supabase_types_regen.
+      get_user_show_currency: {
+        Args: Record<string, never>
+        Returns: {
+          user_tv_show_id: string
+          tmdb_show_id: number
+          is_current: boolean
+          next_air_date: string | null
+          next_season: number | null
+          next_episode: number | null
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
