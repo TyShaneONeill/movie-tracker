@@ -644,7 +644,24 @@ function DoneScreen({
   const [reviewResolved, setReviewResolved] = useState(false);
   const reviewCheckStartedRef = useRef(false);
   useEffect(() => {
-    if (resume || reviewCheckStartedRef.current) return;
+    // WAIT FOR A REAL COUNT BEFORE LATCHING. `stubs` is 0 on the first render of
+    // this screen and only becomes final once the run reports its counts, so the
+    // effect must not claim the ref on that first pass.
+    //
+    // It used to: at stubs=0 it set reviewCheckStartedRef and scheduled the
+    // timer; the stubs 0 -> N change then re-ran the effect, whose CLEANUP
+    // cleared that pending timer, while the ref guard stopped a replacement
+    // being scheduled. The review check therefore never executed,
+    // setReviewResolved(true) never ran, and reviewResolved stayed false
+    // forever. Both post-import moments died with it: the review ask never
+    // appeared, and the premium upsell -- which is gated on reviewResolved --
+    // could never appear either. That is why
+    // premium:post_import_prompt_shown has ZERO events in production since
+    // #746 shipped.
+    //
+    // Gating on stubs > 0 makes the first pass a no-op, so the timer is
+    // scheduled exactly once, with the real count.
+    if (resume || stubs <= 0 || reviewCheckStartedRef.current) return;
     reviewCheckStartedRef.current = true;
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -679,7 +696,11 @@ function DoneScreen({
   const upsellCheckStartedRef = useRef(false);
   useEffect(() => {
     if (resume || !reviewResolved || !upsellEnabled || isPremium) return;
-    if (upsellCheckStartedRef.current) return;
+    // Same latch hazard as the review effect above: never claim the ref before
+    // there is a real count to evaluate. reviewResolved can only flip after
+    // stubs > 0 now, so this is belt-and-braces rather than load-bearing -- but
+    // the failure it prevents is silent and permanent, so it is worth the line.
+    if (stubs <= 0 || upsellCheckStartedRef.current) return;
     upsellCheckStartedRef.current = true;
     let cancelled = false;
     const timer = setTimeout(() => {
