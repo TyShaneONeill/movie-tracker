@@ -59,10 +59,24 @@ const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const DEFAULT_MAX_SHOWS = 25;
 /** A show is due for refresh once its metadata is older than this. */
 const DEFAULT_STALE_HOURS = 24;
+/**
+ * Ended/Canceled shows get a much longer window. Their episode list is frozen —
+ * re-pulling every season of a show that finished in 2013 is pure waste. The
+ * only reason to revisit them at all is a TMDB correction, which is rare enough
+ * that weekly is generous.
+ */
+const ENDED_STALE_HOURS = 24 * 7;
 /** Concurrent season fetches within one show. Polite to TMDB, still quick. */
 const SEASON_CONCURRENCY = 4;
 /** Breather between shows so a batch never bursts. */
 const SHOW_DELAY_MS = 120;
+/**
+ * Air dates near "now" still move (a TBA episode gets scheduled, a slot slips),
+ * so a season containing anything unaired or freshly-aired stays volatile and is
+ * refetched even when its episode COUNT is unchanged. Seasons entirely older
+ * than this are treated as settled.
+ */
+const VOLATILE_WINDOW_DAYS = 7;
 
 interface RequestBody {
   max_shows?: number;
@@ -146,9 +160,10 @@ Deno.serve(async (req) => {
     // one refresh serves every user tracking that show. Nulls first: a show that
     // has never been refreshed is the worst case and should go to the front.
     const cutoffIso = new Date(Date.now() - staleHours * 3600 * 1000).toISOString();
+    const endedCutoffIso = new Date(Date.now() - ENDED_STALE_HOURS * 3600 * 1000).toISOString();
     let query = supabase
       .from('user_tv_shows')
-      .select('tmdb_id, metadata_refreshed_at')
+      .select('tmdb_id, metadata_refreshed_at, tmdb_status')
       .not('tmdb_id', 'is', null)
       .order('metadata_refreshed_at', { ascending: true, nullsFirst: true })
       .limit(maxShows * 8); // over-fetch: many rows collapse to few distinct shows
@@ -161,15 +176,23 @@ Deno.serve(async (req) => {
     if (selectError) throw new Error(`show select failed: ${selectError.message}`);
 
     // Collapse to distinct tmdb_ids, preserving the staleness ordering above.
+    // A show already known to be Ended/Canceled is held back to the weekly
+    // cadence: its catalog is frozen, so spending a daily slot on it displaces a
+    // returning series that might actually have a new episode.
     const dueShowIds: number[] = [];
     const seen = new Set<number>();
     for (const row of rows ?? []) {
-      const id = (row as { tmdb_id: number }).tmdb_id;
-      if (!seen.has(id)) {
-        seen.add(id);
-        dueShowIds.push(id);
-        if (dueShowIds.length >= maxShows) break;
+      const r = row as { tmdb_id: number; metadata_refreshed_at: string | null; tmdb_status: string | null };
+      if (seen.has(r.tmdb_id)) continue;
+
+      const isFinished = r.tmdb_status === 'Ended' || r.tmdb_status === 'Canceled';
+      if (!force && isFinished && r.metadata_refreshed_at !== null && r.metadata_refreshed_at >= endedCutoffIso) {
+        continue;
       }
+
+      seen.add(r.tmdb_id);
+      dueShowIds.push(r.tmdb_id);
+      if (dueShowIds.length >= maxShows) break;
     }
 
     const summary = {
@@ -177,6 +200,11 @@ Deno.serve(async (req) => {
       shows_synced: 0,
       shows_failed: 0,
       episodes_upserted: 0,
+      // Season fetches avoided by the change-detection above. Reported so the
+      // saving is observable rather than assumed — if this stops being large in
+      // steady state, the detection has regressed.
+      season_calls_made: 0,
+      season_calls_skipped: 0,
       failures: [] as { tmdb_id: number; reason: string }[],
     };
 
@@ -191,16 +219,54 @@ Deno.serve(async (req) => {
         }
         const show = (await showRes.json()) as TMDBShowDetail;
 
-        // --- 2. full episode catalog, seasons 1..N ----------------------
-        // Prefer the seasons array (authoritative about which exist); fall back
-        // to a 1..number_of_seasons range if TMDB omits it.
-        const seasonNumbers = (show.seasons ?? [])
+        // --- 2. work out which seasons can actually have changed ---------
+        // The single /tv/{id} call above already carries seasons[].episode_count,
+        // so it tells us what to refetch without spending a call to find out.
+        // A season is refetched only when:
+        //   (a) our stored episode count disagrees with TMDB's — episodes were
+        //       added or removed; or
+        //   (b) it holds anything unaired or freshly aired, where dates still
+        //       move even though the count does not.
+        // Everything else is settled: a finished season of a finished show is
+        // immutable, and re-pulling it daily is work with no possible result.
+        const allSeasons = (show.seasons ?? [])
           .map((s) => s.season_number)
           .filter((n) => typeof n === 'number' && n > 0);
-        if (seasonNumbers.length === 0 && show.number_of_seasons) {
-          for (let n = 1; n <= show.number_of_seasons; n++) seasonNumbers.push(n);
+        if (allSeasons.length === 0 && show.number_of_seasons) {
+          for (let n = 1; n <= show.number_of_seasons; n++) allSeasons.push(n);
+        }
+        const tmdbCountBySeason = new Map<number, number>();
+        for (const s of show.seasons ?? []) {
+          if (s.season_number > 0) tmdbCountBySeason.set(s.season_number, s.episode_count);
         }
 
+        // What we already hold, per season: how many rows, and whether any of
+        // them are still moving.
+        const volatileCutoff = new Date(Date.now() - VOLATILE_WINDOW_DAYS * 86400_000)
+          .toISOString()
+          .slice(0, 10);
+        const { data: storedRows } = await supabase
+          .from('tv_show_episodes')
+          .select('season_number, air_date')
+          .eq('tmdb_show_id', tmdbId);
+
+        const storedCount = new Map<number, number>();
+        const volatileSeasons = new Set<number>();
+        for (const r of (storedRows ?? []) as { season_number: number; air_date: string | null }[]) {
+          storedCount.set(r.season_number, (storedCount.get(r.season_number) ?? 0) + 1);
+          if (r.air_date === null || r.air_date >= volatileCutoff) {
+            volatileSeasons.add(r.season_number);
+          }
+        }
+
+        const seasonNumbers = allSeasons.filter((n) => {
+          const stored = storedCount.get(n) ?? 0;
+          if (stored === 0) return true; // never fetched
+          if (stored !== (tmdbCountBySeason.get(n) ?? stored)) return true; // count moved
+          return volatileSeasons.has(n); // dates may still move
+        });
+
+        const seasonsSkipped = allSeasons.length - seasonNumbers.length;
         let episodesForShow = 0;
         await runWithLimit(seasonNumbers, SEASON_CONCURRENCY, async (seasonNumber) => {
           const seasonUrl = new URL(`${TMDB_BASE_URL}/tv/${tmdbId}/season/${seasonNumber}`);
@@ -255,6 +321,8 @@ Deno.serve(async (req) => {
 
         summary.shows_synced += 1;
         summary.episodes_upserted += episodesForShow;
+        summary.season_calls_made += seasonNumbers.length;
+        summary.season_calls_skipped += seasonsSkipped;
       } catch (err) {
         summary.shows_failed += 1;
         const reason = err instanceof Error ? err.message : String(err);
