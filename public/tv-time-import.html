@@ -45,6 +45,54 @@
             "@type": "Answer",
             "text": "Yes. Importing your TV Time history and using PocketStubs' core tracking features is free."
           }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need to unzip the TV Time export first?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Upload gdpr-data.zip exactly as TV Time gave it to you — PocketStubs reads it as-is. You don't need to extract it, rename it, or open any of the CSV files inside."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I import my TV Time data on Android or iPhone?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Save gdpr-data.zip to your phone — it's usually in Downloads or Files — then open PocketStubs and go to Settings, Import from TV Time, Choose export file. Pick the zip and confirm. It's the same importer as the web version, so you can start on one and finish on the other."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "I missed the export deadline. Can I still get my TV Time data?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Unfortunately not. TV Time's export tool at gdpr.tvtime.com went offline when the service shut down on 15 July 2026, and histories that weren't exported before then were deleted. If you did download the zip at any point, it still works — the file doesn't expire."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What actually comes across from TV Time?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Your followed shows, every episode you marked watched, your films, your ratings, and your watchlist. Shows are matched by their TheTVDB ID rather than by name, so remakes and shows that share a title land on the right entry. Anything the importer isn't certain about is shown to you before it's saved, and you can correct it."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is this different from Trakt or Simkl?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "All three will take your TV Time export, and if you just want your history somewhere safe, any of them will do that. PocketStubs is built around what happens after you watch: every film and episode becomes a stub you keep, you can scan a real cinema ticket into your collection, and Debrief Rooms let you talk about a specific episode without spoiling it for anyone still catching up."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does the import take?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "About a minute for a typical library. Large histories of several thousand episodes take longer, and you can leave the screen or close the app while it runs; it picks up where it left off."
+          }
         }
       ]
     }
@@ -203,6 +251,23 @@
             text-align: center;
         }
 
+        /* Attribution lines sit quieter than the copyright — present and legible,
+           but they are a legal/credit obligation rather than something to sell. */
+        .attribution {
+            font-size: 0.8125rem;
+            line-height: 1.5;
+            /* An explicit colour, NOT opacity — opacity composites toward the
+               background and reintroduces the contrast failure above. */
+            color: #a1a1aa;
+            margin: 0.5rem auto 0;
+            max-width: 640px;
+        }
+
+        .attribution a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
         .footer-links {
             display: flex;
             justify-content: center;
@@ -213,7 +278,9 @@
 
         .footer-links a { color: #a1a1aa; font-size: 0.9rem; }
         .footer-links a:hover { color: #e11d48; }
-        .footer p { color: #52525b; font-size: 0.8rem; }
+        /* #52525b on #09090b measured 2.57:1 in Lighthouse — under the 4.5:1
+           minimum. #a1a1aa clears it while still reading as secondary text. */
+        .footer p { color: #a1a1aa; font-size: 0.8rem; }
 
         @media (max-width: 768px) {
             .hero h1 { font-size: 2rem; }
@@ -222,13 +289,14 @@
     </style>
 </head>
 <body>
+<main>
     <section class="section hero">
         <h1>The TV Time alternative that imports your history</h1>
         <p class="subheadline">TV Time shut down July 15, 2026. Your export file still works — bring every show, episode, film, and watchlist item into PocketStubs in about a minute.</p>
         <div class="cta-group">
             <a class="btn btn-primary" href="/settings/tvtime-import">Import in your browser</a>
             <a href="https://apps.apple.com/app/pocketstubs/id6760832346" aria-label="Download on the App Store">
-                <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
+                <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" width="148" height="44">
             </a>
             <a href="https://play.google.com/store/apps/details?id=com.pocketstubs.app" class="store-badge">Get it on Google Play</a>
         </div>
@@ -287,6 +355,30 @@
             <h3>Is it free?</h3>
             <p>Yes. Importing your TV Time history and using PocketStubs' core tracking features is free.</p>
         </div>
+        <div class="faq-item">
+            <h3>Do I need to unzip the TV Time export first?</h3>
+            <p>No. Upload <code>gdpr-data.zip</code> exactly as TV Time gave it to you — PocketStubs reads it as-is. You don't need to extract it, rename it, or open any of the CSV files inside.</p>
+        </div>
+        <div class="faq-item">
+            <h3>How do I import my TV Time data on Android or iPhone?</h3>
+            <p>Save <code>gdpr-data.zip</code> to your phone — it's usually in Downloads or Files — then open PocketStubs and go to Settings, Import from TV Time, Choose export file. Pick the zip and confirm. It's the same importer as the web version, so you can start on one and finish on the other.</p>
+        </div>
+        <div class="faq-item">
+            <h3>I missed the export deadline. Can I still get my TV Time data?</h3>
+            <p>Unfortunately not. TV Time's export tool at gdpr.tvtime.com went offline when the service shut down on 15 July 2026, and histories that weren't exported before then were deleted. If you did download the zip at any point, it still works — the file doesn't expire.</p>
+        </div>
+        <div class="faq-item">
+            <h3>What actually comes across from TV Time?</h3>
+            <p>Your followed shows, every episode you marked watched, your films, your ratings, and your watchlist. Shows are matched by their TheTVDB ID rather than by name, so remakes and shows that share a title land on the right entry. Anything the importer isn't certain about is shown to you before it's saved, and you can correct it.</p>
+        </div>
+        <div class="faq-item">
+            <h3>How is this different from Trakt or Simkl?</h3>
+            <p>All three will take your TV Time export, and if you just want your history somewhere safe, any of them will do that. PocketStubs is built around what happens after you watch: every film and episode becomes a stub you keep, you can scan a real cinema ticket into your collection, and Debrief Rooms let you talk about a specific episode without spoiling it for anyone still catching up.</p>
+        </div>
+        <div class="faq-item">
+            <h3>How long does the import take?</h3>
+            <p>About a minute for a typical library. Large histories of several thousand episodes take longer, and you can leave the screen or close the app while it runs; it picks up where it left off.</p>
+        </div>
     </section>
 
     <footer class="footer">
@@ -296,7 +388,21 @@
             <a href="/terms">Terms</a>
             <a href="/support">Support</a>
         </div>
+        <!-- TMDB attribution is required by their API terms of use and has been
+             outstanding since PR #470 (May). It also happens to be one of the two
+             genuine outbound authority links on this page — the app-store links
+             point at our own listings, which carry no external trust signal. -->
+        <p class="attribution">
+            Show and film data from
+            <a href="https://www.themoviedb.org/" rel="noopener" target="_blank">TMDB</a>.
+            This product uses the TMDB API but is not endorsed or certified by TMDB.
+        </p>
+        <p class="attribution">
+            TV Time shut down on 15 July 2026 —
+            <a href="https://techcrunch.com/2026/07/02/popular-tv-tracking-app-tv-time-is-shutting-down-as-company-focuses-on-ai/" rel="noopener" target="_blank">TechCrunch</a>.
+        </p>
         <p>&copy; 2026 PocketStubs. All rights reserved.</p>
     </footer>
+</main>
 </body>
 </html>
