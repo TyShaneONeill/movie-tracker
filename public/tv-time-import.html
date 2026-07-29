@@ -256,7 +256,9 @@
         .attribution {
             font-size: 0.8125rem;
             line-height: 1.5;
-            opacity: 0.6;
+            /* An explicit colour, NOT opacity — opacity composites toward the
+               background and reintroduces the contrast failure above. */
+            color: #a1a1aa;
             margin: 0.5rem auto 0;
             max-width: 640px;
         }
@@ -276,7 +278,9 @@
 
         .footer-links a { color: #a1a1aa; font-size: 0.9rem; }
         .footer-links a:hover { color: #e11d48; }
-        .footer p { color: #52525b; font-size: 0.8rem; }
+        /* #52525b on #09090b measured 2.57:1 in Lighthouse — under the 4.5:1
+           minimum. #a1a1aa clears it while still reading as secondary text. */
+        .footer p { color: #a1a1aa; font-size: 0.8rem; }
 
         @media (max-width: 768px) {
             .hero h1 { font-size: 2rem; }
@@ -285,13 +289,14 @@
     </style>
 </head>
 <body>
+<main>
     <section class="section hero">
         <h1>The TV Time alternative that imports your history</h1>
         <p class="subheadline">TV Time shut down July 15, 2026. Your export file still works — bring every show, episode, film, and watchlist item into PocketStubs in about a minute.</p>
         <div class="cta-group">
             <a class="btn btn-primary" href="/settings/tvtime-import">Import in your browser</a>
             <a href="https://apps.apple.com/app/pocketstubs/id6760832346" aria-label="Download on the App Store">
-                <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
+                <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" width="148" height="44">
             </a>
             <a href="https://play.google.com/store/apps/details?id=com.pocketstubs.app" class="store-badge">Get it on Google Play</a>
         </div>
@@ -398,5 +403,6 @@
         </p>
         <p>&copy; 2026 PocketStubs. All rights reserved.</p>
     </footer>
+</main>
 </body>
 </html>
