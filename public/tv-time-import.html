@@ -251,6 +251,21 @@
             text-align: center;
         }
 
+        /* Attribution lines sit quieter than the copyright — present and legible,
+           but they are a legal/credit obligation rather than something to sell. */
+        .attribution {
+            font-size: 0.8125rem;
+            line-height: 1.5;
+            opacity: 0.6;
+            margin: 0.5rem auto 0;
+            max-width: 640px;
+        }
+
+        .attribution a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
         .footer-links {
             display: flex;
             justify-content: center;
@@ -368,6 +383,19 @@
             <a href="/terms">Terms</a>
             <a href="/support">Support</a>
         </div>
+        <!-- TMDB attribution is required by their API terms of use and has been
+             outstanding since PR #470 (May). It also happens to be one of the two
+             genuine outbound authority links on this page — the app-store links
+             point at our own listings, which carry no external trust signal. -->
+        <p class="attribution">
+            Show and film data from
+            <a href="https://www.themoviedb.org/" rel="noopener" target="_blank">TMDB</a>.
+            This product uses the TMDB API but is not endorsed or certified by TMDB.
+        </p>
+        <p class="attribution">
+            TV Time shut down on 15 July 2026 —
+            <a href="https://techcrunch.com/2026/07/02/popular-tv-tracking-app-tv-time-is-shutting-down-as-company-focuses-on-ai/" rel="noopener" target="_blank">TechCrunch</a>.
+        </p>
         <p>&copy; 2026 PocketStubs. All rights reserved.</p>
     </footer>
 </body>
