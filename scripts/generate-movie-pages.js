@@ -31,6 +31,7 @@ const RATE_LIMIT_MS = 300;
 const POPULAR_PAGES = 13;
 const OUTPUT_DIR = path.resolve(__dirname, '..', 'public', 'movie');
 const TV_OUTPUT_DIR = path.resolve(__dirname, '..', 'public', 'tv');
+const BROWSE_OUTPUT_DIR = path.resolve(__dirname, '..', 'public', 'browse');
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 
 // ---------------------------------------------------------------------------
@@ -457,6 +458,10 @@ crewSection +
 '\n' +
 '        <footer class="footer">\n' +
 '            <div class="footer-links">\n' +
+'                <a href="/">Home</a>\n' +
+'                <a href="/browse/movies">Movies</a>\n' +
+'                <a href="/browse/tv">TV Shows</a>\n' +
+'                <a href="/tv-time-import">TV Time Import</a>\n' +
 '                <a href="/about">About</a>\n' +
 '                <a href="/privacy">Privacy</a>\n' +
 '                <a href="/terms">Terms</a>\n' +
@@ -744,6 +749,10 @@ crewSection +
 '\n' +
 '        <footer class="footer">\n' +
 '            <div class="footer-links">\n' +
+'                <a href="/">Home</a>\n' +
+'                <a href="/browse/movies">Movies</a>\n' +
+'                <a href="/browse/tv">TV Shows</a>\n' +
+'                <a href="/tv-time-import">TV Time Import</a>\n' +
 '                <a href="/about">About</a>\n' +
 '                <a href="/privacy">Privacy</a>\n' +
 '                <a href="/terms">Terms</a>\n' +
@@ -760,11 +769,146 @@ crewSection +
 }
 
 // ---------------------------------------------------------------------------
+// Browse hub pages
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a browse hub listing every generated title page of one kind.
+ *
+ * These exist to give the ~520 generated pages a crawlable path from the homepage.
+ * Before this, Search Console reported "Internal links: 2" for the whole site and every
+ * title page was an orphan discoverable only via sitemap.xml — which is why Google had
+ * indexed 2 URLs out of 526 (checked 2026-07-28).
+ *
+ * @param {'movie'|'tv'} kind
+ * @param {Array<{slug: string, title: string, year: string}>} items
+ */
+function generateHubHTML(kind, items) {
+  var isMovie = kind === 'movie';
+  var noun = isMovie ? 'Movies' : 'TV Shows';
+  var urlPath = isMovie ? '/browse/movies' : '/browse/tv';
+  var itemPrefix = isMovie ? '/movie/' : '/tv/';
+  var pageTitle = 'Browse ' + noun + ' — PocketStubs';
+  var metaDescription = 'Browse ' + items.length + ' popular ' +
+    (isMovie ? 'movies' : 'TV shows') +
+    ' on PocketStubs. Cast, runtime, and ratings for every title — track what you watch for free.';
+
+  // Alphabetical so the list is stable between runs and readable as a directory.
+  var sorted = items.slice().sort(function (a, b) {
+    return a.title.localeCompare(b.title, 'en');
+  });
+
+  var listItems = sorted.map(function (item) {
+    var label = escapeHTML(item.title) + (item.year ? ' (' + escapeHTML(item.year) + ')' : '');
+    return '            <li><a href="' + itemPrefix + item.slug + '">' + label + '</a></li>\n';
+  }).join('');
+
+  // ItemList tells Google this is a directory of the linked pages, not thin duplicate content.
+  var jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    'name': 'Browse ' + noun,
+    'description': metaDescription,
+    'url': SITE_URL + urlPath,
+    'mainEntity': {
+      '@type': 'ItemList',
+      'numberOfItems': sorted.length,
+      'itemListElement': sorted.map(function (item, i) {
+        return {
+          '@type': 'ListItem',
+          'position': i + 1,
+          'name': item.title,
+          'url': SITE_URL + itemPrefix + item.slug,
+        };
+      }),
+    },
+  };
+
+  var html = '<!DOCTYPE html>\n' +
+'<html lang="en">\n' +
+'<head>\n' +
+'    <meta charset="UTF-8">\n' +
+'    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+'    <title>' + pageTitle + '</title>\n' +
+'    <meta name="description" content="' + metaDescription + '">\n' +
+'    <link rel="canonical" href="' + SITE_URL + urlPath + '">\n' +
+'    <meta property="og:title" content="' + pageTitle + '">\n' +
+'    <meta property="og:description" content="' + metaDescription + '">\n' +
+'    <meta property="og:type" content="website">\n' +
+'    <meta property="og:url" content="' + SITE_URL + urlPath + '">\n' +
+'    <meta property="og:site_name" content="PocketStubs">\n' +
+'    <script type="application/ld+json">\n' + JSON.stringify(jsonLd, null, 2) + '\n    </script>\n' +
+'    <style>\n' +
+'        * { margin: 0; padding: 0; box-sizing: border-box; }\n' +
+'        body {\n' +
+'            font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;\n' +
+'            background: #09090b;\n' +
+'            color: #fafafa;\n' +
+'            min-height: 100vh;\n' +
+'            padding: 40px 20px;\n' +
+'            line-height: 1.7;\n' +
+'        }\n' +
+'        .container { max-width: 900px; margin: 0 auto; }\n' +
+'        h1 { font-size: 2rem; margin-bottom: 0.5rem; }\n' +
+'        .lede { color: #a1a1aa; margin-bottom: 2rem; }\n' +
+'        .back { display: inline-block; margin-bottom: 2rem; color: #a1a1aa; text-decoration: none; }\n' +
+'        .back:hover { text-decoration: underline; }\n' +
+/* #fb7185 clears 4.5:1 on #09090b; the #e11d48 brand accent does not at body size. */
+'        a { color: #fb7185; text-decoration: none; }\n' +
+'        a:hover { text-decoration: underline; }\n' +
+'        .title-list { list-style: none; columns: 3; column-gap: 32px; }\n' +
+'        .title-list li { break-inside: avoid; margin-bottom: 0.6rem; font-size: 0.95rem; }\n' +
+'        @media (max-width: 800px) { .title-list { columns: 2; } }\n' +
+'        @media (max-width: 520px) { .title-list { columns: 1; } }\n' +
+'        .footer { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; }\n' +
+'        .footer-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 1rem; }\n' +
+'        .footer-links a { color: #a1a1aa; font-size: 0.9rem; }\n' +
+'        .footer-links a:hover { color: #fb7185; }\n' +
+'        .footer p { color: #52525b; font-size: 0.8rem; }\n' +
+'    </style>\n' +
+'</head>\n' +
+'<body>\n' +
+'    <div class="container">\n' +
+'        <a href="/" class="back">&larr; PocketStubs</a>\n' +
+'        <main>\n' +
+'        <h1>Browse ' + noun + '</h1>\n' +
+'        <p class="lede">' + sorted.length + ' popular ' + (isMovie ? 'films' : 'shows') +
+      ', each with cast, runtime, and ratings. Track any of them free — no account needed to browse.</p>\n' +
+'        <ul class="title-list">\n' +
+listItems +
+'        </ul>\n' +
+'        </main>\n' +
+'\n' +
+'        <footer class="footer">\n' +
+'            <div class="footer-links">\n' +
+'                <a href="/">Home</a>\n' +
+'                <a href="/browse/movies">Movies</a>\n' +
+'                <a href="/browse/tv">TV Shows</a>\n' +
+'                <a href="/tv-time-import">TV Time Import</a>\n' +
+'                <a href="/about">About</a>\n' +
+'                <a href="/privacy">Privacy</a>\n' +
+'                <a href="/terms">Terms</a>\n' +
+'                <a href="/support">Support</a>\n' +
+'            </div>\n' +
+'            <p>&copy; 2026 PocketStubs. All rights reserved.</p>\n' +
+'            <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #52525b;">Data provided by <a href="https://www.themoviedb.org/">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>\n' +
+'        </footer>\n' +
+'    </div>\n' +
+'</body>\n' +
+'</html>';
+
+  return html;
+}
+
+// ---------------------------------------------------------------------------
 // Sitemap update
 // ---------------------------------------------------------------------------
 
 /**
- * Update the sitemap with movie and TV page URLs, preserving existing static entries.
+ * Update the sitemap with movie, TV, and browse-hub URLs, preserving existing static entries.
+ *
+ * @param {Array<{slug: string}>} generatedMoviePages
+ * @param {Array<{slug: string}>} generatedTVPages
  */
 function updateSitemap(generatedMoviePages, generatedTVPages) {
   var sitemapPath = path.join(PUBLIC_DIR, 'sitemap.xml');
@@ -776,32 +920,48 @@ function updateSitemap(generatedMoviePages, generatedTVPages) {
     existingContent = '';
   }
 
-  // Extract non-movie, non-TV <url> blocks from existing sitemap
+  // Extract non-movie, non-TV, non-hub <url> blocks from existing sitemap.
+  // The hubs are excluded here and re-emitted below so their lastmod tracks each run —
+  // otherwise a stale lastmod tells Google the hub never changes and it stops recrawling.
   var staticEntries = [];
   if (existingContent) {
     var urlBlockRegex = /<url>[\s\S]*?<\/url>/g;
     var match;
     while ((match = urlBlockRegex.exec(existingContent)) !== null) {
       var block = match[0];
-      if (block.indexOf('/movie/') === -1 && block.indexOf('/tv/') === -1) {
+      if (block.indexOf('/movie/') === -1 &&
+          block.indexOf('/tv/') === -1 &&
+          block.indexOf('/browse/') === -1) {
         staticEntries.push(block);
       }
     }
   }
 
-  // Generate movie and TV <url> entries
+  // Generate movie, TV, and hub <url> entries
   var today = todayISO();
-  var movieEntries = generatedMoviePages.map(function (slug) {
+
+  // Hubs are the crawl entry point for every title page, so they rank above them in priority
+  // and are declared weekly (the underlying popular lists shift that often).
+  var hubEntries = ['/browse/movies', '/browse/tv'].map(function (hubPath) {
     return '  <url>\n' +
-      '    <loc>' + SITE_URL + '/movie/' + slug + '</loc>\n' +
+      '    <loc>' + SITE_URL + hubPath + '</loc>\n' +
+      '    <lastmod>' + today + '</lastmod>\n' +
+      '    <changefreq>weekly</changefreq>\n' +
+      '    <priority>0.8</priority>\n' +
+      '  </url>';
+  });
+
+  var movieEntries = generatedMoviePages.map(function (page) {
+    return '  <url>\n' +
+      '    <loc>' + SITE_URL + '/movie/' + page.slug + '</loc>\n' +
       '    <lastmod>' + today + '</lastmod>\n' +
       '    <changefreq>monthly</changefreq>\n' +
       '    <priority>0.7</priority>\n' +
       '  </url>';
   });
-  var tvEntries = generatedTVPages.map(function (slug) {
+  var tvEntries = generatedTVPages.map(function (page) {
     return '  <url>\n' +
-      '    <loc>' + SITE_URL + '/tv/' + slug + '</loc>\n' +
+      '    <loc>' + SITE_URL + '/tv/' + page.slug + '</loc>\n' +
       '    <lastmod>' + today + '</lastmod>\n' +
       '    <changefreq>monthly</changefreq>\n' +
       '    <priority>0.7</priority>\n' +
@@ -821,12 +981,13 @@ function updateSitemap(generatedMoviePages, generatedTVPages) {
   var sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
     formattedStatic.join('\n') + '\n' +
+    hubEntries.join('\n') + '\n' +
     movieEntries.join('\n') + '\n' +
     tvEntries.join('\n') + '\n' +
     '</urlset>\n';
 
   fs.writeFileSync(sitemapPath, sitemap, 'utf-8');
-  console.log('Sitemap updated with ' + generatedMoviePages.length + ' movie pages, ' + generatedTVPages.length + ' TV pages, and ' + staticEntries.length + ' existing entries.');
+  console.log('Sitemap updated with ' + generatedMoviePages.length + ' movie pages, ' + generatedTVPages.length + ' TV pages, ' + hubEntries.length + ' browse hubs, and ' + staticEntries.length + ' existing entries.');
 }
 
 // ---------------------------------------------------------------------------
@@ -898,7 +1059,11 @@ async function main() {
 
       var filePath = path.join(OUTPUT_DIR, result.slug + '.html');
       fs.writeFileSync(filePath, result.html, 'utf-8');
-      generatedMoviePages.push(result.slug);
+      generatedMoviePages.push({
+        slug: result.slug,
+        title: movieData.title || basicTitle,
+        year: (movieData.release_date || '').slice(0, 4),
+      });
       successCount++;
     } catch (err) {
       console.warn('  Warning: Failed to process movie ' + movieId + ' (' + basicTitle + '): ' + err.message);
@@ -967,7 +1132,11 @@ async function main() {
 
       var tvFilePath = path.join(TV_OUTPUT_DIR, tvResult.slug + '.html');
       fs.writeFileSync(tvFilePath, tvResult.html, 'utf-8');
-      generatedTVPages.push(tvResult.slug);
+      generatedTVPages.push({
+        slug: tvResult.slug,
+        title: tvData.name || tvBasicTitle,
+        year: (tvData.first_air_date || '').slice(0, 4),
+      });
       tvSuccessCount++;
     } catch (err) {
       console.warn('  Warning: Failed to process TV show ' + tvId + ' (' + tvBasicTitle + '): ' + err.message);
@@ -977,7 +1146,27 @@ async function main() {
     await sleep(RATE_LIMIT_MS);
   }
 
-  // Step 5: Update sitemap
+  // Step 5: Write the browse hubs. These are what make the title pages reachable by crawl
+  // rather than by sitemap alone — see generateHubHTML for the Search Console evidence.
+  if (!fs.existsSync(BROWSE_OUTPUT_DIR)) {
+    fs.mkdirSync(BROWSE_OUTPUT_DIR, { recursive: true });
+    console.log('Created browse output directory: ' + BROWSE_OUTPUT_DIR);
+  }
+
+  console.log('\nWriting browse hubs...');
+  fs.writeFileSync(
+    path.join(BROWSE_OUTPUT_DIR, 'movies.html'),
+    generateHubHTML('movie', generatedMoviePages),
+    'utf-8'
+  );
+  fs.writeFileSync(
+    path.join(BROWSE_OUTPUT_DIR, 'tv.html'),
+    generateHubHTML('tv', generatedTVPages),
+    'utf-8'
+  );
+  console.log('Wrote /browse/movies (' + generatedMoviePages.length + ' titles) and /browse/tv (' + generatedTVPages.length + ' titles).');
+
+  // Step 6: Update sitemap
   console.log('\nUpdating sitemap...');
   updateSitemap(generatedMoviePages, generatedTVPages);
 
