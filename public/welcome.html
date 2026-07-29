@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PocketStubs — Track Your Movie Journey</title>
     <meta name="description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
-    <link rel="canonical" href="https://pocketstubs.com/welcome">
+    <!-- Served at `/` by middleware.js (rewrite, not redirect), so `/` is the canonical
+         homepage. `/welcome` still resolves to this same file for older inbound links. -->
+    <link rel="canonical" href="https://pocketstubs.com/">
     <meta property="og:title" content="PocketStubs — Track Your Movie Journey">
     <meta property="og:description" content="Track movies, build watchlists, create AI journey art, and share reviews with friends. Free on web, iOS, and Android.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://pocketstubs.com/welcome">
+    <meta property="og:url" content="https://pocketstubs.com/">
     <meta property="og:site_name" content="PocketStubs">
     <meta property="og:image" content="https://pocketstubs.com/images/landing/home.png">
     <meta property="og:image:width" content="1200">
@@ -365,6 +367,26 @@
         .capture-msg.error { color: #f87171; }
         .hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+
+        /* Switcher band + browse links.
+           Text links here use #fb7185 (~7.4:1 on #09090b) rather than the #e11d48 accent
+           (~4.2:1, under the 4.5:1 AA floor for body text). Do NOT dim these with opacity —
+           it composites toward the background and reintroduces the contrast failure. */
+        .switcher {
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 32px;
+            background: #111113;
+        }
+        .switcher h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .switcher p { color: #a1a1aa; margin-bottom: 1.5rem; max-width: 640px; }
+        .switcher a.switcher-link { color: #fb7185; font-weight: 600; }
+
+        .browse { text-align: center; padding-top: 0; }
+        .browse h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .browse p { color: #a1a1aa; margin-bottom: 1.5rem; }
+        .browse-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px 24px; }
+        .browse-links a { color: #fb7185; font-weight: 600; font-size: 1rem; }
     </style>
 </head>
 <body>
@@ -433,6 +455,16 @@
         </div>
     </section>
 
+    <!-- Coming from TV Time. Also the only internal link into /tv-time-import, which
+         Search Console reported on 2026-07-28 as "Referring page: None detected". -->
+    <section class="section">
+        <div class="switcher">
+            <h2>Switching from TV Time?</h2>
+            <p>TV Time shut down on July 15, 2026. If you pulled your GDPR export before the deadline, PocketStubs imports it whole — every episode and film you already logged, in one pass. The export doesn't expire, so it works whenever you're ready.</p>
+            <a href="/tv-time-import" class="switcher-link">Import your TV Time history &rarr;</a>
+        </div>
+    </section>
+
     <!-- Email capture -->
     <section class="section email-capture" id="keep-your-seat">
         <div class="capture-card">
@@ -450,9 +482,24 @@
         </div>
     </section>
 
+    <!-- Crawl entry point into the ~520 generated title pages. Without these the hubs are
+         reachable only from the sitemap, which is what left them unindexed. -->
+    <section class="section browse">
+        <h2>Browse the catalog</h2>
+        <p>Popular films and shows, with cast, runtime, and where each one sits in your journey.</p>
+        <div class="browse-links">
+            <a href="/browse/movies">Browse movies</a>
+            <a href="/browse/tv">Browse TV shows</a>
+            <a href="/tv-time-import">TV Time import</a>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-links">
+            <a href="/browse/movies">Movies</a>
+            <a href="/browse/tv">TV Shows</a>
+            <a href="/tv-time-import">TV Time Import</a>
             <a href="/about">About</a>
             <a href="/privacy">Privacy</a>
             <a href="/terms">Terms</a>
