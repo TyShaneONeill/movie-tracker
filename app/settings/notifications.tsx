@@ -97,11 +97,14 @@ function FeatureToggleRow({
   title,
   description,
   colors,
+  disabled = false,
 }: {
   feature: NotificationFeature;
   title: string;
   description: string;
   colors: typeof Colors['dark'];
+  /** Blocks writes while something upstream is still undecided (e.g. premium tier) */
+  disabled?: boolean;
 }) {
   const { enabled, setEnabled, isUpdating } = useNotificationPreference(feature);
 
@@ -119,7 +122,7 @@ function FeatureToggleRow({
       <ToggleSwitch
         value={enabled}
         onValueChange={handleToggle}
-        disabled={isUpdating}
+        disabled={isUpdating || disabled}
         accessibilityLabel={title}
       />
     </NotificationRow>
@@ -193,8 +196,10 @@ export default function NotificationsSettingsScreen() {
     usePremiumGate('release_reminders');
 
   // Optimistic while the tier loads, matching app/analytics/* — never flash a
-  // lock at a paying member on a cold start. send-release-reminders is the real
-  // enforcement point, so an unlocked frame here can't leak actual delivery.
+  // lock at a paying member on a cold start. But the mid-load row is rendered
+  // with its switch disabled (see below): free users are the majority, so an
+  // enabled switch there would be both a real write path and a misleading
+  // unlocked→locked flash for most people who see it.
   const remindersLocked = !premiumLoading && !remindersUnlocked;
 
   const handleMasterToggle = async (next: boolean) => {
@@ -264,6 +269,7 @@ export default function NotificationsSettingsScreen() {
                 title="Release reminders"
                 description="Get notified when watchlisted movies release."
                 colors={colors}
+                disabled={premiumLoading}
               />
             )}
             <FeatureToggleRow

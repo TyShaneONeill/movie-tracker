@@ -4,7 +4,8 @@ import { requireServiceRole } from "../_shared/cron-auth.ts";
 import { groupRemindersByMovie, type PendingReminder } from "./build-reminder-payload.ts";
 import {
   filterRemindersToPremium,
-  type ProfileTier,
+  resolveTiers,
+  type TierRow,
 } from "./premium-eligibility.ts";
 
 interface Result {
@@ -84,29 +85,41 @@ Deno.serve(async (req: Request) => {
     // tier-agnostic — it's also the dedup source of truth, and filtering there
     // would need a migration to a SECURITY DEFINER function that already has a
     // hardened grant.
+    //
+    // Chunked, and a failing chunk is logged and skipped rather than aborting:
+    // its users get no map entry, and a missing entry already fails closed in
+    // isPremiumTier. Same safety property as bailing out, without discarding
+    // the whole tick's sends — the day-of path above is explicitly not allowed
+    // to be taken down by a later failure.
     const userIds = [...new Set(reminders.map((r) => r.user_id))];
-    const { data: profileRows, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, account_tier, tier_expires_at")
-      .in("id", userIds);
+    const { tierByUserId, failedChunks, unresolved } = await resolveTiers(
+      userIds,
+      (ids) =>
+        supabaseAdmin
+          .from("profiles")
+          .select("id, account_tier, tier_expires_at")
+          .in("id", ids) as unknown as Promise<{
+            data: TierRow[] | null;
+            error: unknown;
+          }>,
+      {
+        onChunkError: (error, ids) =>
+          console.error(
+            `[send-release-reminders] tier lookup failed for ${ids.length} ids (failing those closed):`,
+            error
+          ),
+      }
+    );
 
-    if (profileError) {
-      // Fail closed. Continuing on a tier-lookup failure would deliver a paid
-      // feature to every free user with the preference on — the exact outcome
-      // this check exists to prevent.
-      console.error("[send-release-reminders] tier lookup failed:", profileError);
-      return new Response(
-        JSON.stringify({ error: profileError.message }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+    if (unresolved > 0) {
+      // Not necessarily a fault — a candidate could genuinely lack a profile
+      // row — but paired with failedChunks it's the signal that entitled
+      // members were dropped rather than free users correctly skipped.
+      console.warn(
+        `[send-release-reminders] ${unresolved}/${userIds.length} tier lookups unresolved (failedChunks=${failedChunks}); those users fail closed`
       );
     }
 
-    const tierByUserId = new Map<string, ProfileTier>(
-      (profileRows ?? []).map((p) => [
-        (p as { id: string }).id,
-        p as ProfileTier,
-      ])
-    );
     const entitled = filterRemindersToPremium(reminders, tierByUserId);
     const skippedNonPremium = reminders.length - entitled.length;
 

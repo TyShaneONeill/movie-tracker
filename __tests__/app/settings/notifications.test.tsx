@@ -271,13 +271,25 @@ describe('NotificationsSettingsScreen — release reminders premium gate', () =>
     expect(queryByLabelText(LOCKED_LABEL)).toBeNull();
   }, 15000);
 
-  it('while the tier is still loading: stays unlocked so a member never sees a lock flash on cold start', async () => {
+  it('while the tier is still loading: no lock flash for a member, and the switch is disabled so there is no write path either', async () => {
     mockTier('free', false, true);
     const { findByLabelText, queryByLabelText } = render(<NotificationsSettingsScreen />, {
       wrapper,
     });
-    await findByLabelText('Release reminders', {}, { timeout: 8000 });
+    const release = await findByLabelText('Release reminders', {}, { timeout: 8000 });
     expect(queryByLabelText(LOCKED_LABEL)).toBeNull();
+    // Free users are the majority, so the mid-load row must not be writable —
+    // a real tap goes through ToggleSwitch's disabled guard.
+    expect(release.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(release);
+    expect(setPrefMock).not.toHaveBeenCalled();
+  }, 15000);
+
+  it('once the tier resolves for a member: the switch becomes writable', async () => {
+    mockTier('plus', true);
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const release = await findByLabelText('Release reminders', {}, { timeout: 8000 });
+    expect(release.props.accessibilityState.disabled).toBe(false);
   }, 15000);
 });
 

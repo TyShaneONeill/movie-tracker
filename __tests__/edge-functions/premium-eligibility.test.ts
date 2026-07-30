@@ -1,7 +1,11 @@
 import {
   isPremiumTier,
   filterRemindersToPremium,
+  chunkIds,
+  resolveTiers,
+  TIER_LOOKUP_CHUNK_SIZE,
   type ProfileTier,
+  type TierRow,
 } from '../../supabase/functions/send-release-reminders/premium-eligibility';
 
 const NOW = new Date('2026-07-29T12:00:00Z');
@@ -119,5 +123,145 @@ describe('filterRemindersToPremium', () => {
       { user_id: 'plus-user', tmdb_id: 2 },
     ];
     expect(filterRemindersToPremium(two, tiers, NOW)).toHaveLength(2);
+  });
+});
+
+describe('chunkIds', () => {
+  it('splits into chunks of at most the given size', () => {
+    expect(chunkIds(['a', 'b', 'c', 'd', 'e'], 2)).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+      ['e'],
+    ]);
+  });
+
+  it('returns a single chunk when the input fits', () => {
+    expect(chunkIds(['a', 'b'], 200)).toEqual([['a', 'b']]);
+  });
+
+  it('returns no chunks for an empty input', () => {
+    expect(chunkIds([], 200)).toEqual([]);
+  });
+
+  it('defaults to the exported chunk size', () => {
+    const ids = Array.from({ length: TIER_LOOKUP_CHUNK_SIZE + 1 }, (_, i) => `u${i}`);
+    const chunks = chunkIds(ids);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toHaveLength(TIER_LOOKUP_CHUNK_SIZE);
+    expect(chunks[1]).toEqual([`u${TIER_LOOKUP_CHUNK_SIZE}`]);
+  });
+
+  it('rejects a nonsense size instead of looping forever', () => {
+    expect(() => chunkIds(['a'], 0)).toThrow(/size must be >= 1/);
+  });
+});
+
+describe('resolveTiers', () => {
+  const row = (id: string, account_tier: string): TierRow => ({ id, account_tier });
+
+  it('chunks the lookup instead of sending one unbounded request', async () => {
+    const ids = Array.from({ length: 5 }, (_, i) => `u${i}`);
+    const seen: string[][] = [];
+    const { tierByUserId, failedChunks, unresolved } = await resolveTiers(
+      ids,
+      async (chunk) => {
+        seen.push(chunk);
+        return { data: chunk.map((id) => row(id, 'premium')), error: null };
+      },
+      { chunkSize: 2 }
+    );
+
+    expect(seen).toEqual([['u0', 'u1'], ['u2', 'u3'], ['u4']]);
+    expect(tierByUserId.size).toBe(5);
+    expect(failedChunks).toBe(0);
+    expect(unresolved).toBe(0);
+  });
+
+  it('logs and continues past a failing chunk, keeping the chunks that worked', async () => {
+    const onChunkError = jest.fn();
+    const { tierByUserId, failedChunks, unresolved } = await resolveTiers(
+      ['a', 'b', 'c', 'd'],
+      async (chunk) =>
+        chunk.includes('a')
+          ? { data: null, error: { message: 'URL too long' } }
+          : { data: chunk.map((id) => row(id, 'premium')), error: null },
+      { chunkSize: 2, onChunkError }
+    );
+
+    // The surviving chunk still resolves — the whole tick is not lost.
+    expect([...tierByUserId.keys()]).toEqual(['c', 'd']);
+    expect(failedChunks).toBe(1);
+    expect(unresolved).toBe(2);
+    expect(onChunkError).toHaveBeenCalledTimes(1);
+    expect(onChunkError).toHaveBeenCalledWith({ message: 'URL too long' }, ['a', 'b']);
+  });
+
+  it('users in a failed chunk fail closed — a premium member is dropped, never sent to by default', async () => {
+    const { tierByUserId } = await resolveTiers(
+      ['lost-member', 'ok-member'],
+      async (chunk) =>
+        chunk[0] === 'lost-member'
+          ? { data: null, error: new Error('boom') }
+          : { data: [row('ok-member', 'premium')], error: null },
+      { chunkSize: 1 }
+    );
+
+    const kept = filterRemindersToPremium(
+      [{ user_id: 'lost-member' }, { user_id: 'ok-member' }],
+      tierByUserId,
+      NOW
+    );
+    expect(kept.map((r) => r.user_id)).toEqual(['ok-member']);
+  });
+
+  it('treats a thrown request the same as an error payload', async () => {
+    const onChunkError = jest.fn();
+    const { tierByUserId, failedChunks } = await resolveTiers(
+      ['a'],
+      async () => {
+        throw new Error('network down');
+      },
+      { onChunkError }
+    );
+    expect(tierByUserId.size).toBe(0);
+    expect(failedChunks).toBe(1);
+    expect(onChunkError).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts genuinely absent rows as unresolved without calling it a failure', async () => {
+    const { tierByUserId, failedChunks, unresolved } = await resolveTiers(
+      ['has-row', 'no-row'],
+      async () => ({ data: [row('has-row', 'free')], error: null })
+    );
+    expect(tierByUserId.size).toBe(1);
+    expect(failedChunks).toBe(0);
+    expect(unresolved).toBe(1);
+  });
+
+  it('does not double-count duplicate ids in unresolved', async () => {
+    const { unresolved } = await resolveTiers(
+      ['dup', 'dup'],
+      async () => ({ data: [row('dup', 'premium')], error: null })
+    );
+    expect(unresolved).toBe(0);
+  });
+
+  it('skips malformed rows that carry no id', async () => {
+    const { tierByUserId } = await resolveTiers(
+      ['a'],
+      async () => ({
+        data: [{ account_tier: 'premium' } as TierRow, row('a', 'premium')],
+        error: null,
+      })
+    );
+    expect([...tierByUserId.keys()]).toEqual(['a']);
+  });
+
+  it('makes no requests for an empty id list', async () => {
+    const fetchChunk = jest.fn();
+    const { tierByUserId, unresolved } = await resolveTiers([], fetchChunk);
+    expect(fetchChunk).not.toHaveBeenCalled();
+    expect(tierByUserId.size).toBe(0);
+    expect(unresolved).toBe(0);
   });
 });
