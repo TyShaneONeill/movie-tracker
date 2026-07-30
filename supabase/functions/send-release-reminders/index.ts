@@ -2,9 +2,15 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { requireServiceRole } from "../_shared/cron-auth.ts";
 import { groupRemindersByMovie, type PendingReminder } from "./build-reminder-payload.ts";
+import {
+  filterRemindersToPremium,
+  type ProfileTier,
+} from "./premium-eligibility.ts";
 
 interface Result {
   candidates: number;
+  /** Candidates dropped because the recipient isn't an active PocketStubs+ member */
+  skipped_non_premium: number;
   groups: number;
   sent: number;
   errors: number;
@@ -58,14 +64,68 @@ Deno.serve(async (req: Request) => {
       ...((dayBeforeData ?? []) as PendingReminder[]),
     ];
     if (reminders.length === 0) {
-      const empty: Result = { candidates: 0, groups: 0, sent: 0, errors: 0 };
+      const empty: Result = {
+        candidates: 0,
+        skipped_non_premium: 0,
+        groups: 0,
+        sent: 0,
+        errors: 0,
+      };
       return new Response(
         JSON.stringify(empty),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const groups = groupRemindersByMovie(reminders);
+    // Release Reminders is a PocketStubs+ feature (advertised on /upgrade). The
+    // settings toggle is gated client-side, but preference rows switched on
+    // while the feature was ungated still read "on", so this is the only place
+    // that can actually stop those sends. The RPC deliberately stays
+    // tier-agnostic — it's also the dedup source of truth, and filtering there
+    // would need a migration to a SECURITY DEFINER function that already has a
+    // hardened grant.
+    const userIds = [...new Set(reminders.map((r) => r.user_id))];
+    const { data: profileRows, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, account_tier, tier_expires_at")
+      .in("id", userIds);
+
+    if (profileError) {
+      // Fail closed. Continuing on a tier-lookup failure would deliver a paid
+      // feature to every free user with the preference on — the exact outcome
+      // this check exists to prevent.
+      console.error("[send-release-reminders] tier lookup failed:", profileError);
+      return new Response(
+        JSON.stringify({ error: profileError.message }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const tierByUserId = new Map<string, ProfileTier>(
+      (profileRows ?? []).map((p) => [
+        (p as { id: string }).id,
+        p as ProfileTier,
+      ])
+    );
+    const entitled = filterRemindersToPremium(reminders, tierByUserId);
+    const skippedNonPremium = reminders.length - entitled.length;
+
+    if (entitled.length === 0) {
+      const result: Result = {
+        candidates: reminders.length,
+        skipped_non_premium: skippedNonPremium,
+        groups: 0,
+        sent: 0,
+        errors: 0,
+      };
+      console.log("[send-release-reminders]", JSON.stringify(result));
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const groups = groupRemindersByMovie(entitled);
     let sent = 0;
     let errors = 0;
 
@@ -113,6 +173,7 @@ Deno.serve(async (req: Request) => {
 
     const result: Result = {
       candidates: reminders.length,
+      skipped_non_premium: skippedNonPremium,
       groups: groups.length,
       sent,
       errors,
