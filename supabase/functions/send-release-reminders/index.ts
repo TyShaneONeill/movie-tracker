@@ -2,9 +2,16 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { requireServiceRole } from "../_shared/cron-auth.ts";
 import { groupRemindersByMovie, type PendingReminder } from "./build-reminder-payload.ts";
+import {
+  filterRemindersToPremium,
+  resolveTiers,
+  type TierRow,
+} from "./premium-eligibility.ts";
 
 interface Result {
   candidates: number;
+  /** Candidates dropped because the recipient isn't an active PocketStubs+ member */
+  skipped_non_premium: number;
   groups: number;
   sent: number;
   errors: number;
@@ -58,14 +65,80 @@ Deno.serve(async (req: Request) => {
       ...((dayBeforeData ?? []) as PendingReminder[]),
     ];
     if (reminders.length === 0) {
-      const empty: Result = { candidates: 0, groups: 0, sent: 0, errors: 0 };
+      const empty: Result = {
+        candidates: 0,
+        skipped_non_premium: 0,
+        groups: 0,
+        sent: 0,
+        errors: 0,
+      };
       return new Response(
         JSON.stringify(empty),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const groups = groupRemindersByMovie(reminders);
+    // Release Reminders is a PocketStubs+ feature (advertised on /upgrade). The
+    // settings toggle is gated client-side, but preference rows switched on
+    // while the feature was ungated still read "on", so this is the only place
+    // that can actually stop those sends. The RPC deliberately stays
+    // tier-agnostic — it's also the dedup source of truth, and filtering there
+    // would need a migration to a SECURITY DEFINER function that already has a
+    // hardened grant.
+    //
+    // Chunked, and a failing chunk is logged and skipped rather than aborting:
+    // its users get no map entry, and a missing entry already fails closed in
+    // isPremiumTier. Same safety property as bailing out, without discarding
+    // the whole tick's sends — the day-of path above is explicitly not allowed
+    // to be taken down by a later failure.
+    const userIds = [...new Set(reminders.map((r) => r.user_id))];
+    const { tierByUserId, failedChunks, unresolved } = await resolveTiers(
+      userIds,
+      (ids) =>
+        supabaseAdmin
+          .from("profiles")
+          .select("id, account_tier, tier_expires_at")
+          .in("id", ids) as unknown as Promise<{
+            data: TierRow[] | null;
+            error: unknown;
+          }>,
+      {
+        onChunkError: (error, ids) =>
+          console.error(
+            `[send-release-reminders] tier lookup failed for ${ids.length} ids (failing those closed):`,
+            error
+          ),
+      }
+    );
+
+    if (unresolved > 0) {
+      // Not necessarily a fault — a candidate could genuinely lack a profile
+      // row — but paired with failedChunks it's the signal that entitled
+      // members were dropped rather than free users correctly skipped.
+      console.warn(
+        `[send-release-reminders] ${unresolved}/${userIds.length} tier lookups unresolved (failedChunks=${failedChunks}); those users fail closed`
+      );
+    }
+
+    const entitled = filterRemindersToPremium(reminders, tierByUserId);
+    const skippedNonPremium = reminders.length - entitled.length;
+
+    if (entitled.length === 0) {
+      const result: Result = {
+        candidates: reminders.length,
+        skipped_non_premium: skippedNonPremium,
+        groups: 0,
+        sent: 0,
+        errors: 0,
+      };
+      console.log("[send-release-reminders]", JSON.stringify(result));
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const groups = groupRemindersByMovie(entitled);
     let sent = 0;
     let errors = 0;
 
@@ -113,6 +186,7 @@ Deno.serve(async (req: Request) => {
 
     const result: Result = {
       candidates: reminders.length,
+      skipped_non_premium: skippedNonPremium,
       groups: groups.length,
       sent,
       errors,

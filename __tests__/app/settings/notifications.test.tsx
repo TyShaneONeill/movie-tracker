@@ -6,6 +6,15 @@ import NotificationsSettingsScreen from '@/app/settings/notifications';
 import * as prefService from '@/lib/notification-preferences-service';
 import * as pushHook from '@/hooks/use-push-notifications';
 import * as analyticsModule from '@/lib/analytics';
+import { usePremiumGate } from '@/hooks/use-premium';
+import { router } from 'expo-router';
+
+// Mock @expo/vector-icons — pulls in expo-asset which isn't in
+// transformIgnorePatterns. Reached here via PremiumBadge / UpgradePromptSheet.
+jest.mock('@expo/vector-icons', () => {
+  const { View } = require('react-native');
+  return { Ionicons: View };
+});
 
 jest.mock('@/lib/notification-preferences-service', () => ({
   getNotificationPreference: jest.fn(),
@@ -20,7 +29,10 @@ jest.mock('@/hooks/use-push-notifications', () => ({
   usePushNotifications: jest.fn(),
 }));
 jest.mock('react-native-toast-message', () => ({ show: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { back: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() } }));
+jest.mock('@/hooks/use-premium', () => ({
+  usePremiumGate: jest.fn(),
+}));
 jest.mock('@/lib/haptics', () => ({ hapticImpact: jest.fn() }));
 jest.mock('@/lib/theme-context', () => ({
   useTheme: () => ({ effectiveTheme: 'dark' }),
@@ -29,6 +41,8 @@ jest.mock('@/lib/theme-context', () => ({
 const getPrefMock = prefService.getNotificationPreference as jest.Mock;
 const setPrefMock = prefService.setNotificationPreference as jest.Mock;
 const usePushMock = pushHook.usePushNotifications as jest.Mock;
+const usePremiumGateMock = usePremiumGate as jest.Mock;
+const routerPushMock = router.push as jest.Mock;
 const trackSpy = jest.spyOn(analyticsModule.analytics, 'track');
 const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
 const openSettingsSpy = jest
@@ -49,6 +63,14 @@ beforeEach(() => {
   jest.clearAllMocks();
   getPrefMock.mockResolvedValue(false);
   setPrefMock.mockResolvedValue(undefined);
+  // Default to an unlocked member so the pre-existing toggle expectations below
+  // describe the member experience; the premium-gate block sets its own tiers.
+  usePremiumGateMock.mockReturnValue({
+    isUnlocked: true,
+    isPremium: true,
+    tier: 'plus',
+    isLoading: false,
+  });
 });
 
 describe('NotificationsSettingsScreen — undetermined permission', () => {
@@ -170,6 +192,105 @@ describe('NotificationsSettingsScreen — granted permission', () => {
     fireEvent(master, 'valueChange', false);
     await waitFor(() => expect(openURLSpy).toHaveBeenCalledWith('app-settings:'));
   });
+});
+
+describe('NotificationsSettingsScreen — release reminders premium gate', () => {
+  const LOCKED_LABEL = 'Release reminders. PocketStubs+ feature. Tap to upgrade.';
+
+  beforeEach(() => {
+    usePushMock.mockReturnValue({
+      permissionStatus: 'granted',
+      requestPermission: jest.fn(),
+      isAvailable: true,
+    });
+  });
+
+  function mockTier(tier: string, isUnlocked: boolean, isLoading = false) {
+    usePremiumGateMock.mockReturnValue({
+      isUnlocked,
+      isPremium: tier === 'plus' || tier === 'dev',
+      tier,
+      isLoading,
+    });
+  }
+
+  it('free: locks the row — no switch is mounted, so there is no write path to the preference', async () => {
+    mockTier('free', false);
+    const { findByLabelText, queryByLabelText } = render(<NotificationsSettingsScreen />, {
+      wrapper,
+    });
+    await findByLabelText(LOCKED_LABEL, {}, { timeout: 8000 });
+    expect(queryByLabelText('Release reminders')).toBeNull();
+    // The other, non-premium toggles are untouched.
+    await findByLabelText('TV episode reminders');
+  }, 15000);
+
+  it('free: tapping the locked row fires premium:gate_hit and opens the upgrade sheet', async () => {
+    mockTier('free', false);
+    const { findByLabelText, findByText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const locked = await findByLabelText(LOCKED_LABEL, {}, { timeout: 8000 });
+    fireEvent.press(locked);
+    expect(trackSpy).toHaveBeenCalledWith('premium:gate_hit', {
+      feature: 'release_reminders',
+    });
+    await findByText('See Plans');
+    expect(setPrefMock).not.toHaveBeenCalled();
+  }, 15000);
+
+  it('free: See Plans routes to /upgrade with this gate’s own source for attribution', async () => {
+    mockTier('free', false);
+    const { findByLabelText, findByText } = render(<NotificationsSettingsScreen />, { wrapper });
+    fireEvent.press(await findByLabelText(LOCKED_LABEL, {}, { timeout: 8000 }));
+    fireEvent.press(await findByText('See Plans'));
+    await waitFor(() =>
+      expect(routerPushMock).toHaveBeenCalledWith(
+        '/upgrade?source=settings-notifications-release-reminders'
+      )
+    );
+  }, 15000);
+
+  it('plus: renders the real toggle and persists changes', async () => {
+    mockTier('plus', true);
+    const { findByLabelText, queryByLabelText } = render(<NotificationsSettingsScreen />, {
+      wrapper,
+    });
+    const release = await findByLabelText('Release reminders', {}, { timeout: 8000 });
+    expect(queryByLabelText(LOCKED_LABEL)).toBeNull();
+    fireEvent(release, 'valueChange', true);
+    await waitFor(() =>
+      expect(setPrefMock).toHaveBeenCalledWith('release_reminders', true)
+    );
+  }, 15000);
+
+  it('dev: renders the real toggle', async () => {
+    mockTier('dev', true);
+    const { findByLabelText, queryByLabelText } = render(<NotificationsSettingsScreen />, {
+      wrapper,
+    });
+    await findByLabelText('Release reminders', {}, { timeout: 8000 });
+    expect(queryByLabelText(LOCKED_LABEL)).toBeNull();
+  }, 15000);
+
+  it('while the tier is still loading: no lock flash for a member, and the switch is disabled so there is no write path either', async () => {
+    mockTier('free', false, true);
+    const { findByLabelText, queryByLabelText } = render(<NotificationsSettingsScreen />, {
+      wrapper,
+    });
+    const release = await findByLabelText('Release reminders', {}, { timeout: 8000 });
+    expect(queryByLabelText(LOCKED_LABEL)).toBeNull();
+    // Free users are the majority, so the mid-load row must not be writable —
+    // a real tap goes through ToggleSwitch's disabled guard.
+    expect(release.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(release);
+    expect(setPrefMock).not.toHaveBeenCalled();
+  }, 15000);
+
+  it('once the tier resolves for a member: the switch becomes writable', async () => {
+    mockTier('plus', true);
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const release = await findByLabelText('Release reminders', {}, { timeout: 8000 });
+    expect(release.props.accessibilityState.disabled).toBe(false);
+  }, 15000);
 });
 
 describe('NotificationsSettingsScreen — denied permission', () => {

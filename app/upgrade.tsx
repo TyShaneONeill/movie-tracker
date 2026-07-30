@@ -54,11 +54,19 @@ const PLAN_PRICES: Record<PlanPeriod, { price: string; perMonth: string; badge?:
   },
 };
 
-/** Features shown in the comparison list, in display order */
+/**
+ * Features shown in the comparison list, in display order.
+ *
+ * Every entry here must be a feature that actually ships. `calendar_genre_filter`
+ * was listed until 2026-07-29 despite the release calendar having no genre
+ * filter at all — the registry key exists, the feature does not. Selling an
+ * unbuilt feature is an App Store 3.1.2 problem, so the row was dropped rather
+ * than gated. Keep the key in premium-features.ts: if the filter ever gets
+ * built, the row comes back.
+ */
 const FEATURE_LIST: { key: PremiumFeatureKey; freeValue: string; plusValue: string }[] = [
   { key: 'ad_removal', freeValue: 'Ads shown', plusValue: 'No ads' },
   { key: 'unlimited_scans', freeValue: '3/day', plusValue: '20/day' },
-  { key: 'calendar_genre_filter', freeValue: '--', plusValue: 'Included' },
   { key: 'release_reminders', freeValue: '--', plusValue: 'Included' },
   { key: 'advanced_stats', freeValue: 'Basic', plusValue: 'Full suite' },
 ];

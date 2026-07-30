@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,10 @@ import { analytics } from '@/lib/analytics';
 import type { NotificationFeature } from '@/lib/notification-preferences-service';
 import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
 import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
+import { usePremiumGate } from '@/hooks/use-premium';
+import { PremiumBadge } from '@/components/premium/premium-badge';
+import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
+import type { PremiumFeatureKey } from '@/lib/premium-features';
 
 /**
  * Open the OS-level settings page for the app so the user can change the
@@ -48,28 +52,22 @@ function ChevronLeftIcon({ color }: { color: string }) {
   );
 }
 
-function FeatureToggleRow({
-  feature,
+/**
+ * Row chrome shared by every notification row — the live toggles, the master
+ * push row, and the premium-locked variant — so the locked row can't drift
+ * away from the rows it sits between.
+ */
+function NotificationRow({
   title,
   description,
   colors,
+  children,
 }: {
-  feature: NotificationFeature;
   title: string;
   description: string;
   colors: typeof Colors['dark'];
+  children: React.ReactNode;
 }) {
-  const { enabled, setEnabled, isUpdating } = useNotificationPreference(feature);
-
-  const handleToggle = (next: boolean) => {
-    hapticImpact();
-    setEnabled(next);
-    analytics.track('notifications:toggle_changed', {
-      feature,
-      enabled: next,
-    });
-  };
-
   return (
     <View
       style={[
@@ -89,13 +87,102 @@ function FeatureToggleRow({
           {description}
         </Text>
       </View>
+      {children}
+    </View>
+  );
+}
+
+function FeatureToggleRow({
+  feature,
+  title,
+  description,
+  colors,
+  disabled = false,
+}: {
+  feature: NotificationFeature;
+  title: string;
+  description: string;
+  colors: typeof Colors['dark'];
+  /** Blocks writes while something upstream is still undecided (e.g. premium tier) */
+  disabled?: boolean;
+}) {
+  const { enabled, setEnabled, isUpdating } = useNotificationPreference(feature);
+
+  const handleToggle = (next: boolean) => {
+    hapticImpact();
+    setEnabled(next);
+    analytics.track('notifications:toggle_changed', {
+      feature,
+      enabled: next,
+    });
+  };
+
+  return (
+    <NotificationRow title={title} description={description} colors={colors}>
       <ToggleSwitch
         value={enabled}
         onValueChange={handleToggle}
-        disabled={isUpdating}
+        disabled={isUpdating || disabled}
         accessibilityLabel={title}
       />
-    </View>
+    </NotificationRow>
+  );
+}
+
+/**
+ * The locked variant of a notification row, for features that are advertised as
+ * PocketStubs+ on /upgrade. Free users still see the row — a silent no-op or a
+ * hidden row would just make the paid feature undiscoverable — but the lock
+ * badge replaces the switch, so there is no write path to the preference at
+ * all, and tapping the row opens the upgrade sheet.
+ *
+ * Composes the same three pieces components/premium/premium-gate.tsx does
+ * (usePremiumGate + PremiumBadge + UpgradePromptSheet) rather than mounting
+ * PremiumGate itself: its 'badge' mode positions an absolute badge over the
+ * corner of its children, which would land on top of this row's text instead
+ * of in the switch's slot.
+ */
+function PremiumLockedRow({
+  featureKey,
+  title,
+  description,
+  source,
+  colors,
+}: {
+  featureKey: PremiumFeatureKey;
+  title: string;
+  description: string;
+  /** Distinct per gate so premium:upgrade_view attribution stays readable */
+  source: string;
+  colors: typeof Colors['dark'];
+}) {
+  const [promptVisible, setPromptVisible] = useState(false);
+
+  const handlePress = () => {
+    hapticImpact();
+    analytics.track('premium:gate_hit', { feature: featureKey });
+    setPromptVisible(true);
+  };
+
+  return (
+    <>
+      <Pressable
+        onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}. PocketStubs+ feature. Tap to upgrade.`}
+      >
+        <NotificationRow title={title} description={description} colors={colors}>
+          <PremiumBadge size="md" />
+        </NotificationRow>
+      </Pressable>
+
+      <UpgradePromptSheet
+        visible={promptVisible}
+        featureKey={featureKey}
+        source={source}
+        onClose={() => setPromptVisible(false)}
+      />
+    </>
   );
 }
 
@@ -105,6 +192,15 @@ export default function NotificationsSettingsScreen() {
   const { permissionStatus, requestPermission, isAvailable } = usePushNotifications();
   const streakSpineEnabled = useStreakSpineEnabled();
   const episodeRoomsEnabled = useEpisodeRoomsEnabled();
+  const { isUnlocked: remindersUnlocked, isLoading: premiumLoading } =
+    usePremiumGate('release_reminders');
+
+  // Optimistic while the tier loads, matching app/analytics/* — never flash a
+  // lock at a paying member on a cold start. But the mid-load row is rendered
+  // with its switch disabled (see below): free users are the majority, so an
+  // enabled switch there would be both a real write path and a misleading
+  // unlocked→locked flash for most people who see it.
+  const remindersLocked = !premiumLoading && !remindersUnlocked;
 
   const handleMasterToggle = async (next: boolean) => {
     hapticImpact();
@@ -138,31 +234,18 @@ export default function NotificationsSettingsScreen() {
         <View style={{ width: 24 }} />
       </View>
       <ContentContainer>
-        <View
-          style={[
-            styles.row,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+        <NotificationRow
+          title="Push Notifications"
+          description="Pushes are required to receive any notifications below."
+          colors={colors}
         >
-          <View style={styles.rowText}>
-            <Text
-              style={[Typography.body.base, { color: colors.text, fontWeight: '600' }]}
-            >
-              Push Notifications
-            </Text>
-            <Text
-              style={[Typography.body.sm, { color: colors.textSecondary, marginTop: 2 }]}
-            >
-              Pushes are required to receive any notifications below.
-            </Text>
-          </View>
           <ToggleSwitch
             value={masterValue}
             onValueChange={handleMasterToggle}
             disabled={!isAvailable}
             accessibilityLabel="Push Notifications"
           />
-        </View>
+        </NotificationRow>
 
         {permissionStatus === 'granted' && (
           <View style={styles.featuresSection}>
@@ -171,12 +254,24 @@ export default function NotificationsSettingsScreen() {
             >
               CUSTOMIZE
             </Text>
-            <FeatureToggleRow
-              feature="release_reminders"
-              title="Release reminders"
-              description="Get notified when watchlisted movies release."
-              colors={colors}
-            />
+            {/* PocketStubs+ feature — see PremiumLockedRow. */}
+            {remindersLocked ? (
+              <PremiumLockedRow
+                featureKey="release_reminders"
+                title="Release reminders"
+                description="Get notified when watchlisted movies release."
+                source="settings-notifications-release-reminders"
+                colors={colors}
+              />
+            ) : (
+              <FeatureToggleRow
+                feature="release_reminders"
+                title="Release reminders"
+                description="Get notified when watchlisted movies release."
+                colors={colors}
+                disabled={premiumLoading}
+              />
+            )}
             <FeatureToggleRow
               feature="tv_episode_reminders"
               title="TV episode reminders"
