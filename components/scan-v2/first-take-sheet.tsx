@@ -204,6 +204,10 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
   // With the keyboard down mid-batch it confirms first, mirroring
   // MultiFirstTakeModal's Skip All. The ✕ stays an immediate, explicit abandon.
   const handleBackdropPress = useCallback(() => {
+    // A press landing mid-commit would race postMovie's own closure: on the
+    // last movie both would settle and onDone/onClose (the same handler at the
+    // call site) would fire twice.
+    if (postingRef.current) return;
     const keyboardUp = Keyboard.isVisible() || TextInput.State.currentlyFocusedInput() != null;
     if (keyboardGuardEnabled && keyboardUp) {
       Keyboard.dismiss();

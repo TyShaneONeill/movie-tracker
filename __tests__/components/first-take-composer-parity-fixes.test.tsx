@@ -228,14 +228,45 @@ describe('FirstTakeSheet mid-batch abandon confirm', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('no confirm on the last movie — there is nothing left to abandon', () => {
+  it('no confirm once the batch reaches its last movie — nothing is left to abandon', async () => {
     const onClose = jest.fn();
-    const utils = renderSheet({ onClose });
+    const utils = renderSheet({ movies: TWO, onClose });
+    // Post the first movie so the wizard advances to the last one. With no
+    // words the reaction step jumps the spoiler step, so three taps reach the
+    // summary.
+    tapContinue(utils);
+    tapContinue(utils);
+    tapContinue(utils);
+    fireEvent.press(utils.getByText('Post & next movie'));
+    await waitFor(() => expect(utils.getByText('2 / 2')).toBeTruthy());
 
     fireEvent.press(utils.getByTestId('first-take-sheet-backdrop'));
 
     expect(alertSpy).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a backdrop press while a post is in flight', async () => {
+    // Otherwise the press and postMovie's own closure both settle on the last
+    // movie, and the call site's shared onClose/onDone handler fires twice.
+    let release: (value: unknown) => void = () => {};
+    mockCreateFirstTake.mockImplementation(
+      () => new Promise((resolve) => { release = resolve; })
+    );
+    const onClose = jest.fn();
+    const onDone = jest.fn();
+    const utils = renderSheet({ onClose, onDone });
+    tapContinue(utils);
+    tapContinue(utils);
+    tapContinue(utils);
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    fireEvent.press(utils.getByTestId('first-take-sheet-backdrop'));
+    expect(onClose).not.toHaveBeenCalled();
+
+    await act(async () => { release({ id: 'take-1' }); });
+    expect(onDone).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 
@@ -313,6 +344,17 @@ describe('MultiFirstTakeModal submit gate', () => {
   const renderMulti = (movies = [{ tmdbId: 27205, title: 'Inception', posterPath: '/a.jpg' }]) =>
     render(<MultiFirstTakeModal visible movies={movies} onComplete={jest.fn()} />);
 
+  it('an untouched composer cannot post — no phantom 5/10', () => {
+    // The gate accepts a rating alone, so the rating must not arrive armed:
+    // a 5 default would let a 10-ticket batch record ten scores nobody chose.
+    const utils = renderMulti();
+
+    expect(utils.getByText('–')).toBeTruthy();
+    fireEvent.press(utils.getByText('Done'));
+
+    expect(mockCreateFirstTake).not.toHaveBeenCalled();
+  });
+
   it('accepts a rating-only take, like the other two composers', async () => {
     const utils = renderMulti();
     fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
@@ -323,13 +365,32 @@ describe('MultiFirstTakeModal submit gate', () => {
     expect(mockCreateFirstTake.mock.calls[0][1]).toMatchObject({ rating: 8, quoteText: '' });
   });
 
-  it('still commits words when they are given', async () => {
+  it('accepts a words-only take, committing a null rating rather than a default', async () => {
     const utils = renderMulti();
     fireEvent.changeText(utils.getByPlaceholderText(MODAL_PLACEHOLDER), '  a real take  ');
 
     fireEvent.press(utils.getByText('Done'));
 
     await waitFor(() => expect(mockCreateFirstTake).toHaveBeenCalledTimes(1));
-    expect(mockCreateFirstTake.mock.calls[0][1].quoteText).toBe('a real take');
+    expect(mockCreateFirstTake.mock.calls[0][1]).toMatchObject({
+      quoteText: 'a real take',
+      rating: null,
+    });
+  });
+
+  it('resets the rating to unset between movies in a batch', async () => {
+    const utils = renderMulti([
+      { tmdbId: 27205, title: 'Inception', posterPath: '/a.jpg' },
+      { tmdbId: 157336, title: 'Interstellar', posterPath: '/b.jpg' },
+    ]);
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
+    fireEvent.press(utils.getByText('Next'));
+    await waitFor(() => expect(mockCreateFirstTake).toHaveBeenCalledTimes(1));
+
+    // Second movie starts unrated — the previous score must not carry over and
+    // re-arm the button.
+    expect(utils.getByText('–')).toBeTruthy();
+    fireEvent.press(utils.getByText('Done'));
+    expect(mockCreateFirstTake).toHaveBeenCalledTimes(1);
   });
 });

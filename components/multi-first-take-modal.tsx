@@ -83,8 +83,11 @@ export function MultiFirstTakeModal({
   // Current movie index
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Form state for current movie
-  const [rating, setRating] = useState<number>(5);
+  // Form state for current movie. The rating starts null, not 5: with a
+  // rating-only take now postable, a 5 default would arm the submit button on
+  // mount and let a batch record ratings the user never chose, once per movie.
+  // FirstTakeSheet models this (rating: null until the first drag).
+  const [rating, setRating] = useState<number | null>(null);
   const [quoteText, setQuoteText] = useState('');
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [visibility, setVisibility] = useState<ReviewVisibility>(preferences?.reviewVisibility ?? 'public');
@@ -99,7 +102,7 @@ export function MultiFirstTakeModal({
 
   // Reset form state for next movie
   const resetForm = useCallback(() => {
-    setRating(5);
+    setRating(null);
     setQuoteText('');
     setIsSpoiler(false);
     setVisibility(preferences?.reviewVisibility ?? 'public');
@@ -221,8 +224,9 @@ export function MultiFirstTakeModal({
   // A rating with no words is a legitimate take and posts from both other
   // composers; requiring words here made the rules depend on how many tickets
   // happened to be in the batch. Rating-only takes are accepted everywhere and
-  // filtered out of public surfaces at display time (Ty, 07-31).
-  const canSubmit = rating > 0 && !isSubmitting;
+  // filtered out of public surfaces at display time (Ty, 07-31). The user still
+  // has to supply ONE of the two — an untouched composer cannot post.
+  const canSubmit = (rating != null || quoteText.trim().length > 0) && !isSubmitting;
   const charCount = quoteText.length;
   const isNearLimit = charCount > 120;
 
@@ -308,7 +312,7 @@ export function MultiFirstTakeModal({
                   <View style={styles.ratingWrapper}>
                     {/* Large Rating Display */}
                     <View style={styles.ratingDisplay}>
-                      <Text style={styles.ratingValue}>{formatRating(rating)}</Text>
+                      <Text style={styles.ratingValue}>{rating === null ? '–' : formatRating(rating)}</Text>
                       <Text style={styles.ratingMax}>/ 10</Text>
                     </View>
 
@@ -319,7 +323,9 @@ export function MultiFirstTakeModal({
                         minimumValue={1}
                         maximumValue={10}
                         step={0.1}
-                        value={rating}
+                        // Parked at the floor while unrated, so the thumb never
+                        // contradicts the "–" readout by sitting mid-track.
+                        value={rating ?? 1}
                         onValueChange={setRating}
                         minimumTrackTintColor={colors.tint}
                         maximumTrackTintColor={colors.backgroundSecondary}
