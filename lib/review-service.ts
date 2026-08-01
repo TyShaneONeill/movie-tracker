@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { hasTakeWords } from './first-take-visibility';
 import type { Review, ReviewInsert, ReviewUpdate, ReviewVisibility } from './database.types';
 
 export interface CreateReviewData {
@@ -80,7 +81,19 @@ export async function fetchMovieReviews(
     throw new Error('No data returned from movie reviews');
   }
 
-  return data;
+  // Wordless (rating-only) first takes never render on a public surface (Ty,
+  // 2026-07-31). The get-movie-reviews edge function still returns them, so the
+  // filter lives at this boundary — that covers the detail-screen Community
+  // Reviews section and both all-reviews screens from one place. Scoped to
+  // first takes: a review always carries its own body.
+  const reviews = data.reviews.filter(
+    (item) => item.source !== 'first_take' || hasTakeWords(item.quoteText)
+  );
+
+  // `totalCount`/`totalPages` stay as the server computed them — the edge
+  // function paginates server-side, so the client cannot restate them without
+  // over-counting the pages it hasn't fetched. Tracked as a follow-up.
+  return { ...data, reviews };
 }
 
 // ============================================================================

@@ -128,6 +128,55 @@ describe('selectHeroTake', () => {
     expect(pick([a, b, c]).hero?.id).toBe('b');
     expect(pick([c, b, a]).hero?.id).toBe('b');
   });
+
+  // Wordless (rating-only) takes never render on a public surface — Ty,
+  // 2026-07-31. The room is one, so an excluded take must never be promoted to
+  // the hero stub and must never fall through into the ledger via `rest`.
+  describe('wordless takes (isVisible)', () => {
+    interface RoomTestTake extends TestTake {
+      quoteText: string;
+    }
+
+    const worded = (t: RoomTestTake) => t.quoteText.trim().length > 0;
+    const pickVisible = (takes: RoomTestTake[]) =>
+      selectHeroTake(takes, engagement, createdAt, worded);
+
+    it('skips a wordless take that would otherwise win the hero slot', () => {
+      const takes: RoomTestTake[] = [
+        { id: 'wordless', commentCount: 99, createdAt: '2026-07-31T12:00:00Z', quoteText: '' },
+        { id: 'worded', commentCount: 2, createdAt: '2026-07-31T11:00:00Z', quoteText: 'Brutal ending' },
+      ];
+      const { hero, rest } = pickVisible(takes);
+      expect(hero?.id).toBe('worded');
+      expect(rest).toEqual([]);
+    });
+
+    it('drops wordless takes from the ledger too, not just the hero', () => {
+      const takes: RoomTestTake[] = [
+        { id: 'top', commentCount: 9, createdAt: '2026-07-31T12:00:00Z', quoteText: 'Best of the season' },
+        { id: 'blank', commentCount: 5, createdAt: '2026-07-31T11:00:00Z', quoteText: '   ' },
+        { id: 'second', commentCount: 1, createdAt: '2026-07-31T10:00:00Z', quoteText: 'Agreed' },
+      ];
+      const { hero, rest } = pickVisible(takes);
+      expect(hero?.id).toBe('top');
+      expect(rest.map((t) => t.id)).toEqual(['second']);
+    });
+
+    it('reads as an empty room when every take is wordless', () => {
+      const takes: RoomTestTake[] = [
+        { id: 'a', commentCount: 4, createdAt: '2026-07-31T12:00:00Z', quoteText: '' },
+        { id: 'b', commentCount: 0, createdAt: '2026-07-31T11:00:00Z', quoteText: '\n' },
+      ];
+      expect(pickVisible(takes)).toEqual({ hero: null, rest: [] });
+    });
+
+    it('defaults to including everything when no predicate is passed', () => {
+      // The three-argument call sites (and the existing tests above) keep their
+      // old behaviour; the room passes the predicate explicitly.
+      const takes: TestTake[] = [{ id: 'a', commentCount: 0, createdAt: '2026-07-31T12:00:00Z' }];
+      expect(pick(takes).hero?.id).toBe('a');
+    });
+  });
 });
 
 describe('sortTakesByEngagement', () => {

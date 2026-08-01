@@ -64,32 +64,40 @@ export function formatEpisodeShort(season: number, episode: number): string {
  * without touching the screen — only the compare below would change.
  * `engagement` and `createdAt` are accessors so this stays generic over the
  * room take shape.
+ *
+ * `isVisible` drops takes that must never render (wordless/rating-only ones —
+ * Ty, 2026-07-31) BEFORE the hero is chosen, so an excluded take can't be
+ * promoted to the hero stub and can't reappear in the ledger via `rest`.
+ * useEpisodeRoomTakes already filters them out upstream; this keeps the pure
+ * function honest on its own and makes the rule unit-testable without a screen.
  */
 export function selectHeroTake<T>(
   takes: T[],
   engagement: (t: T) => number,
-  createdAt: (t: T) => string | null
+  createdAt: (t: T) => string | null,
+  isVisible: (t: T) => boolean = () => true
 ): { hero: T | null; rest: T[] } {
-  if (takes.length === 0) return { hero: null, rest: [] };
+  const visible = takes.filter(isVisible);
+  if (visible.length === 0) return { hero: null, rest: [] };
 
   let heroIdx = 0;
-  for (let i = 1; i < takes.length; i++) {
-    const candEngagement = engagement(takes[i]);
-    const bestEngagement = engagement(takes[heroIdx]);
+  for (let i = 1; i < visible.length; i++) {
+    const candEngagement = engagement(visible[i]);
+    const bestEngagement = engagement(visible[heroIdx]);
     if (candEngagement > bestEngagement) {
       heroIdx = i;
     } else if (candEngagement === bestEngagement) {
       // Tie → newest wins. ISO timestamps compare lexicographically, so this
       // holds regardless of the incoming order.
-      if ((createdAt(takes[i]) ?? '') > (createdAt(takes[heroIdx]) ?? '')) {
+      if ((createdAt(visible[i]) ?? '') > (createdAt(visible[heroIdx]) ?? '')) {
         heroIdx = i;
       }
     }
   }
 
   return {
-    hero: takes[heroIdx],
-    rest: takes.filter((_, i) => i !== heroIdx),
+    hero: visible[heroIdx],
+    rest: visible.filter((_, i) => i !== heroIdx),
   };
 }
 

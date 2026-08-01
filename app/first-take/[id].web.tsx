@@ -6,6 +6,7 @@ import { Colors, Spacing, Fonts, FontSizes } from '@/constants/theme';
 import { ShareableFirstTakeCard } from '@/components/share/shareable-first-take-card';
 import { GetPocketStubsCTA } from '@/components/share/get-pocketstubs-cta';
 import { formWidthStyle } from '@/components/content-container';
+import { isPubliclyVisibleTake } from '@/lib/first-take-visibility';
 import type { FirstTake } from '@/lib/database.types';
 
 /**
@@ -15,8 +16,9 @@ import type { FirstTake } from '@/lib/database.types';
  * this `.web.tsx` file on web and the full native first-take screen on
  * iOS/Android. This page is for unauthenticated recipients of a shared link,
  * so there is no auth/follow logic: only PUBLIC first takes render; anything
- * else (private, followers-only, missing, or an RLS-denied read) resolves to
- * the "not available" state. See docs/PRD-social-share.md (Sprint 3).
+ * else (private, followers-only, missing, an RLS-denied read, or a wordless
+ * rating-only take) resolves to the "not available" state. See
+ * docs/PRD-social-share.md (Sprint 3).
  */
 export default function FirstTakeWebFallback() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -40,7 +42,10 @@ export default function FirstTakeWebFallback() {
     retry: false,
   });
 
-  const isPublic = firstTake?.visibility === 'public';
+  // This page has no owner concept — an unauthenticated visitor is never the
+  // author — so a wordless take is unavailable here unconditionally.
+  const isRenderable =
+    firstTake?.visibility === 'public' && isPubliclyVisibleTake(firstTake);
 
   const { data: reviewerProfile } = useQuery({
     queryKey: ['profile-web', firstTake?.user_id],
@@ -52,7 +57,7 @@ export default function FirstTakeWebFallback() {
         .single();
       return data;
     },
-    enabled: !!firstTake && isPublic,
+    enabled: !!firstTake && isRenderable,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -64,10 +69,10 @@ export default function FirstTakeWebFallback() {
     );
   }
 
-  // Not found, RLS-denied, or non-public visibility → generic unavailable state.
-  // We intentionally do not distinguish private/followers-only from missing,
-  // so the page never leaks the existence of a non-public first take.
-  if (isError || !firstTake || !isPublic) {
+  // Not found, RLS-denied, non-public, or wordless → generic unavailable state.
+  // We intentionally do not distinguish private/followers-only/rating-only from
+  // missing, so the page never leaks the existence of a non-renderable take.
+  if (isError || !firstTake || !isRenderable) {
     return (
       <Page>
         <Stack.Screen options={{ title: 'First Take unavailable', headerShown: false }} />

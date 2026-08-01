@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
 import { useAchievementCheck } from '@/lib/achievement-context';
+import { isPubliclyVisibleTake } from '@/lib/first-take-visibility';
 import {
   getTvShowByTmdbId,
   addTvShowToLibrary,
@@ -105,6 +106,11 @@ export function useUserEpisodeTake(tmdbId: number, season: number, episode: numb
  * embedded FK join so the query doesn't depend on a named constraint. Blocked
  * users are filtered client-side because SELECT RLS ignores blocks — the
  * standing rule for every NEW content stream (mirrors use-prioritized-feed).
+ *
+ * Wordless (rating-only) takes are filtered in the same pass: the room is a
+ * public first-take surface, and dropping them HERE — not at each render site —
+ * keeps the hero, the ledger, the view-all screen, and both `takes.length`
+ * counts agreeing with each other for free.
  */
 export function useEpisodeRoomTakes(
   tmdbId: number,
@@ -154,7 +160,11 @@ export function useEpisodeRoomTakes(
   });
 
   const takes = useMemo(
-    () => (query.data ?? []).filter((row) => !blockedIds.includes(row.take.user_id)),
+    () =>
+      (query.data ?? []).filter(
+        (row) =>
+          !blockedIds.includes(row.take.user_id) && isPubliclyVisibleTake(row.take)
+      ),
     [query.data, blockedIds]
   );
 

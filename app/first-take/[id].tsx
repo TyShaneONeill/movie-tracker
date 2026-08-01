@@ -24,6 +24,7 @@ import { captureCard, shareFirstTake, shareFirstTakeUrl } from '@/lib/share-serv
 import { analytics } from '@/lib/analytics';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { updateFirstTake, deleteFirstTake } from '@/lib/first-take-service';
+import { isPubliclyVisibleTake } from '@/lib/first-take-visibility';
 import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
 import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
 import { hapticImpact } from '@/lib/haptics';
@@ -260,6 +261,34 @@ export default function FirstTakeDetailScreen() {
     );
   }
 
+  // A wordless (rating-only) take never renders for anyone but its author (Ty,
+  // 2026-07-31) — including via a direct deep link, which is the one way into
+  // this screen that no list filter can guard. The copy stays neutral and
+  // matches the web fallback: it says nothing about why, so it doesn't
+  // advertise that a rating-only take exists here.
+  if (!isPubliclyVisibleTake(firstTake) && !isOwn) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={styles.container}>
+          <View style={styles.topBar}>
+            <Pressable onPress={() => router.back()} hitSlop={8}>
+              <Ionicons name="chevron-back" size={28} color={colors.text} />
+            </Pressable>
+            <Text style={styles.topBarTitle}>First Take</Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <View style={styles.centered}>
+            <Ionicons name="document-outline" size={48} color={colors.textSecondary} />
+            <Text style={[styles.notFoundText, { marginTop: Spacing.md }]}>
+              This First Take isn&apos;t available
+            </Text>
+          </View>
+        </SafeAreaView>
+      </>
+    );
+  }
+
   if (firstTake.visibility === 'private' && !isOwn) {
     return (
       <>
@@ -328,7 +357,10 @@ export default function FirstTakeDetailScreen() {
             <Text style={styles.topBarTitle}>First Take</Text>
             {isOwn || firstTake.visibility === 'public' ? (
               <View style={styles.topBarActions}>
-                {firstTake.visibility === 'public' && (
+                {/* Sharing publishes the take to a public surface, so it needs
+                    the same words gate the surfaces themselves have — the owner
+                    can reach this screen for their own wordless take. */}
+                {firstTake.visibility === 'public' && isPubliclyVisibleTake(firstTake) && (
                   <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
                     {isSharing ? (
                       <ActivityIndicator size="small" color={colors.text} />
@@ -478,7 +510,7 @@ export default function FirstTakeDetailScreen() {
         </View>
 
         {/* Off-screen share card for capture (native only, public only) */}
-        {Platform.OS !== 'web' && firstTake.visibility === 'public' && (
+        {Platform.OS !== 'web' && firstTake.visibility === 'public' && isPubliclyVisibleTake(firstTake) && (
           <ViewShot
             ref={viewShotRef}
             options={{ format: 'png', quality: 1 }}

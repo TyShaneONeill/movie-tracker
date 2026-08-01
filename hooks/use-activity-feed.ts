@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { filterPubliclyVisibleBy } from '@/lib/first-take-visibility';
 import type { ReviewVisibility } from '@/lib/database.types';
 
 /**
@@ -224,7 +225,11 @@ export function useActivityFeed(limit: number = 20) {
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
-      return (data as unknown as FirstTakeWithProfile[]).map(mapToFeedItem);
+      // The `.like` above misses whitespace-only text — see first-take-visibility.
+      return filterPubliclyVisibleBy(
+        (data as unknown as FirstTakeWithProfile[]).map(mapToFeedItem),
+        (item) => item.quoteText
+      );
     },
     staleTime: 5 * 60 * 1000,
   });

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
+import { filterPubliclyVisibleTakes } from '@/lib/first-take-visibility';
 import type { FirstTake } from '@/lib/database.types';
 
 export function useFirstTakes() {
@@ -17,7 +18,11 @@ export function useFirstTakes() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as FirstTake[];
+      // The `.like` above drops `''` but not `'   '` (`_` matches a space) —
+      // the helper is the actual wordless-take gate. Applies to the owner's own
+      // tab too: the takes list is a posting surface, and the rating still
+      // reaches the owner through stats and the composer's existing-take state.
+      return filterPubliclyVisibleTakes((data ?? []) as FirstTake[]);
     },
     enabled: !!user?.id,
   });

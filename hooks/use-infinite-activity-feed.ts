@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { ActivityFeedItem, FirstTakeWithProfile } from './use-activity-feed';
 import { ACTIVITY_FEED_SELECT, mapToFeedItem } from './use-activity-feed';
+import { filterPubliclyVisibleBy } from '@/lib/first-take-visibility';
 
 const PAGE_SIZE = 20;
 
@@ -34,12 +35,17 @@ async function fetchActivityPage(cursor?: string): Promise<ActivityFeedPage> {
   }
 
   const rows = data as unknown as FirstTakeWithProfile[];
-  const items = rows.map(mapToFeedItem);
-
+  // Cursor comes from the RAW page, not the filtered one: dropping wordless
+  // takes must shorten the page, never stall pagination on a short page.
   const nextCursor =
     rows.length === PAGE_SIZE
       ? rows[rows.length - 1].created_at
       : null;
+
+  const items = filterPubliclyVisibleBy(
+    rows.map(mapToFeedItem),
+    (item) => item.quoteText
+  );
 
   return { items, nextCursor };
 }

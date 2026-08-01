@@ -55,6 +55,7 @@ import {
   ROOM_LEDGER_CAP,
 } from '@/lib/episode-room-logic';
 import { createFirstTake } from '@/lib/first-take-service';
+import { isPubliclyVisibleTake } from '@/lib/first-take-visibility';
 import type { ReviewVisibility } from '@/lib/database.types';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { Perforation } from '@/components/first-takes-v2/perforation';
@@ -434,7 +435,9 @@ export default function EpisodeRoomScreen() {
     // list lives behind "View all takes" (Ty, 2026-07-19).
     const engagement = (entry: (typeof takes)[number]) => entry.take.comment_count ?? 0;
     const createdAt = (entry: (typeof takes)[number]) => entry.take.created_at;
-    const { hero, rest } = selectHeroTake(takes, engagement, createdAt);
+    const { hero, rest } = selectHeroTake(takes, engagement, createdAt, (entry) =>
+      isPubliclyVisibleTake(entry.take)
+    );
     const ledger = sortTakesByEngagement(rest, engagement, createdAt).slice(0, ROOM_LEDGER_CAP);
     const overflow = rest.length - ledger.length;
     return (

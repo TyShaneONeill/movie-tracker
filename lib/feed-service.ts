@@ -14,6 +14,7 @@ import {
   mapReviewToFeedItem,
   mapCommentToFeedItem,
 } from '@/hooks/use-activity-feed';
+import { filterPubliclyVisibleBy } from '@/lib/first-take-visibility';
 import type { TopComment } from '@/lib/feed-v2-logic';
 
 export const PAGE_SIZE = 20;
@@ -66,7 +67,13 @@ export async function fetchFollowingFeed(
 
   if (error) throw error;
 
-  return (data as unknown as FirstTakeWithProfile[]).map(mapToFeedItem);
+  // The `.like` above drops `''` but not whitespace-only text (`_` matches a
+  // space) — first-take-visibility is the actual gate. Same in the community
+  // page below.
+  return filterPubliclyVisibleBy(
+    (data as unknown as FirstTakeWithProfile[]).map(mapToFeedItem),
+    (item) => item.quoteText
+  );
 }
 
 /**
@@ -96,11 +103,15 @@ export async function fetchCommunityFeedPage(
 
   if (error) throw error;
 
-  const items = (data as unknown as FirstTakeWithProfile[]).map(mapToFeedItem);
+  const rawItems = (data as unknown as FirstTakeWithProfile[]).map(mapToFeedItem);
+  // Cursor from the RAW page: filtering shortens the page, it must not stall
+  // pagination by making a full page look short.
   const nextCursor =
-    items.length === PAGE_SIZE
-      ? (items[items.length - 1].createdAt ?? null)
+    rawItems.length === PAGE_SIZE
+      ? (rawItems[rawItems.length - 1].createdAt ?? null)
       : null;
+
+  const items = filterPubliclyVisibleBy(rawItems, (item) => item.quoteText);
 
   return { items, nextCursor };
 }
