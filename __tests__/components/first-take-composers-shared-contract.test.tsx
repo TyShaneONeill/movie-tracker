@@ -20,8 +20,12 @@
  *
  * Behaviour that legitimately differs (the wizard's skippable steps, the
  * batch-advance rules, edit mode, episode scoping) is NOT asserted here — it
- * lives in the three per-composer suites. Known divergences that should NOT
- * exist are collected at the bottom of this file.
+ * lives in the three per-composer suites.
+ *
+ * This spec originally carried two divergences as deliberately-red tests: the
+ * scanner sheet did not trim quotes, and the batch modal alone refused a
+ * rating-only take. #778 closed both, so they are now ordinary shared
+ * contracts inside the table below.
  *
  * NOTE ON VISIBILITY COPY: `first-take-composer-parity.test.tsx` forbids the
  * words public/private/follower/everyone/only-you in the WatchedComposerChooser,
@@ -379,6 +383,28 @@ describe.each(ADAPTERS.map((a) => [a.name, a] as const))(
       expect(c.utils.getByText('Followers')).toBeTruthy();
       expect(c.utils.getByText('Private')).toBeTruthy();
     });
+
+    // -- Parity restored by #778 --------------------------------------------
+    // Both of these were per-composer divergences this suite found, and both
+    // now hold everywhere, so they belong in the shared contract where a
+    // regression in any one composer fails.
+
+    it('trims the quote before committing', async () => {
+      const c = adapter.mount();
+      fireEvent.changeText(c.reactionInput(), '   padded   ');
+      c.submit();
+      expect((await c.committed()).quoteText).toBe('padded');
+    });
+
+    it('accepts a rating-only take, with no words', async () => {
+      // Ty ruled 07-31 that rating-only takes are legitimate and accepted by
+      // every composer; they are filtered out of public surfaces at DISPLAY
+      // time instead (#779), not blocked at the point of creation.
+      const c = adapter.mount();
+      c.setRating(8);
+      c.submit();
+      expect((await c.committed()).quoteText).toBe('');
+    });
   },
 );
 
@@ -409,53 +435,18 @@ describe('character budget declarations', () => {
 });
 
 // ===========================================================================
-// KNOWN DIVERGENCES — parity gaps this suite found. Each is DELIBERATELY RED
-// and explained in the PR body. No production code is changed in this PR.
+// A wordless take is never a spoiler.
+//
+// FirstTakeSheet has forced this since it shipped (first-take-sheet.tsx:142);
+// #778 applied the same rule to both modals after QA created a real production
+// row with `quote_text: ""` and `is_spoiler: true`. It is now a genuine shared
+// rule, but each composer's version is already pinned individually — the two
+// modals by __tests__/components/first-take-composer-parity-fixes.test.tsx
+// (#778), the sheet by first-take-sheet-contracts.test.tsx in this PR — so it
+// is referenced here rather than re-pinned a third time.
+//
+// What this spec does own is the other half of the rule, which no single-
+// composer suite states as a parity contract: a take WITH words keeps its
+// flag. That is asserted for all three by "a spoiler flagged in the composer
+// arrives in the created take" above, which types words first by design.
 // ===========================================================================
-describe('known parity divergences', () => {
-  /**
-   * Two of three trim the quote before committing; FirstTakeSheet sends
-   * `take.text` raw (first-take-sheet.tsx:141). A take typed as "  great  "
-   * therefore reaches the feed with its padding from the scanner but not from
-   * the detail page.
-   */
-  it.failing('FirstTakeSheet trims the quote like the other two composers', async () => {
-    const c = firstTakeSheetAdapter.mount();
-    fireEvent.changeText(c.reactionInput(), '   padded   ');
-    c.submit();
-    expect((await c.committed()).quoteText).toBe('padded');
-  });
-
-  it.each([
-    ['FirstTakeModal', firstTakeModalAdapter],
-    ['MultiFirstTakeModal', multiFirstTakeModalAdapter],
-  ] as const)('%s trims the quote (the behaviour the sheet should match)', async (_n, adapter) => {
-    const c = adapter.mount();
-    fireEvent.changeText(c.reactionInput(), '   padded   ');
-    c.submit();
-    expect((await c.committed()).quoteText).toBe('padded');
-  });
-
-  /**
-   * A rating with no words is postable from the detail page and from the
-   * scanner, but MultiFirstTakeModal requires BOTH (`canSubmit = rating > 0 &&
-   * quoteText.trim().length > 0`, multi-first-take-modal.tsx:221). Same action,
-   * different rules, depending on how many tickets happened to be in the batch.
-   */
-  it.failing('MultiFirstTakeModal accepts a rating-only take like the other two', async () => {
-    const c = multiFirstTakeModalAdapter.mount();
-    c.setRating(8);
-    c.submit();
-    await waitFor(() => expect(mockCreateFirstTake).toHaveBeenCalledTimes(1));
-  });
-
-  it.each([
-    ['FirstTakeModal', firstTakeModalAdapter],
-    ['FirstTakeSheet', firstTakeSheetAdapter],
-  ] as const)('%s accepts a rating-only take', async (_n, adapter) => {
-    const c = adapter.mount();
-    c.setRating(8);
-    c.submit();
-    expect((await c.committed()).quoteText).toBe('');
-  });
-});

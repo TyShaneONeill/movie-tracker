@@ -17,12 +17,14 @@
  *   - Batch: one step-sequence per `SavedMovie`, per-item commit, advance.
  *   - `DUPLICATE_FIRST_TAKE` is swallowed so the batch keeps moving.
  *   - Rapid double-submit commits exactly once (the `postingRef` latch).
- *
- * One contract is DELIBERATELY RED (`it.failing`): the keyboard-guard rule that
- * shipped to 100% for the other two composers is absent here. See the block
- * comment on that test.
+ *   - Accidental-dismiss protection: the `modal_keyboard_guard` rule the other
+ *     two composers already shipped. This was the one contract the suite
+ *     originally carried red — the guard was missing here entirely — and #778
+ *     landed it. The full guard matrix lives in that PR's own suite; see the
+ *     block comment above those tests for what is deliberately not repeated.
  */
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -67,6 +69,23 @@ const mockCreateFirstTake = jest.fn();
 jest.mock('@/lib/first-take-service', () => ({
   createFirstTake: (...args: unknown[]) => mockCreateFirstTake(...args),
 }));
+
+// `modal_keyboard_guard` reaches the sheet through `useModalKeyboardGuardEnabled()`.
+// Without this mock the flag reads undefined and the guard correctly fails
+// closed, so the guard contracts below would pass against legacy behavior.
+// Same pattern as __tests__/components/first-take-modal-keyboard-guard.test.tsx.
+const mockGetFeatureFlag = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  analytics: {
+    getFeatureFlag: (...args: unknown[]) => mockGetFeatureFlag(...args),
+    reloadFeatureFlags: jest.fn(),
+  },
+}));
+
+const setGuard = (on: boolean) =>
+  mockGetFeatureFlag.mockImplementation((flag: string) =>
+    flag === 'modal_keyboard_guard' ? on : undefined,
+  );
 
 import { FirstTakeSheet } from '@/components/scan-v2/first-take-sheet';
 import { captureException } from '@/lib/sentry';
@@ -119,10 +138,6 @@ const findPressable = (
   return match[0];
 };
 
-/** Full-bleed dismiss layer behind the sheet. */
-const backdrop = (utils: ReturnType<typeof render>) =>
-  findPressable(utils, 'backdrop', (p) => p.style?.backgroundColor === 'rgba(0,0,0,0.55)');
-
 /** Top-right ✕ — abandons the batch. */
 const closeButton = (utils: ReturnType<typeof render>) =>
   findPressable(utils, '✕', (p) => p.hitSlop === 8);
@@ -133,6 +148,7 @@ const backButton = (utils: ReturnType<typeof render>) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setGuard(true);
   mockCreateFirstTake.mockResolvedValue({ id: 'take-1' });
 });
 
@@ -438,28 +454,29 @@ describe('FirstTakeSheet step flow', () => {
 });
 
 // ===========================================================================
-// DISCREPANCY — keyboard guard absent on this composer
+// Accidental-dismiss protection
+//
+// This composer had NO keyboard guard when this suite was written, which was
+// this PR's headline finding: the backdrop was `onPress={onClose}`
+// unconditionally while the reaction step `autoFocus`es its input, and the only
+// call site passes the SAME handler for `onClose` and `onDone` — so one
+// accidental backdrop swipe abandoned every remaining movie in the batch AND
+// navigated out of the scan flow. #778 landed the guard plus a mid-batch
+// abandon confirm.
+//
+// The FULL guard matrix (flag on/off, the Android stale-`isVisible()`
+// fallback, the mid-batch confirm, the last-movie case, the in-flight-post
+// latch) is pinned by that PR's own suite,
+// __tests__/components/first-take-composer-parity-fixes.test.tsx — it is not
+// duplicated here. What stays below is the parity contract this suite exists
+// to hold: the sheet must behave like the other two composers.
 // ===========================================================================
 describe('FirstTakeSheet accidental-dismiss protection', () => {
-  /**
-   * DELIBERATELY RED. `modal_keyboard_guard` is at 100% and both other
-   * composers implement the rule: with the keyboard up, a backdrop press drops
-   * the keyboard instead of closing, so a swipe that starts on the backdrop
-   * strip cannot wipe an in-progress draft.
-   *
-   * This sheet's backdrop is `onPress={onClose}` unconditionally
-   * (first-take-sheet.tsx:221), and the reaction step `autoFocus`es its input
-   * (line 304) — so the keyboard is up by construction on the exact step where
-   * the user has typed something. Worse than the modals' version of this bug:
-   * the only call site (scan-v2-flow.tsx:409-416) passes the SAME handler for
-   * `onClose` and `onDone`, so the accidental press abandons every remaining
-   * movie in the batch AND navigates away from the flow.
-   *
-   * No production fix is included here on purpose — this PR is tests only.
-   * Flip this to `it` when the guard lands.
-   */
-  it.failing('guard: with the keyboard up, a backdrop press must not close the sheet', () => {
-    const { Keyboard } = require('react-native');
+  const { Keyboard } = require('react-native');
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('guard: with the keyboard up, a backdrop press must not close the sheet', () => {
     jest.spyOn(Keyboard, 'isVisible').mockReturnValue(true);
     const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => {});
     const onClose = jest.fn();
@@ -468,27 +485,33 @@ describe('FirstTakeSheet accidental-dismiss protection', () => {
     tapContinue(utils); // → reaction step (autoFocus, keyboard up)
     fireEvent.changeText(utils.getByPlaceholderText(REACTION_PLACEHOLDER), 'half a thought');
 
-    fireEvent.press(backdrop(utils));
+    fireEvent.press(utils.getByTestId('first-take-sheet-backdrop'));
 
     expect(dismiss).toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+    // And the draft the guard exists to protect is still there.
+    expect(utils.getByPlaceholderText(REACTION_PLACEHOLDER).props.value).toBe('half a thought');
   });
 
-  it('documents the shipped behavior: a backdrop press closes unconditionally', () => {
-    const { Keyboard } = require('react-native');
-    jest.spyOn(Keyboard, 'isVisible').mockReturnValue(true);
+  it('a keyboard-down backdrop press mid-batch no longer silently abandons the rest', () => {
+    jest.spyOn(Keyboard, 'isVisible').mockReturnValue(false);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const onClose = jest.fn();
 
-    const utils = renderSheet({ onClose });
-    tapContinue(utils);
-    fireEvent.changeText(utils.getByPlaceholderText(REACTION_PLACEHOLDER), 'half a thought');
+    const utils = renderSheet({ movies: TWO, onClose });
+    fireEvent.press(utils.getByTestId('first-take-sheet-backdrop'));
 
-    fireEvent.press(backdrop(utils));
-
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith(
+      'Skip All',
+      'Skip First Takes for all 2 remaining movies?',
+      expect.any(Array),
+    );
   });
 
-  it('the ✕ abandons the batch without committing anything', () => {
+  it('the ✕ abandons the batch immediately, without committing anything', () => {
+    // Deliberately NOT confirmed: the ✕ is the explicit abandon affordance, and
+    // confirming an explicit intent is the nagging kind of dialog.
     const onClose = jest.fn();
     const utils = renderSheet({ movies: TWO, onClose });
     tapContinue(utils);

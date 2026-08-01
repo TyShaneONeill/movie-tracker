@@ -233,20 +233,14 @@ describe('FirstTakeModal payload', () => {
   });
 
   /**
-   * DELIBERATELY RED — see the PR body ("Discrepancy 3").
-   *
-   * The other two composers each hold their own latch: MultiFirstTakeModal
-   * owns `isSubmitting` as local state, and FirstTakeSheet has an explicit
-   * `postingRef` (first-take-sheet.tsx:132). FirstTakeModal has neither — its
-   * `isSubmitting` is a PROP, so nothing inside the component stops a second
-   * press landing before the caller's mutation state has propagated back down.
-   *
-   * The DB unique index is the real backstop (a duplicate insert becomes
-   * `DUPLICATE_FIRST_TAKE`), so the user-visible cost is a spurious error, not
-   * a duplicate row. No production fix here — this PR is tests only. Flip to
-   * `it` when an internal latch lands.
+   * This composer had NO internal latch when the suite was written: its
+   * `isSubmitting` is a PROP, so nothing inside the component stopped a second
+   * press landing before the caller's mutation state propagated back down.
+   * The other two each held their own (MultiFirstTakeModal owns `isSubmitting`
+   * as local state, FirstTakeSheet has `postingRef`). #778 added the matching
+   * `postingRef` here, so the protection no longer depends on the caller.
    */
-  it.failing('rapid double-submit posts exactly once', async () => {
+  it('rapid double-submit posts exactly once', async () => {
     let release: () => void = () => {};
     const onSubmit = jest.fn(() => new Promise<void>((resolve) => { release = () => resolve(); }));
     const utils = renderModal({ onSubmit });
@@ -261,21 +255,9 @@ describe('FirstTakeModal payload', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it('documents the shipped behavior: two same-frame presses both submit', async () => {
-    const onSubmit = jest.fn().mockResolvedValue(undefined);
-    const utils = renderModal({ onSubmit });
-
-    fireEvent.changeText(utils.getByPlaceholderText(PLACEHOLDER), 'Once only');
-    const button = utils.getByText('Post First Take');
-    fireEvent.press(button);
-    fireEvent.press(button);
-
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
-  });
-
-  it('the caller CAN suppress a further press by driving isSubmitting', () => {
-    // Which is where the protection currently lives: every call site passes a
-    // mutation's pending flag. It only closes the window one render later.
+  it('the caller can still suppress a press by driving isSubmitting', () => {
+    // Belt and braces alongside the internal latch: every call site passes a
+    // mutation's pending flag, which also blanks the label for a spinner.
     const { ActivityIndicator } = require('react-native');
     const onSubmit = jest.fn().mockResolvedValue(undefined);
     const utils = renderModal({ onSubmit, isSubmitting: true });
@@ -292,6 +274,14 @@ describe('FirstTakeModal payload', () => {
 // ===========================================================================
 describe('FirstTakeModal submit gate', () => {
   it('a rating alone is postable (no words required)', async () => {
+    // DOCUMENTS SHIPPED BEHAVIOR, not a settled rule. The `rating: 5` here is
+    // this composer's create-path default (first-take-modal.tsx:108), so an
+    // untouched composer posts a 5 the user never chose. #778 fixed exactly
+    // that class of issue in MultiFirstTakeModal (rating now starts null) but
+    // deliberately left this one alone: it predates that PR and is a product
+    // call about the single-take composer's defaults, pending its own ruling.
+    // If the ruling lands, this expectation becomes `rating: null` and the
+    // submit gate below needs re-deriving with it.
     const utils = renderModal();
     fireEvent.press(utils.getByText('Post First Take'));
     await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));

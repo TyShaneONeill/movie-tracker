@@ -290,7 +290,10 @@ describe('MultiFirstTakeModal batch semantics', () => {
     await waitFor(() => expect(utils.getByText('2 of 2')).toBeTruthy());
     expect(utils.getByPlaceholderText(PLACEHOLDER).props.value).toBe('');
     expect(utils.getByText(`0/${MAX_QUOTE_LENGTH}`)).toBeTruthy();
-    expect(utils.getByText('5')).toBeTruthy(); // rating back to the default
+    // The rating resets to UNSET, not to a number. #778 moved this composer off
+    // a 5 default precisely so a batch cannot record scores the user never
+    // chose — a numeric readout here would mean the score bled between movies.
+    expect(utils.getByText('–')).toBeTruthy();
   });
 
   it('Skip advances without committing; Skip on the last movie finishes', async () => {
@@ -401,19 +404,27 @@ describe('MultiFirstTakeModal payload', () => {
 // Submit gate
 // ===========================================================================
 describe('MultiFirstTakeModal submit gate', () => {
-  it('a rating alone is NOT postable here — words are required', () => {
-    // Documented discrepancy vs the other two composers, which both accept a
-    // rating-only take. See the PR body.
-    const utils = renderModal();
-    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 9);
+  // The gate is now "at least ONE of rating or words" — the same rule the other
+  // two composers use. Rating-only acceptance is pinned as a cross-composer
+  // contract in first-take-composers-shared-contract.test.tsx, so it is not
+  // repeated here; what this block owns is the floor: an untouched composer,
+  // and whitespace that only looks like input, must not post.
 
+  it('an untouched composer cannot post — no phantom rating', () => {
+    const utils = renderModal();
     fireEvent.press(utils.getByText('Next'));
     expect(mockCreateFirstTake).not.toHaveBeenCalled();
   });
 
-  it('whitespace-only words do not satisfy the gate', () => {
+  it('whitespace-only words do not satisfy the gate on their own', () => {
+    // Note the rating is left UNTOUCHED here. Before #778 this composer started
+    // at a rating of 5, so a version of this test that nudged the slider would
+    // now pass for the wrong reason — the take would post on the rating alone
+    // and prove nothing about the words. Whitespace has to be the only input
+    // for the assertion to mean what its name says.
     const utils = renderModal();
-    fillTake(utils, '     ');
+    fireEvent.changeText(utils.getByPlaceholderText(PLACEHOLDER), '     ');
+
     fireEvent.press(utils.getByText('Next'));
     expect(mockCreateFirstTake).not.toHaveBeenCalled();
   });
