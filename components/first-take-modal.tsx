@@ -124,6 +124,7 @@ export function FirstTakeModal({
   // it instead of resetting. Any other target (or a successful submit, which
   // nulls the key) resets as before. Client-memory only — nothing persisted.
   const draftTargetRef = useRef<string | null>(null);
+  const postingRef = useRef(false);
   const targetKey = `${movieTitle}|${seasonNumber ?? ''}|${episodeNumber ?? ''}`;
   useEffect(() => {
     if (visible && !prevVisibleRef.current) {
@@ -146,17 +147,27 @@ export function FirstTakeModal({
   const isNearLimit = charCount > 120;
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    // `isSubmitting` is a PROP, so it only closes the window one render after
+    // the caller's mutation state propagates back down — two same-frame presses
+    // both got through. The latch is internal, matching FirstTakeSheet's
+    // postingRef (scan-v2/first-take-sheet.tsx:132) and MultiFirstTakeModal's
+    // locally-owned isSubmitting.
+    if (!canSubmit || postingRef.current) return;
+    postingRef.current = true;
     hapticImpact();
 
-    await onSubmit({
-      rating,
-      quoteText: quoteText.trim(),
-      isSpoiler,
-      visibility,
-      seasonNumber,
-      episodeNumber,
-    });
+    try {
+      await onSubmit({
+        rating,
+        quoteText: quoteText.trim(),
+        isSpoiler,
+        visibility,
+        seasonNumber,
+        episodeNumber,
+      });
+    } finally {
+      postingRef.current = false;
+    }
 
     Toast.show({
       type: 'success',

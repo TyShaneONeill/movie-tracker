@@ -26,6 +26,7 @@ import {
   Platform,
   Keyboard,
   Dimensions,
+  Alert,
   type KeyboardEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -33,6 +34,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/theme';
 import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { createFirstTake } from '@/lib/first-take-service';
@@ -105,6 +107,7 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
   const c = useScanColors();
   const insets = useSafeAreaInsets();
   const kbHeight = useKeyboardHeight();
+  const keyboardGuardEnabled = useModalKeyboardGuardEnabled();
   const defaultVis = REVIEW_TO_VIS[defaultVisibility] ?? 'Public';
   const [idx, setIdx] = useState(0);
   const [step, setStep] = useState(0);
@@ -138,7 +141,7 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
         movieTitle: movie.title,
         posterPath: movie.posterPath,
         reactionEmoji: '',
-        quoteText: take.text,
+        quoteText: take.text.trim(), // parity: both other composers trim before commit
         isSpoiler: take.text.trim() ? take.spoiler : false, // no words → never a spoiler
 
         rating: take.rating,
@@ -191,6 +194,31 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
 
   const canBack = step > 0 || idx > 0;
 
+  // A swipe that starts on the backdrop strip above the keyboard stays inside
+  // the backdrop's bounds, so Pressable fires onPress on release. The reaction
+  // step autoFocuses, so the keyboard is up on the exact step where words have
+  // been typed — and the only call site passes the same handler for onClose and
+  // onDone (scan-v2-flow.tsx:409-416), so that swipe abandoned every remaining
+  // movie AND navigated out of the flow. Guarded like first-take-modal /
+  // multi-first-take-modal: keyboard up → the press only drops the keyboard.
+  // With the keyboard down mid-batch it confirms first, mirroring
+  // MultiFirstTakeModal's Skip All. The ✕ stays an immediate, explicit abandon.
+  const handleBackdropPress = useCallback(() => {
+    const keyboardUp = Keyboard.isVisible() || TextInput.State.currentlyFocusedInput() != null;
+    if (keyboardGuardEnabled && keyboardUp) {
+      Keyboard.dismiss();
+      return;
+    }
+    if (!last) {
+      Alert.alert('Skip All', `Skip First Takes for all ${movies.length - idx} remaining movies?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Skip All', style: 'destructive', onPress: onClose },
+      ]);
+      return;
+    }
+    onClose();
+  }, [keyboardGuardEnabled, last, movies.length, idx, onClose]);
+
   // Keyboard avoidance (reaction step): scroll the focused field above the keyboard.
   const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(0);
@@ -218,7 +246,11 @@ export function FirstTakeSheet({ userId, movies, defaultVisibility, onClose, onD
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-        <Pressable style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' } as any} onPress={onClose} />
+        <Pressable
+          style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' } as any}
+          onPress={handleBackdropPress}
+          testID="first-take-sheet-backdrop"
+        />
 
         <View
           style={{

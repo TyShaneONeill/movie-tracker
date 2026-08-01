@@ -218,7 +218,11 @@ export function MultiFirstTakeModal({
     return value % 1 === 0 ? value.toString() : value.toFixed(1);
   };
 
-  const canSubmit = rating > 0 && quoteText.trim().length > 0 && !isSubmitting;
+  // A rating with no words is a legitimate take and posts from both other
+  // composers; requiring words here made the rules depend on how many tickets
+  // happened to be in the batch. Rating-only takes are accepted everywhere and
+  // filtered out of public surfaces at display time (Ty, 07-31).
+  const canSubmit = rating > 0 && !isSubmitting;
   const charCount = quoteText.length;
   const isNearLimit = charCount > 120;
 
