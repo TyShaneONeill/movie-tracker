@@ -173,7 +173,11 @@ export function MultiFirstTakeModal({
         posterPath: currentMovie.posterPath,
         reactionEmoji: '',
         quoteText: quoteText.trim(),
-        isSpoiler,
+        // No words → never a spoiler. A spoiler flag with nothing to hide is
+        // meaningless data, and now that a rating-only take is postable the
+        // toggle can outlive the words that justified it. Same rule
+        // FirstTakeSheet applies (scan-v2/first-take-sheet.tsx:142).
+        isSpoiler: quoteText.trim() ? isSpoiler : false,
         rating,
         visibility,
       });

@@ -324,6 +324,94 @@ describe('FirstTakeModal double-submit latch', () => {
 });
 
 // ===========================================================================
+// 4. "No words → never a spoiler" — the sheet's rule, applied to both modals
+// ===========================================================================
+describe('wordless takes are never spoilers', () => {
+  const renderModal = (overrides: Partial<React.ComponentProps<typeof FirstTakeModal>> = {}) => {
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    return {
+      ...render(
+        <FirstTakeModal
+          visible
+          onClose={jest.fn()}
+          onSubmit={onSubmit}
+          movieTitle="Inception"
+          {...overrides}
+        />
+      ),
+      onSubmit,
+    };
+  };
+
+  const renderMulti = () =>
+    render(
+      <MultiFirstTakeModal
+        visible
+        movies={[{ tmdbId: 27205, title: 'Inception', posterPath: '/a.jpg' }]}
+        onComplete={jest.fn()}
+      />
+    );
+
+  it('MultiFirstTakeModal: a rating-only take drops a toggled spoiler flag', async () => {
+    const utils = renderMulti();
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
+    fireEvent.press(utils.getByRole('switch'));
+
+    fireEvent.press(utils.getByText('Done'));
+
+    await waitFor(() => expect(mockCreateFirstTake).toHaveBeenCalledTimes(1));
+    expect(mockCreateFirstTake.mock.calls[0][1]).toMatchObject({ quoteText: '', isSpoiler: false });
+  });
+
+  it('MultiFirstTakeModal: a worded take still commits the spoiler flag', async () => {
+    const utils = renderMulti();
+    fireEvent.changeText(utils.getByPlaceholderText(MODAL_PLACEHOLDER), 'He was dead the whole time');
+    fireEvent.press(utils.getByRole('switch'));
+
+    fireEvent.press(utils.getByText('Done'));
+
+    await waitFor(() => expect(mockCreateFirstTake).toHaveBeenCalledTimes(1));
+    expect(mockCreateFirstTake.mock.calls[0][1].isSpoiler).toBe(true);
+  });
+
+  it('FirstTakeModal: a rating-only take drops a toggled spoiler flag', async () => {
+    const utils = renderModal();
+    fireEvent.press(utils.getByRole('switch'));
+
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0]).toMatchObject({ quoteText: '', isSpoiler: false });
+  });
+
+  it('FirstTakeModal: a worded take still submits the spoiler flag', async () => {
+    const utils = renderModal();
+    fireEvent.changeText(utils.getByPlaceholderText(MODAL_PLACEHOLDER), 'He was dead the whole time');
+    fireEvent.press(utils.getByRole('switch'));
+
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0].isSpoiler).toBe(true);
+  });
+
+  it('FirstTakeModal: a content-locked edit echoes the flag back untouched', async () => {
+    // PS-12: the locked path sends content unchanged so the DB trigger accepts
+    // a visibility-only edit. A legacy wordless spoiler row (exactly what this
+    // guard now prevents creating) must not be silently rewritten by it.
+    const utils = renderModal({
+      contentLocked: true,
+      initialValues: { rating: 7, quoteText: '', isSpoiler: true, visibility: 'public' },
+    });
+
+    fireEvent.press(utils.getByText('Save'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0]).toMatchObject({ quoteText: '', isSpoiler: true });
+  });
+});
+
+// ===========================================================================
 // 3. Parity — the sheet trims, the batch modal accepts a rating-only take
 // ===========================================================================
 describe('FirstTakeSheet quote trimming', () => {

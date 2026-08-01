@@ -160,7 +160,15 @@ export function FirstTakeModal({
       await onSubmit({
         rating,
         quoteText: quoteText.trim(),
-        isSpoiler,
+        // No words → never a spoiler (the rule FirstTakeSheet documents at
+        // scan-v2/first-take-sheet.tsx:142). A rating-only take is postable
+        // here, so the toggle can outlive the words that justified it.
+        // Exempt while contentLocked: that path deliberately echoes every
+        // content field back unchanged so the DB trigger accepts a
+        // visibility-only edit, and rewriting the flag there would both fail
+        // that trigger and silently edit a post the user cannot otherwise
+        // touch.
+        isSpoiler: contentLocked ? isSpoiler : quoteText.trim().length > 0 && isSpoiler,
         visibility,
         seasonNumber,
         episodeNumber,
