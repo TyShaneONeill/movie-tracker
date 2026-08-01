@@ -204,7 +204,7 @@ export default function NotificationsScreen() {
     // that's since been removed. Verify before navigating into a "not found"
     // screen and show a neutral fallback instead of a dead end.
     const targetsContent = typeof data.review_id === 'string' || typeof data.first_take_id === 'string';
-    if (targetsContent && !(await notificationTargetExists(notification))) {
+    if (targetsContent && !(await notificationTargetExists(notification, user?.id))) {
       Toast.show({
         type: 'info',
         text1: 'Content no longer available',
