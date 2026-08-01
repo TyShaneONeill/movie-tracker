@@ -15,7 +15,6 @@ interface GetFriendsRatingsRequest {
 interface FirstTakeRow {
   user_id: string;
   rating: number | null;
-  quote_text: string;
   is_spoiler: boolean;
   created_at: string;
   profiles: {
@@ -43,7 +42,6 @@ interface ReviewTableRow {
 interface FriendRatingResponse {
   userId: string;
   rating: number | null;
-  quoteText: string;
   title: string | null;
   reviewText: string | null;
   isSpoiler: boolean;
@@ -147,7 +145,6 @@ Deno.serve(async (req: Request) => {
         .select(`
           user_id,
           rating,
-          quote_text,
           is_spoiler,
           created_at,
           profiles!first_takes_user_id_profiles_fkey (
@@ -195,7 +192,6 @@ Deno.serve(async (req: Request) => {
     const firstTakeItems: FriendRatingResponse[] = ((firstTakesResult.data || []) as FirstTakeRow[]).map((row) => ({
       userId: row.user_id,
       rating: row.rating,
-      quoteText: row.quote_text,
       title: null,
       reviewText: null,
       isSpoiler: row.is_spoiler,
@@ -213,7 +209,6 @@ Deno.serve(async (req: Request) => {
     const reviewItems: FriendRatingResponse[] = ((reviewsResult.data || []) as ReviewTableRow[]).map((row) => ({
       userId: row.user_id,
       rating: row.rating,
-      quoteText: '',
       title: row.title,
       reviewText: row.review_text,
       isSpoiler: row.is_spoiler,

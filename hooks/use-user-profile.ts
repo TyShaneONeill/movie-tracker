@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { filterPubliclyVisibleTakes } from '@/lib/first-take-visibility';
 import type { Profile, UserMovie, FirstTake } from '@/lib/database.types';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
@@ -40,10 +41,14 @@ async function fetchOtherUserCounts(userId: string) {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('status', 'watched'),
+    // `.like('quote_text', '_%')` mirrors the own-profile count in use-profile.ts:
+    // wordless takes never render in the list below, so counting them here would
+    // reproduce the #669 bug in reverse (tab reads "8" over a list of 6).
     supabase
       .from('first_takes')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      .like('quote_text', '_%'),
     // No client visibility filter: let RLS scope which reviews the viewer may
     // see (public + followers_only-when-following + own), exactly as the reviews
     // LIST and the first_takes count already do. The old `.eq('visibility',
@@ -87,7 +92,8 @@ async function fetchOtherUserMovies(
 }
 
 /**
- * Fetch another user's First Takes
+ * Fetch another user's First Takes. Wordless (rating-only) takes are dropped —
+ * another user's profile is the most public first-take surface there is.
  */
 async function fetchOtherUserFirstTakes(userId: string): Promise<FirstTake[]> {
   const { data, error } = await supabase
@@ -97,7 +103,7 @@ async function fetchOtherUserFirstTakes(userId: string): Promise<FirstTake[]> {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as FirstTake[];
+  return filterPubliclyVisibleTakes((data ?? []) as FirstTake[]);
 }
 
 export interface UseUserProfileResult {

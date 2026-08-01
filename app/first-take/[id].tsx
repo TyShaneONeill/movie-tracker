@@ -24,6 +24,7 @@ import { captureCard, shareFirstTake, shareFirstTakeUrl } from '@/lib/share-serv
 import { analytics } from '@/lib/analytics';
 import { FirstTakeModal } from '@/components/first-take-modal';
 import { updateFirstTake, deleteFirstTake } from '@/lib/first-take-service';
+import { isPubliclyVisibleTake } from '@/lib/first-take-visibility';
 import { canEditPost, isEditWindowClosedError, EDIT_WINDOW_CLOSED_MESSAGE } from '@/lib/edit-window';
 import { useSocialEditingEnabled } from '@/hooks/use-social-editing';
 import { hapticImpact } from '@/lib/haptics';
@@ -41,7 +42,10 @@ export default function FirstTakeDetailScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { user } = useAuth();
+  // `isLoading` matters here, not just `user`: `isOwn` is false while auth is
+  // still resolving, so gating on it below would flash the non-owner
+  // "isn't available" state at an owner deep-linking their own wordless take.
+  const { user, isLoading: authLoading } = useAuth();
   // PS-12 (D1): every edit affordance is gated behind the `social_editing` flag.
   const socialEditingEnabled = useSocialEditingEnabled();
 
@@ -227,7 +231,7 @@ export default function FirstTakeDetailScreen() {
     return () => sub.remove();
   }, []);
 
-  if (isLoading || (needsFollowCheck && followsLoading)) {
+  if (authLoading || isLoading || (needsFollowCheck && followsLoading)) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
@@ -254,6 +258,34 @@ export default function FirstTakeDetailScreen() {
           </View>
           <View style={styles.centered}>
             <Text style={styles.notFoundText}>First Take not found</Text>
+          </View>
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  // A wordless (rating-only) take never renders for anyone but its author (Ty,
+  // 2026-07-31) — including via a direct deep link, which is the one way into
+  // this screen that no list filter can guard. The copy stays neutral and
+  // matches the web fallback: it says nothing about why, so it doesn't
+  // advertise that a rating-only take exists here.
+  if (!isPubliclyVisibleTake(firstTake) && !isOwn) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={styles.container}>
+          <View style={styles.topBar}>
+            <Pressable onPress={() => router.back()} hitSlop={8}>
+              <Ionicons name="chevron-back" size={28} color={colors.text} />
+            </Pressable>
+            <Text style={styles.topBarTitle}>First Take</Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <View style={styles.centered}>
+            <Ionicons name="document-outline" size={48} color={colors.textSecondary} />
+            <Text style={[styles.notFoundText, { marginTop: Spacing.md }]}>
+              This First Take isn&apos;t available
+            </Text>
           </View>
         </SafeAreaView>
       </>
@@ -328,7 +360,10 @@ export default function FirstTakeDetailScreen() {
             <Text style={styles.topBarTitle}>First Take</Text>
             {isOwn || firstTake.visibility === 'public' ? (
               <View style={styles.topBarActions}>
-                {firstTake.visibility === 'public' && (
+                {/* Sharing publishes the take to a public surface, so it needs
+                    the same words gate the surfaces themselves have — the owner
+                    can reach this screen for their own wordless take. */}
+                {firstTake.visibility === 'public' && isPubliclyVisibleTake(firstTake) && (
                   <Pressable onPress={handleShare} disabled={isSharing} hitSlop={8}>
                     {isSharing ? (
                       <ActivityIndicator size="small" color={colors.text} />
@@ -425,25 +460,32 @@ export default function FirstTakeDetailScreen() {
               )}
             </View>
 
-            {/* Quote */}
-            {firstTake.is_spoiler && !spoilerRevealed ? (
-              <Pressable
-                style={styles.spoilerCard}
-                onPress={() => setSpoilerRevealed(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Reveal spoiler content"
-              >
-                <View style={styles.spoilerCardInner}>
-                  <Ionicons name="eye-off-outline" size={22} color={colors.textTertiary} />
-                  <Text style={styles.spoilerCardTitle}>Spoiler-protected</Text>
-                  <Text style={styles.spoilerCardHint}>Tap to reveal</Text>
-                </View>
-              </Pressable>
-            ) : (
-              <Text style={styles.quoteText}>
-                &ldquo;{firstTake.quote_text}&rdquo;
-              </Text>
-            )}
+            {/* Quote — omitted entirely for a rating-only take. Only its author
+                reaches this screen for one (the gate above turns everyone else
+                away), and the block wraps its text in typographic quote marks,
+                so rendering it wordless left a lone “” over an empty gap that read
+                as broken rather than as "rating, no words" (device QA 07-31).
+                The guard wraps BOTH branches: a wordless spoiler take would
+                otherwise offer a "Tap to reveal" card hiding nothing. */}
+            {isPubliclyVisibleTake(firstTake) &&
+              (firstTake.is_spoiler && !spoilerRevealed ? (
+                <Pressable
+                  style={styles.spoilerCard}
+                  onPress={() => setSpoilerRevealed(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reveal spoiler content"
+                >
+                  <View style={styles.spoilerCardInner}>
+                    <Ionicons name="eye-off-outline" size={22} color={colors.textTertiary} />
+                    <Text style={styles.spoilerCardTitle}>Spoiler-protected</Text>
+                    <Text style={styles.spoilerCardHint}>Tap to reveal</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <Text style={styles.quoteText}>
+                  &ldquo;{firstTake.quote_text}&rdquo;
+                </Text>
+              ))}
 
             {/* Rewatch pill */}
             {firstTake.is_rewatch && (
@@ -478,7 +520,7 @@ export default function FirstTakeDetailScreen() {
         </View>
 
         {/* Off-screen share card for capture (native only, public only) */}
-        {Platform.OS !== 'web' && firstTake.visibility === 'public' && (
+        {Platform.OS !== 'web' && firstTake.visibility === 'public' && isPubliclyVisibleTake(firstTake) && (
           <ViewShot
             ref={viewShotRef}
             options={{ format: 'png', quality: 1 }}

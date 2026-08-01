@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { hasTakeWords } from './first-take-visibility';
 import type { Notification } from './database.types';
 
 export interface PaginatedNotifications {
@@ -62,15 +63,31 @@ export async function markAllAsRead(userId: string): Promise<void> {
   if (error) throw new Error(error.message || 'Failed to mark all as read');
 }
 
-// True if the notification's target content still exists — false for
-// orphaned notifications whose comment/review/first-take was deleted
+// True if the notification's target content still exists AND is renderable —
+// false for orphaned notifications whose comment/review/first-take was deleted
 // (historical orphans predating the delete-cleanup triggers in
 // 20260718090000/20260718090100, or a delete/tap race). Driven by which
 // entity id is present in `data` rather than notification type, since
 // friend_reviewed carries either review_id or first_take_id depending on
 // which trigger wrote it (see #709).
+//
+// A wordless (rating-only) first take counts as unreachable here: it renders on
+// no public surface, so tapping through would land on an unavailable state.
+// 20260731000000 stops the trigger from writing these notifications at all;
+// this is the belt for rows already in the table when that migration lands, and
+// it reuses the existing neutral-toast path rather than adding a new one.
+//
+// `viewerId` matters because the wordless rule is NOT owner-agnostic, and
+// first_take_id rides on more than the follower fan-out: `like_first_take` and
+// `comment_first_take` (like-review/add-comment edge functions) are delivered TO
+// THE TAKE'S AUTHOR. Historical wordless takes can carry likes and comments —
+// they were visible before this change — so without the owner exemption an
+// author tapping "someone liked your take" would get "Content no longer
+// available", which is false: the detail screen renders their own wordless take
+// in full. Pass undefined (signed out) and the take is treated as a stranger's.
 export async function notificationTargetExists(
-  notification: Pick<Notification, 'data'>
+  notification: Pick<Notification, 'data'>,
+  viewerId?: string
 ): Promise<boolean> {
   const data = (notification.data ?? {}) as Record<string, unknown>;
 
@@ -84,10 +101,16 @@ export async function notificationTargetExists(
 
   if (typeof data.first_take_id === 'string') {
     const { data: firstTake } = await (supabase.from('first_takes') as any)
-      .select('id')
+      .select('id, quote_text, user_id')
       .eq('id', data.first_take_id)
       .maybeSingle();
-    return !!firstTake;
+    if (!firstTake) return false;
+    // `!!viewerId` first so a signed-out viewer can't match a row with a
+    // missing user_id via undefined === undefined.
+    return (
+      hasTakeWords(firstTake.quote_text) ||
+      (!!viewerId && firstTake.user_id === viewerId)
+    );
   }
 
   // Nothing content-specific to verify (follow, follow_request,
