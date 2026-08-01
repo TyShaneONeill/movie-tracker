@@ -117,10 +117,13 @@ export function useStreakSpineEnabled(): boolean {
  * closing the sheet, losing the typed draft), and an accidental close keeps
  * the in-memory draft for the next open of the same title/episode.
  *
- * Ships dark for Ty-only device validation on the production channel first,
- * then widens — same rollout playbook as streak_spine. Env override
- * EXPO_PUBLIC_MODAL_KEYBOARD_GUARD_OVERRIDE = "true" | "false" for dev.
- * Fails closed (legacy dismiss behavior) while the flag is loading.
+ * ROLLOUT: fully widened — flag 772478 has been at 100% for all users since
+ * 2026-07-21. The guard is the shipped behavior, not an experiment; #741 tracks
+ * stripping the flag and its branches. (This block previously said it ships
+ * dark for founder-only validation, which sent a QA run at the wrong default.)
+ *
+ * Env override EXPO_PUBLIC_MODAL_KEYBOARD_GUARD_OVERRIDE = "true" | "false" for
+ * dev. Fails closed (legacy dismiss behavior) while the flag is loading.
  */
 export function useModalKeyboardGuardEnabled(): boolean {
   const { enabled: flagOn } = useFeatureFlag('modal_keyboard_guard');

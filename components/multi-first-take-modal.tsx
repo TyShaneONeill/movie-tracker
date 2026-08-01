@@ -312,7 +312,9 @@ export function MultiFirstTakeModal({
                   <View style={styles.ratingWrapper}>
                     {/* Large Rating Display */}
                     <View style={styles.ratingDisplay}>
-                      <Text style={styles.ratingValue}>{rating === null ? '–' : formatRating(rating)}</Text>
+                      <Text style={[styles.ratingValue, rating === null && styles.ratingValueUnset]}>
+                        {rating === null ? '–' : formatRating(rating)}
+                      </Text>
                       <Text style={styles.ratingMax}>/ 10</Text>
                     </View>
 
@@ -327,6 +329,15 @@ export function MultiFirstTakeModal({
                         // contradicts the "–" readout by sitting mid-track.
                         value={rating ?? 1}
                         onValueChange={setRating}
+                        // Android's ProgressBar.setProgressInternal early-returns
+                        // when the computed progress equals the current one, so a
+                        // drag that ENDS on the parked floor value never fires
+                        // onValueChange — scoring 1/10 with no words was silently
+                        // unsubmittable. Tradeoff: this also fires on a stray
+                        // touch-release at the floor, committing 1/10; the readout
+                        // visibly flips from "–" to 1, so the user sees it and can
+                        // adjust. Far smaller than the mount-time 5 it replaced.
+                        onSlidingComplete={(v) => setRating(v)}
                         minimumTrackTintColor={colors.tint}
                         maximumTrackTintColor={colors.backgroundSecondary}
                         thumbTintColor="#ffffff"
@@ -584,6 +595,12 @@ const createStyles = (colors: typeof Colors.dark) =>
       fontSize: 48,
       color: colors.tint,
       lineHeight: 52,
+    },
+    // Unrated: same slab, dropped to a neutral so it reads as a placeholder
+    // rather than a score. Matches FirstTakeSheet's RatingSlider, which mutes
+    // its em-dash to c.lineHi instead of the accent (rating-slider.tsx:118).
+    ratingValueUnset: {
+      color: colors.textTertiary,
     },
     ratingMax: {
       fontFamily: Fonts.outfit.semibold,

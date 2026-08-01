@@ -17,8 +17,9 @@
  * (#736), including the flag-off legacy case.
  */
 import React from 'react';
-import { Alert, Keyboard, TextInput } from 'react-native';
+import { Alert, Keyboard, StyleSheet, TextInput } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { Colors } from '@/constants/theme';
 import type { ReviewVisibility } from '@/lib/database.types';
 
 // ---------------------------------------------------------------------------
@@ -349,10 +350,28 @@ describe('MultiFirstTakeModal submit gate', () => {
     // a 5 default would let a 10-ticket batch record ten scores nobody chose.
     const utils = renderMulti();
 
-    expect(utils.getByText('–')).toBeTruthy();
+    // Muted, not the accent slab — it has to read as a placeholder, not a score.
+    const placeholder = utils.getByText('–');
+    expect(StyleSheet.flatten(placeholder.props.style).color).toBe(Colors.light.textTertiary);
+
     fireEvent.press(utils.getByText('Done'));
 
     expect(mockCreateFirstTake).not.toHaveBeenCalled();
+  });
+
+  it('a drag that ends on the floor still registers a rating', async () => {
+    // Android's ProgressBar.setProgressInternal early-returns when the computed
+    // progress equals the current one, and the thumb parks at 1 while unrated —
+    // so dragging to 1/10 fired no onValueChange and the take was silently
+    // unsubmittable. onSlidingComplete is the backstop. (Device-reproduced, A6.)
+    const utils = renderMulti();
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'slidingComplete', 1);
+
+    expect(utils.queryByText('–')).toBeNull();
+    fireEvent.press(utils.getByText('Done'));
+
+    await waitFor(() => expect(mockCreateFirstTake).toHaveBeenCalledTimes(1));
+    expect(mockCreateFirstTake.mock.calls[0][1]).toMatchObject({ rating: 1, quoteText: '' });
   });
 
   it('accepts a rating-only take, like the other two composers', async () => {
