@@ -156,6 +156,33 @@ describe('first-take detail — owner', () => {
     expect(queryByText(UNAVAILABLE)).toBeNull();
   });
 
+  // Device QA, 2026-07-31 (C1-owner-detail.png): the quote block wraps the text
+  // in typographic quote marks, so a rating-only take rendered a lone `“”` over
+  // an empty gap. The owner's view should read as "rating, no words", not as a
+  // broken card.
+  it('renders no orphaned quote marks for their own wordless take', async () => {
+    (supabase.from as jest.Mock).mockReturnValue(
+      mockSupabaseQuery({ data: takeRow({ quote_text: '' }), error: null })
+    );
+
+    const { queryByText } = renderScreen();
+
+    await waitFor(() => expect(queryByText('Movie A')).not.toBeNull());
+    // The empty quote pair the screenshot caught.
+    expect(queryByText('“”')).toBeNull();
+  });
+
+  it('still renders the quote block for their own WORDED take', async () => {
+    // Positive control for the assertion above — it must fail on a blank screen.
+    (supabase.from as jest.Mock).mockReturnValue(
+      mockSupabaseQuery({ data: takeRow(), error: null })
+    );
+
+    const { queryByText } = renderScreen();
+
+    await waitFor(() => expect(queryByText(new RegExp(WORDED))).not.toBeNull());
+  });
+
   it('does not flash the unavailable state while auth is still resolving', async () => {
     // Mid-resolution: no user yet, so `isOwn` is false. Gating on that alone
     // would show an owner the non-owner state for a frame.

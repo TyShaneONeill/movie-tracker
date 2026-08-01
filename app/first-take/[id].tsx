@@ -460,25 +460,32 @@ export default function FirstTakeDetailScreen() {
               )}
             </View>
 
-            {/* Quote */}
-            {firstTake.is_spoiler && !spoilerRevealed ? (
-              <Pressable
-                style={styles.spoilerCard}
-                onPress={() => setSpoilerRevealed(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Reveal spoiler content"
-              >
-                <View style={styles.spoilerCardInner}>
-                  <Ionicons name="eye-off-outline" size={22} color={colors.textTertiary} />
-                  <Text style={styles.spoilerCardTitle}>Spoiler-protected</Text>
-                  <Text style={styles.spoilerCardHint}>Tap to reveal</Text>
-                </View>
-              </Pressable>
-            ) : (
-              <Text style={styles.quoteText}>
-                &ldquo;{firstTake.quote_text}&rdquo;
-              </Text>
-            )}
+            {/* Quote — omitted entirely for a rating-only take. Only its author
+                reaches this screen for one (the gate above turns everyone else
+                away), and the block wraps its text in typographic quote marks,
+                so rendering it wordless left a lone “” over an empty gap that read
+                as broken rather than as "rating, no words" (device QA 07-31).
+                The guard wraps BOTH branches: a wordless spoiler take would
+                otherwise offer a "Tap to reveal" card hiding nothing. */}
+            {isPubliclyVisibleTake(firstTake) &&
+              (firstTake.is_spoiler && !spoilerRevealed ? (
+                <Pressable
+                  style={styles.spoilerCard}
+                  onPress={() => setSpoilerRevealed(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reveal spoiler content"
+                >
+                  <View style={styles.spoilerCardInner}>
+                    <Ionicons name="eye-off-outline" size={22} color={colors.textTertiary} />
+                    <Text style={styles.spoilerCardTitle}>Spoiler-protected</Text>
+                    <Text style={styles.spoilerCardHint}>Tap to reveal</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <Text style={styles.quoteText}>
+                  &ldquo;{firstTake.quote_text}&rdquo;
+                </Text>
+              ))}
 
             {/* Rewatch pill */}
             {firstTake.is_rewatch && (
