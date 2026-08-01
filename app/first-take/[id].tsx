@@ -42,7 +42,10 @@ export default function FirstTakeDetailScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { user } = useAuth();
+  // `isLoading` matters here, not just `user`: `isOwn` is false while auth is
+  // still resolving, so gating on it below would flash the non-owner
+  // "isn't available" state at an owner deep-linking their own wordless take.
+  const { user, isLoading: authLoading } = useAuth();
   // PS-12 (D1): every edit affordance is gated behind the `social_editing` flag.
   const socialEditingEnabled = useSocialEditingEnabled();
 
@@ -228,7 +231,7 @@ export default function FirstTakeDetailScreen() {
     return () => sub.remove();
   }, []);
 
-  if (isLoading || (needsFollowCheck && followsLoading)) {
+  if (authLoading || isLoading || (needsFollowCheck && followsLoading)) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />

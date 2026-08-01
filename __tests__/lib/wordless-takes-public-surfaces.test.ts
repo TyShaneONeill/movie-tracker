@@ -154,6 +154,28 @@ describe('feed (community)', () => {
     expect(items.map((i) => i.id)).toEqual(['ft-worded']);
     expect(nextCursor).toBe('2026-07-31T11:18:00Z');
   });
+
+  it('returns an empty page with a LIVE cursor when all 20 rows are wordless', async () => {
+    // The stall case. If the cursor were derived from the filtered list this
+    // page would look short, nextCursor would be null, and the feed would read
+    // "all caught up" with content still behind it. The hook's auto-advance
+    // (see feed-auto-advance.test.tsx) is what then walks past this page.
+    const rows = Array.from({ length: 20 }, (_, i) =>
+      feedRow({
+        id: `ft-blank-${i}`,
+        quote_text: i % 2 === 0 ? '' : '   ',
+        created_at: `2026-07-31T11:${String(i).padStart(2, '0')}:00Z`,
+      })
+    );
+    (supabase.from as jest.Mock).mockReturnValue(
+      mockSupabaseQuery({ data: rows, error: null })
+    );
+
+    const { items, nextCursor } = await fetchCommunityFeedPage('me', []);
+
+    expect(items).toEqual([]);
+    expect(nextCursor).toBe('2026-07-31T11:19:00Z');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -224,7 +246,11 @@ describe("another user's profile First Takes tab", () => {
     expect(result.current.firstTakes.map((t) => t.id)).toEqual(['ft-worded']);
   });
 
-  it('counts the tab the same way it renders it', async () => {
+  // NOT full parity: `.like('quote_text', '_%')` matches a space, so a
+  // whitespace-only take is still counted while the list drops it. Closing that
+  // needs a server-side change (partial index / generated column) — tracked as
+  // a follow-up in the PR body. This asserts only that the SQL guard is applied.
+  it('applies the same SQL guard to the tab count as the own-profile count', async () => {
     const chain = mockSupabaseQuery({ data: [], error: null, count: 0 } as never);
     (supabase.from as jest.Mock).mockReturnValue(chain);
 

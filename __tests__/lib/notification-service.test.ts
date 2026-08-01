@@ -46,7 +46,10 @@ describe('notificationTargetExists', () => {
   });
 
   it('returns true when the referenced first take still exists', async () => {
-    const builder = mockSelectChain({ data: { id: 'ft-1' }, error: null });
+    const builder = mockSelectChain({
+      data: { id: 'ft-1', quote_text: 'Worth the wait' },
+      error: null,
+    });
 
     const result = await notificationTargetExists({
       data: { first_take_id: 'ft-1' },
@@ -55,6 +58,30 @@ describe('notificationTargetExists', () => {
     expect(result).toBe(true);
     expect(fromMock).toHaveBeenCalledWith('first_takes');
     expect(builder.eq).toHaveBeenCalledWith('id', 'ft-1');
+  });
+
+  // A wordless take renders on no public surface, so a notification pointing at
+  // one is unreachable in practice — same neutral toast as a deleted target.
+  // 20260731000000 stops the trigger writing these; this covers rows already in
+  // the table when it lands.
+  it('returns false for a rating-only first take', async () => {
+    mockSelectChain({ data: { id: 'ft-2', quote_text: '' }, error: null });
+
+    const result = await notificationTargetExists({
+      data: { first_take_id: 'ft-2' },
+    } as any);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false for a whitespace-only first take', async () => {
+    mockSelectChain({ data: { id: 'ft-3', quote_text: '   ' }, error: null });
+
+    const result = await notificationTargetExists({
+      data: { first_take_id: 'ft-3' },
+    } as any);
+
+    expect(result).toBe(false);
   });
 
   it('returns false when the referenced first take was deleted', async () => {

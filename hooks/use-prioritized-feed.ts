@@ -15,6 +15,19 @@ import {
 import { useAds } from '@/lib/ads-context';
 import { useBlockedUsers } from '@/hooks/use-blocked-users';
 
+/**
+ * How many consecutive all-filtered-out community pages the feed will fetch on
+ * its own before giving up and waiting for the user to scroll.
+ *
+ * A page is fetched at PAGE_SIZE and THEN filtered (wordless takes, blocked
+ * users), so a page can arrive full and render empty. The list only asks for
+ * more via onEndReached — and an empty list never reaches its end — so without
+ * this the feed reads "you're all caught up" while hasNextPage is still true.
+ * Bounded so a pathological stretch of the table can't turn one mount into an
+ * unbounded fetch loop; past the cap the user's next scroll resumes paging.
+ */
+export const AUTO_ADVANCE_PAGE_CAP = 5;
+
 export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilter = 'all') {
   const { adsEnabled } = useAds();
   const queryClient = useQueryClient();
@@ -70,6 +83,36 @@ export function usePrioritizedFeed(userId: string | undefined, filter: FeedFilte
     staleTime: 5 * 60 * 1000,
     retry: 2,
   });
+
+  // Auto-advance past community pages that filtered down to nothing. Resets on
+  // any page that yields at least one item, so the cap applies to a RUN of
+  // empty pages rather than to the session.
+  const autoAdvancedPages = useRef(0);
+  const {
+    data: communityData,
+    hasNextPage: communityHasNextPage,
+    isFetchingNextPage: communityIsFetchingNextPage,
+    fetchNextPage: communityFetchNextPage,
+  } = communityQuery;
+  useEffect(() => {
+    const pages = communityData?.pages;
+    if (!pages || pages.length === 0) return;
+
+    if (pages[pages.length - 1].items.length > 0) {
+      autoAdvancedPages.current = 0;
+      return;
+    }
+    if (!communityHasNextPage || communityIsFetchingNextPage) return;
+    if (autoAdvancedPages.current >= AUTO_ADVANCE_PAGE_CAP) return;
+
+    autoAdvancedPages.current += 1;
+    communityFetchNextPage();
+  }, [
+    communityData,
+    communityHasNextPage,
+    communityIsFetchingNextPage,
+    communityFetchNextPage,
+  ]);
 
   // Query 4: Feed last seen timestamp
   const feedLastSeenQuery = useQuery({
