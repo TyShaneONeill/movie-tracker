@@ -104,6 +104,8 @@ export function useJourneyMutations(tmdbId?: number) {
         queryClient.invalidateQueries({
           queryKey: ['journeysByMovie', updatedJourney.tmdb_id],
         });
+        // Watched grid orders by watched_at (#783) — a date edit must re-sort it
+        invalidateUserMovieQueries(queryClient);
       }, 100);
     },
   });

@@ -47,7 +47,8 @@ import { formatRelativeTime } from '@/hooks/use-activity-feed';
 import { useBlockAction } from '@/components/moderation/block-button';
 import { ReportModal } from '@/components/moderation/report-modal';
 import { ActionSheet } from '@/components/ui/action-sheet';
-import type { UserMovie, GroupedUserMovie } from '@/lib/database.types';
+import { groupMoviesByTmdbId } from '@/hooks/use-user-movies';
+import type { GroupedUserMovie } from '@/lib/database.types';
 
 type TabType = 'collection' | 'first-takes' | 'reviews' | 'watchlist';
 
@@ -67,44 +68,6 @@ const BackIcon = ({ color = 'white' }: { color?: string }) => (
     <Path d="M19 12H5M12 19l-7-7 7-7" />
   </Svg>
 );
-
-/**
- * Groups movies by tmdb_id and returns one entry per movie with journey count.
- */
-function groupMoviesByTmdbId(movies: UserMovie[]): GroupedUserMovie[] {
-  const movieMap = new Map<number, { primary: UserMovie; count: number }>();
-
-  for (const movie of movies) {
-    const existing = movieMap.get(movie.tmdb_id);
-
-    if (existing) {
-      existing.count++;
-      // Priority: 1) User explicitly set display_poster to ai_generated, 2) Has AI art, 3) Most recent
-      const currentHasExplicitAiPreference =
-        existing.primary.display_poster === 'ai_generated' &&
-        existing.primary.ai_poster_url;
-      const newHasExplicitAiPreference =
-        movie.display_poster === 'ai_generated' && movie.ai_poster_url;
-
-      if (newHasExplicitAiPreference && !currentHasExplicitAiPreference) {
-        existing.primary = movie;
-      } else if (
-        !currentHasExplicitAiPreference &&
-        movie.ai_poster_url &&
-        !existing.primary.ai_poster_url
-      ) {
-        existing.primary = movie;
-      }
-    } else {
-      movieMap.set(movie.tmdb_id, { primary: movie, count: 1 });
-    }
-  }
-
-  return Array.from(movieMap.values()).map(({ primary, count }) => ({
-    ...primary,
-    journeyCount: count,
-  }));
-}
 
 export default function UserProfileScreen() {
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();

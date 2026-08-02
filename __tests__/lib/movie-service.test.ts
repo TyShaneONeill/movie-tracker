@@ -389,6 +389,27 @@ describe('fetchUserMovies', () => {
     expect(result).toEqual(movies);
   });
 
+  it('orders by watched_at desc (nulls last) with added_at tiebreak when orderBy is watched', async () => {
+    const chain = setupQueryChain({ data: [], error: null });
+
+    await fetchUserMovies(USER_ID, 'watched', 'watched');
+
+    expect(chain.order).toHaveBeenNthCalledWith(1, 'watched_at', {
+      ascending: false,
+      nullsFirst: false,
+    });
+    expect(chain.order).toHaveBeenNthCalledWith(2, 'added_at', { ascending: false });
+  });
+
+  it('keeps added_at ordering when orderBy is explicitly added', async () => {
+    const chain = setupQueryChain({ data: [], error: null });
+
+    await fetchUserMovies(USER_ID, 'watched', 'added');
+
+    expect(chain.order).toHaveBeenCalledTimes(1);
+    expect(chain.order).toHaveBeenCalledWith('added_at', { ascending: false });
+  });
+
   it('filters by status when provided', async () => {
     const chain = setupQueryChain({ data: [], error: null });
 
