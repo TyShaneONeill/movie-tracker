@@ -125,24 +125,6 @@ git push -u origin feature/my-feature
 gh pr create --title "feat: description" --body "Summary..."
 ```
 
-## Agentic Workflow (REQUIRED)
-
-**You are an orchestrator, not a worker.** Follow these principles:
-
-1. **Delegate to agents** - Use the `Task` tool to spawn agents for:
-   - Exploring/searching the codebase
-   - Fixing bugs or implementing features
-   - Debugging issues
-   - Any task requiring multiple file reads/edits
-
-2. **Keep context lean** - Don't read every file yourself; let agents do the investigation
-
-3. **Parallelize when possible** - Spawn multiple agents for independent tasks
-
-4. **Verify agent work** - Run `npm run lint && npx tsc --noEmit` after agent changes
-
-5. **Commit incrementally** - Small, focused commits on feature branches
-
 ## Versioning
 
 PocketStubs uses semantic versioning. **Do NOT bump the version with every PR.** Version bumps happen intentionally before an App Store release.
