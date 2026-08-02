@@ -253,6 +253,13 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
     setCompanions((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // The picker toggles by name (it has no index to hand back); the chips below
+  // still remove by index.
+  const removeCompanionByName = useCallback((name: string) => {
+    const t = name.trim().toLowerCase();
+    setCompanions((prev) => prev.filter((n) => n.trim().toLowerCase() !== t));
+  }, []);
+
   // Add photo — ported verbatim from v1 `app/journey/edit/[id].tsx` :177-222.
   // Uses `journey.id` (the create flow creates the row BEFORE opening the sheet,
   // so this is always a real row id). Stores the PUBLIC url; SignedPhoto re-signs.
@@ -608,6 +615,7 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
             userId={user?.id ?? ''}
             alreadyAdded={companions}
             onAdd={addCompanion}
+            onRemove={removeCompanionByName}
             onClose={() => setShowCompanions(false)}
           />
         )}
