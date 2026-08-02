@@ -72,11 +72,19 @@ export function useUserMovies(status?: MovieStatus, orderBy: UserMovieOrderBy = 
     enabled: !!user,
   });
 
-  // Group movies by tmdb_id for collection grid display
-  const groupedMovies = useMemo(() => {
+  // In watched mode, re-sort client-side by watched_at ?? added_at: rows with
+  // no watched_at (plain mark-as-watched never writes one) would otherwise
+  // sink below years-old dated rows under SQL NULLS LAST. The two-level SQL
+  // order remains a stable pre-sort, and position now matches the grouping
+  // tiebreak. Array.prototype.sort is stable, so SQL order breaks ties.
+  const sortedMovies = useMemo(() => {
     if (!query.data) return [];
-    return groupMoviesByTmdbId(query.data);
-  }, [query.data]);
+    if (orderBy !== 'watched') return query.data;
+    return [...query.data].sort((a, b) => watchRecency(b) - watchRecency(a));
+  }, [query.data, orderBy]);
+
+  // Group movies by tmdb_id for collection grid display
+  const groupedMovies = useMemo(() => groupMoviesByTmdbId(sortedMovies), [sortedMovies]);
 
   const addMutation = useMutation({
     mutationFn: ({
@@ -112,7 +120,7 @@ export function useUserMovies(status?: MovieStatus, orderBy: UserMovieOrderBy = 
   });
 
   return {
-    movies: query.data ?? [],
+    movies: sortedMovies,
     groupedMovies,
     isLoading: query.isLoading,
     isError: query.isError,

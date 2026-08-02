@@ -36,8 +36,10 @@ function createWrapper() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client }, children);
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client }, children);
+  }
+  return Wrapper;
 }
 
 function makeUserMovie(overrides: Partial<UserMovie> = {}): UserMovie {
@@ -160,8 +162,10 @@ describe('groupMoviesByTmdbId', () => {
       watched_at: '2026-07-01',
     });
 
-    const [grouped] = groupMoviesByTmdbId([recentNoArt, withArt]);
-    expect(grouped.id).toBe('with-art');
+    for (const input of [[recentNoArt, withArt], [withArt, recentNoArt]]) {
+      const [grouped] = groupMoviesByTmdbId(input);
+      expect(grouped.id).toBe('with-art');
+    }
   });
 
   it('within the same AI tier, the most recent watch wins', () => {
@@ -214,5 +218,44 @@ describe('useUserMovies orderBy', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(mockFetchUserMovies).toHaveBeenCalledWith(USER_ID, 'watched', 'watched');
+  });
+
+  it('re-sorts client-side so a fresh undated mark-as-watched outranks old dated rows', async () => {
+    // SQL NULLS LAST returns the undated row at the bottom; the client-side
+    // coalesce (watched_at ?? added_at) must lift it above the 2019 watch.
+    const oldDated = makeUserMovie({
+      id: 'old-dated',
+      tmdb_id: 1,
+      watched_at: '2019-01-01',
+      added_at: '2026-07-16T00:00:00Z',
+    });
+    const freshUndated = makeUserMovie({
+      id: 'fresh-undated',
+      tmdb_id: 2,
+      watched_at: null,
+      added_at: '2026-07-21T00:00:00Z',
+    });
+    mockFetchUserMovies.mockResolvedValue([oldDated, freshUndated]);
+
+    const { result } = renderHook(() => useUserMovies('watched', 'watched'), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.movies).toHaveLength(2));
+    expect(result.current.movies.map((m) => m.id)).toEqual(['fresh-undated', 'old-dated']);
+    expect(result.current.groupedMovies.map((m) => m.id)).toEqual(['fresh-undated', 'old-dated']);
+  });
+
+  it('does not re-sort in default added mode', async () => {
+    const first = makeUserMovie({ id: 'first', tmdb_id: 1, added_at: '2026-07-21T00:00:00Z' });
+    const second = makeUserMovie({ id: 'second', tmdb_id: 2, added_at: '2026-07-16T00:00:00Z' });
+    mockFetchUserMovies.mockResolvedValue([first, second]);
+
+    const { result } = renderHook(() => useUserMovies('watched'), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.movies).toHaveLength(2));
+    expect(result.current.movies.map((m) => m.id)).toEqual(['first', 'second']);
   });
 });
