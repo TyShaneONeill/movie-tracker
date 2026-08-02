@@ -355,7 +355,7 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
 
   const step = (delta: number) => {
     if (yearMode) {
-      setPageStart(pageStart + delta * YEAR_GRID_CELLS);
+      setPageStart((prev) => prev + delta * YEAR_GRID_CELLS);
       return;
     }
     let m = viewMonth + delta;

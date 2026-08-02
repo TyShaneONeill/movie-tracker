@@ -67,7 +67,8 @@ export function ReviewCard({ ticket, onSearch, onRemove, onEdit }: ReviewCardPro
   const c = useScanColors();
   const failed = ticket.status === 'failed';
   const review = ticket.status === 'review';
-  const reviewCopy = REVIEW_COPY[ticket.reviewReason ?? 'match_confidence'];
+  const reviewCopy =
+    (ticket.reviewReason && REVIEW_COPY[ticket.reviewReason]) || REVIEW_COPY.match_confidence;
   const f = ticket.fields;
   const dateTime = [f.date, f.time].filter(Boolean).join(' · ');
   const posterUrl = ticket.movie ? getTMDBImageUrl(ticket.movie.posterPath, 'w185') : null;
