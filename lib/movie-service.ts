@@ -136,16 +136,29 @@ export async function getMovieList(
   return data;
 }
 
+// How fetchUserMovies sorts: 'added' = insertion order (added_at never
+// updates after insert), 'watched' = actual watch date with added_at tiebreak.
+export type UserMovieOrderBy = 'added' | 'watched';
+
 // Fetch user's movies
 export async function fetchUserMovies(
   userId: string,
-  status?: MovieStatus
+  status?: MovieStatus,
+  orderBy: UserMovieOrderBy = 'added'
 ): Promise<UserMovie[]> {
   let query = supabase
     .from('user_movies')
     .select('*')
-    .eq('user_id', userId)
-    .order('added_at', { ascending: false });
+    .eq('user_id', userId);
+
+  if (orderBy === 'watched') {
+    // Rows without a watched_at (e.g. imports) sink below dated ones.
+    query = query
+      .order('watched_at', { ascending: false, nullsFirst: false })
+      .order('added_at', { ascending: false });
+  } else {
+    query = query.order('added_at', { ascending: false });
+  }
 
   if (status) {
     query = query.eq('status', status);

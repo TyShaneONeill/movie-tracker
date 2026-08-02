@@ -121,13 +121,14 @@ export default function ProfileScreen() {
     // Fetch achievements
     const { progress: achievementProgress, refetch: refetchAchievements } = useAchievements();
 
-    // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id)
+    // Fetch watched movies for collection (groupedMovies dedupes by tmdb_id).
+    // Ordered by watched_at so corrected watch dates re-sort the grid (#783).
     const {
         groupedMovies,
         isLoading,
         isError,
         refetch,
-    } = useUserMovies('watched');
+    } = useUserMovies('watched', 'watched');
 
     // Fetch watchlist and watching movies for Lists tab
     const { movies: watchlistMovies } = useUserMovies('watchlist');
