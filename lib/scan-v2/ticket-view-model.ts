@@ -36,6 +36,8 @@ export interface TicketVM {
   confidence: number; // 0–100
   movie: TicketMovieVM | null;
   fields: TicketFieldsVM;
+  /** Why this ticket reads as `review` (null for matched/failed). */
+  reviewReason: TicketReviewReason | null;
 }
 
 /** A scanned ticket paired with a stable id for list keys + mutations. */
@@ -89,6 +91,103 @@ function buildSeatLabel(row: string | null, seat: string | null): string | undef
   return undefined;
 }
 
+// ============================================================================
+// Scanned-date plausibility (#784)
+// ============================================================================
+
+/**
+ * Why a scanned date can't be trusted, most-certain first.
+ *
+ * `before_release` is the only hard contradiction — a ticket cannot predate its
+ * film — and it is what catches the failure this check exists for: Wallet passes
+ * print no year, so the extractor is asked to infer one and sometimes guesses a
+ * year years off. Note it deliberately does NOT fire on re-releases and
+ * anniversary screenings, which sit long AFTER release, not before it. The
+ * remaining reasons are soft heuristics.
+ */
+export type DateImplausibilityReason =
+  | 'before_release'
+  | 'stale_past'
+  | 'future'
+  | 'unparseable';
+
+/** Everything that can put a ticket in the amber `review` lane. */
+export type TicketReviewReason = DateImplausibilityReason | 'match_confidence';
+
+/** A scanned date older than this reads as a mis-parsed year rather than a late scan. */
+const STALE_PAST_MONTHS = 6;
+/** Tickets bought for tomorrow are normal; further out is not. */
+const FUTURE_GRACE_DAYS = 1;
+
+/** Marker written into `processingErrors` so the reason survives to the VM. */
+const DATE_FLAG_PREFIX = 'date-implausible:';
+
+/** Parse `YYYY-MM-DD` to a UTC-midnight epoch, rejecting non-calendar dates. */
+function toUTCDay(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (!match) return null;
+  const y = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10) - 1;
+  const d = parseInt(match[3], 10);
+  const ms = Date.UTC(y, m, d);
+  const back = new Date(ms);
+  // Rejects overflow like 2026-02-31, which Date.UTC silently rolls forward.
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== m || back.getUTCDate() !== d) {
+    return null;
+  }
+  return ms;
+}
+
+/**
+ * Judge a scanned ticket date against the matched movie's release date and the
+ * current day. Returns null when the date is absent (nothing to flag) or looks
+ * fine. Date-only UTC arithmetic throughout, so DST can't shift a verdict.
+ */
+export function getDateImplausibility(
+  parsedDate: string | null | undefined,
+  movieReleaseDate?: string | null,
+  now: Date = new Date()
+): DateImplausibilityReason | null {
+  if (!parsedDate || !parsedDate.trim()) return null;
+
+  const ticketDay = toUTCDay(parsedDate);
+  if (ticketDay == null) return 'unparseable';
+
+  // A movie with no release_date (TMDB gap, or no match at all) simply skips the
+  // hard check rather than failing it.
+  const releaseDay = movieReleaseDate ? toUTCDay(movieReleaseDate) : null;
+  if (releaseDay != null && ticketDay < releaseDay) return 'before_release';
+
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const staleCutoff = Date.UTC(now.getFullYear(), now.getMonth() - STALE_PAST_MONTHS, now.getDate());
+  if (ticketDay < staleCutoff) return 'stale_past';
+
+  const daysAhead = Math.round((ticketDay - today) / 86_400_000);
+  if (daysAhead > FUTURE_GRACE_DAYS) return 'future';
+
+  return null;
+}
+
+/** Encode an implausibility as a processing error the review lane already reacts to. */
+export function dateImplausibilityError(reason: DateImplausibilityReason): string {
+  return `${DATE_FLAG_PREFIX}${reason}`;
+}
+
+/** Recover the typed reason from a ticket's processing errors, if one is present. */
+export function readDateImplausibility(errors: string[]): DateImplausibilityReason | null {
+  const hit = errors.find((e) => e.startsWith(DATE_FLAG_PREFIX));
+  return hit ? (hit.slice(DATE_FLAG_PREFIX.length) as DateImplausibilityReason) : null;
+}
+
+/**
+ * Why a ticket is in review, so the card can name the actual problem instead of
+ * always pointing at the title match. Null unless the status is `review`.
+ */
+export function deriveReviewReason(ticket: ProcessedTicket): TicketReviewReason | null {
+  if (deriveStatus(ticket) !== 'review') return null;
+  return readDateImplausibility(ticket.processingErrors) ?? 'match_confidence';
+}
+
 /** Derive the 3-tier status for a processed ticket. */
 export function deriveStatus(ticket: ProcessedTicket): TicketStatus {
   if (!ticket.tmdbMatch) return 'failed';
@@ -130,7 +229,7 @@ export function toTicketVM(item: ScanTicketItem): TicketVM {
   if (price) fields.price = price;
   if (ticket.auditorium) fields.auditorium = ticket.auditorium;
 
-  return { id: item.id, status, confidence, movie, fields };
+  return { id: item.id, status, confidence, movie, fields, reviewReason: deriveReviewReason(ticket) };
 }
 
 // ============================================================================

@@ -6,6 +6,7 @@ import { captureException } from '@/lib/sentry';
 import type { ExtractedTicket, ProcessedTicket, TMDBMatch } from '@/lib/ticket-processor';
 import { processExtractedTickets } from '@/lib/ticket-processor';
 import type { TMDBMovie } from '@/lib/tmdb.types';
+import { getDateImplausibility, dateImplausibilityError } from '@/lib/scan-v2/ticket-view-model';
 import { analytics } from '@/lib/analytics';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { useNotificationPriming } from '@/lib/notification-priming-context';
@@ -381,6 +382,13 @@ export function useScanTicket(): UseScanTicketResult {
             };
           }
 
+          // A date that predates the matched film (or is otherwise implausible)
+          // rides the existing review lane, carrying its reason so the card can
+          // say which field to look at (#784).
+          const processingErrors: string[] = ticket.needsReview ? ['Needs manual review'] : [];
+          const dateIssue = getDateImplausibility(cleaned.date, tmdbMatch?.movie.release_date);
+          if (dateIssue) processingErrors.push(dateImplausibilityError(dateIssue));
+
           return {
             movieTitle: cleaned.movieTitle,
             theaterName: cleaned.theaterName,
@@ -398,7 +406,7 @@ export function useScanTicket(): UseScanTicketResult {
             auditorium: cleaned.auditorium,
             mpaaRating: ticket.mpaaRating ?? cleaned.mpaaRating ?? null,
             tmdbMatch,
-            processingErrors: ticket.needsReview ? ['Needs manual review'] : [],
+            processingErrors,
             wasModified: false,
             ticketPhotoUri: null,
           };
