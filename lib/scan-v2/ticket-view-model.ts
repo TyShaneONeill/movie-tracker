@@ -36,6 +36,8 @@ export interface TicketVM {
   confidence: number; // 0–100
   movie: TicketMovieVM | null;
   fields: TicketFieldsVM;
+  /** Why this ticket reads as `review` (null for matched/failed). */
+  reviewReason: TicketReviewReason | null;
 }
 
 /** A scanned ticket paired with a stable id for list keys + mutations. */
@@ -89,6 +91,159 @@ function buildSeatLabel(row: string | null, seat: string | null): string | undef
   return undefined;
 }
 
+// ============================================================================
+// Scanned-date plausibility (#784)
+// ============================================================================
+
+/**
+ * Why a scanned date can't be trusted, most-certain first.
+ *
+ * `before_release` is the only hard contradiction — a ticket cannot predate its
+ * film — and it is what catches the failure this check exists for: Wallet passes
+ * print no year, so the extractor is asked to infer one and sometimes guesses a
+ * year years off. Note it deliberately does NOT fire on re-releases and
+ * anniversary screenings, which sit long AFTER release, not before it. The
+ * remaining reasons are soft heuristics.
+ */
+export type DateImplausibilityReason =
+  | 'before_release'
+  | 'stale_past'
+  | 'future'
+  | 'unparseable';
+
+/** Everything that can put a ticket in the amber `review` lane. */
+export type TicketReviewReason = DateImplausibilityReason | 'match_confidence';
+
+/**
+ * A scanned date older than this reads as a mis-parsed year rather than a late
+ * scan. Counted in days rather than calendar months on purpose: subtracting six
+ * months from the 31st lands on a day that month doesn't have, which `Date.UTC`
+ * silently rolls forward into the next month and shifts the cutoff.
+ */
+const STALE_PAST_DAYS = 183; // ~6 months
+/** Tickets bought for tomorrow are normal; further out is not. */
+const FUTURE_GRACE_DAYS = 1;
+/**
+ * Slack on the release-date comparison. TMDB carries one primary release date,
+ * but a film opens on different days in different territories (UK and AU
+ * regularly a few days ahead of a US primary date) and preview screenings run
+ * earlier still. A week absorbs that skew while leaving the failure this check
+ * exists for — a year guessed wrong — nowhere to hide.
+ */
+const BEFORE_RELEASE_GRACE_DAYS = 7;
+
+const MS_PER_DAY = 86_400_000;
+
+/** Marker written into `processingErrors` so the reason survives to the VM. */
+const DATE_FLAG_PREFIX = 'date-implausible:';
+
+const DATE_IMPLAUSIBILITY_REASONS: readonly DateImplausibilityReason[] = [
+  'before_release',
+  'stale_past',
+  'future',
+  'unparseable',
+];
+
+/** Parse `YYYY-MM-DD` to a UTC-midnight epoch, rejecting non-calendar dates. */
+function toUTCDay(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (!match) return null;
+  const y = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10) - 1;
+  const d = parseInt(match[3], 10);
+  const ms = Date.UTC(y, m, d);
+  const back = new Date(ms);
+  // Rejects overflow like 2026-02-31, which Date.UTC silently rolls forward.
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== m || back.getUTCDate() !== d) {
+    return null;
+  }
+  return ms;
+}
+
+/**
+ * Judge a scanned ticket date against the matched movie's release date and the
+ * current day. Returns null when the date is absent (nothing to flag) or looks
+ * fine. Date-only UTC arithmetic throughout, so DST can't shift a verdict.
+ */
+export function getDateImplausibility(
+  parsedDate: string | null | undefined,
+  movieReleaseDate?: string | null,
+  now: Date = new Date()
+): DateImplausibilityReason | null {
+  if (!parsedDate || !parsedDate.trim()) return null;
+
+  const ticketDay = toUTCDay(parsedDate);
+  if (ticketDay == null) return 'unparseable';
+
+  // A movie with no release_date (TMDB gap, or no match at all) simply skips the
+  // hard check rather than failing it.
+  const releaseDay = movieReleaseDate ? toUTCDay(movieReleaseDate) : null;
+  if (releaseDay != null && ticketDay < releaseDay - BEFORE_RELEASE_GRACE_DAYS * MS_PER_DAY) {
+    return 'before_release';
+  }
+
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  if (ticketDay < today - STALE_PAST_DAYS * MS_PER_DAY) return 'stale_past';
+
+  const daysAhead = Math.round((ticketDay - today) / MS_PER_DAY);
+  if (daysAhead > FUTURE_GRACE_DAYS) return 'future';
+
+  return null;
+}
+
+/** Encode an implausibility as a processing error the review lane already reacts to. */
+export function dateImplausibilityError(reason: DateImplausibilityReason): string {
+  return `${DATE_FLAG_PREFIX}${reason}`;
+}
+
+/**
+ * Recover the typed reason from a ticket's processing errors, if one is present.
+ * An unrecognised code reads as no date flag rather than being trusted through
+ * to the card, which indexes its copy by reason.
+ */
+export function readDateImplausibility(errors: string[]): DateImplausibilityReason | null {
+  for (const error of errors) {
+    if (!error.startsWith(DATE_FLAG_PREFIX)) continue;
+    const raw = error.slice(DATE_FLAG_PREFIX.length);
+    if ((DATE_IMPLAUSIBILITY_REASONS as readonly string[]).includes(raw)) {
+      return raw as DateImplausibilityReason;
+    }
+  }
+  return null;
+}
+
+/** Match confidence as the 0–100 percent the threshold is expressed in. */
+function matchConfidencePct(ticket: ProcessedTicket): number {
+  return ticket.tmdbMatch ? Math.round(ticket.tmdbMatch.confidence * 100) : 0;
+}
+
+/**
+ * Why a ticket is in review, so the card can name the actual problem instead of
+ * always pointing at the title match. Null unless the status is `review`.
+ *
+ * An unsure match outranks a date flag: a wrong movie inheriting a later release
+ * date is the most common way a date ends up looking pre-release, so the date is
+ * the symptom and the match is the bug. Naming the date there would send the
+ * user to fix the one field that isn't wrong while a wrong film gets written
+ * into their journey.
+ */
+export function deriveReviewReason(ticket: ProcessedTicket): TicketReviewReason | null {
+  if (deriveStatus(ticket) !== 'review') return null;
+  if (matchConfidencePct(ticket) < MATCH_CONFIDENCE_THRESHOLD) return 'match_confidence';
+  return readDateImplausibility(ticket.processingErrors) ?? 'match_confidence';
+}
+
+/**
+ * The processing errors a ticket should carry after an explicit user save:
+ * the soft flags are confirmed away, but the date is re-judged against what was
+ * actually saved (and whichever movie is now matched) rather than taken on
+ * trust. Tapping Save cannot launder a date that is still wrong.
+ */
+function dateErrorsAfterSave(date: string | null, releaseDate?: string | null): string[] {
+  const reason = getDateImplausibility(date, releaseDate);
+  return reason ? [dateImplausibilityError(reason)] : [];
+}
+
 /** Derive the 3-tier status for a processed ticket. */
 export function deriveStatus(ticket: ProcessedTicket): TicketStatus {
   if (!ticket.tmdbMatch) return 'failed';
@@ -130,7 +285,7 @@ export function toTicketVM(item: ScanTicketItem): TicketVM {
   if (price) fields.price = price;
   if (ticket.auditorium) fields.auditorium = ticket.auditorium;
 
-  return { id: item.id, status, confidence, movie, fields };
+  return { id: item.id, status, confidence, movie, fields, reviewReason: deriveReviewReason(ticket) };
 }
 
 // ============================================================================
@@ -191,12 +346,16 @@ function parsePriceText(text: string): number | null {
 /**
  * Fold the edited form (and optional new movie) back into a ProcessedTicket so
  * the flow can re-derive its VM. A movie change clears the block-on-unknown:
- * `tmdbMatch` is replaced at full confidence and processing errors are dropped,
- * which flips a `failed`/`review` ticket to `matched`. Saving a `review`-status
- * ticket (one that already has a match, just low-confidence / flagged) is itself
- * an explicit confirmation, so it is likewise promoted to `matched`. A `failed`
- * ticket with no match is left untouched so it stays blocked until a movie is
- * picked.
+ * `tmdbMatch` is replaced at full confidence, which flips a `failed`/`review`
+ * ticket toward `matched`. Saving a ticket flagged for an unsure MATCH is itself
+ * an explicit confirmation of that match, so it too goes to full confidence — a
+ * ticket flagged only for its DATE does not, since confirming a date says
+ * nothing about whether the movie is right. A `failed` ticket with no match is
+ * left untouched so it stays blocked until a movie is picked.
+ *
+ * Soft processing errors clear on save, but the date flag is re-derived from the
+ * saved date rather than wiped, so a date that is still implausible stays amber
+ * instead of being dismissed by tapping Save.
  */
 export function applyTicketEdits(
   ticket: ProcessedTicket,
@@ -225,6 +384,8 @@ export function applyTicketEdits(
   };
 
   const changedMovie = movie != null && movie.id !== ticket.tmdbMatch?.movie.id;
+  const wasInReview = ticket.tmdbMatch != null && deriveStatus(ticket) === 'review';
+
   if (changedMovie) {
     const tmdbMatch: TMDBMatch = {
       movie,
@@ -233,13 +394,18 @@ export function applyTicketEdits(
       originalTitle: ticket.movieTitle || '',
     };
     next.tmdbMatch = tmdbMatch;
-    next.processingErrors = [];
-  } else if (ticket.tmdbMatch && deriveStatus(ticket) === 'review') {
-    // Confirm-match: the user opened Edit on a review-status ticket and saved,
-    // which confirms the existing match. Bump to full confidence and clear the
-    // soft processing errors that forced the review so it re-derives as matched.
-    next.tmdbMatch = { ...ticket.tmdbMatch, confidence: 1 };
-    next.processingErrors = [];
+  } else if (deriveReviewReason(ticket) === 'match_confidence') {
+    // Confirm-match: the user opened Edit on a ticket flagged for an unsure
+    // match and saved, which confirms it. Only this reason is a confirmation of
+    // the MATCH — a date-flagged ticket says nothing about whether the movie is
+    // right, so its confidence is left exactly where the matcher put it.
+    next.tmdbMatch = { ...ticket.tmdbMatch!, confidence: 1 };
+  }
+
+  if (changedMovie || wasInReview) {
+    // A new movie brings a new release date, and a confirmed review still has to
+    // survive re-judging. Either way the date is checked against what was saved.
+    next.processingErrors = dateErrorsAfterSave(next.date, next.tmdbMatch?.movie.release_date);
   }
 
   return next;

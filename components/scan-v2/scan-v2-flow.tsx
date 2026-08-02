@@ -35,6 +35,8 @@ import { saveTicketsToJourney, type SavedMovie } from '@/lib/scan-save';
 import {
   toScanTicketItems,
   toTicketVM,
+  getDateImplausibility,
+  dateImplausibilityError,
   type ScanTicketItem,
 } from '@/lib/scan-v2/ticket-view-model';
 import type { ProcessedTicket, TMDBMatch } from '@/lib/ticket-processor';
@@ -249,7 +251,17 @@ export function ScanV2Flow() {
           matchedTitle: movie.title,
           originalTitle: i.ticket.movieTitle || '',
         };
-        const ticket: ProcessedTicket = { ...i.ticket, tmdbMatch, processingErrors: [], wasModified: true };
+        // Resolving the movie answers the unknown-title error but says nothing
+        // about the date — and these hand-resolved tickets are the ones whose
+        // scan went worst, so they are exactly the population worth re-judging
+        // against the movie the user just picked (#784).
+        const dateReason = getDateImplausibility(i.ticket.date, movie.release_date);
+        const ticket: ProcessedTicket = {
+          ...i.ticket,
+          tmdbMatch,
+          processingErrors: dateReason ? [dateImplausibilityError(dateReason)] : [],
+          wasModified: true,
+        };
         return { ...i, ticket };
       })
     );

@@ -14,7 +14,8 @@
  *               is the ONLY scrollable picker (long/dynamic results).
  *  - `format` / `rated` / `type` → radio lists.
  *  - `time`   → the Time Dial (`TimeWheel`).
- *  - `date`   → a custom month grid built from primitives.
+ *  - `date`   → a custom month grid built from primitives, with a year grid
+ *               behind its header.
  *
  * Single-choice pickers (radio / time / date) render in a plain content-height
  * View — no inner scroll — so the whole short list is visible at once and the
@@ -45,6 +46,15 @@ import { useMovieSearch } from '@/hooks/use-movie-search';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { TicketMovieSearchResult } from '@/components/ticket-movie-search-result';
 import type { TMDBMovie } from '@/lib/tmdb.types';
+import {
+  buildMonthCells,
+  buildYearCells,
+  yearPageStart,
+  DAYS_PER_WEEK,
+  YEARS_PER_ROW,
+  YEAR_GRID_CELLS,
+  YEAR_CELL_ASPECT_RATIO,
+} from '@/lib/scan-v2/calendar-grid';
 import { Icon, ScanText, PillButton } from './primitives';
 import { TimeWheel, parseTimeLabel } from './time-wheel';
 
@@ -321,21 +331,33 @@ function toISO(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/**
+ * Month grid with a year-grid mode behind the header.
+ *
+ * Both modes render into a box of identical height — the month grid is always
+ * blank-padded to 6 rows and the year cells are proportioned to the same six
+ * rows — because the sheet is content-height: a taller/shorter grid would slide
+ * the whole sheet, and its nav chevrons, up and down between months (#781).
+ * The weekday strip stays mounted (just invisible) in year mode for the same
+ * reason.
+ */
 function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: string) => void }) {
   const c = useScanColors();
   const seed = useMemo(() => parseISO(currentISO) ?? null, [currentISO]);
   const now = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(seed ? seed.y : now.getFullYear());
   const [viewMonth, setViewMonth] = useState(seed ? seed.m : now.getMonth());
+  const [yearMode, setYearMode] = useState(false);
+  const [pageStart, setPageStart] = useState(() => yearPageStart(seed ? seed.y : now.getFullYear()));
 
-  const lead = new Date(viewYear, viewMonth, 1).getDay();
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const cells: (number | null)[] = [
-    ...Array.from({ length: lead }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
+  const cells = useMemo(() => buildMonthCells(viewYear, viewMonth), [viewYear, viewMonth]);
+  const years = useMemo(() => buildYearCells(pageStart), [pageStart]);
 
   const step = (delta: number) => {
+    if (yearMode) {
+      setPageStart((prev) => prev + delta * YEAR_GRID_CELLS);
+      return;
+    }
     let m = viewMonth + delta;
     let y = viewYear;
     if (m < 0) {
@@ -349,10 +371,21 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
     setViewYear(y);
   };
 
-  const navBtn = (icon: 'chevL' | 'chevR', onPress: () => void) => (
+  const openYearMode = () => {
+    setPageStart(yearPageStart(viewYear));
+    setYearMode(true);
+  };
+
+  const pickYear = (y: number) => {
+    setViewYear(y);
+    setYearMode(false);
+  };
+
+  const navBtn = (icon: 'chevL' | 'chevR', testID: string, onPress: () => void) => (
     <Pressable
       onPress={onPress}
       hitSlop={8}
+      testID={testID}
       style={{ width: s(34), height: s(34), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
     >
       <Icon name={icon} size={s(18)} color={c.text} />
@@ -361,17 +394,24 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
 
   return (
     <View>
-      {/* month nav */}
+      {/* month / year nav — the label toggles between the two grids */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: s(12) }}>
-        {navBtn('chevL', () => step(-1))}
-        <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(15), lineHeight: s(19), color: c.text }}>
-          {MONTH_NAMES[viewMonth]} {viewYear}
-        </ScanText>
-        {navBtn('chevR', () => step(1))}
+        {navBtn('chevL', 'date-nav-prev', () => step(-1))}
+        <Pressable
+          onPress={() => (yearMode ? setYearMode(false) : openYearMode())}
+          hitSlop={10}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: s(6), paddingVertical: s(4), paddingHorizontal: s(8), borderRadius: s(10) }}
+        >
+          <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(15), lineHeight: s(19), color: yearMode ? ScanV2Accent.primary : c.text }}>
+            {yearMode ? `${pageStart} – ${pageStart + YEAR_GRID_CELLS - 1}` : `${MONTH_NAMES[viewMonth]} ${viewYear}`}
+          </ScanText>
+          <Icon name="chevD" size={s(15)} color={yearMode ? ScanV2Accent.primary : c.sec} />
+        </Pressable>
+        {navBtn('chevR', 'date-nav-next', () => step(1))}
       </View>
 
-      {/* weekday header */}
-      <View style={{ flexDirection: 'row' }}>
+      {/* weekday header — kept mounted in year mode so the box height is stable */}
+      <View style={{ flexDirection: 'row', opacity: yearMode ? 0 : 1 }} pointerEvents={yearMode ? 'none' : 'auto'}>
         {WEEKDAYS.map((d, i) => (
           <View key={`h${i}`} style={{ flex: 1, alignItems: 'center', paddingVertical: s(4) }}>
             <ScanText style={{ fontFamily: Fonts.mono.regular, fontSize: s(10), color: c.ter }}>{d}</ScanText>
@@ -379,32 +419,59 @@ function DateGrid({ currentISO, onPick }: { currentISO: string; onPick: (iso: st
         ))}
       </View>
 
-      {/* day grid */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {cells.map((d, i) => {
-          if (d == null) return <View key={`b${i}`} style={{ width: `${100 / 7}%`, aspectRatio: 1 }} />;
-          const iso = toISO(viewYear, viewMonth, d);
-          const on = iso === currentISO;
-          return (
-            <View key={iso} style={{ width: `${100 / 7}%`, aspectRatio: 1, padding: s(2) }}>
-              <Pressable
-                onPress={() => onPick(iso)}
-                style={{
-                  flex: 1,
-                  borderRadius: 999,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: on ? ScanV2Accent.primary : 'transparent',
-                }}
-              >
-                <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(17), color: on ? ScanV2Accent.on : c.text }}>
-                  {d}
-                </ScanText>
-              </Pressable>
-            </View>
-          );
-        })}
-      </View>
+      {yearMode ? (
+        /* year grid — 4 × 12, paged by the chevrons */
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          {years.map((y) => {
+            const on = y === viewYear;
+            return (
+              <View key={y} style={{ width: `${100 / YEARS_PER_ROW}%`, aspectRatio: YEAR_CELL_ASPECT_RATIO, padding: s(4) }}>
+                <Pressable
+                  onPress={() => pickYear(y)}
+                  style={{
+                    flex: 1,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: on ? ScanV2Accent.primary : 'transparent',
+                  }}
+                >
+                  <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(15), lineHeight: s(19), color: on ? ScanV2Accent.on : c.text }}>
+                    {y}
+                  </ScanText>
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        /* day grid — always 42 cells */
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          {cells.map((d, i) => {
+            if (d == null) return <View key={`b${i}`} style={{ width: `${100 / DAYS_PER_WEEK}%`, aspectRatio: 1 }} />;
+            const iso = toISO(viewYear, viewMonth, d);
+            const on = iso === currentISO;
+            return (
+              <View key={iso} style={{ width: `${100 / DAYS_PER_WEEK}%`, aspectRatio: 1, padding: s(2) }}>
+                <Pressable
+                  onPress={() => onPick(iso)}
+                  style={{
+                    flex: 1,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: on ? ScanV2Accent.primary : 'transparent',
+                  }}
+                >
+                  <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(17), color: on ? ScanV2Accent.on : c.text }}>
+                    {d}
+                  </ScanText>
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }

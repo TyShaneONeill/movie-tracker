@@ -5,9 +5,10 @@
  * review / rose failed), poster + title + theater, only-present chips
  * (datetime / seat / format), price + rated badge, and per-status affordance.
  *
- * Per-status affordance: matched → Edit (pencil, muted); review → Confirm match
- * (rose) — both open the Edit sheet; failed → Search manually (rose, opens the
- * Resolve dialog). Block-on-unknown is enforced at the screen level.
+ * Per-status affordance: matched → Edit (pencil, muted); review → a
+ * reason-worded prompt (rose) — both open the Edit sheet; failed → Search
+ * manually (rose, opens the Resolve dialog). Block-on-unknown is enforced at the
+ * screen level; a flagged date is non-blocking, it only colors the card amber.
  */
 
 import React from 'react';
@@ -18,8 +19,36 @@ import { Fonts } from '@/constants/theme';
 import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
-import type { TicketVM } from '@/lib/scan-v2/ticket-view-model';
+import type { TicketVM, TicketReviewReason } from '@/lib/scan-v2/ticket-view-model';
 import { Icon, ScanText, Chip, type ScanIconName } from './primitives';
+
+/**
+ * Review-lane copy per reason. A flagged date names the date (the user can only
+ * fix what we point at); everything else keeps the original confirm-the-match
+ * wording.
+ */
+const REVIEW_COPY: Record<TicketReviewReason, { cta: string; note: string }> = {
+  match_confidence: {
+    cta: 'Confirm match',
+    note: 'Some fields had low confidence — give them a glance.',
+  },
+  before_release: {
+    cta: 'Check date',
+    note: 'That date is before this movie came out — give it a look.',
+  },
+  stale_past: {
+    cta: 'Check date',
+    note: 'That date is a long way back — give it a look.',
+  },
+  future: {
+    cta: 'Check date',
+    note: "That date hasn't happened yet — give it a look.",
+  },
+  unparseable: {
+    cta: 'Check date',
+    note: "We couldn't read the date — give it a look.",
+  },
+};
 
 interface ReviewCardProps {
   ticket: TicketVM;
@@ -38,6 +67,8 @@ export function ReviewCard({ ticket, onSearch, onRemove, onEdit }: ReviewCardPro
   const c = useScanColors();
   const failed = ticket.status === 'failed';
   const review = ticket.status === 'review';
+  const reviewCopy =
+    (ticket.reviewReason && REVIEW_COPY[ticket.reviewReason]) || REVIEW_COPY.match_confidence;
   const f = ticket.fields;
   const dateTime = [f.date, f.time].filter(Boolean).join(' · ');
   const posterUrl = ticket.movie ? getTMDBImageUrl(ticket.movie.posterPath, 'w185') : null;
@@ -141,7 +172,7 @@ export function ReviewCard({ ticket, onSearch, onRemove, onEdit }: ReviewCardPro
             )}
             {review && (
               <Pressable onPress={() => onEdit(ticket.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: s(5), padding: s(2) } as ViewStyle}>
-                <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), color: ScanV2Accent.primary }}>Confirm match</ScanText>
+                <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), color: ScanV2Accent.primary }}>{reviewCopy.cta}</ScanText>
                 <Icon name="arrowR" size={s(15)} color={ScanV2Accent.primary} />
               </Pressable>
             )}
@@ -155,7 +186,7 @@ export function ReviewCard({ ticket, onSearch, onRemove, onEdit }: ReviewCardPro
 
           {review && (
             <ScanText style={{ fontFamily: Fonts.inter.regular, fontSize: s(11.5), lineHeight: s(15), color: c.amber, marginTop: s(1) }}>
-              Some fields had low confidence — give them a glance.
+              {reviewCopy.note}
             </ScanText>
           )}
         </View>
