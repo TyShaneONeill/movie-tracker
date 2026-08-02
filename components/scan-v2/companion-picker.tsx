@@ -84,15 +84,24 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onRemove, onClose
 
   // Companions added as free text have no mutual-follow row to carry their
   // selected state, so give them one.
+  //
+  // Deduped by normalized name: `watched_with` can legitimately hold the same
+  // name twice (the v1 editor's `handleFriendSelected` appends with no dedupe),
+  // and two rows keyed `free:<name>` would collide. One row per distinct name;
+  // toggling it clears every matching entry, which is what the single visible
+  // row implies.
   const freeTextSelected = useMemo(() => {
     const known = new Set(
       mutualFollows.map((p) => norm(p.full_name || p.username || '')).filter((n) => n.length > 0),
     );
     const q = query.trim().toLowerCase();
+    const seen = new Set<string>();
     return alreadyAdded.filter((n) => {
       const lower = norm(n);
-      if (!lower || known.has(lower)) return false;
-      return q.length === 0 || lower.includes(q);
+      if (!lower || known.has(lower) || seen.has(lower)) return false;
+      if (q.length > 0 && !lower.includes(q)) return false;
+      seen.add(lower);
+      return true;
     });
   }, [alreadyAdded, mutualFollows, query]);
 

@@ -223,6 +223,32 @@ describe('CompanionPicker free-text add', () => {
     // personRow throws on >1 match, so this asserts there is exactly one Kelsie.
     expect(personRow(utils, 'Kelsie')).toBeTruthy();
   });
+
+  it('renders one row for a name `watched_with` holds twice', () => {
+    // The v1 editor (app/journey/edit/[id].tsx `handleFriendSelected`) appends
+    // with no dedupe, so duplicates reach this picker from real rows. Two rows
+    // would also collide on the `free:<name>` React key.
+    const utils = renderPicker({ alreadyAdded: ['Dad', 'Dad'] });
+
+    expect(personRow(utils, 'Dad')).toBeTruthy();
+    expect(utils.getAllByText('Dad')).toHaveLength(1);
+  });
+
+  it('dedupes duplicates that differ only by case and whitespace', () => {
+    const utils = renderPicker({ alreadyAdded: ['Dad', ' dad '] });
+
+    expect(personRow(utils, 'Dad')).toBeTruthy();
+  });
+
+  it('removes by name so one tap clears every duplicate entry', () => {
+    const utils = renderPicker({ alreadyAdded: ['Dad', 'Dad'] });
+
+    fireEvent.press(personRow(utils, 'Dad'));
+
+    // One visible row implies one removal — the parent filters every match.
+    expect(utils.props.onRemove).toHaveBeenCalledTimes(1);
+    expect(utils.props.onRemove).toHaveBeenCalledWith('Dad');
+  });
 });
 
 // ===========================================================================
