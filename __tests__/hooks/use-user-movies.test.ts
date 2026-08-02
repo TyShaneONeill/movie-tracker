@@ -247,8 +247,10 @@ describe('useUserMovies orderBy', () => {
   });
 
   it('does not re-sort in default added mode', async () => {
-    const first = makeUserMovie({ id: 'first', tmdb_id: 1, added_at: '2026-07-21T00:00:00Z' });
-    const second = makeUserMovie({ id: 'second', tmdb_id: 2, added_at: '2026-07-16T00:00:00Z' });
+    // 'first' is OLDER: a recency sort would flip this pair, so the assertion
+    // fails if the orderBy guard is removed and the re-sort runs unconditionally
+    const first = makeUserMovie({ id: 'first', tmdb_id: 1, added_at: '2026-07-16T00:00:00Z' });
+    const second = makeUserMovie({ id: 'second', tmdb_id: 2, added_at: '2026-07-21T00:00:00Z' });
     mockFetchUserMovies.mockResolvedValue([first, second]);
 
     const { result } = renderHook(() => useUserMovies('watched'), {
