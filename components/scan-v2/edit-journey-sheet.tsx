@@ -132,16 +132,20 @@ function formatDisplayDate(dateISO: string): string {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** Dedupe names by lowercased value, preserving first display form + order. */
+/** The one comparison rule for companion names — `watched_with` has no FK. */
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/** Dedupe names by normalized value, preserving first display form + order. */
 function dedupeNames(names: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const n of names) {
-    const t = n.trim();
-    const key = t.toLowerCase();
+    const key = normalizeName(n);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    out.push(t);
+    out.push(n.trim());
   }
   return out;
 }
@@ -244,13 +248,24 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
   const addCompanion = useCallback((name: string) => {
     const t = name.trim();
     if (!t) return;
+    // Normalize BOTH sides — existing names can carry whitespace (the v1 editor
+    // appends the raw display name), so an untrimmed ' Kelsie ' would slip past
+    // a comparison against the trimmed candidate and duplicate the companion.
     setCompanions((prev) =>
-      prev.some((n) => n.toLowerCase() === t.toLowerCase()) ? prev : [...prev, t],
+      prev.some((n) => normalizeName(n) === normalizeName(t)) ? prev : [...prev, t],
     );
   }, []);
 
   const removeCompanion = useCallback((index: number) => {
     setCompanions((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // The picker toggles by name (it has no index to hand back); the chips below
+  // still remove by index. Clears every entry matching the name — the picker
+  // shows one deduped row per name, so a single tap must clear all of them.
+  const removeCompanionByName = useCallback((name: string) => {
+    const t = normalizeName(name);
+    setCompanions((prev) => prev.filter((n) => normalizeName(n) !== t));
   }, []);
 
   // Add photo — ported verbatim from v1 `app/journey/edit/[id].tsx` :177-222.
@@ -608,6 +623,7 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
             userId={user?.id ?? ''}
             alreadyAdded={companions}
             onAdd={addCompanion}
+            onRemove={removeCompanionByName}
             onClose={() => setShowCompanions(false)}
           />
         )}
