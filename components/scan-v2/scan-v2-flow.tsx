@@ -51,9 +51,6 @@ import { EditSheet } from './edit-sheet';
 import { FirstTakeSheet } from './first-take-sheet';
 import { CompanionPicker } from './companion-picker';
 
-/** The one comparison rule for companion names — `watched_with` has no FK. */
-const normalizeName = (name: string) => name.trim().toLowerCase();
-
 type Stage = 'camera' | 'permission' | 'unable' | 'review';
 
 export function ScanV2Flow() {
@@ -136,28 +133,22 @@ export function ScanV2Flow() {
     [editingId]
   );
 
-  // Companion-picker adapter — the ONLY surface touching the picker's API, so
-  // the post-#791 rebase (draft/onConfirm semantics) lands in this one spot.
+  // Companion-picker adapter — the ONLY surface touching the picker's API
+  // (draft/onConfirm semantics since #791: the picker edits its own draft and
+  // hands back the final list; cancel discards the session's changes).
   const handleOpenCompanions = useCallback(() => {
     analytics.track('scan:companions_open');
     setShowCompanions(true);
   }, []);
 
-  const handleCloseCompanions = useCallback(() => {
+  const handleConfirmCompanions = useCallback((names: string[]) => {
+    setCompanions(names);
     setShowCompanions(false);
-    analytics.track('scan:companions_selected', { count: companions.length });
-  }, [companions.length]);
-
-  const handleAddCompanion = useCallback((displayName: string) => {
-    const trimmed = displayName.trim();
-    if (!trimmed) return;
-    setCompanions((prev) =>
-      prev.some((n) => normalizeName(n) === normalizeName(trimmed)) ? prev : [...prev, trimmed]
-    );
+    analytics.track('scan:companions_selected', { count: names.length });
   }, []);
 
-  const handleRemoveCompanion = useCallback((displayName: string) => {
-    setCompanions((prev) => prev.filter((n) => normalizeName(n) !== normalizeName(displayName)));
+  const handleCancelCompanions = useCallback(() => {
+    setShowCompanions(false);
   }, []);
 
   const appendResult = useCallback((result: ProcessedScanResult) => {
@@ -447,10 +438,9 @@ export function ScanV2Flow() {
           {showCompanions && user && (
             <CompanionPicker
               userId={user.id}
-              alreadyAdded={companions}
-              onAdd={handleAddCompanion}
-              onRemove={handleRemoveCompanion}
-              onClose={handleCloseCompanions}
+              initialSelection={companions}
+              onConfirm={handleConfirmCompanions}
+              onCancel={handleCancelCompanions}
             />
           )}
         </>
