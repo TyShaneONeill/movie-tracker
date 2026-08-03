@@ -55,13 +55,29 @@ describe('mapTicketToJourneyData — batch companion apply', () => {
     expect(journeys[2].watch_time).toBe('21:45');
   });
 
-  it('writes null when the selection is empty', () => {
+  // REGRESSION (#792 review HIGH): an untagged scan must leave watched_with
+  // ABSENT, not write null. Re-scanning a movie already in the library upserts
+  // onto the existing journey row (journey_number defaults to 1 on the
+  // conflict target), so `watched_with: null` in the update payload would
+  // silently wipe companions the user saved earlier via the edit-journey
+  // sheet. Absent key = Supabase leaves the column untouched.
+  it('OMITS watched_with entirely when the selection is empty', () => {
     const journey = mapTicketToJourneyData(makeProcessedTicket(), buildBatchWatchedWith([]));
-    expect(journey.watched_with).toBeNull();
+    expect('watched_with' in journey).toBe(false);
   });
 
-  it('defaults to null when no selection is passed at all', () => {
-    expect(mapTicketToJourneyData(makeProcessedTicket()).watched_with).toBeNull();
+  it('OMITS watched_with when no selection is passed at all', () => {
+    expect('watched_with' in mapTicketToJourneyData(makeProcessedTicket())).toBe(false);
+  });
+
+  it('re-scan with empty selection preserves previously saved companions', () => {
+    // Simulate the dangerous path: an existing journey row with companions,
+    // then a re-scan update payload with no batch selection. Merging the
+    // payload over the row (what a SQL UPDATE does per-column) must keep them.
+    const existingRow = { watched_with: ['Kelsie'], location_name: 'Old Cinema' };
+    const rescanPayload = mapTicketToJourneyData(makeProcessedTicket(), null);
+    const merged = { ...existingRow, ...rescanPayload };
+    expect(merged.watched_with).toEqual(['Kelsie']);
   });
 
   it('leaves a single-ticket batch otherwise unaffected', () => {
@@ -70,7 +86,7 @@ describe('mapTicketToJourneyData — batch companion apply', () => {
     const without = mapTicketToJourneyData(ticket, null);
 
     expect(withCompanions.watched_with).toEqual(['Kelsie']);
-    expect(without.watched_with).toBeNull();
+    expect('watched_with' in without).toBe(false);
     // Every non-companion field is identical — tagging is purely additive.
     const strip = ({ watched_with: _watchedWith, ...rest }: typeof withCompanions) => rest;
     expect(strip(withCompanions)).toEqual(strip(without));

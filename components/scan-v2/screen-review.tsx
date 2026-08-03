@@ -138,7 +138,14 @@ export function ScreenReview({
               Who was there?
             </ScanText>
             <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), lineHeight: s(15), color: c.sec, marginTop: s(1) }}>
-              {companions.length > 0 ? companions.join(', ') : `Tag people on ${tickets.length === 1 ? 'this ticket' : 'all tickets'}`}
+              {companions.length > 0
+                ? companions.join(', ')
+                : // Count only matched tickets — save skips unmatched ones, so
+                  // "all tickets" would overpromise in a partially-matched batch.
+                  (() => {
+                    const matched = tickets.filter((t) => t.movie !== null).length;
+                    return `Tag people on ${matched === 1 ? 'this ticket' : `all ${matched} matched tickets`}`;
+                  })()}
             </ScanText>
           </View>
           <Icon name="chevR" size={s(16)} color={c.ter} />

@@ -20,6 +20,7 @@ import { addMovieToLibrary, updateJourney, getMovieByTmdbId } from '@/lib/movie-
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import type { ProcessedTicket } from '@/lib/ticket-processor';
 import type { JourneyUpdate, TicketScanInsert } from '@/lib/database.types';
+import { dedupeNames } from '@/lib/companion-names';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // ============================================================================
@@ -65,24 +66,15 @@ function mapWatchFormat(format: string | null): JourneyUpdate['watch_format'] {
   return 'standard';
 }
 
-/** The one comparison rule for companion names — `watched_with` has no FK. */
-const normalizeName = (name: string) => name.trim().toLowerCase();
-
 /**
  * Serialize the review step's batch-level "Who was there?" selection for
- * `watched_with`: dedupe by normalized name (first display form wins, order
- * preserved) and collapse an empty selection to null — `watched_with` stores
- * null, never `[]`. The same value is applied to every ticket in the batch.
+ * `watched_with`: dedupe via the shared companion-name rule in
+ * `lib/companion-names` (first display form wins, order preserved) and
+ * collapse an empty selection to null — `watched_with` stores null, never
+ * `[]`. The same value is applied to every ticket in the batch.
  */
 export function buildBatchWatchedWith(companions: string[]): string[] | null {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const name of companions) {
-    const key = normalizeName(name);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(name.trim());
-  }
+  const out = dedupeNames(companions);
   return out.length > 0 ? out : null;
 }
 
@@ -131,7 +123,12 @@ export function mapTicketToJourneyData(
     theater_chain: ticket.theaterChain ?? null,
     ticket_type: ticket.ticketType ?? null,
     mpaa_rating: ticket.mpaaRating ?? null,
-    watched_with: watchedWith,
+    // Only write watched_with when the batch actually tagged someone. A
+    // re-scan of a movie already in the library upserts onto the EXISTING
+    // journey row (journey_number defaults to 1 on the conflict target), so
+    // an unconditional null here would silently wipe companions saved earlier
+    // via the edit-journey sheet. Absent key = column left untouched.
+    ...(watchedWith && watchedWith.length > 0 ? { watched_with: watchedWith } : {}),
   };
 }
 

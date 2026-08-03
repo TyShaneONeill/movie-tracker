@@ -52,6 +52,7 @@ import { useMutualFollows } from '@/hooks/use-mutual-follows';
 import { supabase } from '@/lib/supabase';
 import { captureException } from '@/lib/sentry';
 import { pickImage } from '@/lib/image-utils';
+import { dedupeNames } from '@/lib/companion-names';
 import type { UserMovie, JourneyUpdate, WatchFormat } from '@/lib/database.types';
 import { Avatar } from '@/components/ui/avatar';
 import { SignedPhoto } from '@/components/journey/signed-photo';
@@ -132,23 +133,8 @@ function formatDisplayDate(dateISO: string): string {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** The one comparison rule for companion names — `watched_with` has no FK. */
-function normalizeName(name: string): string {
-  return name.trim().toLowerCase();
-}
-
-/** Dedupe names by normalized value, preserving first display form + order. */
-function dedupeNames(names: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const n of names) {
-    const key = normalizeName(n);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(n.trim());
-  }
-  return out;
-}
+// Companion-name normalization/dedupe now live in `lib/companion-names` —
+// the ONE comparison rule shared with the scan flow's batch tagging.
 
 /** Price input mask: strip non-`[0-9.]`, keep ≤1 dot, ≤2 decimals. */
 function maskPrice(raw: string): string {

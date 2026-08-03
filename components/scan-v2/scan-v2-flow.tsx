@@ -149,6 +149,8 @@ export function ScanV2Flow() {
 
   const handleCancelCompanions = useCallback(() => {
     setShowCompanions(false);
+    // Abandon-rate signal for the new surface — confirm tracks separately.
+    analytics.track('scan:companions_cancelled');
   }, []);
 
   const appendResult = useCallback((result: ProcessedScanResult) => {
