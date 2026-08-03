@@ -1,15 +1,19 @@
 /**
  * `EditJourneySheet` companion state — the parent half of #782.
  *
- * `watched_with` is a `text[]` of display names with NO foreign key, and the v1
- * editor (`app/journey/edit/[id].tsx` `handleFriendSelected`) appends the raw
- * display name with no dedupe and no trim. So this sheet must treat names as
- * dirty input: duplicates and stray whitespace both arrive from real rows.
+ * The picker now edits a DRAFT and hands the whole selection back through
+ * `onConfirm`; cancel (`onCancel` — the ✕ or the scrim) just closes. So the
+ * parent contract is small and absolute:
  *
- * `CompanionPicker` is replaced with a probe that captures its props, so these
- * tests exercise the sheet's `addCompanion` / `removeCompanionByName` state
- * transitions directly rather than driving them through the picker's UI (the
- * picker's own rendering contracts live in companion-picker.test.tsx).
+ *   - the picker opens seeded with the current companions (the snapshot);
+ *   - confirm REPLACES the companions with the emitted selection and closes;
+ *   - cancel closes and the snapshot survives untouched — there is no
+ *     parent-side mutation path left for a picker session to leak through;
+ *   - Save serializes the confirmed selection into `watched_with`, deduped
+ *     (dirty v1-written rows can hold duplicates / stray whitespace).
+ *
+ * Trim/normalized-dedupe of names ADDED in a session moved into the picker's
+ * draft logic and is pinned in companion-picker.test.tsx.
  */
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
@@ -66,19 +70,22 @@ jest.mock('@/components/journey/signed-photo', () => {
 });
 
 // Probe: capture the picker's props instead of rendering it, so the tests can
-// drive onAdd/onRemove and read back what the sheet holds as selected.
+// drive onConfirm/onCancel and read back what the sheet hands to the NEXT open.
 let pickerProps: {
-  alreadyAdded: string[];
-  onAdd: (name: string) => void;
-  onRemove: (name: string) => void;
+  initialSelection: string[];
+  onConfirm: (names: string[]) => void;
+  onCancel: () => void;
 } | null = null;
 
-jest.mock('@/components/scan-v2/companion-picker', () => ({
-  CompanionPicker: (props: any) => {
-    pickerProps = props;
-    return null;
-  },
-}));
+jest.mock('@/components/scan-v2/companion-picker', () => {
+  const { View } = require('react-native');
+  return {
+    CompanionPicker: (props: any) => {
+      pickerProps = props;
+      return <View testID="companion-picker-probe" />;
+    },
+  };
+});
 
 import { EditJourneySheet } from '@/components/scan-v2/edit-journey-sheet';
 
@@ -118,61 +125,68 @@ beforeEach(() => {
 });
 
 describe('EditJourneySheet companion state', () => {
-  it('hands the picker the current companions', () => {
+  it('hands the picker the current companions as the opening snapshot', () => {
     renderSheet(['Kelsie']);
-    expect(pickerProps!.alreadyAdded).toEqual(['Kelsie']);
+    expect(pickerProps!.initialSelection).toEqual(['Kelsie']);
   });
 
-  it('adds a new companion', () => {
-    renderSheet([]);
-    act(() => pickerProps!.onAdd('Kelsie'));
-    expect(pickerProps!.alreadyAdded).toEqual(['Kelsie']);
+  it('applies a confirmed selection and closes the picker', () => {
+    const utils = renderSheet([]);
+
+    act(() => pickerProps!.onConfirm(['Kelsie', 'Dad']));
+
+    expect(utils.queryByTestId('companion-picker-probe')).toBeNull();
+    // The chips row renders the applied companions.
+    expect(utils.getByText('Kelsie')).toBeTruthy();
+    expect(utils.getByText('Dad')).toBeTruthy();
+
+    // Reopening seeds the picker with what was confirmed.
+    openPicker(utils);
+    expect(pickerProps!.initialSelection).toEqual(['Kelsie', 'Dad']);
   });
 
-  it('does not duplicate a companion stored with surrounding whitespace', () => {
-    // The v1 editor appends the raw display name, so ' Kelsie ' is a real
-    // stored value; comparing it untrimmed against a trimmed candidate let a
-    // second copy through.
-    renderSheet([' Kelsie ']);
-    act(() => pickerProps!.onAdd('Kelsie'));
-    expect(pickerProps!.alreadyAdded).toEqual([' Kelsie ']);
+  it('confirm replaces the previous selection wholesale', () => {
+    const utils = renderSheet(['Kelsie', 'Marcus']);
+
+    act(() => pickerProps!.onConfirm(['Marcus']));
+
+    expect(utils.queryByText('Kelsie')).toBeNull();
+    openPicker(utils);
+    expect(pickerProps!.initialSelection).toEqual(['Marcus']);
   });
 
-  it('does not duplicate a companion that differs only by case', () => {
-    renderSheet(['Kelsie']);
-    act(() => pickerProps!.onAdd('kelsie'));
-    expect(pickerProps!.alreadyAdded).toEqual(['Kelsie']);
+  it('cancel closes the picker and leaves the snapshot untouched', () => {
+    const utils = renderSheet(['Kelsie']);
+
+    act(() => pickerProps!.onCancel());
+
+    expect(utils.queryByTestId('companion-picker-probe')).toBeNull();
+    expect(utils.getByText('Kelsie')).toBeTruthy();
+    openPicker(utils);
+    expect(pickerProps!.initialSelection).toEqual(['Kelsie']);
   });
 
-  it('trims the name it stores', () => {
-    renderSheet([]);
-    act(() => pickerProps!.onAdd('  Dad  '));
-    expect(pickerProps!.alreadyAdded).toEqual(['Dad']);
+  it('Save serializes the confirmed companions into watched_with, deduped', () => {
+    const utils = renderSheet(null);
+
+    // Dirty shapes a picker session can legitimately hand back: pre-existing
+    // v1 rows carry duplicates and stray whitespace the user never touched.
+    act(() => pickerProps!.onConfirm(['Kelsie', ' kelsie ', 'Dad']));
+    fireEvent.press(utils.getByText('Save'));
+
+    expect(utils.props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ watched_with: ['Kelsie', 'Dad'] }),
+    );
   });
 
-  it('ignores a whitespace-only name', () => {
-    renderSheet([]);
-    act(() => pickerProps!.onAdd('   '));
-    expect(pickerProps!.alreadyAdded).toEqual([]);
-  });
+  it('Save sends null when the confirmed selection is empty', () => {
+    const utils = renderSheet(['Kelsie']);
 
-  it('removes by name', () => {
-    renderSheet(['Kelsie', 'Marcus']);
-    act(() => pickerProps!.onRemove('Kelsie'));
-    expect(pickerProps!.alreadyAdded).toEqual(['Marcus']);
-  });
+    act(() => pickerProps!.onConfirm([]));
+    fireEvent.press(utils.getByText('Save'));
 
-  it('clears EVERY duplicate entry on one removal', () => {
-    // The picker renders one deduped row per name, so a single tap has to
-    // clear all of the underlying entries or a phantom copy survives.
-    renderSheet(['Dad', 'Dad', 'Marcus']);
-    act(() => pickerProps!.onRemove('Dad'));
-    expect(pickerProps!.alreadyAdded).toEqual(['Marcus']);
-  });
-
-  it('removes entries that differ from the tapped name by case and whitespace', () => {
-    renderSheet([' dad ', 'Dad', 'Marcus']);
-    act(() => pickerProps!.onRemove('Dad'));
-    expect(pickerProps!.alreadyAdded).toEqual(['Marcus']);
+    expect(utils.props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ watched_with: null }),
+    );
   });
 });
