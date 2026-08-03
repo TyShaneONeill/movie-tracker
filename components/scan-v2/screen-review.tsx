@@ -140,12 +140,12 @@ export function ScreenReview({
             <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), lineHeight: s(15), color: c.sec, marginTop: s(1) }}>
               {companions.length > 0
                 ? companions.join(', ')
-                : // Count only matched tickets — save skips unmatched ones, so
-                  // "all tickets" would overpromise in a partially-matched batch.
-                  (() => {
-                    const matched = tickets.filter((t) => t.movie !== null).length;
-                    return `Tag people on ${matched === 1 ? 'this ticket' : `all ${matched} matched tickets`}`;
-                  })()}
+                : // `ready` = non-failed = matched — the exact set save will tag,
+                  // and the same count the TopBar/CTA display. 0 matched (all
+                  // blocked on resolve) gets a neutral string, not "all 0".
+                  ready.length === 0
+                  ? 'Tag people to remember who came'
+                  : `Tag people on ${ready.length === 1 ? 'this ticket' : `all ${ready.length} matched tickets`}`}
             </ScanText>
           </View>
           <Icon name="chevR" size={s(16)} color={c.ter} />
