@@ -20,10 +20,12 @@ import { addMovieToLibrary, updateJourney, getMovieByTmdbId } from '@/lib/movie-
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import type { ProcessedTicket } from '@/lib/ticket-processor';
 import type { JourneyUpdate, TicketScanInsert } from '@/lib/database.types';
+import { dedupeNames } from '@/lib/companion-names';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // ============================================================================
-// Helpers (copied verbatim from app/scan/review.tsx)
+// Helpers (copied from app/scan/review.tsx; mapTicketToJourneyData has since
+// grown the batch-level watched_with param — v2 only, v1 stays untouched)
 // ============================================================================
 
 /**
@@ -65,9 +67,24 @@ function mapWatchFormat(format: string | null): JourneyUpdate['watch_format'] {
 }
 
 /**
+ * Serialize the review step's batch-level "Who was there?" selection for
+ * `watched_with`: dedupe via the shared companion-name rule in
+ * `lib/companion-names` (first display form wins, order preserved) and
+ * collapse an empty selection to null — `watched_with` stores null, never
+ * `[]`. The same value is applied to every ticket in the batch.
+ */
+export function buildBatchWatchedWith(companions: string[]): string[] | null {
+  const out = dedupeNames(companions);
+  return out.length > 0 ? out : null;
+}
+
+/**
  * Map ticket data to journey update fields
  */
-function mapTicketToJourneyData(ticket: ProcessedTicket): JourneyUpdate {
+export function mapTicketToJourneyData(
+  ticket: ProcessedTicket,
+  watchedWith: string[] | null = null
+): JourneyUpdate {
   // Combine seat row and number into seat_location
   let seatLocation: string | null = null;
   if (ticket.seatRow && ticket.seatNumber) {
@@ -106,6 +123,12 @@ function mapTicketToJourneyData(ticket: ProcessedTicket): JourneyUpdate {
     theater_chain: ticket.theaterChain ?? null,
     ticket_type: ticket.ticketType ?? null,
     mpaa_rating: ticket.mpaaRating ?? null,
+    // Only write watched_with when the batch actually tagged someone. A
+    // re-scan of a movie already in the library upserts onto the EXISTING
+    // journey row (journey_number defaults to 1 on the conflict target), so
+    // an unconditional null here would silently wipe companions saved earlier
+    // via the edit-journey sheet. Absent key = column left untouched.
+    ...(watchedWith && watchedWith.length > 0 ? { watched_with: watchedWith } : {}),
   };
 }
 
@@ -148,10 +171,15 @@ export async function saveTicketsToJourney(
   tickets: ProcessedTicket[],
   user: { id: string },
   queryClient: QueryClient,
-  triggerAchievementCheck: () => void
+  triggerAchievementCheck: () => void,
+  companions: string[] = []
 ): Promise<SaveTicketsResult> {
   // Filter tickets that have valid TMDB matches
   const validTickets = tickets.filter((t) => t.tmdbMatch !== null);
+
+  // Batch-level "Who was there?" — you scanned these tickets together, so one
+  // selection applies to every saved journey (#782).
+  const watchedWith = buildBatchWatchedWith(companions);
 
   if (validTickets.length === 0) {
     return { succeeded: 0, failed: 0, attempted: 0, firstMovieTmdbId: null, savedMovies: [] };
@@ -206,7 +234,7 @@ export async function saveTicketsToJourney(
 
       // 2. Update journey with parsed ticket data + upload ticket photo
       if (journeyId) {
-        const journeyData = mapTicketToJourneyData(ticket);
+        const journeyData = mapTicketToJourneyData(ticket, watchedWith);
         try {
           await updateJourney(journeyId, journeyData);
           createdJourneyIds.push(journeyId);

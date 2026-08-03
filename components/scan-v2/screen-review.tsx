@@ -17,6 +17,7 @@ import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
 import { s } from '@/lib/scan-v2/scale';
 import type { TicketVM } from '@/lib/scan-v2/ticket-view-model';
 import { ReviewCard } from './review-card';
+import { AvatarStack } from './avatar-stack';
 import { Icon, ScanText, ScansPill, PillButton, TopBar } from './primitives';
 
 interface ScreenReviewProps {
@@ -25,10 +26,13 @@ interface ScreenReviewProps {
   duplicatesRemoved: number;
   showDupNotice: boolean;
   isSaving: boolean;
+  /** Batch-level "Who was there?" selection — applied to every ticket on save. */
+  companions: string[];
   onDismissDup: () => void;
   onSearch: (id: string) => void;
   onRemove: (id: string) => void;
   onEdit: (id: string) => void;
+  onOpenCompanions: () => void;
   onResolve: () => void;
   onSave: () => void;
   onBack: () => void;
@@ -40,10 +44,12 @@ export function ScreenReview({
   duplicatesRemoved,
   showDupNotice,
   isSaving,
+  companions,
   onDismissDup,
   onSearch,
   onRemove,
   onEdit,
+  onOpenCompanions,
   onResolve,
   onSave,
   onBack,
@@ -98,6 +104,52 @@ export function ScreenReview({
         {tickets.map((t) => (
           <ReviewCard key={t.id} ticket={t} onSearch={onSearch} onRemove={onRemove} onEdit={onEdit} />
         ))}
+
+        {/* Batch-level companions — you scanned these together, so one selection
+            covers the whole batch and lands on every saved journey (#782). */}
+        <Pressable
+          onPress={onOpenCompanions}
+          accessibilityRole="button"
+          accessibilityLabel={
+            companions.length > 0 ? `Who was there? ${companions.join(', ')}` : 'Who was there? Tag people'
+          }
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: s(12),
+            paddingVertical: s(12),
+            paddingHorizontal: s(13),
+            borderRadius: s(14),
+            backgroundColor: c.card,
+            borderWidth: 1,
+            borderColor: c.line,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          {companions.length > 0 ? (
+            <AvatarStack people={companions.map((name) => ({ name }))} size={s(28)} ringColor={c.card} />
+          ) : (
+            <View style={{ width: s(32), height: s(32), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="plus" size={s(16)} color={c.sec} />
+            </View>
+          )}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(13.5), lineHeight: s(17), color: c.text }}>
+              Who was there?
+            </ScanText>
+            <ScanText numberOfLines={1} style={{ fontFamily: Fonts.inter.regular, fontSize: s(12), lineHeight: s(15), color: c.sec, marginTop: s(1) }}>
+              {companions.length > 0
+                ? companions.join(', ')
+                : // `ready` = non-failed = matched — the exact set save will tag,
+                  // and the same count the TopBar/CTA display. 0 matched (all
+                  // blocked on resolve) gets a neutral string, not "all 0".
+                  ready.length === 0
+                  ? 'Tag people to remember who came'
+                  : `Tag people on ${ready.length === 1 ? 'this ticket' : `all ${ready.length} matched tickets`}`}
+            </ScanText>
+          </View>
+          <Icon name="chevR" size={s(16)} color={c.ter} />
+        </Pressable>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: s(6), marginTop: s(2) }}>
           <Icon name="check" size={s(13)} color={c.ter} />
