@@ -49,6 +49,10 @@ import { ScreenUnable } from './screen-unable';
 import { ResolveDialog } from './resolve-dialog';
 import { EditSheet } from './edit-sheet';
 import { FirstTakeSheet } from './first-take-sheet';
+import { CompanionPicker } from './companion-picker';
+
+/** The one comparison rule for companion names — `watched_with` has no FK. */
+const normalizeName = (name: string) => name.trim().toLowerCase();
 
 type Stage = 'camera' | 'permission' | 'unable' | 'review';
 
@@ -84,6 +88,11 @@ export function ScanV2Flow() {
   const [isSaving, setIsSaving] = useState(false);
   const [showResolve, setShowResolve] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Batch-level "Who was there?" — one selection for the whole scan session,
+  // applied to every saved journey's watched_with (#782). Display names only,
+  // deduped by normalized name; free-text entries are allowed.
+  const [companions, setCompanions] = useState<string[]>([]);
+  const [showCompanions, setShowCompanions] = useState(false);
   // After save, when the First Take pref is on, the wizard runs over the saved
   // movies; `firstId` carries the single-movie nav target. Null = no wizard.
   const [firstTake, setFirstTake] = useState<{ movies: SavedMovie[]; firstId: number | null } | null>(null);
@@ -126,6 +135,30 @@ export function ScanV2Flow() {
     },
     [editingId]
   );
+
+  // Companion-picker adapter — the ONLY surface touching the picker's API, so
+  // the post-#791 rebase (draft/onConfirm semantics) lands in this one spot.
+  const handleOpenCompanions = useCallback(() => {
+    analytics.track('scan:companions_open');
+    setShowCompanions(true);
+  }, []);
+
+  const handleCloseCompanions = useCallback(() => {
+    setShowCompanions(false);
+    analytics.track('scan:companions_selected', { count: companions.length });
+  }, [companions.length]);
+
+  const handleAddCompanion = useCallback((displayName: string) => {
+    const trimmed = displayName.trim();
+    if (!trimmed) return;
+    setCompanions((prev) =>
+      prev.some((n) => normalizeName(n) === normalizeName(trimmed)) ? prev : [...prev, trimmed]
+    );
+  }, []);
+
+  const handleRemoveCompanion = useCallback((displayName: string) => {
+    setCompanions((prev) => prev.filter((n) => normalizeName(n) !== normalizeName(displayName)));
+  }, []);
 
   const appendResult = useCallback((result: ProcessedScanResult) => {
     setScansRemaining(result.scansRemaining);
@@ -298,7 +331,8 @@ export function ScanV2Flow() {
         items.map((i) => i.ticket),
         user,
         queryClient,
-        triggerAchievementCheck
+        triggerAchievementCheck,
+        companions
       );
       // With the First Take pref on and at least one saved movie, run the wizard
       // over the saved movies; it applies the same nav on finish/abandon.
@@ -316,13 +350,15 @@ export function ScanV2Flow() {
       setDuplicatesRemoved(0);
       setShowDupNotice(false);
       setEditingId(null);
+      setCompanions([]);
+      setShowCompanions(false);
       setStage('camera');
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), { context: 'scan-v2-save' });
     } finally {
       setIsSaving(false);
     }
-  }, [user, items, queryClient, triggerAchievementCheck, firstTakePromptEnabled, navigateAfterSave]);
+  }, [user, items, companions, queryClient, triggerAchievementCheck, firstTakePromptEnabled, navigateAfterSave]);
 
   // Finish (last movie posted) or abandon (X) — both apply the post-save nav.
   const handleFirstTakeFinish = useCallback(() => {
@@ -389,10 +425,12 @@ export function ScanV2Flow() {
             duplicatesRemoved={duplicatesRemoved}
             showDupNotice={showDupNotice}
             isSaving={isSaving}
+            companions={companions}
             onDismissDup={() => setShowDupNotice(false)}
             onSearch={() => setShowResolve(true)}
             onRemove={handleRemove}
             onEdit={setEditingId}
+            onOpenCompanions={handleOpenCompanions}
             onResolve={() => setShowResolve(true)}
             onSave={handleSave}
             onBack={() => setStage('camera')}
@@ -406,6 +444,15 @@ export function ScanV2Flow() {
             onSaveReady={handleSave}
             onClose={() => setShowResolve(false)}
           />
+          {showCompanions && user && (
+            <CompanionPicker
+              userId={user.id}
+              alreadyAdded={companions}
+              onAdd={handleAddCompanion}
+              onRemove={handleRemoveCompanion}
+              onClose={handleCloseCompanions}
+            />
+          )}
         </>
       )}
 
