@@ -245,27 +245,17 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
     [ensureVisible],
   );
 
-  const addCompanion = useCallback((name: string) => {
-    const t = name.trim();
-    if (!t) return;
-    // Normalize BOTH sides — existing names can carry whitespace (the v1 editor
-    // appends the raw display name), so an untrimmed ' Kelsie ' would slip past
-    // a comparison against the trimmed candidate and duplicate the companion.
-    setCompanions((prev) =>
-      prev.some((n) => normalizeName(n) === normalizeName(t)) ? prev : [...prev, t],
-    );
-  }, []);
-
   const removeCompanion = useCallback((index: number) => {
     setCompanions((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // The picker toggles by name (it has no index to hand back); the chips below
-  // still remove by index. Clears every entry matching the name — the picker
-  // shows one deduped row per name, so a single tap must clear all of them.
-  const removeCompanionByName = useCallback((name: string) => {
-    const t = normalizeName(name);
-    setCompanions((prev) => prev.filter((n) => normalizeName(n) !== t));
+  // The picker edits a DRAFT and hands the whole selection back on ✓; cancel
+  // (✕ / scrim) just closes, so this state — the opening snapshot — survives
+  // untouched. Trim/dedupe of new names happens inside the picker; handleSave
+  // still runs dedupeNames over the lot for dirty v1-written entries.
+  const confirmCompanions = useCallback((names: string[]) => {
+    setCompanions(names);
+    setShowCompanions(false);
   }, []);
 
   // Add photo — ported verbatim from v1 `app/journey/edit/[id].tsx` :177-222.
@@ -621,10 +611,9 @@ export function EditJourneySheet({ journey, onClose, onSave }: EditJourneySheetP
         {showCompanions && (
           <CompanionPicker
             userId={user?.id ?? ''}
-            alreadyAdded={companions}
-            onAdd={addCompanion}
-            onRemove={removeCompanionByName}
-            onClose={() => setShowCompanions(false)}
+            initialSelection={companions}
+            onConfirm={confirmCompanions}
+            onCancel={() => setShowCompanions(false)}
           />
         )}
       </View>

@@ -8,14 +8,20 @@
  * never dismisses the parent sheet or loses its scroll position.
  *
  * Data: `useMutualFollows(userId)` → `Profile[]` (mutual = followers∩following),
- * filtered client-side by `full_name`/`username`. Already-selected names stay in
- * the list carrying the selected treatment (accent border + soft fill + check,
+ * filtered client-side by `full_name`/`username`. Selected names stay in the
+ * list carrying the selected treatment (accent border + soft fill + check,
  * matching `PickerOverlay`'s `RadioList`); tapping a selected row removes them.
- * Free-text manual add ("Add '<query>'") emits the trimmed string; mutual-follow
- * rows emit the display name (`full_name || username`). Free-text companions are
+ * Free-text manual add ("Add '<query>'") stores the trimmed string; mutual-follow
+ * rows store the display name (`full_name || username`). Free-text companions are
  * not in `mutualFollows`, so they are appended as selected rows of their own —
  * otherwise they would be unremovable from here. `watched_with` stores names, no
  * FK.
+ *
+ * Selection is a DRAFT: seeded from `initialSelection` when the picker mounts
+ * (mount == open — the parent renders it conditionally), edited locally, and
+ * only handed to the parent via `onConfirm` (the ✓ in the header). The ✕ and
+ * the scrim mean cancel — close and discard, the parent state was never
+ * touched (#782 follow-up).
  *
  * Theme-aware (built from `useScanColors`/`ScanV2Accent`); text via `ScanText`,
  * sizes via `s()`.
@@ -45,30 +51,33 @@ import { Icon, ScanText } from './primitives';
 interface CompanionPickerProps {
   /** Current user id — seeds the mutual-follows query. */
   userId: string;
-  /** Already-selected display names — drive the selected treatment + dedupe. */
-  alreadyAdded: string[];
-  /** Emits the picked display name (mutual follow) or trimmed free-text. */
-  onAdd: (displayName: string) => void;
-  /** Emits the display name to drop — tapping an already-selected row. */
-  onRemove: (displayName: string) => void;
-  onClose: () => void;
+  /** Selection when the picker opens — the snapshot cancel reverts to. */
+  initialSelection: string[];
+  /** ✓ — emits the draft for the parent to apply; the parent then closes. */
+  onConfirm: (displayNames: string[]) => void;
+  /** ✕ / scrim — close discarding every change made in this picker session. */
+  onCancel: () => void;
 }
 
 const norm = (n: string) => n.trim().toLowerCase();
 
-export function CompanionPicker({ userId, alreadyAdded, onAdd, onRemove, onClose }: CompanionPickerProps) {
+export function CompanionPicker({ userId, initialSelection, onConfirm, onCancel }: CompanionPickerProps) {
   const c = useScanColors();
   const insets = useSafeAreaInsets();
   const { mutualFollows, isLoading } = useMutualFollows(userId);
   const [query, setQuery] = useState('');
 
-  // Lift the picker above the keyboard ourselves: on Android KeyboardAvoidingView
+  // Draft selection — the parent's companions are untouched until ✓, so ✕ and
+  // the scrim revert by simply not emitting. The initializer runs on mount,
+  // which is the moment the sheet opens, so it IS the opening snapshot.
+  const [selected, setSelected] = useState<string[]>(() => [...initialSelection]);
+
+  // Lift the content above the keyboard ourselves: on Android KeyboardAvoidingView
   // is a no-op without a behavior (and unreliable under edge-to-edge), so the
-  // auto-focused search field would sit behind the keyboard. Measure the keyboard
-  // and pad the flex-end container by its height.
+  // auto-focused search field would sit behind the keyboard.
   const kbHeight = useKeyboardHeight();
 
-  const alreadyAddedLower = useMemo(() => new Set(alreadyAdded.map(norm)), [alreadyAdded]);
+  const selectedLower = useMemo(() => new Set(selected.map(norm)), [selected]);
 
   // Selected people are NOT filtered out — a vanishing row reads as a no-op (#782).
   const results = useMemo(() => {
@@ -96,80 +105,110 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onRemove, onClose
     );
     const q = query.trim().toLowerCase();
     const seen = new Set<string>();
-    return alreadyAdded.filter((n) => {
+    return selected.filter((n) => {
       const lower = norm(n);
       if (!lower || known.has(lower) || seen.has(lower)) return false;
       if (q.length > 0 && !lower.includes(q)) return false;
       seen.add(lower);
       return true;
     });
-  }, [alreadyAdded, mutualFollows, query]);
+  }, [selected, mutualFollows, query]);
 
   const trimmed = query.trim();
-  const canManualAdd = trimmed.length > 0 && !alreadyAddedLower.has(trimmed.toLowerCase());
+  const canManualAdd = trimmed.length > 0 && !selectedLower.has(trimmed.toLowerCase());
 
   // Keep the picker open after each add (companions are added in batches). Clear
   // the query so the next person is easy to find; the row the user just tapped
-  // stays on screen wearing the selected treatment.
+  // stays on screen wearing the selected treatment. Trim on add + compare
+  // normalized on both sides — `watched_with` can hold dirty v1-written names
+  // (' Kelsie '), which must not slip past the dedupe.
   const handlePick = (displayName: string) => {
+    const t = displayName.trim();
+    if (!t) return;
     hapticImpact(ImpactFeedbackStyle.Light);
-    onAdd(displayName);
+    setSelected((prev) => (prev.some((n) => norm(n) === norm(t)) ? prev : [...prev, t]));
     setQuery('');
   };
 
+  // Deselect clears EVERY entry matching the name — the list shows one deduped
+  // row per name, so a single tap must clear all of them.
   const handleToggle = (displayName: string) => {
-    if (alreadyAddedLower.has(norm(displayName))) {
+    if (selectedLower.has(norm(displayName))) {
       hapticImpact(ImpactFeedbackStyle.Light);
-      onRemove(displayName);
+      setSelected((prev) => prev.filter((n) => norm(n) !== norm(displayName)));
       return;
     }
     handlePick(displayName);
+  };
+
+  const handleConfirm = () => {
+    hapticImpact(ImpactFeedbackStyle.Medium);
+    onConfirm(selected);
   };
 
   const isEmpty =
     !isLoading && results.length === 0 && freeTextSelected.length === 0 && !canManualAdd;
 
   return (
-    <View style={{ position: 'absolute', inset: 0, zIndex: 40, justifyContent: 'flex-end', paddingBottom: kbHeight } as any}>
-      {/* Strong scrim — reads as a single takeover over the sheet. */}
+    <View style={{ position: 'absolute', inset: 0, zIndex: 40, justifyContent: 'flex-end' } as any}>
+      {/* Strong scrim — reads as a single takeover over the sheet. Full-bleed
+          (OUTSIDE any keyboard padding) so no strip of the parent sheet can
+          ever peek through below it. Tapping it means cancel — "never mind". */}
       <Pressable
+        testID="companion-picker-scrim"
         style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.88)' } as any}
-        onPress={onClose}
+        onPress={onCancel}
       />
 
-      {/* Gray "foot" pinned to the device bottom, BEHIND the sheet, so the dark
-          scrim doesn't show through the modal's bottom-inset gap as a black bar
-          (mirrors PickerOverlay). pointerEvents none so the gap still closes. */}
+      {/* The sheet hugs the DEVICE bottom; the keyboard is reserved as the
+          sheet's own bottom padding rather than by lifting the whole sheet.
+          If the measured height is ever off (iOS will-event timing while the
+          keyboard animates, Android edge-to-edge over-reporting by the nav-bar
+          inset) the exposed strip is sheet surface — not a hole showing the
+          edit-journey screen behind (#782 follow-up). One reservation only:
+          the keyboard when it's up, the home-indicator inset when it's down
+          (the #740 padding-collapse pattern). This also replaces the old gray
+          "foot" — the sheet itself now covers the modal's bottom-inset gap. */}
       <View
-        pointerEvents="none"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: s(150), backgroundColor: c.surface } as any}
-      />
-
-      <View style={{ width: '100%' }}>
-        <View
-          style={{
-            backgroundColor: c.surface,
-            borderTopLeftRadius: s(24),
-            borderTopRightRadius: s(24),
-            borderWidth: 1,
-            borderBottomWidth: 0,
-            borderColor: c.line,
-            maxHeight: '80%',
-            overflow: 'hidden',
-          }}
-        >
-          {/* header */}
+        testID="companion-picker-sheet"
+        style={{
+          backgroundColor: c.surface,
+          borderTopLeftRadius: s(24),
+          borderTopRightRadius: s(24),
+          borderWidth: 1,
+          borderBottomWidth: 0,
+          borderColor: c.line,
+          maxHeight: '80%',
+          overflow: 'hidden',
+          paddingBottom: kbHeight > 0 ? kbHeight : insets.bottom,
+        }}
+      >
+          {/* header — ✓ applies the draft, ✕ cancels (reverts to the opening
+              snapshot by never emitting it) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: s(16), paddingTop: s(16), paddingBottom: s(10) }}>
             <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(17), lineHeight: s(20), color: c.text }}>
               Who was there?
             </ScanText>
-            <Pressable
-              onPress={onClose}
-              hitSlop={8}
-              style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Icon name="x" size={s(16)} color={c.sec} />
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8) }}>
+              <Pressable
+                onPress={handleConfirm}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Done"
+                style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: ScanV2Accent.soft, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Icon name="check" size={s(16)} color={ScanV2Accent.primary} stroke={2.6} />
+              </Pressable>
+              <Pressable
+                onPress={onCancel}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+                style={{ width: s(30), height: s(30), borderRadius: 999, backgroundColor: c.field, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Icon name="x" size={s(16)} color={c.sec} />
+              </Pressable>
+            </View>
           </View>
 
           {/* search */}
@@ -203,14 +242,20 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onRemove, onClose
 
           <ScrollView
             keyboardShouldPersistTaps="handled"
+            // flexShrink so the list SHRINKS to the space left inside the
+            // sheet's maxHeight and becomes scrollable. Yoga's default is
+            // flexShrink 0: the list laid out at full content height, the
+            // sheet's overflow:hidden sliced the last row, and there was
+            // nothing to scroll (#782 follow-up — the half-cut avatar).
+            style={{ flexGrow: 0, flexShrink: 1 }}
             contentContainerStyle={{
               // Rows carry the remaining s(10) themselves so a selected row's
               // fill bleeds past the gutter while its avatar stays at s(16).
               paddingHorizontal: s(6),
               gap: s(4),
-              // The container above already reserves `kbHeight`; reserving the
-              // home-indicator inset on top of it left ~54pt of dead space.
-              paddingBottom: s(20) + (kbHeight > 0 ? 0 : insets.bottom),
+              // Breathing room only — the keyboard / home-indicator inset is
+              // reserved once, by the sheet's own paddingBottom.
+              paddingBottom: s(20),
             }}
             showsVerticalScrollIndicator={false}
           >
@@ -256,7 +301,7 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onRemove, onClose
                   userId={p.id}
                   avatarUrl={p.avatar_url}
                   updatedAt={p.updated_at}
-                  selected={alreadyAddedLower.has(norm(name))}
+                  selected={selectedLower.has(norm(name))}
                   onPress={() => handleToggle(name)}
                 />
               );
@@ -270,7 +315,6 @@ export function CompanionPicker({ userId, alreadyAdded, onAdd, onRemove, onClose
               </ScanText>
             )}
           </ScrollView>
-        </View>
       </View>
     </View>
   );
