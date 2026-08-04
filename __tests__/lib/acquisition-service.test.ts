@@ -96,6 +96,39 @@ describe('shouldShowAcquisitionPrompt — pure gate', () => {
       shouldShowAcquisitionPrompt({ ...NEW_USER, onboardingCompleted: false })
     ).toBe(false);
   });
+
+  describe('dev-tier founder bypass', () => {
+    const PRE_CUTOFF_DEV: AcquisitionGateInput = {
+      ...NEW_USER,
+      profileCreatedAt: '2026-01-15T00:00:00Z', // long before the cutoff
+      accountTier: 'dev',
+    };
+
+    it('dev tier bypasses the created_at cutoff (pre-cutoff founder is eligible)', () => {
+      expect(shouldShowAcquisitionPrompt(PRE_CUTOFF_DEV)).toBe(true);
+    });
+
+    it('dev tier bypasses ONLY the cutoff — every other gate still applies', () => {
+      expect(
+        shouldShowAcquisitionPrompt({ ...PRE_CUTOFF_DEV, alreadyShownLocally: true })
+      ).toBe(false);
+      expect(
+        shouldShowAcquisitionPrompt({ ...PRE_CUTOFF_DEV, acquisitionSource: 'skipped' })
+      ).toBe(false);
+      expect(
+        shouldShowAcquisitionPrompt({ ...PRE_CUTOFF_DEV, onboardingCompleted: false })
+      ).toBe(false);
+    });
+
+    it('non-dev tiers get no bypass: pre-cutoff premium/free users stay excluded', () => {
+      expect(
+        shouldShowAcquisitionPrompt({ ...PRE_CUTOFF_DEV, accountTier: 'free' })
+      ).toBe(false);
+      expect(
+        shouldShowAcquisitionPrompt({ ...PRE_CUTOFF_DEV, accountTier: 'premium' })
+      ).toBe(false);
+    });
+  });
 });
 
 describe('local shown-flag persistence', () => {

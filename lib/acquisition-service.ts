@@ -51,6 +51,12 @@ export type AcquisitionGateInput = {
   acquisitionSource: string | null;
   /** Local AsyncStorage fast-path flag. */
   alreadyShownLocally: boolean;
+  /**
+   * profiles.account_tier — 'dev' (the 2-3 founder accounts) bypasses the
+   * created_at cutoff ONLY, so founders whose profiles predate the OTA can
+   * validate the flow on device. Every other gate still applies to them.
+   */
+  accountTier?: string | null;
 };
 
 /**
@@ -63,6 +69,10 @@ export function shouldShowAcquisitionPrompt(input: AcquisitionGateInput): boolea
   if (alreadyShownLocally) return false;
   if (acquisitionSource !== null) return false;
   if (!onboardingCompleted) return false;
+
+  // Founder-test bypass: dev-tier accounts skip only the cutoff below (their
+  // profiles predate the OTA); everything above still applies.
+  if (input.accountTier === 'dev') return true;
 
   // Missing/unparseable created_at → fail closed (treat as existing user)
   // rather than risk prompting a long-time user.

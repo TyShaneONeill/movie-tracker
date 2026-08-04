@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '@/hooks/use-auth';
+import { useAcquisitionPromptEnabled } from '@/hooks/use-feature-flag';
 import { supabase } from '@/lib/supabase';
 import { analytics } from '@/lib/analytics';
 import { captureException } from '@/lib/sentry';
@@ -31,13 +32,17 @@ const SHOW_DELAY_MS = 600;
 export function useAcquisitionPrompt() {
   const { user } = useAuth();
   const isFocused = useIsFocused();
+  // Founder-first rollout gate (PostHog `acquisition_prompt`, fails closed
+  // while loading). Checked BEFORE checkedRef is latched, so a flag that
+  // resolves to on after mount still gets its one eligibility run.
+  const flagEnabled = useAcquisitionPromptEnabled();
   const [visible, setVisible] = useState(false);
   const checkedRef = useRef(false);
   const focusedRef = useRef(isFocused);
   focusedRef.current = isFocused;
 
   useEffect(() => {
-    if (!user?.id || !isFocused || checkedRef.current) return;
+    if (!flagEnabled || !user?.id || !isFocused || checkedRef.current) return;
     checkedRef.current = true;
 
     let cancelled = false;
@@ -49,7 +54,7 @@ export function useAcquisitionPrompt() {
 
         const { data, error } = await supabase
           .from('profiles')
-          .select('onboarding_completed, created_at, acquisition_source')
+          .select('onboarding_completed, created_at, acquisition_source, account_tier')
           .eq('id', userId)
           .single();
         if (error || !data) {
@@ -69,6 +74,7 @@ export function useAcquisitionPrompt() {
           profileCreatedAt: data.created_at,
           acquisitionSource: data.acquisition_source,
           alreadyShownLocally: false,
+          accountTier: data.account_tier,
         });
         if (!eligible || cancelled) return;
 
@@ -93,7 +99,7 @@ export function useAcquisitionPrompt() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, isFocused]);
+  }, [flagEnabled, user?.id, isFocused]);
 
   const onSelect = useCallback(
     (source: AcquisitionSource) => {

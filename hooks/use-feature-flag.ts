@@ -156,6 +156,28 @@ export function usePostImportUpsellEnabled(): boolean {
 }
 
 /**
+ * Returns true when the first-run acquisition-source prompt (board attribution
+ * mandate) should be active. Combines the PostHog flag `acquisition_prompt`
+ * and an env-var dev override (EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE =
+ * "true" | "false"), mirroring usePostImportUpsellEnabled above.
+ *
+ * Ships founder-first: the flag is created dark and enabled only for founder
+ * accounts for on-device validation, then widens to 100% before the Product
+ * Hunt launch. Fails closed (no prompt, and no profile query at all — the
+ * eligibility hook checks this flag before touching the network) while the
+ * flag is still loading, since `useFeatureFlag`'s `enabled` is false for an
+ * undefined value.
+ */
+export function useAcquisitionPromptEnabled(): boolean {
+  const { enabled: flagOn } = useFeatureFlag('acquisition_prompt');
+  const envOverride = process.env.EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE;
+
+  if (envOverride === 'true') return true;
+  if (envOverride === 'false') return false;
+  return flagOn;
+}
+
+/**
  * Returns true when marking a movie/show watched should offer a "First Take
  * or Review?" chooser instead of auto-opening the (public) First Take
  * composer (N3). Combines the PostHog flag `watched_composer_chooser` and an

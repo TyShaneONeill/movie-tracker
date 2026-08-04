@@ -4,6 +4,15 @@ Board attribution mandate, shipped ahead of the Product Hunt launch (Aug 8,
 2026). This doc is the consumption contract for the growth digest — event
 names and properties are stable; coordinate before renaming anything.
 
+## Rollout gate
+
+The entire prompt is gated on the PostHog feature flag **`acquisition_prompt`**
+(`useAcquisitionPromptEnabled` in `hooks/use-feature-flag.ts`; dev override
+`EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE`). Fails closed — flag off/loading
+means no prompt and no profile query. Founder validation: `account_tier =
+'dev'` profiles bypass the `created_at` cutoff only (all other gates apply),
+so pre-cutoff founder accounts can test on device before the flag widens.
+
 ## PostHog events
 
 | Event | Properties | Fired when |
