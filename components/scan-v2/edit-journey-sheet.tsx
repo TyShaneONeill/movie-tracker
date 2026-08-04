@@ -60,6 +60,7 @@ import { Icon, ScanText, PillButton, type ScanIconName } from './primitives';
 import { PickerOverlay } from './picker-overlay';
 import { parseTimeLabel } from './time-wheel';
 import { CompanionPicker } from './companion-picker';
+import { localMidnightISO } from '@/lib/date-conventions';
 
 // Journey watch_format options (display labels). Lowercased on save → the DB
 // `WatchFormat` enum (`standard|imax|dolby|3d|4k|screenx|4dx`). Distinct from
@@ -90,13 +91,6 @@ function toLocalDateISO(iso: string | null): string {
   const d = iso ? new Date(iso) : new Date();
   if (Number.isNaN(d.getTime())) return toLocalDateISO(null);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-/** Local `YYYY-MM-DD` → ISO at LOCAL MIDNIGHT (date-only; clock lives in watch_time). */
-function localMidnightISO(dateISO: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateISO);
-  if (!m) return new Date().toISOString();
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toISOString();
 }
 
 /** DB `"HH:MM"` 24h → wheel label `"7:30 PM"`. */

@@ -40,6 +40,7 @@ import { captureException, Sentry } from '@/lib/sentry';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import { ContentContainer } from '@/components/content-container';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
+import { localMidnightISO } from '@/lib/date-conventions';
 
 // ============================================================================
 // Helpers
@@ -97,11 +98,13 @@ function mapTicketToJourneyData(ticket: ProcessedTicket): JourneyUpdate {
     seatLocation = ticket.seatNumber;
   }
 
-  // Build watched_at timestamp from date
+  // Build watched_at timestamp from date. LOCAL midnight, matching the
+  // edit-journey sheet — UTC midnight displays the previous day for
+  // negative-UTC users (#794).
   let watchedAt: string | null = null;
   if (ticket.date) {
     // ticket.date is in YYYY-MM-DD format
-    watchedAt = `${ticket.date}T00:00:00Z`;
+    watchedAt = localMidnightISO(ticket.date);
   }
 
   // Convert showtime to watch_time (HH:MM format)
