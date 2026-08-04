@@ -320,6 +320,10 @@ describe.each(ADAPTERS.map((a) => [a.name, a] as const))(
     it('commits max-length text intact', async () => {
       const maxText = 'x'.repeat(EXPECTED_MAX);
       const c = adapter.mount();
+      // Deliberate score before committing: FirstTakeModal's untouched-5 soft
+      // confirm (2026-08-03 ruling) holds the first press otherwise. Harmless
+      // on the other two composers, which start null and accept any score.
+      c.setRating(7);
       fireEvent.changeText(c.reactionInput(), maxText);
       expect(c.utils.getByText(`${EXPECTED_MAX}/${EXPECTED_MAX}`)).toBeTruthy();
 
@@ -344,6 +348,7 @@ describe.each(ADAPTERS.map((a) => [a.name, a] as const))(
     // -- Spoiler ------------------------------------------------------------
     it('a spoiler flagged in the composer arrives in the created take', async () => {
       const c = adapter.mount();
+      c.setRating(7);
       fireEvent.changeText(c.reactionInput(), 'He was dead the whole time');
       c.markSpoiler();
       c.submit();
@@ -352,6 +357,7 @@ describe.each(ADAPTERS.map((a) => [a.name, a] as const))(
 
     it('defaults to not-a-spoiler', async () => {
       const c = adapter.mount();
+      c.setRating(7);
       fireEvent.changeText(c.reactionInput(), 'Nothing given away here');
       c.submit();
       expect((await c.committed()).isSpoiler).toBe(false);
@@ -362,6 +368,7 @@ describe.each(ADAPTERS.map((a) => [a.name, a] as const))(
       'seeds visibility from the saved default (%s)',
       async (dbValue) => {
         const c = adapter.mount(dbValue);
+        c.setRating(7);
         fireEvent.changeText(c.reactionInput(), 'Seeded default');
         c.submit();
         expect((await c.committed()).visibility).toBe(dbValue);
@@ -370,6 +377,7 @@ describe.each(ADAPTERS.map((a) => [a.name, a] as const))(
 
     it('honours an explicit visibility choice over the seeded default', async () => {
       const c = adapter.mount('public');
+      c.setRating(7);
       fireEvent.changeText(c.reactionInput(), 'Explicit choice');
       c.chooseVisibility('Private');
       c.submit();
@@ -391,6 +399,7 @@ describe.each(ADAPTERS.map((a) => [a.name, a] as const))(
 
     it('trims the quote before committing', async () => {
       const c = adapter.mount();
+      c.setRating(7);
       fireEvent.changeText(c.reactionInput(), '   padded   ');
       c.submit();
       expect((await c.committed()).quoteText).toBe('padded');

@@ -81,7 +81,12 @@ describe('FirstTakeModal rating-null handling (PS-12)', () => {
       <FirstTakeModal {...baseProps} onSubmit={onSubmit} />
     );
 
-    // Create default rating (5) enables submit without any quote text.
+    // Create default rating (5) enables submit without any quote text. Since
+    // the 2026-08-03 ruling the first wordless press on an untouched slider is
+    // soft-blocked once (see first-take-modal-contracts.test.tsx); the second
+    // press affirms and posts — the default is still 5, never null.
+    fireEvent.press(getByText('Post First Take'));
+    expect(onSubmit).not.toHaveBeenCalled();
     fireEvent.press(getByText('Post First Take'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));

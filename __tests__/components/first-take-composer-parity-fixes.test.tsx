@@ -293,6 +293,10 @@ describe('FirstTakeModal double-submit latch', () => {
     );
     const utils = renderModal({ onSubmit });
 
+    // Deliberate score first — with the untouched-5 soft confirm (2026-08-03
+    // ruling) holding the first press, this latch assertion would otherwise
+    // pass without ever exercising the latch.
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
     fireEvent.changeText(utils.getByPlaceholderText(MODAL_PLACEHOLDER), 'Once only');
     const button = utils.getByText('Post First Take');
     fireEvent.press(button);
@@ -307,10 +311,14 @@ describe('FirstTakeModal double-submit latch', () => {
     const onSubmit = jest.fn().mockResolvedValue(undefined);
     const utils = renderModal({ onSubmit });
 
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
     fireEvent.changeText(utils.getByPlaceholderText(MODAL_PLACEHOLDER), 'First');
     fireEvent.press(utils.getByText('Post First Take'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 
+    // A successful post resets the form to a fresh take, so the second take
+    // needs its own deliberate score to clear the untouched-5 soft confirm.
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
     fireEvent.changeText(utils.getByPlaceholderText(MODAL_PLACEHOLDER), 'Second');
     fireEvent.press(utils.getByText('Post First Take'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
@@ -376,6 +384,9 @@ describe('wordless takes are never spoilers', () => {
 
   it('FirstTakeModal: a rating-only take drops a toggled spoiler flag', async () => {
     const utils = renderModal();
+    // Slide to a deliberate score (mirrors the Multi case above) so the
+    // untouched-5 soft confirm (2026-08-03 ruling) doesn't intercept the press.
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
     fireEvent.press(utils.getByRole('switch'));
 
     fireEvent.press(utils.getByText('Post First Take'));
@@ -386,6 +397,7 @@ describe('wordless takes are never spoilers', () => {
 
   it('FirstTakeModal: a worded take still submits the spoiler flag', async () => {
     const utils = renderModal();
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
     fireEvent.changeText(utils.getByPlaceholderText(MODAL_PLACEHOLDER), 'He was dead the whole time');
     fireEvent.press(utils.getByRole('switch'));
 
