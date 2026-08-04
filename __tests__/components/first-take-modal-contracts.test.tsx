@@ -44,10 +44,12 @@ jest.mock('@/hooks/use-user-preferences', () => ({
 }));
 
 const mockGetFeatureFlag = jest.fn();
+const mockTrack = jest.fn();
 jest.mock('@/lib/analytics', () => ({
   analytics: {
     getFeatureFlag: (...args: unknown[]) => mockGetFeatureFlag(...args),
     reloadFeatureFlags: jest.fn(),
+    track: (...args: unknown[]) => mockTrack(...args),
   },
 }));
 
@@ -67,6 +69,16 @@ const renderModal = (props: Partial<React.ComponentProps<typeof FirstTakeModal>>
   } as React.ComponentProps<typeof FirstTakeModal>;
   return { ...render(<FirstTakeModal {...full} />), onSubmit: onSubmit as jest.Mock };
 };
+
+/**
+ * Slide to a score. Tests whose take is rating-only use this so the submit is
+ * a deliberate score, not the untouched default 5 (which the soft-confirm
+ * nudge intercepts — see the "untouched-5 soft confirm" suite below).
+ */
+const touchSlider = (utils: ReturnType<typeof render>, value = 8) =>
+  fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', value);
+
+const NUDGE_COPY = 'Still at the starting 5 — slide to score it, or post again to keep it';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -159,6 +171,7 @@ describe('FirstTakeModal episode scoping', () => {
 
   it('carries season 0 (specials) rather than dropping it as falsy', async () => {
     const utils = renderModal({ seasonNumber: 0, episodeNumber: 2 });
+    touchSlider(utils);
     fireEvent.press(utils.getByText('Post First Take'));
 
     await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
@@ -167,6 +180,7 @@ describe('FirstTakeModal episode scoping', () => {
 
   it('leaves season/episode undefined for movie and show-level takes', async () => {
     const utils = renderModal();
+    touchSlider(utils);
     fireEvent.press(utils.getByText('Post First Take'));
 
     await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
@@ -215,6 +229,7 @@ describe('FirstTakeModal payload', () => {
     async (pref) => {
       mockPreferences.reviewVisibility = pref;
       const utils = renderModal();
+      touchSlider(utils);
       fireEvent.press(utils.getByText('Post First Take'));
 
       await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
@@ -225,6 +240,7 @@ describe('FirstTakeModal payload', () => {
   it('an explicit visibility choice overrides the seeded default', async () => {
     mockPreferences.reviewVisibility = 'public';
     const utils = renderModal();
+    touchSlider(utils);
     fireEvent.press(utils.getByText('Followers'));
     fireEvent.press(utils.getByText('Post First Take'));
 
@@ -273,16 +289,13 @@ describe('FirstTakeModal payload', () => {
 // Submit gate
 // ===========================================================================
 describe('FirstTakeModal submit gate', () => {
-  it('a rating alone is postable (no words required)', async () => {
-    // DOCUMENTS SHIPPED BEHAVIOR, not a settled rule. The `rating: 5` here is
-    // this composer's create-path default (first-take-modal.tsx:108), so an
-    // untouched composer posts a 5 the user never chose. #778 fixed exactly
-    // that class of issue in MultiFirstTakeModal (rating now starts null) but
-    // deliberately left this one alone: it predates that PR and is a product
-    // call about the single-take composer's defaults, pending its own ruling.
-    // If the ruling lands, this expectation becomes `rating: null` and the
-    // submit gate below needs re-deriving with it.
+  it('a deliberate rating alone is postable (no words required)', async () => {
+    // Ty ruled 07-31 that rating-only takes are legitimate; a TOUCHED slider
+    // posts first-press even when it lands back on any score. The untouched
+    // default 5 is the one rating-only take that no longer posts silently —
+    // that contract lives in the "untouched-5 soft confirm" suite below.
     const utils = renderModal();
+    touchSlider(utils, 5);
     fireEvent.press(utils.getByText('Post First Take'));
     await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
     expect(utils.onSubmit.mock.calls[0][0]).toMatchObject({ rating: 5, quoteText: '' });
@@ -320,6 +333,156 @@ describe('FirstTakeModal submit gate', () => {
     fireEvent.changeText(utils.getByPlaceholderText(PLACEHOLDER), '     ');
     fireEvent.press(utils.getByText('Post First Take'));
     expect(utils.onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// Untouched-5 soft confirm (Ty's ruling, 2026-08-03)
+//
+// The create path keeps its default of 5 — deliberately, never null — but a
+// wordless take whose slider was never touched must not silently record it.
+// The first post attempt is blocked ONCE with a nudge (copy + pulse + light
+// haptic); the second goes through with the 5 now user-affirmed. Any slider
+// interaction counts as touching, even one that ends back at exactly 5. Takes
+// with words, edits, and seeded creates are untouched by all of this.
+// ===========================================================================
+describe('FirstTakeModal untouched-5 soft confirm', () => {
+  it('blocks the first wordless untouched submit with the nudge', () => {
+    const { hapticImpact } = require('@/lib/haptics');
+    const utils = renderModal();
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    expect(utils.onSubmit).not.toHaveBeenCalled();
+    expect(utils.getByText(NUDGE_COPY)).toBeTruthy();
+    expect(hapticImpact).toHaveBeenCalled();
+    expect(mockTrack).toHaveBeenCalledWith('first_take:rating_nudge_shown');
+  });
+
+  it('posts the (now affirmed) 5 on the second untouched submit, and never blocks twice', async () => {
+    const utils = renderModal();
+    fireEvent.press(utils.getByText('Post First Take'));
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0]).toMatchObject({ rating: 5, quoteText: '' });
+    expect(mockTrack).toHaveBeenCalledWith('first_take:rating_nudge_outcome', {
+      outcome: 'affirmed_5',
+      rating: 5,
+    });
+  });
+
+  it('a touched slider posts first-press with no nudge', async () => {
+    const utils = renderModal();
+    touchSlider(utils, 7.5);
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.queryByText(NUDGE_COPY)).toBeNull();
+    expect(mockTrack).not.toHaveBeenCalledWith('first_take:rating_nudge_shown');
+  });
+
+  it('sliding away and back to exactly 5 is a deliberate 5 — posts first-press', async () => {
+    const utils = renderModal();
+    touchSlider(utils, 8);
+    touchSlider(utils, 5);
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0].rating).toBe(5);
+    expect(mockTrack).not.toHaveBeenCalledWith('first_take:rating_nudge_shown');
+  });
+
+  it('a take WITH words posts first-press even with the slider untouched', async () => {
+    // The nudge is scoped to rating-only takes: with words the 5 is on screen
+    // next to the user's own writing, and the shared composer contract keeps
+    // worded takes posting first-press across all three composers.
+    const utils = renderModal();
+    fireEvent.changeText(utils.getByPlaceholderText(PLACEHOLDER), 'Loved it');
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0]).toMatchObject({ rating: 5, quoteText: 'Loved it' });
+    expect(mockTrack).not.toHaveBeenCalledWith('first_take:rating_nudge_shown');
+  });
+
+  it('sliding after the nudge clears the copy and reports changed_rating', async () => {
+    const utils = renderModal();
+    fireEvent.press(utils.getByText('Post First Take'));
+    expect(utils.getByText(NUDGE_COPY)).toBeTruthy();
+
+    touchSlider(utils, 8.5);
+    expect(utils.queryByText(NUDGE_COPY)).toBeNull();
+
+    fireEvent.press(utils.getByText('Post First Take'));
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0].rating).toBe(8.5);
+    expect(mockTrack).toHaveBeenCalledWith('first_take:rating_nudge_outcome', {
+      outcome: 'changed_rating',
+      rating: 8.5,
+    });
+  });
+
+  it('editing an existing take never nudges (rating pre-seeded)', async () => {
+    const utils = renderModal({
+      isEditing: true,
+      initialValues: { rating: 7, quoteText: '', isSpoiler: false, visibility: 'public' },
+    });
+    fireEvent.press(utils.getByText('Save'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0].rating).toBe(7);
+    expect(mockTrack).not.toHaveBeenCalledWith('first_take:rating_nudge_shown');
+  });
+
+  it('a seeded create (TV Time ink→take bridge) never nudges either', async () => {
+    const utils = renderModal({
+      isEditing: false,
+      initialValues: { rating: 9, quoteText: '', isSpoiler: false, visibility: 'public' },
+    });
+    fireEvent.press(utils.getByText('Post First Take'));
+
+    await waitFor(() => expect(utils.onSubmit).toHaveBeenCalledTimes(1));
+    expect(utils.onSubmit.mock.calls[0][0].rating).toBe(9);
+    expect(mockTrack).not.toHaveBeenCalledWith('first_take:rating_nudge_shown');
+  });
+
+  it('nudge state resets on reopen — a fresh open gets a fresh single block', async () => {
+    const props = {
+      visible: true,
+      onClose: jest.fn(),
+      onSubmit: jest.fn().mockResolvedValue(undefined),
+      movieTitle: 'Inception',
+    };
+    const utils = render(<FirstTakeModal {...props} />);
+    fireEvent.press(utils.getByText('Post First Take'));
+    expect(props.onSubmit).not.toHaveBeenCalled();
+
+    utils.rerender(<FirstTakeModal {...props} visible={false} />);
+    utils.rerender(<FirstTakeModal {...props} visible />);
+
+    fireEvent.press(utils.getByText('Post First Take'));
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    expect(utils.getByText(NUDGE_COPY)).toBeTruthy();
+  });
+
+  it('nudge state resets when the target changes mid-open', () => {
+    const props = {
+      visible: true,
+      onClose: jest.fn(),
+      onSubmit: jest.fn().mockResolvedValue(undefined),
+      movieTitle: 'The Office',
+    };
+    const utils = render(<FirstTakeModal {...props} />);
+    fireEvent.press(utils.getByText('Post First Take'));
+    expect(props.onSubmit).not.toHaveBeenCalled();
+
+    utils.rerender(<FirstTakeModal {...props} movieTitle="Parks and Recreation" />);
+
+    // A new target is a new take: the already-spent nudge re-arms, so the
+    // first press for THIS title blocks again instead of posting a 5 the
+    // user affirmed for a different one.
+    fireEvent.press(utils.getByText('Post First Take'));
+    expect(props.onSubmit).not.toHaveBeenCalled();
   });
 });
 

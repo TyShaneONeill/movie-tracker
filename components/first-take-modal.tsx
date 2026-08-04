@@ -13,9 +13,17 @@ import {
   ScrollView,
   Keyboard,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { hapticImpact, hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import Toast from 'react-native-toast-message';
 import Slider from '@react-native-community/slider';
+import { analytics } from '@/lib/analytics';
 import { Colors, Spacing, BorderRadius, Shadows, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import { useTheme } from '@/lib/theme-context';
@@ -125,6 +133,22 @@ export function FirstTakeModal({
   // nulls the key) resets as before. Client-memory only — nothing persisted.
   const draftTargetRef = useRef<string | null>(null);
   const postingRef = useRef(false);
+  // Soft-confirm for the untouched default 5 (Ty's ruling, 2026-08-03). The
+  // 5-on-create default deliberately STAYS — someone who reached this composer
+  // should rate — but a slider nobody touched must not silently record that 5
+  // on a wordless take. The first post attempt on an untouched rating-only
+  // take is blocked ONCE with a nudge (copy + pulse + light haptic); the next
+  // post goes through, the 5 now user-affirmed. Never blocks twice. Scoped to
+  // wordless takes: a take with words posts first-press with its (visible) 5,
+  // matching the shared composer contract. "Touched" means ANY slider
+  // interaction — sliding away and back to exactly 5 is a deliberate 5.
+  const ratingTouchedRef = useRef(false);
+  const nudgedRef = useRef(false);
+  const [nudgeVisible, setNudgeVisible] = useState(false);
+  const nudgePulse = useSharedValue(0);
+  const nudgePulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + nudgePulse.value * 0.035 }],
+  }));
   const targetKey = `${movieTitle}|${seasonNumber ?? ''}|${episodeNumber ?? ''}`;
   useEffect(() => {
     if (visible && !prevVisibleRef.current) {
@@ -135,10 +159,22 @@ export function FirstTakeModal({
         setIsSpoiler(initialValues?.isSpoiler ?? false);
         setVisibility(initialValues?.visibility ?? preferences?.reviewVisibility ?? 'public');
       }
+      // Nudge state never survives a reopen — a fresh look at the composer
+      // gets a fresh (single) soft-confirm, even when the draft is restored.
+      ratingTouchedRef.current = false;
+      nudgedRef.current = false;
+      setNudgeVisible(false);
       draftTargetRef.current = targetKey;
     }
     prevVisibleRef.current = visible;
   }, [visible, initialValues, preferences?.reviewVisibility, keyboardGuardEnabled, targetKey]);
+
+  // A mid-open target swap is a different take — drop the nudge state with it.
+  useEffect(() => {
+    ratingTouchedRef.current = false;
+    nudgedRef.current = false;
+    setNudgeVisible(false);
+  }, [targetKey]);
 
   // When content is locked the user can still save a visibility-only change, so
   // the button stays enabled regardless of the (read-only) content values.
@@ -153,6 +189,28 @@ export function FirstTakeModal({
     // postingRef (scan-v2/first-take-sheet.tsx:132) and MultiFirstTakeModal's
     // locally-owned isSubmitting.
     if (!canSubmit || postingRef.current) return;
+
+    // The untouched-5 soft confirm (see the refs above). The rating === 5
+    // guard keeps the copy honest when a restored draft carries a non-default
+    // rating past the reopened (reset) touched flag.
+    const untouchedDefaultFive =
+      !initialValues &&
+      !ratingTouchedRef.current &&
+      rating === 5 &&
+      quoteText.trim().length === 0;
+    if (untouchedDefaultFive && !nudgedRef.current) {
+      nudgedRef.current = true;
+      setNudgeVisible(true);
+      nudgePulse.value = 0;
+      nudgePulse.value = withSequence(
+        withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 320, easing: Easing.inOut(Easing.cubic) })
+      );
+      hapticImpact();
+      analytics.track('first_take:rating_nudge_shown');
+      return;
+    }
+
     postingRef.current = true;
     hapticImpact();
 
@@ -177,6 +235,15 @@ export function FirstTakeModal({
       postingRef.current = false;
     }
 
+    // Nudge outcome — the measure of the real phantom-5 rate: after being
+    // told, did they score it or keep the 5?
+    if (nudgedRef.current) {
+      analytics.track('first_take:rating_nudge_outcome', {
+        outcome: ratingTouchedRef.current ? 'changed_rating' : 'affirmed_5',
+        rating,
+      });
+    }
+
     Toast.show({
       type: 'success',
       text1: isEditing ? 'First Take updated!' : 'First Take posted!',
@@ -186,6 +253,9 @@ export function FirstTakeModal({
     // Reset state after successful submit (create defaults; a subsequent open
     // re-pulls initialValues via the visible-transition effect).
     draftTargetRef.current = null;
+    ratingTouchedRef.current = false;
+    nudgedRef.current = false;
+    setNudgeVisible(false);
     setRating(5);
     setQuoteText('');
     setIsSpoiler(false);
@@ -282,7 +352,7 @@ export function FirstTakeModal({
               <View style={[styles.ratingSection, contentLocked && styles.lockedField]}>
                 <Text style={styles.sectionLabel}>Rating</Text>
 
-                <View style={styles.ratingWrapper}>
+                <Animated.View style={[styles.ratingWrapper, nudgePulseStyle]}>
                   {/* Large Rating Display */}
                   <View style={styles.ratingDisplay}>
                     <Text style={styles.ratingValue}>{rating === null ? '–' : formatRating(rating)}</Text>
@@ -298,7 +368,13 @@ export function FirstTakeModal({
                       step={0.1}
                       value={rating ?? 5}
                       disabled={contentLocked}
-                      onValueChange={(value) => setRating(Math.max(1, value))}
+                      onValueChange={(value) => {
+                        // Any interaction counts as touching, even one that
+                        // ends back at exactly 5 — that 5 is now deliberate.
+                        ratingTouchedRef.current = true;
+                        setNudgeVisible(false);
+                        setRating(Math.max(1, value));
+                      }}
                       minimumTrackTintColor={colors.tint}
                       maximumTrackTintColor={colors.backgroundSecondary}
                       thumbTintColor="#ffffff"
@@ -311,7 +387,13 @@ export function FirstTakeModal({
                     <Text style={[styles.ratingLabelText, styles.ratingLabelCenter]}>Average</Text>
                     <Text style={[styles.ratingLabelText, styles.ratingLabelRight]}>Masterpiece</Text>
                   </View>
-                </View>
+
+                  {nudgeVisible && (
+                    <Text style={styles.nudgeText} testID="untouched-five-nudge">
+                      Still at the starting 5 — slide to score it, or post again to keep it
+                    </Text>
+                  )}
+                </Animated.View>
               </View>
 
               {/* Text Input Section */}
@@ -575,6 +657,13 @@ const createStyles = (colors: typeof Colors.dark) =>
     },
     ratingLabelRight: {
       textAlign: 'right',
+    },
+    nudgeText: {
+      ...Typography.body.xs,
+      color: colors.tint,
+      textAlign: 'center',
+      marginTop: Spacing.xs,
+      fontFamily: Fonts.inter.medium,
     },
 
     // Text Input Section

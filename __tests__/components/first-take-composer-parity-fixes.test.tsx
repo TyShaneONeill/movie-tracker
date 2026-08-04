@@ -376,6 +376,9 @@ describe('wordless takes are never spoilers', () => {
 
   it('FirstTakeModal: a rating-only take drops a toggled spoiler flag', async () => {
     const utils = renderModal();
+    // Slide to a deliberate score (mirrors the Multi case above) so the
+    // untouched-5 soft confirm (2026-08-03 ruling) doesn't intercept the press.
+    fireEvent(utils.UNSAFE_getByType('Slider' as any), 'valueChange', 8);
     fireEvent.press(utils.getByRole('switch'));
 
     fireEvent.press(utils.getByText('Post First Take'));
