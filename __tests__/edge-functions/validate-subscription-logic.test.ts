@@ -1,5 +1,6 @@
 import {
   type RevenueCatEvent,
+  FAILURE_STATUS,
   STATUS_MAP,
   mapEventTypeToStatus,
   isValidUuid,
@@ -29,6 +30,36 @@ function makeEvent(overrides: Partial<RevenueCatEvent> = {}): RevenueCatEvent {
     ...overrides,
   };
 }
+
+describe('FAILURE_STATUS matrix', () => {
+  it('pins the entire reason → HTTP status decision table', () => {
+    // RevenueCat retries ANY non-2xx; codes only exist to make logs and the
+    // RC delivery dashboard self-explanatory. Changing any of these changes
+    // whether RC redelivers a revenue event — do it deliberately.
+    expect(FAILURE_STATUS).toEqual({
+      webhook_secret_not_configured: 500,
+      unauthorized: 401,
+      missing_event_payload: 400,
+      missing_required_fields: 400,
+      unhandled_event_type: 200,
+      user_lookup_failed: 500,
+      unresolvable_app_user_id: 503,
+      subscription_upsert_failed: 500,
+      profile_tier_sync_failed: 500,
+      unhandled_error: 500,
+    });
+  });
+
+  it('only acknowledged-skip is 2xx — every other reason triggers an RC retry', () => {
+    for (const [reason, status] of Object.entries(FAILURE_STATUS)) {
+      if (reason === 'unhandled_event_type') {
+        expect(status).toBe(200);
+      } else {
+        expect(status).toBeGreaterThanOrEqual(400);
+      }
+    }
+  });
+});
 
 describe('mapEventTypeToStatus', () => {
   it('maps every handled RevenueCat event type', () => {

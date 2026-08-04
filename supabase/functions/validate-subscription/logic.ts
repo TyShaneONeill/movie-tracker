@@ -50,6 +50,34 @@ export interface SubscriptionUpsert {
 }
 
 // ============================================================================
+// Response-status matrix
+// ============================================================================
+
+/**
+ * The webhook's complete reason → HTTP status matrix, in one place so a
+ * single table-driven test pins it. RevenueCat retries ANY non-2xx the same
+ * way — the different codes exist purely to make logs/RC dashboard entries
+ * self-explanatory, not to steer retry behavior.
+ *
+ * `unhandled_event_type` is not a failure (200 = acknowledged skip) but
+ * lives here so the full decision table is covered by the same test.
+ */
+export const FAILURE_STATUS = {
+  webhook_secret_not_configured: 500,
+  unauthorized: 401,
+  missing_event_payload: 400,
+  missing_required_fields: 400,
+  unhandled_event_type: 200,
+  user_lookup_failed: 500,
+  unresolvable_app_user_id: 503,
+  subscription_upsert_failed: 500,
+  profile_tier_sync_failed: 500,
+  unhandled_error: 500,
+} as const;
+
+export type FailureReason = keyof typeof FAILURE_STATUS;
+
+// ============================================================================
 // Status mapping
 // ============================================================================
 
