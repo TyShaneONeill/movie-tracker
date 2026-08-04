@@ -51,11 +51,25 @@ export interface PendingPostImportMoment {
   movieCount: number;
   /** Episodes inserted — feeds the episodes-only copy fallback. */
   episodeCount: number;
+  /** Epoch ms of the import's completion — stamped by save, used for the TTL. */
+  completedAt: number;
 }
 
-export async function savePendingPostImportMoment(moment: PendingPostImportMoment): Promise<void> {
+/**
+ * A record older than this is stale: the "you brought your library over" pitch
+ * has lost its moment, and a pending record must never strand forever (e.g.
+ * behind a permanently-off flag) waiting to ambush a user weeks later.
+ */
+export const PENDING_MOMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function savePendingPostImportMoment(
+  moment: Omit<PendingPostImportMoment, 'completedAt'>
+): Promise<void> {
   try {
-    await AsyncStorage.setItem(PENDING_MOMENT_STORAGE_KEY, JSON.stringify(moment));
+    await AsyncStorage.setItem(
+      PENDING_MOMENT_STORAGE_KEY,
+      JSON.stringify({ ...moment, completedAt: Date.now() })
+    );
   } catch {
     // Best-effort. Without the record the next visit simply won't pitch — the
     // same (broken-storage) state in which the once-ever gates fail closed too.
@@ -73,14 +87,27 @@ export async function loadPendingPostImportMoment(): Promise<PendingPostImportMo
       typeof (parsed as PendingPostImportMoment).stubs !== 'number' ||
       typeof (parsed as PendingPostImportMoment).showCount !== 'number' ||
       typeof (parsed as PendingPostImportMoment).movieCount !== 'number' ||
-      typeof (parsed as PendingPostImportMoment).episodeCount !== 'number'
+      typeof (parsed as PendingPostImportMoment).episodeCount !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).completedAt !== 'number'
     ) {
+      // Fail closed on garbage — including completedAt-less records written by
+      // builds before the TTL existed. Clear rather than leave an unconsumable
+      // record wedged in storage.
+      await clearPendingPostImportMoment();
       return null;
     }
-    return parsed as PendingPostImportMoment;
+    const moment = parsed as PendingPostImportMoment;
+    if (Date.now() - moment.completedAt > PENDING_MOMENT_TTL_MS) {
+      // Stale — the moment has passed. Consume it silently.
+      await clearPendingPostImportMoment();
+      return null;
+    }
+    return moment;
   } catch {
     // Unreadable/corrupt record — fail closed (no prompt) rather than pitch
-    // from garbage counts.
+    // from garbage counts, and best-effort clear so it doesn't wedge (a no-op
+    // if storage itself is what's broken).
+    await clearPendingPostImportMoment();
     return null;
   }
 }

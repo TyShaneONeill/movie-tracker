@@ -46,8 +46,10 @@ export function describeImportHaul(counts: UpsellCounts): string | null {
 /** Full upsell body. */
 export function postImportUpsellMessage(counts: UpsellCounts): string {
   const haul = describeImportHaul(counts);
+  // No "just": the pitch may surface a visit (or days) after the import
+  // completed while backgrounded (#776), and it has to read honestly then too.
   const opener = haul
-    ? `You just brought over ${haul}.`
-    : 'Your library just landed in PocketStubs.';
+    ? `You brought over ${haul}.`
+    : 'Your library landed in PocketStubs.';
   return `${opener} See your taste profile — rating personality, blind spots, and more — across everything you've watched with PocketStubs+.`;
 }
