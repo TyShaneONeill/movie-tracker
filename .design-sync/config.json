@@ -1,0 +1,23 @@
+{
+  "projectId": "070300a9-799d-4d32-ad83-93db9c3a6b77",
+  "shape": "package",
+  "pkg": "@pocketstubs/design-system",
+  "globalName": "PocketStubs",
+  "entry": ".design-sync/pkg/dist/index.es.js",
+  "buildCmd": "node .design-sync/pkg/build.mjs",
+  "readmeHeader": ".design-sync/conventions.md",
+  "cssEntry": "dist/styles.css",
+  "componentSrcMap": { "Colors": null, "Fonts": null, "Typography": null, "PocketStubsProvider": null },
+  "provider": { "component": "PocketStubsProvider", "props": { "theme": "dark" } },
+  "overrides": {
+    "TicketReviewCard": { "cardMode": "column" },
+    "TicketFlipCard": { "cardMode": "column" },
+    "ToggleSwitch": { "cardMode": "column" },
+    "TrendingCard": { "cardMode": "column" },
+    "SwipeToConfirm": { "cardMode": "column" },
+    "SearchResultCard": { "cardMode": "column" },
+    "SearchSkeletonList": { "cardMode": "column" },
+    "SectionHeader": { "cardMode": "column" },
+    "StarRating": { "cardMode": "column" }
+  }
+}

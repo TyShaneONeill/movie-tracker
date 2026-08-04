@@ -1,0 +1,9 @@
+{
+  "name": "@pocketstubs/design-system",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Web-compiled PocketStubs design system (react-native-web) for claude.ai/design sync",
+  "module": "dist/index.es.js",
+  "main": "dist/index.es.js",
+  "types": "dist/.design-sync/pkg/index.d.ts"
+}
