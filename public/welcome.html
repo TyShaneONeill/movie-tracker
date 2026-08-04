@@ -103,6 +103,26 @@
             flex-wrap: wrap;
         }
 
+        /* Text badge for Google Play (no official badge asset in /images/landing
+           yet) — same treatment as tv-time-import.html's store badge, 44px to
+           line up with the App Store badge image. */
+        .store-badge {
+            display: inline-flex;
+            align-items: center;
+            height: 44px;
+            padding: 0 20px;
+            background: #18181b;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #fafafa;
+            font-weight: 500;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .store-badge:hover { background: #27272a; text-decoration: none; }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -394,12 +414,13 @@
     <section class="section hero">
         <div class="hero-content">
             <h1>Your Movie Journey, Tracked</h1>
-            <p class="subheadline">Build watchlists, log every viewing, create AI-powered journey art, and share your taste with friends. Free on web, coming to iOS and Android.</p>
+            <p class="subheadline">Build watchlists, log every viewing, create AI-powered journey art, and share your taste with friends. Free on web, iOS, and Android.</p>
             <div class="cta-group">
                 <a href="/" class="btn btn-primary" onclick="document.cookie='pocketstubs_visited=1;path=/;max-age=31536000'">Browse Movies Free</a>
                 <a href="https://apps.apple.com/app/pocketstubs/id6760832346?ct=web-organic" aria-label="Download on the App Store">
                     <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
                 </a>
+                <a href="https://play.google.com/store/apps/details?id=com.pocketstubs.app&referrer=utm_source%3Dweb-organic" class="store-badge">Get it on Google Play</a>
             </div>
         </div>
         <div class="phone-mockup">
@@ -452,6 +473,7 @@
             <a href="https://apps.apple.com/app/pocketstubs/id6760832346?ct=web-organic" aria-label="Download on the App Store">
                 <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
             </a>
+            <a href="https://play.google.com/store/apps/details?id=com.pocketstubs.app&referrer=utm_source%3Dweb-organic" class="store-badge">Get it on Google Play</a>
         </div>
     </section>
 

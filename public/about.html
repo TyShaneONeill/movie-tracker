@@ -141,5 +141,31 @@
             <p>&copy; 2026 PocketStubs. All rights reserved.</p>
         </footer>
     </div>
+<script>
+  // Acquisition attribution: carry the visitor's inbound channel onto the
+  // outbound store links. Apple gets a campaign token (?ct=; no pt provider
+  // token is configured yet — ct-only until one is added from App Store
+  // Connect), Play gets an install referrer (&referrer=utm_source%3D...).
+  // Static hrefs default to web-organic; this only rewrites for known
+  // campaign sources. Contract: docs/analytics-acquisition.md
+  (function () {
+    var ALLOWED = { producthunt: 1, alternativeto: 1, x: 1 };
+    var ALIASES = { 'product-hunt': 'producthunt', 'product_hunt': 'producthunt', 'ph': 'producthunt', 'twitter': 'x', 'x.com': 'x' };
+    var params = new URLSearchParams(window.location.search);
+    var raw = (params.get('utm_source') || params.get('ref') || params.get('src') || '').toLowerCase();
+    var source = ALLOWED[raw] ? raw : ALIASES[raw];
+    if (!source) return; // unknown/absent -> keep the static web-organic tags
+    document.querySelectorAll('a[href*="apps.apple.com"]').forEach(function (a) {
+      var url = new URL(a.href);
+      url.searchParams.set('ct', source);
+      a.href = url.toString();
+    });
+    document.querySelectorAll('a[href*="play.google.com"]').forEach(function (a) {
+      var url = new URL(a.href);
+      url.searchParams.set('referrer', 'utm_source=' + source);
+      a.href = url.toString();
+    });
+  })();
+</script>
 </body>
 </html>

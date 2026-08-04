@@ -52,7 +52,17 @@ export function useAcquisitionPrompt() {
           .select('onboarding_completed, created_at, acquisition_source')
           .eq('id', userId)
           .single();
-        if (error || !data) return;
+        if (error || !data) {
+          // Surface loudly: this branch also fires if the acquisition_source
+          // migration is missing on the target DB, which would silently kill
+          // attribution for every launch-weekend signup.
+          if (error) {
+            captureException(new Error(error.message), {
+              context: 'acquisition-prompt-profile-read',
+            });
+          }
+          return;
+        }
 
         const eligible = shouldShowAcquisitionPrompt({
           onboardingCompleted: data.onboarding_completed ?? false,
