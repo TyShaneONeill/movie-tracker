@@ -60,13 +60,13 @@ describe('postImportUpsellMessage', () => {
 
   it('leads with the real haul and keeps the taste-profile pitch', () => {
     const msg = postImportUpsellMessage({ showCount: 5, movieCount: 12, episodeCount: 90 });
-    expect(msg).toContain('You just brought over 5 shows and 12 movies.');
+    expect(msg).toContain('You brought over 5 shows and 12 movies.');
     expect(msg).toContain('taste profile');
   });
 
   it('degrades to a sentence that still reads when nothing is countable', () => {
     const msg = postImportUpsellMessage({ showCount: 0, movieCount: 0, episodeCount: 0 });
-    expect(msg).toContain('Your library just landed in PocketStubs.');
+    expect(msg).toContain('Your library landed in PocketStubs.');
     expect(msg).toContain('taste profile');
   });
 });

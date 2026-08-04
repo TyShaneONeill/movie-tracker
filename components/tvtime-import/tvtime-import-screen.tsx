@@ -37,7 +37,7 @@ import {
   type PersistedReviewItem,
 } from '@/lib/tvtime-import';
 import type { TvTimeMatchResult } from '@/lib/tvtime-import/types';
-import { useImportRun } from '@/lib/tvtime-import/import-run-context';
+import { useImportRun, type ImportRunPhase } from '@/lib/tvtime-import/import-run-context';
 import { importScreenView } from '@/lib/tvtime-import/import-run-view';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
 import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
@@ -55,6 +55,9 @@ import { usePostImportUpsellEnabled } from '@/hooks/use-feature-flag';
 import {
   checkPostImportUpsell,
   markPostImportUpsellShown,
+  loadPendingPostImportMoment,
+  clearPendingPostImportMoment,
+  type PendingPostImportMoment,
 } from '@/lib/post-import-upsell-service';
 import { postImportUpsellMessage } from '@/lib/post-import-upsell-copy';
 
@@ -400,7 +403,165 @@ export function TvTimeImportScreen() {
         onNoneOfThese={() => setFixItem(null)}
         onClose={() => setFixItem(null)}
       />
+
+      {/* Screen-level (not DoneScreen-level) so a completed-not-yet-pitched
+          import found on ANY visit — pick, resume, or the live done screen —
+          gets its review-ask + upsell moment. See PostImportMoments. */}
+      <PostImportMoments runPhase={importRun.phase} />
     </SafeAreaView>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Post-import moments (review ask -> premium upsell)
+// ---------------------------------------------------------------------------
+
+/**
+ * Runs the two post-import sheets — the store-review ask, then the
+ * PocketStubs+ upsell — from the durable pending-moment record the import-run
+ * provider writes at completion. Keying off that record instead of a live
+ * "fresh completion" render is the #776 fix: an import that finishes while
+ * the user is backgrounded or elsewhere in the app still gets its moment on
+ * the next visit to this screen, even after the progress pill auto-dismisses
+ * and resets the run (which used to wipe the only trace of completion).
+ *
+ * Ordering + one-shot semantics are unchanged from the DoneScreen-era chain:
+ * the review ask resolves first so only one sheet is ever on screen, each
+ * sheet is gated by its own once-ever AsyncStorage flag, the upsell is
+ * non-premium-only + flag-gated (fails closed while loading — the pending
+ * record is retained, not burned, so the moment survives a slow flag load),
+ * and the record is cleared once the upsell decision resolves so the sequence
+ * runs at most once per completed import.
+ */
+function PostImportMoments({ runPhase }: { runPhase: ImportRunPhase }) {
+  const { isPremium } = usePremium();
+  const upsellEnabled = usePostImportUpsellEnabled();
+
+  const [pending, setPending] = useState<PendingPostImportMoment | null>(null);
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+  const [reviewResolved, setReviewResolved] = useState(false);
+  const [showUpsell, setShowUpsell] = useState(false);
+
+  // Read the pending record on mount, and again when a run completes while
+  // this screen is up (the provider awaits the write BEFORE flipping phase to
+  // 'complete', so this read always sees a fresh completion). Never consume
+  // mid-run or over an error screen. `prev ?? m` keeps the consumed object's
+  // identity stable so the effects below never restart off a re-read — the
+  // restart-on-rerun cleanup was exactly the hazard that killed the old chain
+  // (see the #768 postmortem comment that used to live in DoneScreen).
+  useEffect(() => {
+    if (runPhase === 'running' || runPhase === 'error') return;
+    let cancelled = false;
+    loadPendingPostImportMoment().then((m) => {
+      if (!cancelled && m) setPending((prev) => prev ?? m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [runPhase]);
+
+  // Review ask first — same 2s beat as before, now measured from when the
+  // pending record is picked up. The shown-flag burns only once the sheet is
+  // actually visible (`cancelled` guards the async gap); an unmount mid-check
+  // keeps the pending record, so the moment retries on the next visit instead
+  // of being lost.
+  const reviewCheckStartedRef = useRef(false);
+  useEffect(() => {
+    if (!pending || reviewCheckStartedRef.current) return;
+    reviewCheckStartedRef.current = true;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      checkImportDoneReviewPrompt(pending.stubs)
+        .then(({ show }) => {
+          if (cancelled) return;
+          if (show) {
+            setShowReviewPrompt(true);
+            markReviewPromptShown().catch(() => {});
+          } else {
+            setReviewResolved(true);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setReviewResolved(true);
+        });
+    }, REVIEW_PROMPT_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [pending]);
+
+  // Then the upsell. The flag gate sits OUTSIDE the latch: while the flag is
+  // still loading (fails closed) the sequence just waits and the effect
+  // re-runs when it resolves. Premium is re-checked live inside
+  // checkPostImportUpsell — a premium user's record resolves show:false and is
+  // cleared without showing.
+  const upsellCheckStartedRef = useRef(false);
+  useEffect(() => {
+    if (!pending || !reviewResolved || !upsellEnabled) return;
+    if (upsellCheckStartedRef.current) return;
+    upsellCheckStartedRef.current = true;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      checkPostImportUpsell({ isPremium, itemCount: pending.stubs })
+        .then(({ show }) => {
+          if (cancelled) return;
+          if (show) {
+            setShowUpsell(true);
+            markPostImportUpsellShown({
+              showCount: pending.showCount,
+              movieCount: pending.movieCount,
+            }).catch(() => {});
+          }
+          // Decision made — shown now, or permanently ineligible (once-ever
+          // flag already burned / premium). The moment is spent either way.
+          clearPendingPostImportMoment().catch(() => {});
+        })
+        .catch(() => {});
+    }, POST_IMPORT_UPSELL_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [pending, reviewResolved, upsellEnabled, isPremium]);
+
+  // Re-check premium at present time: if entitlement resolves to premium after
+  // the sheet was queued/shown (e.g. a restore completes), pull it down.
+  useEffect(() => {
+    if (isPremium) setShowUpsell(false);
+  }, [isPremium]);
+
+  return (
+    <>
+      <ReviewPromptSheet
+        visible={showReviewPrompt}
+        onAccept={() => {
+          setShowReviewPrompt(false);
+          acceptReviewPrompt();
+          setReviewResolved(true);
+        }}
+        onDecline={() => {
+          setShowReviewPrompt(false);
+          declineReviewPrompt();
+          setReviewResolved(true);
+        }}
+      />
+      {/* Post-import PocketStubs+ moment — reuses the shared upgrade sheet with
+          library-tailored copy, routed at /upgrade?source=post-import (the
+          tap-through is tracked by that screen's premium:upgrade_view event). */}
+      <UpgradePromptSheet
+        visible={showUpsell}
+        featureKey="advanced_stats"
+        source="post-import"
+        title="Your taste, across your whole library"
+        message={postImportUpsellMessage({
+          showCount: pending?.showCount ?? 0,
+          movieCount: pending?.movieCount ?? 0,
+          episodeCount: pending?.episodeCount ?? 0,
+        })}
+        onClose={() => setShowUpsell(false)}
+      />
+    </>
   );
 }
 
@@ -621,109 +782,11 @@ function DoneScreen({
   const watched = preview?.moviesWatched ?? 0;
   const watchlist = preview?.moviesWatchlist ?? 0;
 
-  // The library they just brought over — feeds the tailored upsell copy. Shows
-  // are the followed series; movies are watched + Pile. Matches the header line
-  // the user just read.
-  const showCount = counts.showsUpserted;
-  const movieCount = watched + watchlist;
-
-  const { isPremium } = usePremium();
-  const upsellEnabled = usePostImportUpsellEnabled();
-
-  // Post-import review ask — fresh completion only (never on a resume visit),
-  // once per user ever, and only when something actually got imported. See
-  // lib/review-prompt-service.ts for the once-ever gate. The shown-flag is
-  // burned only once the sheet actually becomes visible (`cancelled` guards
-  // the async gap between the timer firing and the check resolving) — a user
-  // who taps Done and unmounts mid-check must not permanently lose the
-  // prompt without ever seeing it.
-  //
-  // `reviewResolved` flips true when the review moment is settled (it won't
-  // show, or it was dismissed) — that's the gate that lets the premium upsell
-  // slide up next, so the two sheets never stack.
-  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
-  const [reviewResolved, setReviewResolved] = useState(false);
-  const reviewCheckStartedRef = useRef(false);
-  useEffect(() => {
-    // WAIT FOR A REAL COUNT BEFORE LATCHING. `stubs` is 0 on the first render of
-    // this screen and only becomes final once the run reports its counts, so the
-    // effect must not claim the ref on that first pass.
-    //
-    // It used to: at stubs=0 it set reviewCheckStartedRef and scheduled the
-    // timer; the stubs 0 -> N change then re-ran the effect, whose CLEANUP
-    // cleared that pending timer, while the ref guard stopped a replacement
-    // being scheduled. The review check therefore never executed,
-    // setReviewResolved(true) never ran, and reviewResolved stayed false
-    // forever. Both post-import moments died with it: the review ask never
-    // appeared, and the premium upsell -- which is gated on reviewResolved --
-    // could never appear either. That is why
-    // premium:post_import_prompt_shown has ZERO events in production since
-    // #746 shipped.
-    //
-    // Gating on stubs > 0 makes the first pass a no-op, so the timer is
-    // scheduled exactly once, with the real count.
-    if (resume || stubs <= 0 || reviewCheckStartedRef.current) return;
-    reviewCheckStartedRef.current = true;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      checkImportDoneReviewPrompt(stubs)
-        .then(({ show }) => {
-          if (cancelled) return;
-          if (show) {
-            setShowReviewPrompt(true);
-            markReviewPromptShown().catch(() => {});
-          } else {
-            setReviewResolved(true);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setReviewResolved(true);
-        });
-    }, REVIEW_PROMPT_DELAY_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [resume, stubs]);
-
-  // Post-import PocketStubs+ upsell — the board's first-dollar lever, shown at
-  // the highest-intent moment (someone who just imported their whole library).
-  // Guards: non-premium only (re-checked live), flag/env gated (fails closed),
-  // once ever via AsyncStorage (a re-import never re-triggers it), fresh
-  // completion only, and only after the review ask is resolved so a single
-  // sheet is on screen at a time. Never fires on a partial/failed import — the
-  // done screen only renders on terminal SUCCESS (see importScreenView).
-  const [showUpsell, setShowUpsell] = useState(false);
-  const upsellCheckStartedRef = useRef(false);
-  useEffect(() => {
-    if (resume || !reviewResolved || !upsellEnabled || isPremium) return;
-    // Same latch hazard as the review effect above: never claim the ref before
-    // there is a real count to evaluate. reviewResolved can only flip after
-    // stubs > 0 now, so this is belt-and-braces rather than load-bearing -- but
-    // the failure it prevents is silent and permanent, so it is worth the line.
-    if (stubs <= 0 || upsellCheckStartedRef.current) return;
-    upsellCheckStartedRef.current = true;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      checkPostImportUpsell({ isPremium, itemCount: stubs })
-        .then(({ show }) => {
-          if (!show || cancelled) return;
-          setShowUpsell(true);
-          markPostImportUpsellShown({ showCount, movieCount }).catch(() => {});
-        })
-        .catch(() => {});
-    }, POST_IMPORT_UPSELL_DELAY_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [resume, reviewResolved, upsellEnabled, isPremium, stubs, showCount, movieCount]);
-
-  // Re-check premium at present time: if entitlement resolves to premium after
-  // the sheet was queued/shown (e.g. a restore completes), pull it down.
-  useEffect(() => {
-    if (isPremium) setShowUpsell(false);
-  }, [isPremium]);
+  // NOTE: the post-import moments (review ask -> premium upsell) no longer
+  // live here. They run from the durable pending-moment record in
+  // PostImportMoments, mounted at the screen level — so an import that
+  // completed while backgrounded still gets its moment on a later visit that
+  // never renders this done screen (#776).
 
   return (
     <View style={{ flex: 1 }}>
@@ -788,35 +851,6 @@ function DoneScreen({
         </Pressable>
       </View>
 
-      <ReviewPromptSheet
-        visible={showReviewPrompt}
-        onAccept={() => {
-          setShowReviewPrompt(false);
-          acceptReviewPrompt();
-          setReviewResolved(true);
-        }}
-        onDecline={() => {
-          setShowReviewPrompt(false);
-          declineReviewPrompt();
-          setReviewResolved(true);
-        }}
-      />
-
-      {/* Post-import PocketStubs+ moment — reuses the shared upgrade sheet with
-          library-tailored copy, routed at /upgrade?source=post-import (the
-          tap-through is tracked by that screen's premium:upgrade_view event). */}
-      <UpgradePromptSheet
-        visible={showUpsell}
-        featureKey="advanced_stats"
-        source="post-import"
-        title="Your taste, across your whole library"
-        message={postImportUpsellMessage({
-          showCount,
-          movieCount,
-          episodeCount: counts.episodesInserted,
-        })}
-        onClose={() => setShowUpsell(false)}
-      />
     </View>
   );
 }

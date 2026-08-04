@@ -1,7 +1,11 @@
 /**
  * Post-import PocketStubs+ upsell — decides whether to present the premium
- * upsell at the TV Time import SUCCESS moment (the done screen, fresh
- * completion only — never on a resume visit to an already-finished import).
+ * upsell at the TV Time import SUCCESS moment. Triggered from the durable
+ * pending-moment record written at completion (see PendingPostImportMoment
+ * below), so an import that finishes while the app is backgrounded or the
+ * user navigated away still gets its moment on the next screen visit (#776).
+ * A visit with no pending record — e.g. a resume visit to an already-pitched
+ * import — never triggers it.
  *
  * This is the highest-intent premium moment we have: someone who just brought
  * their whole library over is exactly who benefits from taste insights across
@@ -25,6 +29,97 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analytics } from './analytics';
 
 const UPSELL_SHOWN_STORAGE_KEY = 'post_import_upsell.shown';
+const PENDING_MOMENT_STORAGE_KEY = 'post_import_upsell.pending';
+
+/**
+ * Durable record of an import that completed but whose post-import moments
+ * (review ask, then this upsell) have not yet been offered. Written by the
+ * import-run provider at completion time — which runs whether or not the
+ * import screen is mounted or focused (#776: 6 of 11 real importers finished
+ * while backgrounded/navigated-away, and the in-screen trigger chain never
+ * fired for them). Consumed by the import screen on its next mount/visit and
+ * cleared once the upsell decision resolves, so the sequence runs at most once
+ * per completed import — the once-ever shown-flags above remain the real
+ * one-shot gates.
+ */
+export interface PendingPostImportMoment {
+  /** Stubs printed (episodes + movies inserted/updated) — the eligibility count. */
+  stubs: number;
+  /** Shows brought over — feeds the tailored upsell copy + shown analytics. */
+  showCount: number;
+  /** Movies brought over (watched + Pile) — feeds copy + shown analytics. */
+  movieCount: number;
+  /** Episodes inserted — feeds the episodes-only copy fallback. */
+  episodeCount: number;
+  /** Epoch ms of the import's completion — stamped by save, used for the TTL. */
+  completedAt: number;
+}
+
+/**
+ * A record older than this is stale: the "you brought your library over" pitch
+ * has lost its moment, and a pending record must never strand forever (e.g.
+ * behind a permanently-off flag) waiting to ambush a user weeks later.
+ */
+export const PENDING_MOMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function savePendingPostImportMoment(
+  moment: Omit<PendingPostImportMoment, 'completedAt'>
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      PENDING_MOMENT_STORAGE_KEY,
+      JSON.stringify({ ...moment, completedAt: Date.now() })
+    );
+  } catch {
+    // Best-effort. Without the record the next visit simply won't pitch — the
+    // same (broken-storage) state in which the once-ever gates fail closed too.
+  }
+}
+
+export async function loadPendingPostImportMoment(): Promise<PendingPostImportMoment | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_MOMENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      typeof (parsed as PendingPostImportMoment).stubs !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).showCount !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).movieCount !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).episodeCount !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).completedAt !== 'number'
+    ) {
+      // Fail closed on garbage — including completedAt-less records written by
+      // builds before the TTL existed. Clear rather than leave an unconsumable
+      // record wedged in storage.
+      await clearPendingPostImportMoment();
+      return null;
+    }
+    const moment = parsed as PendingPostImportMoment;
+    if (Date.now() - moment.completedAt > PENDING_MOMENT_TTL_MS) {
+      // Stale — the moment has passed. Consume it silently.
+      await clearPendingPostImportMoment();
+      return null;
+    }
+    return moment;
+  } catch {
+    // Unreadable/corrupt record — fail closed (no prompt) rather than pitch
+    // from garbage counts, and best-effort clear so it doesn't wedge (a no-op
+    // if storage itself is what's broken).
+    await clearPendingPostImportMoment();
+    return null;
+  }
+}
+
+export async function clearPendingPostImportMoment(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PENDING_MOMENT_STORAGE_KEY);
+  } catch {
+    // Best-effort; the once-ever shown-flags still prevent any re-nag if a
+    // stale record is consumed again.
+  }
+}
 
 /**
  * Pure decision function — exported for unit testing without touching
