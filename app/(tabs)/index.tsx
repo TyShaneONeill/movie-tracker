@@ -40,6 +40,8 @@ import { TvTimeImportCard } from '@/components/tvtime-import/tvtime-import-card'
 import { useTvTimeImportCard } from '@/hooks/use-tvtime-import-card';
 import { InkStubsCard } from '@/components/tvtime-deck/ink-stubs-card';
 import { consumePostOnboardingRoute } from '@/lib/post-onboarding-intent';
+import { AcquisitionSourcePrompt } from '@/components/acquisition-source-prompt';
+import { useAcquisitionPrompt } from '@/hooks/use-acquisition-prompt';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -91,6 +93,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const tvtimeCard = useTvTimeImportCard();
+  const acquisitionPrompt = useAcquisitionPrompt();
 
   // Complete a navigation intent handed off from onboarding (e.g. the "Import
   // from TV Time" CTA). Performed here, on the surviving screen's mount, because
@@ -460,6 +463,14 @@ export default function HomeScreen() {
         </ContentContainer>
 
       </ScrollView>
+
+      {/* One-time "what brought you here?" ask for brand-new users — gated
+          (once-ever, new-profiles-only) in useAcquisitionPrompt. */}
+      <AcquisitionSourcePrompt
+        visible={acquisitionPrompt.visible}
+        onSelect={acquisitionPrompt.onSelect}
+        onDismiss={acquisitionPrompt.onDismiss}
+      />
     </SafeAreaView>
   );
 }

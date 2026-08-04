@@ -654,6 +654,7 @@ export type Database = {
       profiles: {
         Row: {
           account_tier: string
+          acquisition_source: string | null
           avatar_config: Json | null
           avatar_type: string
           avatar_url: string | null
@@ -683,6 +684,7 @@ export type Database = {
         }
         Insert: {
           account_tier?: string
+          acquisition_source?: string | null
           avatar_config?: Json | null
           avatar_type?: string
           avatar_url?: string | null
@@ -712,6 +714,7 @@ export type Database = {
         }
         Update: {
           account_tier?: string
+          acquisition_source?: string | null
           avatar_config?: Json | null
           avatar_type?: string
           avatar_url?: string | null
