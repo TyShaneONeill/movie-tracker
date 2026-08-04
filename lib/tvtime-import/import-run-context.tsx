@@ -10,6 +10,7 @@ import { hapticNotification, NotificationFeedbackType } from '@/lib/haptics';
 import { getPermissionStatus } from '@/lib/push-notification-service';
 import { invalidateTvTimeImportQueries } from '@/lib/query-invalidation';
 import { invalidateHasTvTimeImport } from '@/hooks/use-has-tvtime-import';
+import { savePendingPostImportMoment } from '@/lib/post-import-upsell-service';
 import {
   runTvTimeImport,
   saveNeedsReview,
@@ -208,6 +209,24 @@ export function ImportRunProvider({ children }: { children: React.ReactNode }) {
           await markImportCompleted(args.userId);
           invalidateTvTimeImportQueries(queryClient);
           invalidateHasTvTimeImport(queryClient);
+
+          // Durable "completed, not yet pitched" record for the post-import
+          // moments (review ask -> premium upsell). Written HERE — not the
+          // screen — so a completion while backgrounded/navigated-away still
+          // pitches on the next screen visit (#776); the pill's auto-dismiss
+          // reset() used to wipe the only trace of completion before the user
+          // ever saw the done screen. Awaited before the phase flips to
+          // 'complete' so the screen's phase-triggered read always sees it.
+          const stubsPrinted =
+            result.episodesInserted + result.moviesInserted + result.moviesUpdated;
+          if (stubsPrinted > 0) {
+            await savePendingPostImportMoment({
+              stubs: stubsPrinted,
+              showCount: result.showsUpserted,
+              movieCount: args.preview.moviesWatched + args.preview.moviesWatchlist,
+              episodeCount: result.episodesInserted,
+            });
+          }
 
           analytics.track('import_completed', {
             entry_point: args.entryPoint,

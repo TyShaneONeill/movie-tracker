@@ -1,7 +1,11 @@
 /**
  * Post-import PocketStubs+ upsell — decides whether to present the premium
- * upsell at the TV Time import SUCCESS moment (the done screen, fresh
- * completion only — never on a resume visit to an already-finished import).
+ * upsell at the TV Time import SUCCESS moment. Triggered from the durable
+ * pending-moment record written at completion (see PendingPostImportMoment
+ * below), so an import that finishes while the app is backgrounded or the
+ * user navigated away still gets its moment on the next screen visit (#776).
+ * A visit with no pending record — e.g. a resume visit to an already-pitched
+ * import — never triggers it.
  *
  * This is the highest-intent premium moment we have: someone who just brought
  * their whole library over is exactly who benefits from taste insights across
@@ -25,6 +29,70 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analytics } from './analytics';
 
 const UPSELL_SHOWN_STORAGE_KEY = 'post_import_upsell.shown';
+const PENDING_MOMENT_STORAGE_KEY = 'post_import_upsell.pending';
+
+/**
+ * Durable record of an import that completed but whose post-import moments
+ * (review ask, then this upsell) have not yet been offered. Written by the
+ * import-run provider at completion time — which runs whether or not the
+ * import screen is mounted or focused (#776: 6 of 11 real importers finished
+ * while backgrounded/navigated-away, and the in-screen trigger chain never
+ * fired for them). Consumed by the import screen on its next mount/visit and
+ * cleared once the upsell decision resolves, so the sequence runs at most once
+ * per completed import — the once-ever shown-flags above remain the real
+ * one-shot gates.
+ */
+export interface PendingPostImportMoment {
+  /** Stubs printed (episodes + movies inserted/updated) — the eligibility count. */
+  stubs: number;
+  /** Shows brought over — feeds the tailored upsell copy + shown analytics. */
+  showCount: number;
+  /** Movies brought over (watched + Pile) — feeds copy + shown analytics. */
+  movieCount: number;
+  /** Episodes inserted — feeds the episodes-only copy fallback. */
+  episodeCount: number;
+}
+
+export async function savePendingPostImportMoment(moment: PendingPostImportMoment): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PENDING_MOMENT_STORAGE_KEY, JSON.stringify(moment));
+  } catch {
+    // Best-effort. Without the record the next visit simply won't pitch — the
+    // same (broken-storage) state in which the once-ever gates fail closed too.
+  }
+}
+
+export async function loadPendingPostImportMoment(): Promise<PendingPostImportMoment | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_MOMENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      typeof (parsed as PendingPostImportMoment).stubs !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).showCount !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).movieCount !== 'number' ||
+      typeof (parsed as PendingPostImportMoment).episodeCount !== 'number'
+    ) {
+      return null;
+    }
+    return parsed as PendingPostImportMoment;
+  } catch {
+    // Unreadable/corrupt record — fail closed (no prompt) rather than pitch
+    // from garbage counts.
+    return null;
+  }
+}
+
+export async function clearPendingPostImportMoment(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PENDING_MOMENT_STORAGE_KEY);
+  } catch {
+    // Best-effort; the once-ever shown-flags still prevent any re-nag if a
+    // stale record is consumed again.
+  }
+}
 
 /**
  * Pure decision function — exported for unit testing without touching
