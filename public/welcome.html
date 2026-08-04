@@ -397,7 +397,7 @@
             <p class="subheadline">Build watchlists, log every viewing, create AI-powered journey art, and share your taste with friends. Free on web, coming to iOS and Android.</p>
             <div class="cta-group">
                 <a href="/" class="btn btn-primary" onclick="document.cookie='pocketstubs_visited=1;path=/;max-age=31536000'">Browse Movies Free</a>
-                <a href="https://apps.apple.com/app/pocketstubs/id6760832346" aria-label="Download on the App Store">
+                <a href="https://apps.apple.com/app/pocketstubs/id6760832346?ct=web-organic" aria-label="Download on the App Store">
                     <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
                 </a>
             </div>
@@ -449,7 +449,7 @@
         <p class="subtext">No account required to browse. Sign up when you're ready.</p>
         <div class="cta-group">
             <a href="/" class="btn btn-primary" onclick="document.cookie='pocketstubs_visited=1;path=/;max-age=31536000'">Browse Movies Free</a>
-            <a href="https://apps.apple.com/app/pocketstubs/id6760832346" aria-label="Download on the App Store">
+            <a href="https://apps.apple.com/app/pocketstubs/id6760832346?ct=web-organic" aria-label="Download on the App Store">
                 <img src="/images/landing/app-store-badge.svg" alt="Download on the App Store" height="44">
             </a>
         </div>
@@ -565,5 +565,31 @@
         });
     })();
     </script>
+<script>
+  // Acquisition attribution: carry the visitor's inbound channel onto the
+  // outbound store links. Apple gets a campaign token (?ct=; no pt provider
+  // token is configured yet — ct-only until one is added from App Store
+  // Connect), Play gets an install referrer (&referrer=utm_source%3D...).
+  // Static hrefs default to web-organic; this only rewrites for known
+  // campaign sources. Contract: docs/analytics-acquisition.md
+  (function () {
+    var ALLOWED = { producthunt: 1, alternativeto: 1, x: 1 };
+    var ALIASES = { 'product-hunt': 'producthunt', 'product_hunt': 'producthunt', 'ph': 'producthunt', 'twitter': 'x', 'x.com': 'x' };
+    var params = new URLSearchParams(window.location.search);
+    var raw = (params.get('utm_source') || params.get('ref') || params.get('src') || '').toLowerCase();
+    var source = ALLOWED[raw] ? raw : ALIASES[raw];
+    if (!source) return; // unknown/absent -> keep the static web-organic tags
+    document.querySelectorAll('a[href*="apps.apple.com"]').forEach(function (a) {
+      var url = new URL(a.href);
+      url.searchParams.set('ct', source);
+      a.href = url.toString();
+    });
+    document.querySelectorAll('a[href*="play.google.com"]').forEach(function (a) {
+      var url = new URL(a.href);
+      url.searchParams.set('referrer', 'utm_source=' + source);
+      a.href = url.toString();
+    });
+  })();
+</script>
 </body>
 </html>
