@@ -21,6 +21,7 @@ import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import type { ProcessedTicket } from '@/lib/ticket-processor';
 import type { JourneyUpdate, TicketScanInsert } from '@/lib/database.types';
 import { dedupeNames } from '@/lib/companion-names';
+import { localMidnightISO } from '@/lib/date-conventions';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // ============================================================================
@@ -95,11 +96,13 @@ export function mapTicketToJourneyData(
     seatLocation = ticket.seatNumber;
   }
 
-  // Build watched_at timestamp from date
+  // Build watched_at timestamp from date. LOCAL midnight, matching the
+  // edit-journey sheet — UTC midnight displays the previous day for
+  // negative-UTC users (#794).
   let watchedAt: string | null = null;
   if (ticket.date) {
     // ticket.date is in YYYY-MM-DD format
-    watchedAt = `${ticket.date}T00:00:00Z`;
+    watchedAt = localMidnightISO(ticket.date);
   }
 
   // Convert showtime to watch_time (HH:MM format)
