@@ -241,20 +241,80 @@ function chunkUnitCount(chunk: ImportChunk): number {
 /** Smallest caps we'll re-slice down to before giving up on a stubborn 413. */
 const MIN_CAP = 1;
 
+// ---------------------------------------------------------------------------
+// Progressive chunk sizing (#720)
+// ---------------------------------------------------------------------------
+// The client learns the server's progress ONLY when a chunk's round-trip
+// returns — chunk size IS the progress granularity. Shipping the whole import
+// at the per-call ceiling (MAX_EPISODES_PER_CALL=5000) packed the heaviest
+// migrant's 5,459 episodes into ~2 chunks, so the first round-trip took ~50s
+// and the counter read 0/5,863 that entire time (issue #720). The user thought
+// it was frozen, backgrounded, and lost the completion.
+//
+// Fix: send a SMALL first chunk so the first round-trip returns within ~2s and
+// the counter starts moving immediately, then larger STEADY chunks so it keeps
+// advancing without a round-trip per handful of episodes. These are well under
+// the server's per-call ceilings, so a well-formed chunk still never 413s.
+
+/** First chunk — deliberately tiny so the first progress update lands promptly
+ *  (~1-2s at the observed ~100 rows/s), turning "0/N" into visible motion fast. */
+export const FIRST_CHUNK_CAPS: ChunkCaps = { maxEpisodes: 150, maxMovies: 60, maxShows: 40 };
+
+/** Steady-state chunks — large enough to keep round-trips modest on a big
+ *  import, small enough that the counter advances every few seconds. */
+export const STEADY_CHUNK_CAPS: ChunkCaps = { maxEpisodes: 500, maxMovies: 400, maxShows: 150 };
+
+/** A chunk paired with the caps it should be re-sliced against on a 413. */
+interface PlannedChunk {
+  chunk: ImportChunk;
+  caps: ChunkCaps;
+}
+
+/**
+ * Plan the sequence of chunks to send, plus the caps each is re-sliced against
+ * on a 413.
+ *
+ * With explicit caps (tests / overrides) the whole payload is chunked once at
+ * those caps — unchanged behaviour. Otherwise PROGRESSIVE sizing (#720): the
+ * first steady-sized chunk is subdivided into small {@link FIRST_CHUNK_CAPS}
+ * pieces so the very first round-trip returns quickly and the counter starts
+ * moving, then the remainder ships as larger {@link STEADY_CHUNK_CAPS} chunks.
+ */
+function buildChunkPlan(
+  shows: ImportShow[],
+  movies: ImportMovie[],
+  explicitCaps?: ChunkCaps,
+): PlannedChunk[] {
+  if (explicitCaps) {
+    const caps: ChunkCaps = {
+      maxEpisodes: explicitCaps.maxEpisodes ?? MAX_EPISODES_PER_CALL,
+      maxMovies: explicitCaps.maxMovies ?? MAX_MOVIES_PER_CALL,
+      maxShows: explicitCaps.maxShows ?? MAX_SHOWS_PER_CALL,
+    };
+    return chunkImportItems(shows, movies, caps).map((chunk) => ({ chunk, caps }));
+  }
+
+  const steady = chunkImportItems(shows, movies, STEADY_CHUNK_CAPS);
+  if (steady.length === 0) return [];
+
+  const [firstSteady, ...rest] = steady;
+  const firstSubs = chunkImportItems(firstSteady.shows, firstSteady.movies, FIRST_CHUNK_CAPS);
+  return [
+    ...firstSubs.map((chunk) => ({ chunk, caps: FIRST_CHUNK_CAPS })),
+    ...rest.map((chunk) => ({ chunk, caps: STEADY_CHUNK_CAPS })),
+  ];
+}
+
 /**
  * Run the full chunked import: send each chunk sequentially, aggregate counts,
  * report progress, retry a transiently-failed chunk once (idempotent), and on a
  * 413 re-slice that chunk with halved caps until it fits. Progress is reported
  * as processed / total episodes+movies so the UI can drive a bar and be
- * backgrounded without losing its place.
+ * backgrounded without losing its place. Chunk sizing is progressive (#720) so
+ * the counter starts moving within ~2s instead of sitting at 0 until the end.
  */
 export async function runTvTimeImport(args: RunImportArgs): Promise<ImportCounts> {
   const send = args.send ?? sendImportChunk;
-  const caps: ChunkCaps = {
-    maxEpisodes: args.caps?.maxEpisodes ?? MAX_EPISODES_PER_CALL,
-    maxMovies: args.caps?.maxMovies ?? MAX_MOVIES_PER_CALL,
-    maxShows: args.caps?.maxShows ?? MAX_SHOWS_PER_CALL,
-  };
 
   const total = episodeCount(args.shows) + args.movies.length;
   let processed = 0;
@@ -262,7 +322,7 @@ export async function runTvTimeImport(args: RunImportArgs): Promise<ImportCounts
   const report = () => args.onProgress?.({ processed, total });
   report();
 
-  const chunks = chunkImportItems(args.shows, args.movies, caps);
+  const plan = buildChunkPlan(args.shows, args.movies, args.caps);
 
   const sendWithReslice = async (chunk: ImportChunk, chunkCaps: ChunkCaps): Promise<void> => {
     try {
@@ -290,7 +350,7 @@ export async function runTvTimeImport(args: RunImportArgs): Promise<ImportCounts
     }
   };
 
-  for (const chunk of chunks) {
+  for (const { chunk, caps } of plan) {
     // Cooperative abort point — bail between chunks if the caller has revoked
     // the run (user changed). Partial counts are returned but discarded upstream.
     if (args.shouldContinue && !args.shouldContinue()) return counts;
