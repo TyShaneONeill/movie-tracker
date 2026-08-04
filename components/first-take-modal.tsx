@@ -135,12 +135,12 @@ export function FirstTakeModal({
   const postingRef = useRef(false);
   // Soft-confirm for the untouched default 5 (Ty's ruling, 2026-08-03). The
   // 5-on-create default deliberately STAYS — someone who reached this composer
-  // should rate — but a slider nobody touched must not silently record that 5
-  // on a wordless take. The first post attempt on an untouched rating-only
-  // take is blocked ONCE with a nudge (copy + pulse + light haptic); the next
-  // post goes through, the 5 now user-affirmed. Never blocks twice. Scoped to
-  // wordless takes: a take with words posts first-press with its (visible) 5,
-  // matching the shared composer contract. "Touched" means ANY slider
+  // should rate — but a slider nobody touched must not silently record that 5.
+  // The first post attempt on an untouched rating is blocked ONCE with a nudge
+  // (copy + pulse + light haptic); the next post goes through, the 5 now
+  // user-affirmed. Never blocks twice. Applies with or without words — worded
+  // takes render publicly (feed/profile/share), so a phantom 5 there is the
+  // higher-harm case, not an exemption. "Touched" means ANY slider
   // interaction — sliding away and back to exactly 5 is a deliberate 5.
   const ratingTouchedRef = useRef(false);
   const nudgedRef = useRef(false);
@@ -194,10 +194,7 @@ export function FirstTakeModal({
     // guard keeps the copy honest when a restored draft carries a non-default
     // rating past the reopened (reset) touched flag.
     const untouchedDefaultFive =
-      !initialValues &&
-      !ratingTouchedRef.current &&
-      rating === 5 &&
-      quoteText.trim().length === 0;
+      !initialValues && !ratingTouchedRef.current && rating === 5;
     if (untouchedDefaultFive && !nudgedRef.current) {
       nudgedRef.current = true;
       setNudgeVisible(true);

@@ -178,10 +178,12 @@ describe('FirstTakeModal draft preservation across accidental close', () => {
   it('guard ON: successful submit clears the draft for the next open', async () => {
     setGuard(true);
     const onSubmit = jest.fn().mockResolvedValue(undefined);
-    const { getByPlaceholderText, getByText, rerender } = render(
+    const { getByPlaceholderText, getByText, rerender, UNSAFE_getByType } = render(
       <FirstTakeModal {...baseProps} onSubmit={onSubmit} />
     );
 
+    // Deliberate score, so the untouched-5 soft confirm doesn't hold the press.
+    fireEvent(UNSAFE_getByType('Slider' as any), 'valueChange', 8);
     fireEvent.changeText(getByPlaceholderText(PLACEHOLDER), 'Dinner party is peak Office');
     fireEvent.press(getByText('Post First Take'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
