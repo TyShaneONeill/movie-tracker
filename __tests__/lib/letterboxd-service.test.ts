@@ -309,6 +309,10 @@ describe('detectLetterboxdCSVType', () => {
     expect(detectLetterboxdCSVType('')).toBe('unknown');
   });
 
+  it('returns unknown for whitespace-only CSV (routes to wrong-file, not a read error)', () => {
+    expect(detectLetterboxdCSVType('   \n  ')).toBe('unknown');
+  });
+
   it('throws LetterboxdCSVNotStringError for undefined input', () => {
     expect(() => detectLetterboxdCSVType(undefined as unknown as string)).toThrow(
       LetterboxdCSVNotStringError
