@@ -22,6 +22,7 @@ import {
   matchMoviesToTMDB,
   exportCollectionCSV,
   detectLetterboxdCSVType,
+  LetterboxdCSVNotStringError,
 } from '@/lib/letterboxd-service';
 import type { LetterboxdEntry } from '@/lib/letterboxd-service';
 import { searchMovies, fetchUserMovies } from '@/lib/movie-service';
@@ -259,6 +260,24 @@ describe('parseLetterboxdCSV', () => {
     expect(result[0].name).toBe('Fight Club');
     expect(result[1].name).toBe('The Matrix');
   });
+
+  it('throws LetterboxdCSVNotStringError for undefined input', () => {
+    expect(() => parseLetterboxdCSV(undefined as unknown as string)).toThrow(
+      LetterboxdCSVNotStringError
+    );
+  });
+
+  it('throws LetterboxdCSVNotStringError for null input', () => {
+    expect(() => parseLetterboxdCSV(null as unknown as string)).toThrow(
+      LetterboxdCSVNotStringError
+    );
+  });
+
+  it('throws LetterboxdCSVNotStringError for non-string input', () => {
+    expect(() => parseLetterboxdCSV(42 as unknown as string)).toThrow(
+      LetterboxdCSVNotStringError
+    );
+  });
 });
 
 // ============================================================================
@@ -288,6 +307,18 @@ describe('detectLetterboxdCSVType', () => {
 
   it('returns unknown for completely empty CSV', () => {
     expect(detectLetterboxdCSVType('')).toBe('unknown');
+  });
+
+  it('throws LetterboxdCSVNotStringError for undefined input', () => {
+    expect(() => detectLetterboxdCSVType(undefined as unknown as string)).toThrow(
+      LetterboxdCSVNotStringError
+    );
+  });
+
+  it('throws LetterboxdCSVNotStringError for null input', () => {
+    expect(() => detectLetterboxdCSVType(null as unknown as string)).toThrow(
+      LetterboxdCSVNotStringError
+    );
   });
 });
 

@@ -12,6 +12,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as DocumentPicker from 'expo-document-picker';
+// expo-file-system v19's readAsStringAsync lives on the /legacy entry (same
+// one components/tvtime-import/tvtime-import-screen.tsx uses).
+import * as FileSystem from 'expo-file-system/legacy';
 import Svg, { Path } from 'react-native-svg';
 import { Image } from 'expo-image';
 
@@ -80,6 +83,8 @@ export default function LetterboxdImportScreen() {
     hapticImpact();
     setError(null);
 
+    let stage: 'read' | 'detect' | 'parse' | 'match' = 'read';
+
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['text/csv', 'text/comma-separated-values', 'application/octet-stream'],
@@ -93,10 +98,26 @@ export default function LetterboxdImportScreen() {
 
       // Parse CSV
       setState('parsing');
-      const response = await fetch(fileUri);
-      if (!response.ok) throw new Error(`Could not read file (${response.status})`);
-      const csvContent = await response.text();
 
+      // RN fetch on a native file:// DocumentPicker URI is unreliable — it can
+      // resolve .text() to undefined (Sentry REACT-NATIVE-POCKETSTUBS-4G).
+      // Read native picks directly off disk instead; web keeps fetch/blob.
+      let csvContent: string;
+      if (Platform.OS === 'web') {
+        const response = await fetch(fileUri);
+        if (!response.ok) throw new Error(`Could not read file (${response.status})`);
+        csvContent = await response.text();
+      } else {
+        csvContent = await FileSystem.readAsStringAsync(fileUri);
+      }
+
+      if (typeof csvContent !== 'string' || csvContent.trim().length === 0) {
+        setError("Couldn't read that file. Try picking it again from Files.");
+        setState('idle');
+        return;
+      }
+
+      stage = 'detect';
       const csvType = detectLetterboxdCSVType(csvContent);
       if (csvType === 'ratings' || csvType === 'watchlist' || csvType === 'unknown') {
         setDetectedFileType(csvType);
@@ -104,6 +125,7 @@ export default function LetterboxdImportScreen() {
         return;
       }
 
+      stage = 'parse';
       const entries = parseLetterboxdCSV(csvContent);
 
       if (entries.length === 0) {
@@ -113,6 +135,7 @@ export default function LetterboxdImportScreen() {
       }
 
       // Match to TMDB
+      stage = 'match';
       setState('matching');
       const matched = await matchMoviesToTMDB(entries, (progress) => {
         setMatchProgress(progress);
@@ -127,6 +150,7 @@ export default function LetterboxdImportScreen() {
       console.error('[Letterboxd] Import error:', err);
       captureException(err instanceof Error ? err : new Error(String(err)), {
         context: 'letterboxd-import-select-file',
+        stage,
       });
       setError('Failed to read or parse the CSV file. Please try again.');
       setState('idle');
