@@ -6,6 +6,8 @@ export { parseTvTimeExport } from './parser';
 export { matchShows, matchMovies, matchTvTimePayload } from './matcher';
 export { createDefaultTmdbGateway } from './gateway';
 export { unzipTvTimeExport } from './unzip';
+export { TvTimeImportError } from './errors';
+export type { TvTimeImportErrorCode } from './errors';
 export {
   mapMatchToImportItems,
   chunkImportItems,

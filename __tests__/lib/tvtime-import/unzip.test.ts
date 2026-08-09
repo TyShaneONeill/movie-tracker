@@ -8,6 +8,7 @@ jest.mock('react-native', () => ({ Platform: { OS: 'web' } }));
 jest.mock('expo-file-system/legacy', () => ({}));
 
 import { unzipTvTimeExport } from '@/lib/tvtime-import/unzip';
+import { TvTimeImportError } from '@/lib/tvtime-import/errors';
 
 function makeZip(files: Record<string, string>): Uint8Array {
   const entries: Record<string, Uint8Array> = {};
@@ -41,9 +42,19 @@ describe('unzipTvTimeExport (web / Blob path)', () => {
     await expect(unzipTvTimeExport('blob:fake-url', blob)).rejects.toThrow(/TV Time export ZIP/);
   });
 
+  it('tags a non-ZIP File with the not-a-zip code', async () => {
+    const blob = toBlob(strToU8('this is not a zip at all'));
+    await expect(unzipTvTimeExport('blob:fake-url', blob)).rejects.toMatchObject({ code: 'not-a-zip' });
+  });
+
   it('rejects an oversized file before reading its bytes', async () => {
     const huge = { size: 200 * 1024 * 1024, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Blob;
     await expect(unzipTvTimeExport('blob:fake-url', huge)).rejects.toThrow(/too large/);
+  });
+
+  it('tags an oversized file with the file-too-large code', async () => {
+    const huge = { size: 200 * 1024 * 1024, arrayBuffer: async () => new ArrayBuffer(0) } as unknown as Blob;
+    await expect(unzipTvTimeExport('blob:fake-url', huge)).rejects.toMatchObject({ code: 'file-too-large' });
   });
 
   it('excludes an oversized entry even when its name is allowlisted (size cap)', async () => {
@@ -71,6 +82,13 @@ describe('unzipTvTimeExport (web / Blob path)', () => {
     );
   });
 
+  it('tags a valid ZIP with none of the expected CSVs with missing-expected-csv', async () => {
+    const zip = zipSync({ 'auth-token.csv': strToU8('secret,hunter2\n') });
+    await expect(unzipTvTimeExport('blob:fake-url', toBlob(zip))).rejects.toMatchObject({
+      code: 'missing-expected-csv',
+    });
+  });
+
   it('falls back to fetching the blob: URI when no File is passed', async () => {
     const zip = makeZip({ 'tracking-prod-records-v2.csv': 'series_name\nShow\n' });
     const fetchMock = jest.fn().mockResolvedValue({ blob: async () => toBlob(zip) });
@@ -80,5 +98,23 @@ describe('unzipTvTimeExport (web / Blob path)', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('blob:fake-url');
     expect(Object.keys(files)).toContain('tracking-prod-records-v2.csv');
+  });
+});
+
+describe('unzipTvTimeExport error codes — corrupt / non-throwing distinctions', () => {
+  it('tags a truncated ZIP (magic bytes intact, fflate cannot decompress it) with unzip-failed', async () => {
+    // Distinct from "not-a-zip": the PK signature survives (magic-byte check
+    // passes) but the body is cut off, so fflate's own decompression fails —
+    // this is the "corrupt/incomplete download" case, not "wrong file".
+    const zip = makeZip({ 'tracking-prod-records-v2.csv': 'series_name\nShow\n'.repeat(50) });
+    const corrupted = zip.slice(0, Math.floor(zip.length / 2));
+    await expect(unzipTvTimeExport('blob:fake-url', toBlob(corrupted))).rejects.toMatchObject({
+      code: 'unzip-failed',
+    });
+  });
+
+  it('every thrown error is a TvTimeImportError instance carrying a code', async () => {
+    const blob = toBlob(strToU8('nope'));
+    await expect(unzipTvTimeExport('blob:fake-url', blob)).rejects.toBeInstanceOf(TvTimeImportError);
   });
 });
