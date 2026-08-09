@@ -43,6 +43,7 @@ import { useImportRun, type ImportRunPhase } from '@/lib/tvtime-import/import-ru
 import { importScreenView } from '@/lib/tvtime-import/import-run-view';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
 import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
+import { PickScreen } from './pick-screen';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
 import { ReviewPromptSheet } from '@/components/review-prompt-sheet';
 import {
@@ -114,10 +115,6 @@ export function TvTimeImportScreen() {
   const { start: startImport, reset: resetImportRun, setScreenFocused } = importRun;
 
   const importKeyRef = useRef<string>(newImportKey());
-  // The last successfully parsed payload — kept so a match-step failure (TMDB
-  // network hiccup) can retry the match alone, without re-picking + re-reading
-  // the ZIP. Cleared whenever a fresh pick starts.
-  const lastParsedRef = useRef<ParsedTvTimePayload | null>(null);
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -215,7 +212,6 @@ export function TvTimeImportScreen() {
       const pickedAsset = result.assets[0];
       const pickedUri = pickedAsset.uri;
       setPhase('reading');
-      lastParsedRef.current = null;
       try {
         // On web the picker hands back an in-memory File (blob: URI) that
         // expo-file-system can't read — pass it through so the read path can
@@ -231,20 +227,8 @@ export function TvTimeImportScreen() {
             'We had trouble reading the data in your export. Try re-downloading it from TV Time and importing again.'
           );
         }
-        // Keep the read+parsed payload so a match-step failure can retry the
-        // match alone, without re-picking the file (which the finally below
-        // is about to delete).
-        lastParsedRef.current = parsed;
 
-        let matched: TvTimeMatchResult;
-        try {
-          matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
-        } catch {
-          throw new TvTimeImportError(
-            'match-network-failed',
-            "We read your export, but couldn't reach our servers to match your shows and movies. Check your connection and try again."
-          );
-        }
+        const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
         applyMatchResult(matched);
       } finally {
         // Native only: delete the picker's cache copy of the ZIP — it holds the
@@ -259,32 +243,6 @@ export function TvTimeImportScreen() {
       reportImportError(err, 'tvtime-import-select-file');
     }
   }, [applyMatchResult, reportImportError]);
-
-  // Retry path for a match-step failure only: reuses the already-read/parsed
-  // payload instead of re-picking the (now-deleted) cache file.
-  const handleRetryMatch = useCallback(async () => {
-    const parsed = lastParsedRef.current;
-    if (!parsed) {
-      handleSelectFile();
-      return;
-    }
-    hapticImpact();
-    setError(null);
-    setErrorCode(null);
-    setPhase('reading');
-    try {
-      const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
-      applyMatchResult(matched);
-    } catch {
-      reportImportError(
-        new TvTimeImportError(
-          'match-network-failed',
-          "Still couldn't reach our servers. Check your connection and try again."
-        ),
-        'tvtime-import-retry-match'
-      );
-    }
-  }, [applyMatchResult, reportImportError, handleSelectFile]);
 
   // -------------------------------------------------------------------------
   // Import
@@ -336,7 +294,6 @@ export function TvTimeImportScreen() {
     setReviewItems([]);
     setError(null);
     setErrorCode(null);
-    lastParsedRef.current = null;
     setPhase('pick');
   }, [resetImportRun]);
 
@@ -461,14 +418,7 @@ export function TvTimeImportScreen() {
           />
         )}
         {view === 'pick' && (
-          <PickScreen
-            styles={styles}
-            colors={colors}
-            error={error}
-            errorCode={errorCode}
-            onPick={handleSelectFile}
-            onRetryMatch={handleRetryMatch}
-          />
+          <PickScreen styles={styles} colors={colors} error={error} errorCode={errorCode} onPick={handleSelectFile} />
         )}
         {view === 'reading' && <ReadingScreen styles={styles} colors={colors} />}
         {view === 'preview' && preview && (
@@ -649,73 +599,11 @@ function PostImportMoments({ runPhase }: { runPhase: ImportRunPhase }) {
 // Sub-screens (frames)
 // ---------------------------------------------------------------------------
 
-type Styles = ReturnType<typeof createStyles>;
-type ThemeColors = typeof Colors.dark;
-
-// Codes where the picked file wasn't a (readable) TV Time export at all —
-// gets the "wrong file selected" callout, mirroring the Letterboxd import's
-// dedicated wrong-file state (app/settings/letterboxd-import.tsx).
-const WRONG_FILE_CODES = new Set<TvTimeImportErrorCode>(['not-a-zip', 'unzip-failed', 'missing-expected-csv']);
-
-function PickScreen({
-  styles,
-  colors,
-  error,
-  errorCode,
-  onPick,
-  onRetryMatch,
-}: {
-  styles: Styles;
-  colors: ThemeColors;
-  error: string | null;
-  errorCode: TvTimeImportErrorCode | null;
-  onPick: () => void;
-  onRetryMatch: () => void;
-}) {
-  const isWrongFile = errorCode !== null && WRONG_FILE_CODES.has(errorCode);
-  // The file itself read+parsed fine; only reaching TMDB failed, so offer a
-  // retry that reuses the already-read payload instead of re-picking.
-  const isNetworkError = errorCode === 'match-network-failed';
-
-  return (
-    <View style={styles.pickBody}>
-      <Text style={[Typography.display.h3, { color: colors.text }]}>Bring your history home.</Text>
-      <Text style={[Typography.body.base, styles.pickSub, { color: colors.textSecondary }]}>
-        Choose the ZIP you exported from TV Time — usually{' '}
-        <Text style={{ color: colors.text, fontWeight: '700' }}>gdpr-data.zip</Text> (or a similar name). We read it on your
-        device; nothing is imported until you confirm.
-      </Text>
-
-      <View style={[styles.dropzone, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <TicketIcon color={colors.tint} size={40} />
-        <Text style={[Typography.body.base, { color: colors.text, fontWeight: '700', marginTop: Spacing.sm }]}>gdpr-data.zip</Text>
-        <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>usually in Downloads or Files</Text>
-      </View>
-
-      <Text style={[Typography.body.sm, styles.quiet, { color: colors.textTertiary }]}>
-        TV Time closed July 15, 2026 — but your export file works forever.
-      </Text>
-
-      {error && isWrongFile && (
-        <View style={[styles.warnBanner, { borderColor: AMBER }]}>
-          <WarningIcon color={AMBER} size={16} />
-          <View style={{ flex: 1 }}>
-            <Text style={[Typography.body.sm, { color: AMBER, fontWeight: '700' }]}>Wrong file selected</Text>
-            <Text style={[Typography.body.sm, { color: colors.textSecondary, marginTop: 2 }]}>{error}</Text>
-          </View>
-        </View>
-      )}
-      {error && !isWrongFile && <Text style={[Typography.body.sm, styles.errorText]}>{error}</Text>}
-
-      <Pressable
-        onPress={isNetworkError ? onRetryMatch : onPick}
-        style={({ pressed }) => [styles.primaryBtn, { backgroundColor: colors.tint }, pressed && { opacity: 0.85 }]}
-      >
-        <Text style={styles.primaryBtnText}>{isNetworkError ? 'Retry' : 'Choose export file'}</Text>
-      </Pressable>
-    </View>
-  );
-}
+// Exported (type-only) so pick-screen.tsx can type its props without a
+// runtime import back into this file (that would be circular — this file
+// imports the PickScreen *value* from pick-screen.tsx).
+export type Styles = ReturnType<typeof createStyles>;
+export type ThemeColors = typeof Colors.dark;
 
 function ReadingScreen({ styles, colors }: { styles: Styles; colors: ThemeColors }) {
   return (

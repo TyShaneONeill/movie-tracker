@@ -12,7 +12,6 @@ export type TvTimeImportErrorCode =
   | 'unzip-failed' // magic number matched but fflate couldn't decompress it (corrupt/truncated ZIP)
   | 'missing-expected-csv' // valid ZIP, but none of the allowlisted TV Time CSVs were inside
   | 'csv-parse-failed' // an allowlisted CSV was unreadable as CSV
-  | 'match-network-failed' // TMDB matching couldn't reach the backend
   | 'unknown';
 
 export class TvTimeImportError extends Error {
