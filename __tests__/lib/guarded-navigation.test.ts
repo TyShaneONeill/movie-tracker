@@ -170,4 +170,31 @@ describe('performGuardedNavigation', () => {
     expect(onAbandon).toHaveBeenCalledWith('/(tabs)', '(onboarding)', 'settings');
     expect(onExhausted).not.toHaveBeenCalled();
   });
+
+  // Regression for Sentry PS-48/PS-49 (web-only crash): guarded-navigation
+  // calls `deps.requestFrame(cb)` as a METHOD on the deps object, so `this`
+  // inside requestFrame is the deps object, not the caller's original
+  // receiver. On web, app/_layout.tsx used to pass a bare reference to native
+  // requestAnimationFrame (`requestFrame: requestAnimationFrame`) — a
+  // spec-branded function that requires `this === window` and throws
+  // "Illegal invocation" when method-called on a plain object. This pins the
+  // method-call contract so a future regression (passing a bare `this`-
+  // sensitive function again) is caught here, not on prod web.
+  it('invokes requestFrame as a method call on deps (this === deps), documenting why suppliers must wrap this-sensitive natives', () => {
+    const seenThisValues: unknown[] = [];
+    const deps = {
+      getCurrentGroup: () => '(auth)',
+      navigate: jest.fn(),
+      requestFrame(this: unknown, cb: () => void) {
+        seenThisValues.push(this);
+        cb();
+      },
+      onAbandon: jest.fn(),
+      onExhausted: jest.fn(),
+    };
+
+    performGuardedNavigation('/(tabs)', '(auth)', deps);
+
+    expect(seenThisValues).toEqual([deps]);
+  });
 });
