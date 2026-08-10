@@ -31,16 +31,19 @@ import {
   resolveNeedsReviewItem,
   reviewItemId,
   emptyImportCounts,
+  TvTimeImportError,
   type ImportPreview,
   type ImportCounts,
   type ImportProgress,
   type PersistedReviewItem,
+  type TvTimeImportErrorCode,
 } from '@/lib/tvtime-import';
-import type { TvTimeMatchResult } from '@/lib/tvtime-import/types';
+import type { TvTimeMatchResult, ParsedTvTimePayload } from '@/lib/tvtime-import/types';
 import { useImportRun, type ImportRunPhase } from '@/lib/tvtime-import/import-run-context';
 import { importScreenView } from '@/lib/tvtime-import/import-run-view';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
 import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
+import { PickScreen } from './pick-screen';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
 import { ReviewPromptSheet } from '@/components/review-prompt-sheet';
 import {
@@ -98,6 +101,7 @@ export function TvTimeImportScreen() {
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<TvTimeImportErrorCode | null>(null);
   const [match, setMatch] = useState<TvTimeMatchResult | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [counts, setCounts] = useState<ImportCounts>(emptyImportCounts());
@@ -162,9 +166,42 @@ export function TvTimeImportScreen() {
   // -------------------------------------------------------------------------
   // Pick + parse + match
   // -------------------------------------------------------------------------
+
+  // Shared success path for both the initial pick and a match-only retry.
+  const applyMatchResult = useCallback((matched: TvTimeMatchResult) => {
+    if (!mountedRef.current) return;
+    setMatch(matched);
+    const pv = buildImportPreview(matched);
+    setPreview(pv);
+    setReviewItems(buildReviewItems(matched));
+    setPhase('preview');
+    // Counts only — never titles or row content (PII hygiene).
+    analytics.track('import_preview', {
+      shows: pv.shows,
+      episodes: pv.episodes,
+      movies_watched: pv.moviesWatched,
+      movies_watchlist: pv.moviesWatchlist,
+      needs_attention: pv.needsAttention,
+    });
+  }, []);
+
+  // Classifies + reports a read/parse/match failure. The error CODE + stage
+  // (never file contents, entry names, or titles) go to Sentry; the message
+  // is user-facing copy already stripped of any of that, so it's safe to show.
+  const reportImportError = useCallback((err: unknown, stage: string) => {
+    if (!mountedRef.current) return;
+    const code: TvTimeImportErrorCode = err instanceof TvTimeImportError ? err.code : 'unknown';
+    const message = err instanceof Error ? err.message : 'Something went wrong reading your export.';
+    setError(message);
+    setErrorCode(code);
+    setPhase('pick');
+    captureException(new Error(`tvtime-import-read-failed:${code}`), { context: stage, code });
+  }, []);
+
   const handleSelectFile = useCallback(async () => {
     hapticImpact();
     setError(null);
+    setErrorCode(null);
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
@@ -180,23 +217,19 @@ export function TvTimeImportScreen() {
         // expo-file-system can't read — pass it through so the read path can
         // use Blob.arrayBuffer() instead. `file` is undefined on native.
         const files = await unzipTvTimeExport(pickedUri, pickedAsset.file);
-        const parsed = parseTvTimeExport(files);
-        const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
-        if (!mountedRef.current) return;
 
-        setMatch(matched);
-        const pv = buildImportPreview(matched);
-        setPreview(pv);
-        setReviewItems(buildReviewItems(matched));
-        setPhase('preview');
-        // Counts only — never titles or row content (PII hygiene).
-        analytics.track('import_preview', {
-          shows: pv.shows,
-          episodes: pv.episodes,
-          movies_watched: pv.moviesWatched,
-          movies_watchlist: pv.moviesWatchlist,
-          needs_attention: pv.needsAttention,
-        });
+        let parsed: ParsedTvTimePayload;
+        try {
+          parsed = parseTvTimeExport(files);
+        } catch {
+          throw new TvTimeImportError(
+            'csv-parse-failed',
+            'We had trouble reading the data in your export. Try re-downloading it from TV Time and importing again.'
+          );
+        }
+
+        const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
+        applyMatchResult(matched);
       } finally {
         // Native only: delete the picker's cache copy of the ZIP — it holds the
         // export's auth-token / password-hash CSVs and must not linger at rest.
@@ -207,15 +240,9 @@ export function TvTimeImportScreen() {
         }
       }
     } catch (err) {
-      if (!mountedRef.current) return;
-      // A parse/read error message is user-facing copy, safe to show. It is NOT
-      // sent to Sentry verbatim (it may echo file structure) — counts only.
-      const message = err instanceof Error ? err.message : 'Something went wrong reading your export.';
-      setError(message);
-      setPhase('pick');
-      captureException(new Error('tvtime-import-read-failed'), { context: 'tvtime-import-select-file' });
+      reportImportError(err, 'tvtime-import-select-file');
     }
-  }, []);
+  }, [applyMatchResult, reportImportError]);
 
   // -------------------------------------------------------------------------
   // Import
@@ -266,6 +293,7 @@ export function TvTimeImportScreen() {
     setPreview(null);
     setReviewItems([]);
     setError(null);
+    setErrorCode(null);
     setPhase('pick');
   }, [resetImportRun]);
 
@@ -389,7 +417,9 @@ export function TvTimeImportScreen() {
             onDone={() => { resetImportRun(); router.back(); }}
           />
         )}
-        {view === 'pick' && <PickScreen styles={styles} colors={colors} error={error} onPick={handleSelectFile} />}
+        {view === 'pick' && (
+          <PickScreen styles={styles} colors={colors} error={error} errorCode={errorCode} onPick={handleSelectFile} />
+        )}
         {view === 'reading' && <ReadingScreen styles={styles} colors={colors} />}
         {view === 'preview' && preview && (
           <PreviewScreen styles={styles} colors={colors} preview={preview} error={error} onImport={handleImport} onCancel={() => router.back()} />
@@ -569,37 +599,11 @@ function PostImportMoments({ runPhase }: { runPhase: ImportRunPhase }) {
 // Sub-screens (frames)
 // ---------------------------------------------------------------------------
 
-type Styles = ReturnType<typeof createStyles>;
-type ThemeColors = typeof Colors.dark;
-
-function PickScreen({ styles, colors, error, onPick }: { styles: Styles; colors: ThemeColors; error: string | null; onPick: () => void }) {
-  return (
-    <View style={styles.pickBody}>
-      <Text style={[Typography.display.h3, { color: colors.text }]}>Bring your history home.</Text>
-      <Text style={[Typography.body.base, styles.pickSub, { color: colors.textSecondary }]}>
-        Choose the ZIP you exported from TV Time — usually{' '}
-        <Text style={{ color: colors.text, fontWeight: '700' }}>gdpr-data.zip</Text> (or a similar name). We read it on your
-        device; nothing is imported until you confirm.
-      </Text>
-
-      <View style={[styles.dropzone, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <TicketIcon color={colors.tint} size={40} />
-        <Text style={[Typography.body.base, { color: colors.text, fontWeight: '700', marginTop: Spacing.sm }]}>gdpr-data.zip</Text>
-        <Text style={[Typography.body.sm, { color: colors.textTertiary }]}>usually in Downloads or Files</Text>
-      </View>
-
-      <Text style={[Typography.body.sm, styles.quiet, { color: colors.textTertiary }]}>
-        TV Time closed July 15, 2026 — but your export file works forever.
-      </Text>
-
-      {error && <Text style={[Typography.body.sm, styles.errorText]}>{error}</Text>}
-
-      <Pressable onPress={onPick} style={({ pressed }) => [styles.primaryBtn, { backgroundColor: colors.tint }, pressed && { opacity: 0.85 }]}>
-        <Text style={styles.primaryBtnText}>Choose export file</Text>
-      </Pressable>
-    </View>
-  );
-}
+// Exported (type-only) so pick-screen.tsx can type its props without a
+// runtime import back into this file (that would be circular — this file
+// imports the PickScreen *value* from pick-screen.tsx).
+export type Styles = ReturnType<typeof createStyles>;
+export type ThemeColors = typeof Colors.dark;
 
 function ReadingScreen({ styles, colors }: { styles: Styles; colors: ThemeColors }) {
   return (

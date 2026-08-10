@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { unzipSync, strFromU8 } from 'fflate';
 import type { TvTimeFileMap } from './types';
+import { TvTimeImportError } from './errors';
 
 // TV Time's GDPR export is a ZIP that also contains files with auth tokens and
 // password hashes. We NEVER decompress or read those: fflate's `filter` (below)
@@ -54,17 +55,27 @@ async function readZipBytes(uri: string, file?: File | Blob): Promise<Uint8Array
       const resp = await fetch(uri);
       blob = await resp.blob();
     }
-    if (!blob) throw new Error("We couldn't read that file.");
+    if (!blob) throw new TvTimeImportError('file-read-failed', "We couldn't read that file.");
     if (typeof blob.size === 'number' && blob.size > MAX_ZIP_BYTES) {
-      throw new Error('That file is too large to be a TV Time export.');
+      throw new TvTimeImportError('file-too-large', 'That file is too large to be a TV Time export.');
     }
     const buffer = await blob.arrayBuffer();
     return new Uint8Array(buffer);
   }
 
   const info = await FileSystem.getInfoAsync(uri);
-  if (info.exists && typeof info.size === 'number' && info.size > MAX_ZIP_BYTES) {
-    throw new Error('That file is too large to be a TV Time export.');
+  // Android hardening: the document picker's cache copy can come back missing
+  // or empty (e.g. a cloud-backed "on demand" file that hadn't finished
+  // downloading, or a content-provider copy that silently failed) — a 0-byte
+  // read would otherwise fall through to a confusing "not a ZIP" error.
+  if (!info.exists || (typeof info.size === 'number' && info.size === 0)) {
+    throw new TvTimeImportError(
+      'file-read-failed',
+      "We couldn't read that file — it may not have finished downloading. Try picking it again."
+    );
+  }
+  if (typeof info.size === 'number' && info.size > MAX_ZIP_BYTES) {
+    throw new TvTimeImportError('file-too-large', 'That file is too large to be a TV Time export.');
   }
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
@@ -93,9 +104,11 @@ export async function unzipTvTimeExport(uri: string, file?: File | Blob): Promis
   try {
     bytes = await readZipBytes(uri, file);
   } catch (err) {
-    // Preserve the too-large message; otherwise a generic read-failure message.
-    if (err instanceof Error && err.message.includes('too large')) throw err;
-    throw new Error(
+    // Preserve a typed code/message from readZipBytes (too-large, empty cache
+    // copy); anything else falls back to a generic read-failure message.
+    if (err instanceof TvTimeImportError) throw err;
+    throw new TvTimeImportError(
+      'file-read-failed',
       "We couldn't read that file. Pick the ZIP you exported from TV Time and try again."
     );
   }
@@ -104,7 +117,8 @@ export async function unzipTvTimeExport(uri: string, file?: File | Blob): Promis
   // a ZIP's mime type (octet-stream), so we don't trust the extension/mime; we
   // trust the bytes.
   if (!hasZipMagic(bytes)) {
-    throw new Error(
+    throw new TvTimeImportError(
+      'not-a-zip',
       "That doesn't look like a TV Time export ZIP. Choose the gdpr-data.zip file (or a similar name)."
     );
   }
@@ -122,7 +136,10 @@ export async function unzipTvTimeExport(uri: string, file?: File | Blob): Promis
         ALLOWED_BASENAMES.has(basename(f.name)) && f.originalSize < MAX_ENTRY_BYTES,
     });
   } catch {
-    throw new Error(
+    // Magic number matched but fflate couldn't decompress it — a truncated or
+    // corrupt ZIP, distinct from "wrong file entirely" above.
+    throw new TvTimeImportError(
+      'unzip-failed',
       "That doesn't look like a TV Time export ZIP. Choose the gdpr-data.zip file (or a similar name)."
     );
   }
@@ -139,7 +156,8 @@ export async function unzipTvTimeExport(uri: string, file?: File | Blob): Promis
   }
 
   if (Object.keys(files).length === 0) {
-    throw new Error(
+    throw new TvTimeImportError(
+      'missing-expected-csv',
       "We couldn't find your TV Time history in that ZIP. Make sure it's the export from TV Time (gdpr-data.zip or a similar name)."
     );
   }
