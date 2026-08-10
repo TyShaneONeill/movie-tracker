@@ -216,7 +216,13 @@ function useProtectedRoute() {
         // Tolerate it: re-schedule for the next frame (bounded), turning a crash
         // into a one-frame-late navigation. Report only if it never becomes ready.
         navigate: (r) => router.replace(r as '/(tabs)' | '/(auth)/signin' | '/(onboarding)'),
-        requestFrame: requestAnimationFrame,
+        // Wrapped, not passed bare: native requestAnimationFrame is spec-branded
+        // to require `this === window`. guarded-navigation.ts invokes this as
+        // `deps.requestFrame(cb)` (a method call on the deps object), which on
+        // web throws "Illegal invocation" synchronously, outside the guard's
+        // try/catch. The arrow wrapper keeps `this` out of it entirely. Native
+        // (RN) rAF isn't `this`-sensitive, so behavior there is unchanged.
+        requestFrame: (cb) => requestAnimationFrame(cb),
         onAbandon: (r, scheduled, current) => {
           console.log(`[NAV] abandoned stale redirect to ${r}: route group changed from ${scheduled} to ${current} before RAF fired`);
         },
@@ -225,6 +231,13 @@ function useProtectedRoute() {
             context: 'performNavigation:navigatorNotReady',
             route: r,
             attempts,
+            rawError: (() => {
+              try {
+                return JSON.stringify(e);
+              } catch {
+                return Object.prototype.toString.call(e);
+              }
+            })(),
           });
         },
       });

@@ -16,7 +16,18 @@ export type GuardedNavigationDeps = {
   getCurrentGroup: () => string | undefined;
   /** Performs the actual navigation, e.g. router.replace. */
   navigate: (route: string) => void;
-  /** Schedules a callback for the next frame, e.g. requestAnimationFrame. */
+  /**
+   * Schedules a callback for the next frame, e.g. requestAnimationFrame.
+   *
+   * Contract: this is invoked as `deps.requestFrame(cb)` — a METHOD call on
+   * the deps object, so `this` inside the supplied function is `deps`, not
+   * whatever `this` the function would normally expect. Native rAF is
+   * spec-branded on web (requires `this === window`) and throws "Illegal
+   * invocation" if a bare reference to it is passed here. Callers MUST supply
+   * a bound or wrapped function (e.g. `(cb) => requestAnimationFrame(cb)`),
+   * never a bare reference to a `this`-sensitive native function
+   * (Sentry PS-48/PS-49).
+   */
   requestFrame: (cb: () => void) => void;
   /** Called once, when the redirect is abandoned because the justifying route group changed. */
   onAbandon?: (route: string, scheduledGroup: string | undefined, currentGroup: string | undefined) => void;
