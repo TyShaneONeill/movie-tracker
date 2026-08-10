@@ -43,7 +43,21 @@ interface LetterboxdCSVRow {
 
 export type LetterboxdCSVType = 'watched' | 'diary' | 'ratings' | 'watchlist' | 'unknown';
 
+/** Thrown by detectLetterboxdCSVType/parseLetterboxdCSV when given non-string
+ *  input — e.g. a native file read that failed silently and resolved to
+ *  undefined — instead of letting papaparse dereference it into an opaque
+ *  TypeError (Sentry REACT-NATIVE-POCKETSTUBS-4G). */
+export class LetterboxdCSVNotStringError extends Error {
+  constructor() {
+    super('letterboxd-csv-not-string');
+    this.name = 'LetterboxdCSVNotStringError';
+  }
+}
+
 export function detectLetterboxdCSVType(csvContent: string): LetterboxdCSVType {
+  if (typeof csvContent !== 'string') {
+    throw new LetterboxdCSVNotStringError();
+  }
   const result = Papa.parse<Record<string, string>>(csvContent, {
     header: true,
     preview: 1,
@@ -64,6 +78,9 @@ export function detectLetterboxdCSVType(csvContent: string): LetterboxdCSVType {
  * diary.csv (Date, Name, Year, Letterboxd URI, Rating, Rewatch, Tags, Watched Date).
  */
 export function parseLetterboxdCSV(csvContent: string): LetterboxdEntry[] {
+  if (typeof csvContent !== 'string') {
+    throw new LetterboxdCSVNotStringError();
+  }
   const result = Papa.parse<LetterboxdCSVRow>(csvContent, {
     header: true,
     skipEmptyLines: true,

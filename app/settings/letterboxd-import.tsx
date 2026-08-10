@@ -12,6 +12,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as DocumentPicker from 'expo-document-picker';
+// expo-file-system v19's readAsStringAsync lives on the /legacy entry (same
+// one components/tvtime-import/tvtime-import-screen.tsx uses).
+import * as FileSystem from 'expo-file-system/legacy';
 import Svg, { Path } from 'react-native-svg';
 import { Image } from 'expo-image';
 
@@ -21,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
-import { captureException } from '@/lib/sentry';
+import { captureException, captureMessage } from '@/lib/sentry';
 import { ContentContainer } from '@/components/content-container';
 import { useAchievementCheck } from '@/lib/achievement-context';
 import {
@@ -34,6 +37,11 @@ import {
   type ImportProgress,
 } from '@/lib/letterboxd-service';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
+
+// Size ceiling (OOM guard) for the picked CSV, mirroring lib/tvtime-import/unzip.ts's
+// MAX_ZIP_BYTES pattern. A real watched.csv/diary.csv export is a few hundred KB;
+// this is generous.
+const MAX_CSV_BYTES = 20 * 1024 * 1024; // 20 MB
 
 function ChevronLeftIcon({ color }: { color: string }) {
   return (
@@ -80,9 +88,14 @@ export default function LetterboxdImportScreen() {
     hapticImpact();
     setError(null);
 
+    let stage: 'pick' | 'read' | 'detect' | 'parse' | 'match' = 'pick';
+
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['text/csv', 'text/comma-separated-values', 'application/octet-stream'],
+        // Native read below (readAsStringAsync) depends on the pick being copied
+        // into cache; expo-document-picker defaults to true, but state it explicitly.
+        copyToCacheDirectory: true,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -90,43 +103,89 @@ export default function LetterboxdImportScreen() {
       }
 
       const fileUri = result.assets[0].uri;
+      stage = 'read';
 
       // Parse CSV
       setState('parsing');
-      const response = await fetch(fileUri);
-      if (!response.ok) throw new Error(`Could not read file (${response.status})`);
-      const csvContent = await response.text();
 
-      const csvType = detectLetterboxdCSVType(csvContent);
-      if (csvType === 'ratings' || csvType === 'watchlist' || csvType === 'unknown') {
-        setDetectedFileType(csvType);
-        setState('wrong-file');
-        return;
-      }
-
-      const entries = parseLetterboxdCSV(csvContent);
-
-      if (entries.length === 0) {
-        setError('No valid entries found. Make sure you selected watched.csv or diary.csv from your Letterboxd export.');
-        setState('idle');
-        return;
-      }
-
-      // Match to TMDB
-      setState('matching');
-      const matched = await matchMoviesToTMDB(entries, (progress) => {
-        setMatchProgress(progress);
-        if (progress.current < entries.length) {
-          setCurrentMovieName(entries[progress.current]?.name ?? '');
+      try {
+        // RN fetch on a native file:// DocumentPicker URI is unreliable — it can
+        // resolve .text() to undefined (Sentry REACT-NATIVE-POCKETSTUBS-4G).
+        // Read native picks directly off disk instead; web keeps fetch/blob.
+        let csvContent: string;
+        if (Platform.OS === 'web') {
+          const response = await fetch(fileUri);
+          if (!response.ok) throw new Error(`Could not read file (${response.status})`);
+          csvContent = await response.text();
+        } else {
+          const info = await FileSystem.getInfoAsync(fileUri);
+          if (info.exists && typeof info.size === 'number' && info.size > MAX_CSV_BYTES) {
+            setError('That file is too large to import. Please select watched.csv or diary.csv from your Letterboxd export.');
+            setState('idle');
+            return;
+          }
+          csvContent = await FileSystem.readAsStringAsync(fileUri);
         }
-      });
 
-      setMatches(matched);
-      setState('review');
+        if (typeof csvContent !== 'string') {
+          // Same failure class this fix targets — a silent native read that
+          // didn't produce a string. Counts/types only, never file content.
+          captureMessage('letterboxd-csv-read-empty', {
+            stage: 'read',
+            contentType: typeof csvContent,
+            length: -1,
+          });
+          setError("Couldn't read that file. Try picking it again from Files.");
+          setState('idle');
+          return;
+        }
+
+        // An empty/whitespace-only string is a valid string — detectLetterboxdCSVType
+        // classifies it as 'unknown' below, routing to the wrong-file screen rather
+        // than a read-error, which is reserved for non-string results above.
+
+        stage = 'detect';
+        const csvType = detectLetterboxdCSVType(csvContent);
+        if (csvType === 'ratings' || csvType === 'watchlist' || csvType === 'unknown') {
+          setDetectedFileType(csvType);
+          setState('wrong-file');
+          return;
+        }
+
+        stage = 'parse';
+        const entries = parseLetterboxdCSV(csvContent);
+
+        if (entries.length === 0) {
+          setError('No valid entries found. Make sure you selected watched.csv or diary.csv from your Letterboxd export.');
+          setState('idle');
+          return;
+        }
+
+        // Match to TMDB
+        stage = 'match';
+        setState('matching');
+        const matched = await matchMoviesToTMDB(entries, (progress) => {
+          setMatchProgress(progress);
+          if (progress.current < entries.length) {
+            setCurrentMovieName(entries[progress.current]?.name ?? '');
+          }
+        });
+
+        setMatches(matched);
+        setState('review');
+      } finally {
+        // Native only: delete the picker's cache copy of the CSV — it's the
+        // user's full watch history and must not linger at rest. On web there's
+        // no cache copy (blob: URI, GC'd) and expo-file-system can't touch it.
+        if (Platform.OS !== 'web') {
+          FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
+        }
+      }
     } catch (err) {
       console.error('[Letterboxd] Import error:', err);
       captureException(err instanceof Error ? err : new Error(String(err)), {
         context: 'letterboxd-import-select-file',
+        stage,
       });
       setError('Failed to read or parse the CSV file. Please try again.');
       setState('idle');
