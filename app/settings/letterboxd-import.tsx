@@ -12,12 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { hapticImpact, hapticNotification, ImpactFeedbackStyle, NotificationFeedbackType } from '@/lib/haptics';
 import * as DocumentPicker from 'expo-document-picker';
+import { types as nativeDocumentPickerTypes } from '@react-native-documents/picker';
 // expo-file-system v19's readAsStringAsync lives on the /legacy entry (same
 // one components/tvtime-import/tvtime-import-screen.tsx uses).
 import * as FileSystem from 'expo-file-system/legacy';
 import Svg, { Path } from 'react-native-svg';
 import { Image } from 'expo-image';
 
+import { pickDocumentIOSFullScreen } from '@/lib/pick-document';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -90,19 +92,32 @@ export default function LetterboxdImportScreen() {
 
     let stage: 'pick' | 'read' | 'detect' | 'parse' | 'match' = 'pick';
 
+    let fileUri: string;
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/csv', 'text/comma-separated-values', 'application/octet-stream'],
-        // Native read below (readAsStringAsync) depends on the pick being copied
-        // into cache; expo-document-picker defaults to true, but state it explicitly.
-        copyToCacheDirectory: true,
-      });
+      if (Platform.OS === 'ios') {
+        // iOS-only: expo-document-picker hardcodes 'pageSheet', which is what
+        // triggers the #810 freeze. See lib/pick-document.ts for rationale
+        // and the removal condition.
+        const picked = await pickDocumentIOSFullScreen(
+          [nativeDocumentPickerTypes.csv, nativeDocumentPickerTypes.allFiles],
+          'letterboxd-export.csv'
+        );
+        if (picked.canceled) return;
+        fileUri = picked.uri;
+      } else {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ['text/csv', 'text/comma-separated-values', 'application/octet-stream'],
+          // Native read below (readAsStringAsync) depends on the pick being copied
+          // into cache; expo-document-picker defaults to true, but state it explicitly.
+          copyToCacheDirectory: true,
+        });
 
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        return;
+        if (result.canceled || !result.assets || result.assets.length === 0) {
+          return;
+        }
+
+        fileUri = result.assets[0].uri;
       }
-
-      const fileUri = result.assets[0].uri;
       stage = 'read';
 
       // Parse CSV

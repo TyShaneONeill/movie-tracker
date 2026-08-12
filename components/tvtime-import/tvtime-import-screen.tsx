@@ -3,8 +3,10 @@ import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Platf
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import { types as nativeDocumentPickerTypes } from '@react-native-documents/picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
+import { pickDocumentIOSFullScreen } from '@/lib/pick-document';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -203,20 +205,31 @@ export function TvTimeImportScreen() {
     setError(null);
     setErrorCode(null);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
+      let pickedUri: string;
+      let pickedFile: File | undefined;
+      if (Platform.OS === 'ios') {
+        // iOS-only: expo-document-picker hardcodes 'pageSheet', which is what
+        // triggers the #810 freeze. See lib/pick-document.ts for rationale
+        // and the removal condition.
+        const picked = await pickDocumentIOSFullScreen([nativeDocumentPickerTypes.zip], 'tvtime-export.zip');
+        if (picked.canceled) return;
+        pickedUri = picked.uri;
+      } else {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled || !result.assets?.[0]) return;
+        pickedUri = result.assets[0].uri;
+        pickedFile = result.assets[0].file;
+      }
 
-      const pickedAsset = result.assets[0];
-      const pickedUri = pickedAsset.uri;
       setPhase('reading');
       try {
         // On web the picker hands back an in-memory File (blob: URI) that
         // expo-file-system can't read — pass it through so the read path can
         // use Blob.arrayBuffer() instead. `file` is undefined on native.
-        const files = await unzipTvTimeExport(pickedUri, pickedAsset.file);
+        const files = await unzipTvTimeExport(pickedUri, pickedFile);
 
         let parsed: ParsedTvTimePayload;
         try {
