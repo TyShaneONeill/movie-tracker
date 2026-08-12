@@ -20,18 +20,22 @@ jest.mock('@/lib/movie-service', () => ({
 import {
   parseLetterboxdCSV,
   matchMoviesToTMDB,
+  importMovies,
   exportCollectionCSV,
   detectLetterboxdCSVType,
   LetterboxdCSVNotStringError,
 } from '@/lib/letterboxd-service';
-import type { LetterboxdEntry } from '@/lib/letterboxd-service';
-import { searchMovies, fetchUserMovies } from '@/lib/movie-service';
+import type { LetterboxdEntry, MatchedMovie } from '@/lib/letterboxd-service';
+import { searchMovies, fetchUserMovies, addMovieToLibrary } from '@/lib/movie-service';
 import { supabase } from '@/lib/supabase';
+import { captureMessage } from '@/lib/sentry';
 import type { UserMovie } from '@/lib/database.types';
 
 const mockSearchMovies = searchMovies as jest.Mock;
 const mockFetchUserMovies = fetchUserMovies as jest.Mock;
+const mockAddMovieToLibrary = addMovieToLibrary as jest.Mock;
 const mockFrom = supabase.from as jest.Mock;
+const mockCaptureMessage = captureMessage as jest.Mock;
 
 // ============================================================================
 // Helpers
@@ -125,6 +129,15 @@ function makeEntry(overrides: Partial<LetterboxdEntry> = {}): LetterboxdEntry {
     rating: 4.5,
     isRewatch: false,
     letterboxdUri: 'https://boxd.it/abc',
+    ...overrides,
+  };
+}
+
+function makeMatchedMovie(overrides: Partial<MatchedMovie> = {}): MatchedMovie {
+  return {
+    entry: makeEntry({ watchedDate: null }),
+    tmdbMovie: makeTMDBMovie() as any,
+    status: 'matched',
     ...overrides,
   };
 }
@@ -449,6 +462,139 @@ describe('matchMoviesToTMDB', () => {
       unmatched: 1,
       current: 3,
     });
+  });
+});
+
+// ============================================================================
+// importMovies — reconciliation (#812: "Imported: 3" but zero rows persisted)
+// ============================================================================
+
+describe('importMovies', () => {
+  it('recomputes imported/persistenceFailed when reconciliation finds only a subset actually persisted', async () => {
+    const movieA = makeTMDBMovie({ id: 1, title: 'Movie A' });
+    const movieB = makeTMDBMovie({ id: 2, title: 'Movie B' });
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: movieA as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: movieB as any, status: 'matched' }),
+    ];
+
+    // Both upserts resolve successfully in the JS layer...
+    mockAddMovieToLibrary
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-a', tmdb_id: 1 }))
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-b', tmdb_id: 2 }));
+
+    // ...but the reconciliation read only finds movie A actually persisted.
+    const reconcileChain = mockSupabaseQuery({
+      data: [{ tmdb_id: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(reconcileChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(1);
+    expect(result.persistenceFailed).toBe(1);
+    expect(matches[0].status).toBe('imported');
+    expect(matches[1].status).toBe('unmatched');
+
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      'letterboxd-import-reconciliation-mismatch',
+      { claimed: 2, persisted: 1 }
+    );
+  });
+
+  it('leaves counts untouched when every claimed import reconciles', async () => {
+    const movieA = makeTMDBMovie({ id: 1, title: 'Movie A' });
+    const movieB = makeTMDBMovie({ id: 2, title: 'Movie B' });
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: movieA as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: movieB as any, status: 'matched' }),
+    ];
+
+    mockAddMovieToLibrary
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-a', tmdb_id: 1 }))
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-b', tmdb_id: 2 }));
+
+    const reconcileChain = mockSupabaseQuery({
+      data: [{ tmdb_id: 1 }, { tmdb_id: 2 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(reconcileChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(2);
+    expect(result.persistenceFailed).toBe(0);
+    expect(matches[0].status).toBe('imported');
+    expect(matches[1].status).toBe('imported');
+    expect(mockCaptureMessage).not.toHaveBeenCalledWith(
+      'letterboxd-import-reconciliation-mismatch',
+      expect.anything()
+    );
+  });
+
+  it('does not downgrade claimed imports when the reconciliation read itself errors', async () => {
+    const movieA = makeTMDBMovie({ id: 1, title: 'Movie A' });
+    const matches = [makeMatchedMovie({ tmdbMovie: movieA as any, status: 'matched' })];
+
+    mockAddMovieToLibrary.mockResolvedValueOnce(makeUserMovie({ id: 'row-a', tmdb_id: 1 }));
+
+    const reconcileChain = mockSupabaseQuery({
+      data: null,
+      error: { message: 'network blip' },
+    });
+    mockFrom.mockReturnValue(reconcileChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(1);
+    expect(result.persistenceFailed).toBe(0);
+    expect(matches[0].status).toBe('imported');
+  });
+
+  it('captures a message but keeps the movie counted as imported when the watched_at backfill fails', async () => {
+    const movieA = makeTMDBMovie({ id: 1, title: 'Movie A' });
+    const matches = [
+      makeMatchedMovie({
+        tmdbMovie: movieA as any,
+        status: 'matched',
+        entry: makeEntry({ watchedDate: '2024-03-15' }),
+      }),
+    ];
+
+    mockAddMovieToLibrary.mockResolvedValueOnce(makeUserMovie({ id: 'row-a', tmdb_id: 1 }));
+
+    const watchedAtUpdateChain = mockSupabaseQuery({
+      data: null,
+      error: { message: 'update failed' },
+    });
+    const reconcileChain = mockSupabaseQuery({
+      data: [{ tmdb_id: 1 }],
+      error: null,
+    });
+    mockFrom
+      .mockReturnValueOnce(watchedAtUpdateChain) // the watched_at update call
+      .mockReturnValueOnce(reconcileChain); // the reconciliation select call
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(1);
+    expect(result.persistenceFailed).toBe(0);
+    expect(matches[0].status).toBe('imported');
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      'letterboxd-import-watched-at-update-failed',
+      { tmdbId: 1 }
+    );
+  });
+
+  it('skips reconciliation entirely when nothing was claimed as imported', async () => {
+    const matches = [makeMatchedMovie({ tmdbMovie: null, status: 'unmatched' })];
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(0);
+    expect(result.persistenceFailed).toBe(0);
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import { searchMovies, addMovieToLibrary, fetchUserMovies } from './movie-service';
 import { supabase } from './supabase';
+import { captureMessage } from './sentry';
 import type { TMDBMovie } from './tmdb.types';
 import type { MovieStatus } from './database.types';
 
@@ -27,6 +28,10 @@ export interface ImportProgress {
   duplicates: number;
   imported: number;
   current: number;
+  // Movies whose write resolved successfully in importMovies() but were not
+  // found in a post-import reconciliation read — i.e. success theater (#812).
+  // Already subtracted out of `imported`.
+  persistenceFailed: number;
 }
 
 // Letterboxd CSV column names
@@ -120,6 +125,7 @@ export async function matchMoviesToTMDB(
     duplicates: 0,
     imported: 0,
     current: 0,
+    persistenceFailed: 0,
   };
 
   for (const entry of entries) {
@@ -185,6 +191,7 @@ export async function importMovies(
     duplicates: 0,
     imported: 0,
     current: 0,
+    persistenceFailed: 0,
   };
 
   for (const match of matches) {
@@ -200,12 +207,19 @@ export async function importMovies(
       const status: MovieStatus = 'watched';
       const userMovie = await addMovieToLibrary(userId, match.tmdbMovie, status, { skipEnrich: true });
 
-      // Update watched_at if available from the Letterboxd entry
+      // Update watched_at if available from the Letterboxd entry. Enrichment
+      // only — the row itself was already written by addMovieToLibrary above,
+      // so a failure here shouldn't fail the import, just be visible.
       if (match.entry.watchedDate) {
-        await supabase
+        const { error: watchedAtError } = await supabase
           .from('user_movies')
           .update({ watched_at: match.entry.watchedDate })
           .eq('id', userMovie.id);
+        if (watchedAtError) {
+          captureMessage('letterboxd-import-watched-at-update-failed', {
+            tmdbId: match.tmdbMovie.id,
+          });
+        }
       }
 
       match.status = 'imported';
@@ -223,6 +237,45 @@ export async function importMovies(
 
     progress.current++;
     onProgress?.({ ...progress });
+  }
+
+  // Reconciliation (#812): addMovieToLibrary's upsert can resolve successfully
+  // in the JS layer without the corresponding Postgres write ever landing —
+  // a client/session-level failure mode confirmed NOT reproducible at the
+  // prod API/schema/RLS layer, so we verify rather than trust resolution.
+  // One query for the whole batch, not per-row.
+  const claimed = matches.filter(
+    (m): m is MatchedMovie & { tmdbMovie: TMDBMovie } => m.status === 'imported' && m.tmdbMovie !== null
+  );
+  if (claimed.length > 0) {
+    const claimedTmdbIds = claimed.map((m) => m.tmdbMovie.id);
+    const { data: persistedRows, error: reconcileError } = await supabase
+      .from('user_movies')
+      .select('tmdb_id')
+      .eq('user_id', userId)
+      .in('tmdb_id', claimedTmdbIds);
+
+    // If the reconciliation read itself fails, we can't tell "didn't persist"
+    // from "couldn't verify" — don't downgrade claimed imports on a network
+    // blip in the verification step.
+    if (!reconcileError && persistedRows) {
+      const persistedIds = new Set((persistedRows as { tmdb_id: number }[]).map((r) => r.tmdb_id));
+
+      for (const match of claimed) {
+        if (!persistedIds.has(match.tmdbMovie.id)) {
+          match.status = 'unmatched';
+          progress.imported--;
+          progress.persistenceFailed++;
+        }
+      }
+
+      if (progress.persistenceFailed > 0) {
+        captureMessage('letterboxd-import-reconciliation-mismatch', {
+          claimed: claimed.length,
+          persisted: persistedIds.size,
+        });
+      }
+    }
   }
 
   return progress;

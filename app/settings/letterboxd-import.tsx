@@ -425,6 +425,11 @@ export default function LetterboxdImportScreen() {
         return (
           <View style={dynamicStyles.centeredContent}>
             <Text style={dynamicStyles.doneTitle}>Import Complete!</Text>
+            {importProgress && importProgress.persistenceFailed > 0 && (
+              <Text style={dynamicStyles.errorText}>
+                {importProgress.imported} of {importProgress.imported + importProgress.persistenceFailed} imported — {importProgress.persistenceFailed} didn&apos;t save. Try importing again to pick up the rest.
+              </Text>
+            )}
             {importProgress && (
               <View style={dynamicStyles.summaryContainer}>
                 <View style={dynamicStyles.summaryRow}>
