@@ -109,6 +109,10 @@ const IOS_POST_PICKER_DWELL_MS = 400;
 
 const FIX_ENABLED = false;
 
+// CANDIDATE 6 variant selector — flip and Fast Refresh between sim runs.
+// 'cpu' | 'bridge' | 'network' | 'combo'. See runCandidate6 in the component.
+const CANDIDATE_6_VARIANT: 'cpu' | 'bridge' | 'network' | 'combo' = 'combo';
+
 function waitForPickerTransition(readingStartedAt: number | null): Promise<void> {
   if (!FIX_ENABLED || Platform.OS !== 'ios' || readingStartedAt === null) return Promise.resolve();
   const remaining = IOS_POST_PICKER_DWELL_MS - (Date.now() - readingStartedAt);
@@ -335,6 +339,75 @@ export function TvTimeImportScreen() {
   }, []);
   void flashWindowKick; // referenced only to avoid an unused-var lint error while disabled
 
+  // CANDIDATE 6 — DISPROVEN 2026-08-12, ALL 4 VARIANTS: bisect what kind of
+  // "busy" the happy path does during the critical window that a pure idle
+  // wait (candidate 1) doesn't replicate. Each variant confirmed executing
+  // via logs (iteration/call/request counts in the console) before judging
+  // touch response — none prevented the freeze on the cancel repro:
+  //   (a) cpu:     3008 chunked JSON.stringify iterations over ~2.5s — froze.
+  //   (b) bridge:  154 real FileSystem.getInfoAsync calls over ~2.5s — froze.
+  //   (c) network: 61 real HTTPS fetches over ~2.5s — froze.
+  //   (d) combo:   3020 cpu iterations THEN 55 fetches (~5s total, closely
+  //                mimicking the happy path's actual unzip-then-match
+  //                activity shape) — froze.
+  // CAVEAT for the next investigator: the happy path's "immunity" this whole
+  // candidate was built on rests on a SINGLE observed non-freeze (one manual
+  // real-file-pick run reaching the preview screen safely) — n=1, not a
+  // repeated/statistically solid result like the cancel repro's. It's worth
+  // re-testing the happy path itself multiple times before trusting that
+  // premise further; it's possible it's just lower-frequency, not immune.
+  const runCandidate6 = useCallback(async () => {
+    const variant = CANDIDATE_6_VARIANT;
+    console.log(`[FREEZE-DEBUG] candidate6 START variant=${variant} t=${Date.now()}`);
+    const deadline = Date.now() + 2500;
+
+    if (variant === 'cpu' || variant === 'combo') {
+      // (a) Synchronous CPU-bound JS in short chunks (mimics the unzip's
+      // sync bursts) — a big object stringified repeatedly, yielding to the
+      // event loop every ~20 iterations so this doesn't itself look like a
+      // JS-thread hang.
+      const big = { rows: Array.from({ length: 500 }, (_, i) => ({ i, s: `row-${i}`.repeat(20) })) };
+      let iterations = 0;
+      while (Date.now() < deadline) {
+        for (let i = 0; i < 20 && Date.now() < deadline; i++) {
+          JSON.stringify(big);
+          iterations++;
+        }
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      console.log(`[FREEZE-DEBUG] candidate6 cpu-burst iterations=${iterations} t=${Date.now()}`);
+    }
+
+    if (variant === 'bridge') {
+      // (b) Chain of real native-bridge calls — mimics filesystem chatter.
+      let calls = 0;
+      while (Date.now() < deadline) {
+        await FileSystem.getInfoAsync(FileSystem.cacheDirectory ?? '');
+        calls++;
+      }
+      console.log(`[FREEZE-DEBUG] candidate6 bridge-calls count=${calls} t=${Date.now()}`);
+    }
+
+    if (variant === 'network' || variant === 'combo') {
+      // (c) Real network fetch(es) — mimics the TMDB match phase's HTTPS
+      // round trips. Generic reachable endpoint, not the real TMDB call.
+      let requests = 0;
+      const netDeadline = variant === 'combo' ? Date.now() + 2500 : deadline;
+      while (Date.now() < netDeadline) {
+        try {
+          await fetch('https://jsonplaceholder.typicode.com/todos/1');
+        } catch (e) {
+          console.log(`[FREEZE-DEBUG] candidate6 fetch error t=${Date.now()} err=${e}`);
+        }
+        requests++;
+      }
+      console.log(`[FREEZE-DEBUG] candidate6 network-requests count=${requests} t=${Date.now()}`);
+    }
+
+    console.log(`[FREEZE-DEBUG] candidate6 DONE variant=${variant} t=${Date.now()}`);
+  }, []);
+  void runCandidate6; // referenced only to avoid an unused-var lint error while disabled
+
   const handleSelectFile = useCallback(async () => {
     console.log(`[FREEZE-DEBUG] handleSelectFile START t=${Date.now()}`);
     hapticImpact();
@@ -351,9 +424,9 @@ export function TvTimeImportScreen() {
         copyToCacheDirectory: true,
       });
       console.log(`[FREEZE-DEBUG] getDocumentAsync RESOLVED t=${Date.now()} canceled=${result.canceled}`);
-      // All 5 mitigation candidates (waitForPickerTransition, flashModalKick,
-      // flashAlertKick, flashKeyboardKick, flashWindowKick) are disproven —
-      // see their comments above. None is called here anymore.
+      // All 6 mitigation candidates (waitForPickerTransition, flashModalKick,
+      // flashAlertKick, flashKeyboardKick, flashWindowKick, runCandidate6)
+      // are disproven — see their comments above. None called here anymore.
       if (result.canceled || !result.assets?.[0]) return;
 
       const pickedAsset = result.assets[0];
