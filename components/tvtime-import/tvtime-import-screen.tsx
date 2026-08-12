@@ -147,6 +147,24 @@ export function TvTimeImportScreen() {
   const [phase, setPhase] = useState<Phase>('pick');
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<TvTimeImportErrorCode | null>(null);
+  // CANDIDATE 7(a) — DISPROVEN 2026-08-12: bump this to force a full
+  // unmount+remount of the screen's root subtree via `key` — a React
+  // subtree remount tears down and re-registers the native view hierarchy +
+  // gesture recognizers, which the happy path gets "for free" by unmounting
+  // PickScreen (phase -> 'preview' replaces the subtree) while cancel/error
+  // leave the same mounted screen in place. Tested cancel x3 + not-a-zip x3,
+  // each confirmed remounting via a mount-effect log (two distinct
+  // PickScreen MOUNTED log lines per cycle, with the remountKey bump log
+  // between them) — froze every single time regardless. Whatever's wedged
+  // survives even a genuine React-level unmount+mount of the entire subtree
+  // under it (structurally different from candidates 2/3, which only added
+  // a NEW context OVER the wedged view without ever unmounting it — this
+  // DID unmount it, and it still didn't help). Kept for the record; the
+  // setRemountKey calls are gone (candidate 7(b) also disproven, see
+  // runNavCycle below — neither variant of candidate 7 worked).
+  const [remountKey, setRemountKey] = useState(0);
+  void remountKey; // still applied as the SafeAreaView's key below, now a no-op (never bumped)
+  void setRemountKey; // referenced only to avoid an unused-var lint error while disabled
   // CANDIDATE 2 (mitigation test, not yet proven): a brief transparent RN
   // Modal present+dismiss cycle right after the document picker resolves.
   // Theory: a native UIViewController presentation/dismissal may reset
@@ -408,6 +426,32 @@ export function TvTimeImportScreen() {
   }, []);
   void runCandidate6; // referenced only to avoid an unused-var lint error while disabled
 
+  // CANDIDATE 7(b) — DISPROVEN 2026-08-12: a full route-level unmount/
+  // remount cycle, in case a React `key` remount (7a, also disproven) isn't
+  // "enough" of a native teardown — this forces expo-router to unmount THIS
+  // screen, mount a different existing route (settings index), unmount
+  // THAT, and mount a fresh instance of this screen, exercising
+  // react-native-screens' full native-screen lifecycle rather than just a
+  // subtree swap under a stable route. Tested cancel x3 + not-a-zip x3,
+  // each confirmed via navCycle START/DONE log pairs (~150ms round trip:
+  // replace to /settings, 60ms, replace back to tvtime-import, 60ms) —
+  // froze every single time regardless. CANDIDATE 7 IS FULLY DISPROVEN:
+  // neither a subtree remount (7a) nor a full route-level screen
+  // unmount/remount (7b) recovers touches. Whatever UIKit state is wedged
+  // survives every level of React/react-navigation teardown we can drive
+  // from JS — this is conclusive evidence the fix needs to live below the
+  // JS layer (native module / library swap), not in this codebase. Kept
+  // for the record; not called anywhere anymore.
+  const runNavCycle = useCallback(async () => {
+    console.log(`[FREEZE-DEBUG] candidate7b navCycle START t=${Date.now()}`);
+    router.replace('/settings');
+    await new Promise((r) => setTimeout(r, 60));
+    router.replace({ pathname: '/settings/tvtime-import', params: params.from ? { from: params.from } : {} });
+    await new Promise((r) => setTimeout(r, 60));
+    console.log(`[FREEZE-DEBUG] candidate7b navCycle DONE t=${Date.now()}`);
+  }, [params.from]);
+  void runNavCycle; // referenced only to avoid an unused-var lint error while disabled
+
   const handleSelectFile = useCallback(async () => {
     console.log(`[FREEZE-DEBUG] handleSelectFile START t=${Date.now()}`);
     hapticImpact();
@@ -424,9 +468,10 @@ export function TvTimeImportScreen() {
         copyToCacheDirectory: true,
       });
       console.log(`[FREEZE-DEBUG] getDocumentAsync RESOLVED t=${Date.now()} canceled=${result.canceled}`);
-      // All 6 mitigation candidates (waitForPickerTransition, flashModalKick,
-      // flashAlertKick, flashKeyboardKick, flashWindowKick, runCandidate6)
-      // are disproven — see their comments above. None called here anymore.
+      // All 7 mitigation candidates (waitForPickerTransition, flashModalKick,
+      // flashAlertKick, flashKeyboardKick, flashWindowKick, runCandidate6,
+      // remountKey, runNavCycle) are disproven — see their comments above.
+      // None called here anymore.
       if (result.canceled || !result.assets?.[0]) return;
 
       const pickedAsset = result.assets[0];
@@ -591,6 +636,7 @@ export function TvTimeImportScreen() {
   const view = importScreenView(importRun.phase, phase);
   return (
     <SafeAreaView
+      key={remountKey}
       pointerEvents={rootPointerEvents}
       style={[styles.container, { backgroundColor: colors.background }]}
     >

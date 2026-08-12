@@ -70,6 +70,13 @@ export function PickScreen({
 }) {
   const isWrongFile = errorCode !== null && WRONG_FILE_CODES.has(errorCode);
 
+  // CANDIDATE 7 mount-confirmation: fires on every real mount of this
+  // component (including a remount forced by the parent's `key` bump), so we
+  // can confirm the remount actually happened before judging touch response.
+  useEffect(() => {
+    console.log(`[FREEZE-DEBUG] candidate7 PickScreen MOUNTED t=${Date.now()}`);
+  }, []);
+
   return (
     <View style={styles.pickBody}>
       <Text style={[Typography.display.h3, { color: colors.text }]}>Bring your history home.</Text>
