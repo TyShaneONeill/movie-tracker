@@ -62,7 +62,18 @@ export function PickScreen({
       )}
       {error && !isWrongFile && <Text style={[Typography.body.sm, styles.errorText]}>{error}</Text>}
 
-      <Pressable onPress={onPick} style={({ pressed }) => [styles.primaryBtn, { backgroundColor: colors.tint }, pressed && { opacity: 0.85 }]}>
+      {/* primaryBtn carries no top margin of its own (elsewhere it sits in a
+          `footer` View that supplies spacing via `gap`) — here it's a direct
+          sibling of the conditional error/warnBanner block above, so it needs
+          its own margin or it butts right up against the banner. */}
+      <Pressable
+        onPress={onPick}
+        style={({ pressed }) => [
+          styles.primaryBtn,
+          { backgroundColor: colors.tint, marginTop: error ? Spacing.lg : 0 },
+          pressed && { opacity: 0.85 },
+        ]}
+      >
         <Text style={styles.primaryBtnText}>Choose export file</Text>
       </Pressable>
     </View>
