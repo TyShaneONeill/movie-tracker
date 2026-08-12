@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+  Modal,
+  Alert,
+  TextInput,
+  Keyboard,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -130,11 +143,20 @@ export function TvTimeImportScreen() {
   const [phase, setPhase] = useState<Phase>('pick');
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<TvTimeImportErrorCode | null>(null);
+  // CANDIDATE 2 (mitigation test, not yet proven): a brief transparent RN
+  // Modal present+dismiss cycle right after the document picker resolves.
+  // Theory: a native UIViewController presentation/dismissal may reset
+  // UIKit's gesture arbitration state that the picker's own dismissal wedges.
+  const [modalKick, setModalKick] = useState(false);
   const [match, setMatch] = useState<TvTimeMatchResult | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [counts, setCounts] = useState<ImportCounts>(emptyImportCounts());
   const [reviewItems, setReviewItems] = useState<PersistedReviewItem[]>([]);
   const [fixItem, setFixItem] = useState<PersistedReviewItem | null>(null);
+  // CANDIDATE 4: hidden TextInput used to focus+dismiss the keyboard right
+  // after the picker resolves (Sentry breadcrumbs on Ty's real freeze showed
+  // UIKeyboardDidHideNotification right before the exception).
+  const hiddenInputRef = useRef<TextInput>(null);
 
   // The import RUN lives in a provider so it survives "Hide" + navigation; the
   // screen re-attaches by reading it. `start`/`reset`/`setScreenFocused` are
@@ -229,6 +251,90 @@ export function TvTimeImportScreen() {
     console.log(`[FREEZE-DEBUG] after captureException t=${Date.now()}`);
   }, []);
 
+  // CANDIDATE 2 — DISPROVEN 2026-08-12: briefly present+dismiss a
+  // transparent, non-animated RN Modal right after the picker resolves.
+  // Confirmed executing correctly via logs (SHOW/HIDE/DONE ~33ms apart) but
+  // did NOT prevent the freeze on the cancel repro. Kept for the record;
+  // not called anywhere anymore (see flashAlertKick below, candidate 3).
+  const flashModalKick = useCallback(async () => {
+    console.log(`[FREEZE-DEBUG] modalKick SHOW t=${Date.now()}`);
+    setModalKick(true);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    console.log(`[FREEZE-DEBUG] modalKick HIDE t=${Date.now()}`);
+    setModalKick(false);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    console.log(`[FREEZE-DEBUG] modalKick DONE t=${Date.now()}`);
+  }, []);
+  void flashModalKick; // referenced only to avoid an unused-var lint error while disabled
+
+  // CANDIDATE 3 — DISPROVEN 2026-08-12: present a genuine UIAlertController
+  // via Alert.alert() right after the picker resolves. The alert's OWN "OK"
+  // button worked fine (proving touches function inside a fresh presentation
+  // context), but the underlying screen was still frozen after dismissal —
+  // whatever's broken is specific to the ORIGINAL RCTRootView's responder
+  // chain, not something a new native presentation cycle resets from outside
+  // it. Kept for the record; not called anywhere anymore.
+  const flashAlertKick = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      console.log(`[FREEZE-DEBUG] alertKick SHOW t=${Date.now()}`);
+      Alert.alert('One sec…', undefined, [
+        {
+          text: 'OK',
+          onPress: () => {
+            console.log(`[FREEZE-DEBUG] alertKick DISMISSED t=${Date.now()}`);
+            resolve();
+          },
+        },
+      ]);
+    });
+  }, []);
+  void flashAlertKick; // referenced only to avoid an unused-var lint error while disabled
+
+  // CANDIDATE 4 — DISPROVEN 2026-08-12: focus a hidden TextInput then
+  // Keyboard.dismiss() right after the picker resolves. Sentry breadcrumbs
+  // on Ty's real freeze (event REACT-NATIVE-POCKETSTUBS-4N) showed a
+  // UIKeyboardDidHideNotification right before the JS exception fired — the
+  // document picker's own search field keyboard was likely still tearing
+  // down. Theory: an explicit show+hide keyboard cycle of OUR OWN might
+  // force the same keyboard/gesture-arbitration re-registration the system
+  // was already mid-way through, completing it instead of leaving it stuck.
+  // Confirmed executing correctly via logs (FOCUS/DISMISS/DONE ~80ms apart)
+  // — did NOT prevent the freeze. Kept for the record; not called anymore.
+  const flashKeyboardKick = useCallback(async () => {
+    console.log(`[FREEZE-DEBUG] keyboardKick FOCUS t=${Date.now()}`);
+    hiddenInputRef.current?.focus();
+    await new Promise((r) => setTimeout(r, 80));
+    console.log(`[FREEZE-DEBUG] keyboardKick DISMISS t=${Date.now()}`);
+    Keyboard.dismiss();
+    hiddenInputRef.current?.blur();
+    await new Promise((r) => setTimeout(r, 80));
+    console.log(`[FREEZE-DEBUG] keyboardKick DONE t=${Date.now()}`);
+  }, []);
+  void flashKeyboardKick; // referenced only to avoid an unused-var lint error while disabled
+
+  // CANDIDATE 5 — DISPROVEN 2026-08-12: cheap paint-level pokes — toggle
+  // pointerEvents on the root container and StatusBar.setHidden() briefly
+  // right after the picker resolves. Theory: forcing a layout/paint pass and
+  // a native status-bar API call might make UIKit re-evaluate window/
+  // responder state that a pure idle wait (candidate 1) or a separate
+  // presentation (2/3) never touched. Confirmed executing correctly via logs
+  // (START/DONE ~65ms apart) — did NOT prevent the freeze. This was the
+  // last of 5 mitigation candidates tried; ALL FIVE failed. See PR/ticket for
+  // the full record — this needs a native-side fix (new binary) or a
+  // documented product-level workaround, not another JS-side mitigation.
+  const [rootPointerEvents, setRootPointerEvents] = useState<'auto' | 'none'>('auto');
+  const flashWindowKick = useCallback(async () => {
+    console.log(`[FREEZE-DEBUG] windowKick START t=${Date.now()}`);
+    setRootPointerEvents('none');
+    StatusBar.setHidden(true, 'none');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    setRootPointerEvents('auto');
+    StatusBar.setHidden(false, 'none');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    console.log(`[FREEZE-DEBUG] windowKick DONE t=${Date.now()}`);
+  }, []);
+  void flashWindowKick; // referenced only to avoid an unused-var lint error while disabled
+
   const handleSelectFile = useCallback(async () => {
     console.log(`[FREEZE-DEBUG] handleSelectFile START t=${Date.now()}`);
     hapticImpact();
@@ -245,6 +351,9 @@ export function TvTimeImportScreen() {
         copyToCacheDirectory: true,
       });
       console.log(`[FREEZE-DEBUG] getDocumentAsync RESOLVED t=${Date.now()} canceled=${result.canceled}`);
+      // All 5 mitigation candidates (waitForPickerTransition, flashModalKick,
+      // flashAlertKick, flashKeyboardKick, flashWindowKick) are disproven —
+      // see their comments above. None is called here anymore.
       if (result.canceled || !result.assets?.[0]) return;
 
       const pickedAsset = result.assets[0];
@@ -408,7 +517,10 @@ export function TvTimeImportScreen() {
   // Provider phase wins over the local phase (re-attach); see importScreenView.
   const view = importScreenView(importRun.phase, phase);
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      pointerEvents={rootPointerEvents}
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <ContentContainer style={{ flex: 1 }}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
@@ -486,6 +598,17 @@ export function TvTimeImportScreen() {
           import found on ANY visit — pick, resume, or the live done screen —
           gets its review-ask + upsell moment. See PostImportMoments. */}
       <PostImportMoments runPhase={importRun.phase} />
+
+      {/* CANDIDATE 2 (disproven) mitigation test — see flashModalKick above.
+          Transparent, non-animated, no touch surface of its own. */}
+      <Modal visible={modalKick} transparent animationType="none" onRequestClose={() => setModalKick(false)}>
+        <View pointerEvents="none" style={{ flex: 1 }} />
+      </Modal>
+
+      {/* CANDIDATE 4 mitigation test — see flashKeyboardKick above. Off-screen,
+          zero-size, never visible; only exists to give the keyboard a real
+          field to show/hide against. */}
+      <TextInput ref={hiddenInputRef} style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }} />
     </SafeAreaView>
   );
 }
