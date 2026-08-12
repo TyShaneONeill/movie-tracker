@@ -4,6 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+// PROTOTYPE (issue #810 picker-freeze bench): iOS-only swap to test whether
+// presentationStyle:'fullScreen' avoids the post-picker home-indicator gesture
+// gate freeze. expo-document-picker hardcodes pageSheet with no way to override.
+import {
+  pick as pickNativeDocument,
+  keepLocalCopy as keepNativeLocalCopy,
+  isErrorWithCode as isNativeDocumentPickerErrorWithCode,
+  errorCodes as nativeDocumentPickerErrorCodes,
+  types as nativeDocumentPickerTypes,
+} from '@react-native-documents/picker';
 
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -203,20 +213,46 @@ export function TvTimeImportScreen() {
     setError(null);
     setErrorCode(null);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
+      let pickedUri: string;
+      let pickedFile: File | undefined;
+      if (Platform.OS === 'ios') {
+        // PROTOTYPE: presentationStyle:'fullScreen' via the new picker lib —
+        // see issue #810. keepLocalCopy mirrors expo-document-picker's
+        // copyToCacheDirectory so the downstream read + finally-delete below
+        // are untouched.
+        try {
+          const [pickedDoc] = await pickNativeDocument({
+            type: [nativeDocumentPickerTypes.zip],
+            presentationStyle: 'fullScreen',
+          });
+          const [copy] = await keepNativeLocalCopy({
+            files: [{ uri: pickedDoc.uri, fileName: pickedDoc.name ?? 'tvtime-export.zip' }],
+            destination: 'cachesDirectory',
+          });
+          if (copy.status === 'error') throw new Error(copy.copyError);
+          pickedUri = copy.localUri;
+        } catch (err) {
+          if (isNativeDocumentPickerErrorWithCode(err) && err.code === nativeDocumentPickerErrorCodes.OPERATION_CANCELED) {
+            return;
+          }
+          throw err;
+        }
+      } else {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled || !result.assets?.[0]) return;
+        pickedUri = result.assets[0].uri;
+        pickedFile = result.assets[0].file;
+      }
 
-      const pickedAsset = result.assets[0];
-      const pickedUri = pickedAsset.uri;
       setPhase('reading');
       try {
         // On web the picker hands back an in-memory File (blob: URI) that
         // expo-file-system can't read — pass it through so the read path can
         // use Blob.arrayBuffer() instead. `file` is undefined on native.
-        const files = await unzipTvTimeExport(pickedUri, pickedAsset.file);
+        const files = await unzipTvTimeExport(pickedUri, pickedFile);
 
         let parsed: ParsedTvTimePayload;
         try {

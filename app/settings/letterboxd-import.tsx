@@ -15,6 +15,15 @@ import * as DocumentPicker from 'expo-document-picker';
 // expo-file-system v19's readAsStringAsync lives on the /legacy entry (same
 // one components/tvtime-import/tvtime-import-screen.tsx uses).
 import * as FileSystem from 'expo-file-system/legacy';
+// PROTOTYPE (issue #810 picker-freeze bench) — see the matching import in
+// components/tvtime-import/tvtime-import-screen.tsx for rationale.
+import {
+  pick as pickNativeDocument,
+  keepLocalCopy as keepNativeLocalCopy,
+  isErrorWithCode as isNativeDocumentPickerErrorWithCode,
+  errorCodes as nativeDocumentPickerErrorCodes,
+  types as nativeDocumentPickerTypes,
+} from '@react-native-documents/picker';
 import Svg, { Path } from 'react-native-svg';
 import { Image } from 'expo-image';
 
@@ -91,18 +100,42 @@ export default function LetterboxdImportScreen() {
     let stage: 'pick' | 'read' | 'detect' | 'parse' | 'match' = 'pick';
 
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/csv', 'text/comma-separated-values', 'application/octet-stream'],
-        // Native read below (readAsStringAsync) depends on the pick being copied
-        // into cache; expo-document-picker defaults to true, but state it explicitly.
-        copyToCacheDirectory: true,
-      });
+      let fileUri: string;
+      if (Platform.OS === 'ios') {
+        // PROTOTYPE: presentationStyle:'fullScreen' — see issue #810.
+        // keepLocalCopy mirrors expo-document-picker's copyToCacheDirectory
+        // so the read below (and the finally-delete) are untouched.
+        try {
+          const [pickedDoc] = await pickNativeDocument({
+            type: [nativeDocumentPickerTypes.csv, nativeDocumentPickerTypes.allFiles],
+            presentationStyle: 'fullScreen',
+          });
+          const [copy] = await keepNativeLocalCopy({
+            files: [{ uri: pickedDoc.uri, fileName: pickedDoc.name ?? 'letterboxd-export.csv' }],
+            destination: 'cachesDirectory',
+          });
+          if (copy.status === 'error') throw new Error(copy.copyError);
+          fileUri = copy.localUri;
+        } catch (err) {
+          if (isNativeDocumentPickerErrorWithCode(err) && err.code === nativeDocumentPickerErrorCodes.OPERATION_CANCELED) {
+            return;
+          }
+          throw err;
+        }
+      } else {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ['text/csv', 'text/comma-separated-values', 'application/octet-stream'],
+          // Native read below (readAsStringAsync) depends on the pick being copied
+          // into cache; expo-document-picker defaults to true, but state it explicitly.
+          copyToCacheDirectory: true,
+        });
 
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        return;
+        if (result.canceled || !result.assets || result.assets.length === 0) {
+          return;
+        }
+
+        fileUri = result.assets[0].uri;
       }
-
-      const fileUri = result.assets[0].uri;
       stage = 'read';
 
       // Parse CSV
