@@ -48,6 +48,20 @@ interface LetterboxdCSVRow {
 
 export type LetterboxdCSVType = 'watched' | 'diary' | 'ratings' | 'watchlist' | 'unknown';
 
+// Max tmdb_ids per reconciliation .in() filter. A 1,000-id filter serializes
+// to ~9KB and 414s against typical ~8KB gateway URL-length caps — that would
+// silently disable verification for exactly the big-library migrations this
+// fix exists for, so keep each request well under that.
+const RECONCILE_CHUNK_SIZE = 200;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 /** Thrown by detectLetterboxdCSVType/parseLetterboxdCSV when given non-string
  *  input — e.g. a native file read that failed silently and resolved to
  *  undefined — instead of letting papaparse dereference it into an opaque
@@ -243,35 +257,59 @@ export async function importMovies(
   // in the JS layer without the corresponding Postgres write ever landing —
   // a client/session-level failure mode confirmed NOT reproducible at the
   // prod API/schema/RLS layer, so we verify rather than trust resolution.
-  // One query for the whole batch, not per-row.
   const claimed = matches.filter(
     (m): m is MatchedMovie & { tmdbMovie: TMDBMovie } => m.status === 'imported' && m.tmdbMovie !== null
   );
   if (claimed.length > 0) {
     const claimedTmdbIds = claimed.map((m) => m.tmdbMovie.id);
-    const { data: persistedRows, error: reconcileError } = await supabase
-      .from('user_movies')
-      .select('tmdb_id')
-      .eq('user_id', userId)
-      .in('tmdb_id', claimedTmdbIds);
+    const idChunks = chunkArray(claimedTmdbIds, RECONCILE_CHUNK_SIZE);
+    const persistedIds = new Set<number>();
+    let reconciliationVerified = true;
 
-    // If the reconciliation read itself fails, we can't tell "didn't persist"
-    // from "couldn't verify" — don't downgrade claimed imports on a network
-    // blip in the verification step.
-    if (!reconcileError && persistedRows) {
-      const persistedIds = new Set((persistedRows as { tmdb_id: number }[]).map((r) => r.tmdb_id));
+    for (const idChunk of idChunks) {
+      const { data: persistedRows, error: reconcileError } = await supabase
+        .from('user_movies')
+        .select('tmdb_id')
+        .eq('user_id', userId)
+        // importMovies always writes status 'watched' — matching it here means
+        // a dropped UPDATE on a pre-existing (non-watched) row for the same
+        // tmdb_id can't be mistaken for a successful write.
+        .eq('status', 'watched')
+        .in('tmdb_id', idChunk);
 
+      // Any chunk failing makes the whole batch unverifiable — a partial read
+      // can't distinguish "didn't persist" from "couldn't verify", so don't
+      // downgrade anything off it.
+      if (reconcileError || !persistedRows) {
+        reconciliationVerified = false;
+        break;
+      }
+      for (const row of persistedRows as { tmdb_id: number }[]) {
+        persistedIds.add(row.tmdb_id);
+      }
+    }
+
+    if (reconciliationVerified) {
       for (const match of claimed) {
         if (!persistedIds.has(match.tmdbMovie.id)) {
-          match.status = 'unmatched';
+          // Revert to 'matched' (its pre-import state), not 'unmatched' — the
+          // loop's top-of-iteration guard skips 'unmatched' entries, so a
+          // future retry over this same matches array needs 'matched' to
+          // actually re-attempt these instead of silently skipping them.
+          match.status = 'matched';
           progress.imported--;
           progress.persistenceFailed++;
         }
       }
 
       if (progress.persistenceFailed > 0) {
+        // claimed/claimedDistinct vs persisted: a rewatch batch can claim the
+        // same tmdb_id twice (journey_number always defaults to 1, so both
+        // upserts collapse onto one row) — send both so a triager can tell a
+        // real failure from that duplicate-claim noise.
         captureMessage('letterboxd-import-reconciliation-mismatch', {
-          claimed: claimed.length,
+          claimed: claimedTmdbIds.length,
+          claimedDistinct: new Set(claimedTmdbIds).size,
           persisted: persistedIds.size,
         });
       }

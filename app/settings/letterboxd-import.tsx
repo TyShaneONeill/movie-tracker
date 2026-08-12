@@ -426,8 +426,11 @@ export default function LetterboxdImportScreen() {
           <View style={dynamicStyles.centeredContent}>
             <Text style={dynamicStyles.doneTitle}>Import Complete!</Text>
             {importProgress && importProgress.persistenceFailed > 0 && (
+              // Denominator matches importProgress.total — the same value the
+              // progress bar above used during 'importing' — so this can't
+              // read as a contradiction against a count the user just saw.
               <Text style={dynamicStyles.errorText}>
-                {importProgress.imported} of {importProgress.imported + importProgress.persistenceFailed} imported — {importProgress.persistenceFailed} didn&apos;t save. Try importing again to pick up the rest.
+                {importProgress.imported} of {importProgress.total} imported — {importProgress.persistenceFailed} didn&apos;t save. Try importing again to pick up the rest.
               </Text>
             )}
             {importProgress && (
@@ -444,6 +447,12 @@ export default function LetterboxdImportScreen() {
                   <Text style={dynamicStyles.summaryLabel}>Unmatched</Text>
                   <Text style={dynamicStyles.summaryValueWarning}>{importProgress.unmatched}</Text>
                 </View>
+                {importProgress.persistenceFailed > 0 && (
+                  <View style={dynamicStyles.summaryRow}>
+                    <Text style={dynamicStyles.summaryLabel}>Didn&apos;t save</Text>
+                    <Text style={dynamicStyles.summaryValueWarning}>{importProgress.persistenceFailed}</Text>
+                  </View>
+                )}
               </View>
             )}
             <Pressable

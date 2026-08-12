@@ -495,11 +495,148 @@ describe('importMovies', () => {
     expect(result.imported).toBe(1);
     expect(result.persistenceFailed).toBe(1);
     expect(matches[0].status).toBe('imported');
-    expect(matches[1].status).toBe('unmatched');
+    // Reverts to 'matched' (its pre-import state), not 'unmatched' — the
+    // top-of-loop guard skips 'unmatched' entries, so 'matched' is what makes
+    // a future retry over this same array actually re-attempt it.
+    expect(matches[1].status).toBe('matched');
 
     expect(mockCaptureMessage).toHaveBeenCalledWith(
       'letterboxd-import-reconciliation-mismatch',
-      { claimed: 2, persisted: 1 }
+      { claimed: 2, claimedDistinct: 2, persisted: 1 }
+    );
+  });
+
+  it('queries reconciliation with the exact user/status/tmdb_id filters addMovieToLibrary wrote', async () => {
+    const movieA = makeTMDBMovie({ id: 1, title: 'Movie A' });
+    const movieB = makeTMDBMovie({ id: 2, title: 'Movie B' });
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: movieA as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: movieB as any, status: 'matched' }),
+    ];
+
+    mockAddMovieToLibrary
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-a', tmdb_id: 1 }))
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-b', tmdb_id: 2 }));
+
+    const reconcileChain = mockSupabaseQuery({
+      data: [{ tmdb_id: 1 }, { tmdb_id: 2 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(reconcileChain);
+
+    await importMovies(USER_ID, matches);
+
+    expect(mockFrom).toHaveBeenCalledWith('user_movies');
+    expect(reconcileChain.select).toHaveBeenCalledWith('tmdb_id');
+    expect(reconcileChain.eq).toHaveBeenCalledWith('user_id', USER_ID);
+    expect(reconcileChain.eq).toHaveBeenCalledWith('status', 'watched');
+    expect(reconcileChain.in).toHaveBeenCalledWith('tmdb_id', [1, 2]);
+  });
+
+  it('chunks the reconciliation .in() filter into batches of 200 and unions the results', async () => {
+    const CLAIMED_COUNT = 250; // spans two chunks at the 200-id chunk size
+    const matches = Array.from({ length: CLAIMED_COUNT }, (_, i) =>
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: i + 1 }) as any, status: 'matched' })
+    );
+
+    for (let i = 0; i < CLAIMED_COUNT; i++) {
+      mockAddMovieToLibrary.mockResolvedValueOnce(
+        makeUserMovie({ id: `row-${i + 1}`, tmdb_id: i + 1 })
+      );
+    }
+
+    // Every claimed id actually persisted, split across both chunk responses.
+    const firstChunkIds = Array.from({ length: 200 }, (_, i) => i + 1);
+    const secondChunkIds = Array.from({ length: 50 }, (_, i) => i + 201);
+    const firstChunkChain = mockSupabaseQuery({
+      data: firstChunkIds.map((id) => ({ tmdb_id: id })),
+      error: null,
+    });
+    const secondChunkChain = mockSupabaseQuery({
+      data: secondChunkIds.map((id) => ({ tmdb_id: id })),
+      error: null,
+    });
+    mockFrom
+      .mockReturnValueOnce(firstChunkChain)
+      .mockReturnValueOnce(secondChunkChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(mockFrom).toHaveBeenCalledTimes(2);
+    expect(firstChunkChain.in).toHaveBeenCalledWith('tmdb_id', firstChunkIds);
+    expect(secondChunkChain.in).toHaveBeenCalledWith('tmdb_id', secondChunkIds);
+    expect(result.imported).toBe(CLAIMED_COUNT);
+    expect(result.persistenceFailed).toBe(0);
+  });
+
+  it('treats any chunk erroring as the whole reconciliation being unverifiable — no partial downgrades', async () => {
+    const CLAIMED_COUNT = 250;
+    const matches = Array.from({ length: CLAIMED_COUNT }, (_, i) =>
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: i + 1 }) as any, status: 'matched' })
+    );
+
+    for (let i = 0; i < CLAIMED_COUNT; i++) {
+      mockAddMovieToLibrary.mockResolvedValueOnce(
+        makeUserMovie({ id: `row-${i + 1}`, tmdb_id: i + 1 })
+      );
+    }
+
+    // First chunk succeeds and would (wrongly) look like a real gap if acted
+    // on alone; second chunk errors, which must void the whole verification.
+    const firstChunkChain = mockSupabaseQuery({
+      data: [{ tmdb_id: 1 }], // only 1 of 200 "found" — looks like mass failure
+      error: null,
+    });
+    const secondChunkChain = mockSupabaseQuery({
+      data: null,
+      error: { message: 'gateway timeout' },
+    });
+    mockFrom
+      .mockReturnValueOnce(firstChunkChain)
+      .mockReturnValueOnce(secondChunkChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(CLAIMED_COUNT);
+    expect(result.persistenceFailed).toBe(0);
+    expect(matches.every((m) => m.status === 'imported')).toBe(true);
+    expect(mockCaptureMessage).not.toHaveBeenCalledWith(
+      'letterboxd-import-reconciliation-mismatch',
+      expect.anything()
+    );
+  });
+
+  it('sends distinct vs raw claimed counts so a rewatch (duplicate tmdb_id) claim does not read as a bigger failure than it is', async () => {
+    // Two entries for the same movie (a rewatch) plus one genuinely-failed
+    // movie. Both rewatch entries upsert onto the same row (journey_number
+    // defaults to 1), so persisting tmdb_id 1 once satisfies both claims —
+    // only tmdb_id 2 is a real reconciliation failure.
+    const movieRewatch = makeTMDBMovie({ id: 1, title: 'Rewatched Movie' });
+    const movieFailed = makeTMDBMovie({ id: 2, title: 'Failed Movie' });
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: movieRewatch as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: movieRewatch as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: movieFailed as any, status: 'matched' }),
+    ];
+
+    mockAddMovieToLibrary
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-1a', tmdb_id: 1 }))
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-1b', tmdb_id: 1 }))
+      .mockResolvedValueOnce(makeUserMovie({ id: 'row-2', tmdb_id: 2 }));
+
+    const reconcileChain = mockSupabaseQuery({
+      data: [{ tmdb_id: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(reconcileChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(2); // both rewatch claims still count
+    expect(result.persistenceFailed).toBe(1); // only the real failure
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      'letterboxd-import-reconciliation-mismatch',
+      { claimed: 3, claimedDistinct: 2, persisted: 1 }
     );
   });
 
