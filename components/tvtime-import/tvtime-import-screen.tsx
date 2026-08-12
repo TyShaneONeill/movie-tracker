@@ -76,27 +76,24 @@ const POST_IMPORT_UPSELL_DELAY_MS = 400;
 
 const AMBER = '#f59e0b';
 
-// iOS-only: UIDocumentPickerViewController's dismiss animation is not gated
-// on its didPickDocumentsAt delegate callback — the delegate can fire (and
-// our JS promise resolve) WHILE the picker's own dismiss transition is still
-// in flight (a documented UIKit quirk; Android's Intent-based picker has no
-// equivalent — onActivityResult only fires after the Activity is gone). When
-// the read/parse/unzip that follows resolves fast enough (no network — the
-// wrong-file codes below, or a below-network-latency good match), our error
-// or preview render can commit a new native view tree (the amber warnBanner,
-// or the full preview screen) during that same transition window, which can
-// leave the picker's transitioning view controller eating touches — the
-// device stops responding until force-close. Root-caused via Sentry
-// breadcrumbs on REACT-NATIVE-POCKETSTUBS-4N: the picker's PRESENT lifecycle
-// event has no matching DISMISS event before the JS exception fires.
-// Matches POST_IMPORT_UPSELL_DELAY_MS's existing 400ms convention in this
-// file — roughly UIKit's default modal transition duration.
+// DISPROVEN on-sim 2026-08-11 — kept only as a record for the next
+// investigator, DO NOT re-enable without new evidence. Original theory:
+// UIDocumentPickerViewController's dismiss animation isn't gated on its
+// didPickDocumentsAt delegate callback, so our JS could commit a re-render
+// while the picker's dismiss transition was still in flight. Tested at both
+// 400ms (POST_IMPORT_UPSELL_DELAY_MS's existing convention) and 3000ms —
+// NEITHER prevented the freeze. Worse, a bare picker CANCEL (zero JS state
+// change, zero re-render) froze touches too, proving this isn't triggered by
+// anything our render does. Native log during the freeze (`log show
+// --predicate 'process == "PocketStubs" AND eventMessage CONTAINS
+// "HomeAffordance"'`) shows `HomeAffordanceGestureGate ... timed out` and
+// every subsequent tap's UIEvent dispatch getting reclassified
+// (systemGestureStateChange: 1) instead of delivered to the app — i.e. this
+// is a UIKit gesture-arbitration bug tied to the document picker's remote
+// extension teardown, not a React render-timing race. See the PR/ticket for
+// the full repro + evidence; the actual fix needs a different approach.
 const IOS_POST_PICKER_DWELL_MS = 400;
 
-// FREEZE-DEBUG (temporary): lets us reproduce on the unfixed code path first
-// (instrumentation live, fix inert) before flipping this on to verify the
-// fix. Flip to true for pass 2, then delete this flag (and go back to an
-// unconditional guard) once verified — see PR notes.
 const FIX_ENABLED = false;
 
 function waitForPickerTransition(readingStartedAt: number | null): Promise<void> {
