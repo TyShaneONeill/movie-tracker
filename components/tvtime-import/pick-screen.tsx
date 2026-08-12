@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Spacing } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
@@ -12,6 +12,44 @@ const AMBER = '#f59e0b';
 // gets the "wrong file selected" callout, mirroring the Letterboxd import's
 // dedicated wrong-file state (app/settings/letterboxd-import.tsx).
 const WRONG_FILE_CODES = new Set<TvTimeImportErrorCode>(['not-a-zip', 'unzip-failed', 'missing-expected-csv']);
+
+// FREEZE-DEBUG instrumentation (temporary): a visible heartbeat proves the JS
+// thread is alive and React is still committing renders; the probe button's
+// tap counter proves touches are still reaching the JS responder system.
+// Both are additive/harmless and will be removed once root cause is fixed.
+function FreezeDebugHud() {
+  const [tick, setTick] = useState(0);
+  const [taps, setTaps] = useState(0);
+  const startRef = useRef(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTick((t) => {
+        const next = t + 1;
+        console.log(`[FREEZE-DEBUG] heartbeat #${next} t=${Date.now()}`);
+        return next;
+      });
+    }, 500);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <View style={{ marginTop: Spacing.md, padding: Spacing.sm, borderWidth: 1, borderColor: '#888', borderRadius: 8 }}>
+      <Text style={{ color: '#0f0', fontFamily: 'monospace' }}>
+        HB:{tick} since:{Math.round((Date.now() - startRef.current) / 1000)}s
+      </Text>
+      <Pressable
+        onPress={() => {
+          setTaps((n) => {
+            console.log(`[FREEZE-DEBUG] probe tap #${n + 1} t=${Date.now()}`);
+            return n + 1;
+          });
+        }}
+        style={{ marginTop: 4, padding: 8, backgroundColor: '#333', borderRadius: 6 }}
+      >
+        <Text style={{ color: '#fff' }}>PROBE TAP (taps: {taps})</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 // Split into its own file (rather than a local function in
 // tvtime-import-screen.tsx, where every other sub-screen lives) so it can be
@@ -62,9 +100,22 @@ export function PickScreen({
       )}
       {error && !isWrongFile && <Text style={[Typography.body.sm, styles.errorText]}>{error}</Text>}
 
-      <Pressable onPress={onPick} style={({ pressed }) => [styles.primaryBtn, { backgroundColor: colors.tint }, pressed && { opacity: 0.85 }]}>
+      {/* primaryBtn carries no top margin of its own (elsewhere it sits in a
+          `footer` View that supplies spacing via `gap`) — here it's a direct
+          sibling of the conditional error/warnBanner block above, so it needs
+          its own margin or it butts right up against the banner. */}
+      <Pressable
+        onPress={onPick}
+        style={({ pressed }) => [
+          styles.primaryBtn,
+          { backgroundColor: colors.tint, marginTop: error ? Spacing.lg : 0 },
+          pressed && { opacity: 0.85 },
+        ]}
+      >
         <Text style={styles.primaryBtnText}>Choose export file</Text>
       </Pressable>
+
+      <FreezeDebugHud />
     </View>
   );
 }

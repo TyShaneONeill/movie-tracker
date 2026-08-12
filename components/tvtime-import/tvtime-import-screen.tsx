@@ -76,6 +76,37 @@ const POST_IMPORT_UPSELL_DELAY_MS = 400;
 
 const AMBER = '#f59e0b';
 
+// iOS-only: UIDocumentPickerViewController's dismiss animation is not gated
+// on its didPickDocumentsAt delegate callback — the delegate can fire (and
+// our JS promise resolve) WHILE the picker's own dismiss transition is still
+// in flight (a documented UIKit quirk; Android's Intent-based picker has no
+// equivalent — onActivityResult only fires after the Activity is gone). When
+// the read/parse/unzip that follows resolves fast enough (no network — the
+// wrong-file codes below, or a below-network-latency good match), our error
+// or preview render can commit a new native view tree (the amber warnBanner,
+// or the full preview screen) during that same transition window, which can
+// leave the picker's transitioning view controller eating touches — the
+// device stops responding until force-close. Root-caused via Sentry
+// breadcrumbs on REACT-NATIVE-POCKETSTUBS-4N: the picker's PRESENT lifecycle
+// event has no matching DISMISS event before the JS exception fires.
+// Matches POST_IMPORT_UPSELL_DELAY_MS's existing 400ms convention in this
+// file — roughly UIKit's default modal transition duration.
+const IOS_POST_PICKER_DWELL_MS = 400;
+
+// FREEZE-DEBUG (temporary): lets us reproduce on the unfixed code path first
+// (instrumentation live, fix inert) before flipping this on to verify the
+// fix. Flip to true for pass 2, then delete this flag (and go back to an
+// unconditional guard) once verified — see PR notes.
+const FIX_ENABLED = false;
+
+function waitForPickerTransition(readingStartedAt: number | null): Promise<void> {
+  if (!FIX_ENABLED || Platform.OS !== 'ios' || readingStartedAt === null) return Promise.resolve();
+  const remaining = IOS_POST_PICKER_DWELL_MS - (Date.now() - readingStartedAt);
+  if (remaining <= 0) return Promise.resolve();
+  console.log(`[FREEZE-DEBUG] waitForPickerTransition delaying ${remaining}ms t=${Date.now()}`);
+  return new Promise((resolve) => setTimeout(resolve, remaining));
+}
+
 // Local screen phases only — 'importing'/done-after-run come from the provider
 // (see importScreenView), so they're not part of the local phase.
 type Phase = 'pick' | 'reading' | 'preview' | 'done';
@@ -189,34 +220,47 @@ export function TvTimeImportScreen() {
   // (never file contents, entry names, or titles) go to Sentry; the message
   // is user-facing copy already stripped of any of that, so it's safe to show.
   const reportImportError = useCallback((err: unknown, stage: string) => {
+    console.log(`[FREEZE-DEBUG] reportImportError ENTER t=${Date.now()}`);
     if (!mountedRef.current) return;
     const code: TvTimeImportErrorCode = err instanceof TvTimeImportError ? err.code : 'unknown';
     const message = err instanceof Error ? err.message : 'Something went wrong reading your export.';
     setError(message);
     setErrorCode(code);
     setPhase('pick');
+    console.log(`[FREEZE-DEBUG] before captureException t=${Date.now()}`);
     captureException(new Error(`tvtime-import-read-failed:${code}`), { context: stage, code });
+    console.log(`[FREEZE-DEBUG] after captureException t=${Date.now()}`);
   }, []);
 
   const handleSelectFile = useCallback(async () => {
+    console.log(`[FREEZE-DEBUG] handleSelectFile START t=${Date.now()}`);
     hapticImpact();
     setError(null);
     setErrorCode(null);
+    // Set once we enter 'reading' (see waitForPickerTransition above); stays
+    // null if getDocumentAsync itself throws before we ever get there, which
+    // the helper treats as a no-op wait.
+    let readingStartedAt: number | null = null;
     try {
+      console.log(`[FREEZE-DEBUG] before getDocumentAsync t=${Date.now()}`);
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
         copyToCacheDirectory: true,
       });
+      console.log(`[FREEZE-DEBUG] getDocumentAsync RESOLVED t=${Date.now()} canceled=${result.canceled}`);
       if (result.canceled || !result.assets?.[0]) return;
 
       const pickedAsset = result.assets[0];
       const pickedUri = pickedAsset.uri;
       setPhase('reading');
+      readingStartedAt = Date.now();
       try {
         // On web the picker hands back an in-memory File (blob: URI) that
         // expo-file-system can't read — pass it through so the read path can
         // use Blob.arrayBuffer() instead. `file` is undefined on native.
+        console.log(`[FREEZE-DEBUG] before unzipTvTimeExport t=${Date.now()}`);
         const files = await unzipTvTimeExport(pickedUri, pickedAsset.file);
+        console.log(`[FREEZE-DEBUG] unzip done t=${Date.now()}`);
 
         let parsed: ParsedTvTimePayload;
         try {
@@ -229,6 +273,7 @@ export function TvTimeImportScreen() {
         }
 
         const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
+        await waitForPickerTransition(readingStartedAt);
         applyMatchResult(matched);
       } finally {
         // Native only: delete the picker's cache copy of the ZIP — it holds the
@@ -236,11 +281,17 @@ export function TvTimeImportScreen() {
         // On web there's no cache copy (the File lives in memory and is GC'd) and
         // expo-file-system can't touch a blob: URI, so skip it.
         if (Platform.OS !== 'web') {
-          FileSystem.deleteAsync(pickedUri, { idempotent: true }).catch(() => {});
+          console.log(`[FREEZE-DEBUG] before deleteAsync t=${Date.now()}`);
+          FileSystem.deleteAsync(pickedUri, { idempotent: true })
+            .then(() => console.log(`[FREEZE-DEBUG] deleteAsync resolved t=${Date.now()}`))
+            .catch((e) => console.log(`[FREEZE-DEBUG] deleteAsync rejected t=${Date.now()} err=${e}`));
         }
       }
     } catch (err) {
+      console.log(`[FREEZE-DEBUG] catch block ENTER t=${Date.now()} err=${err}`);
+      await waitForPickerTransition(readingStartedAt);
       reportImportError(err, 'tvtime-import-select-file');
+      console.log(`[FREEZE-DEBUG] catch block EXIT (reportImportError returned) t=${Date.now()}`);
     }
   }, [applyMatchResult, reportImportError]);
 
