@@ -3,6 +3,8 @@ import { Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 import { analytics } from '@/lib/analytics';
+import { captureMessage } from '@/lib/sentry';
+import { resetNudgeConfigProblemReport } from '@/lib/app-version-nudge';
 import { useOutdatedBinaryNudge } from '@/hooks/use-outdated-binary-nudge';
 
 // AsyncStorage is mocked globally in __tests__/setup.ts.
@@ -22,6 +24,7 @@ const getFlagMock = analytics.getFeatureFlag as jest.Mock;
 const getPayloadMock = analytics.getFeatureFlagPayload as jest.Mock;
 const onFlagsMock = analytics.onFeatureFlags as jest.Mock;
 const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+const captureMessageMock = captureMessage as jest.Mock;
 
 /** expo-updates is mocked as a plain object, so runtimeVersion is writable. */
 function setRuntimeVersion(version: string | null) {
@@ -36,6 +39,7 @@ beforeEach(() => {
   getPayloadMock.mockReturnValue({ recommended: '1.6.1' });
   onFlagsMock.mockReturnValue(() => {});
   openURLSpy.mockResolvedValue(true);
+  resetNudgeConfigProblemReport();
 });
 
 describe('useOutdatedBinaryNudge', () => {
@@ -156,6 +160,51 @@ describe('useOutdatedBinaryNudge', () => {
 
     await waitFor(() => expect(getItemMock).toHaveBeenCalled());
     expect(result.current.tier).toBe('none');
+  });
+
+  it('survives a throwing PostHog client — no banner, no crash', async () => {
+    // The only third-party boundary the nudge crosses, and it runs during
+    // Home's render for a cohort we cannot patch.
+    getFlagMock.mockImplementation(() => {
+      throw new Error('posthog exploded');
+    });
+
+    const { result } = renderHook(() => useOutdatedBinaryNudge());
+
+    await waitFor(() => expect(getItemMock).toHaveBeenCalled());
+    expect(result.current.tier).toBe('none');
+  });
+
+  it('survives a throwing payload read', async () => {
+    getPayloadMock.mockImplementation(() => {
+      throw new Error('posthog exploded');
+    });
+
+    const { result } = renderHook(() => useOutdatedBinaryNudge());
+
+    await waitFor(() => expect(getItemMock).toHaveBeenCalled());
+    expect(result.current.tier).toBe('none');
+  });
+
+  it('reports an unusable payload once, from an effect rather than render', async () => {
+    getPayloadMock.mockReturnValue('{"recommended":"1.6.1"}');
+
+    const { result, rerender } = renderHook(() => useOutdatedBinaryNudge());
+    await waitFor(() => expect(captureMessageMock).toHaveBeenCalledTimes(1));
+    expect(result.current.tier).toBe('none');
+
+    rerender({});
+    expect(captureMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('says nothing to Sentry when the flag simply has no payload', async () => {
+    getPayloadMock.mockReturnValue(undefined);
+
+    const { result } = renderHook(() => useOutdatedBinaryNudge());
+
+    await waitFor(() => expect(getItemMock).toHaveBeenCalled());
+    expect(result.current.tier).toBe('none');
+    expect(captureMessageMock).not.toHaveBeenCalled();
   });
 
   it('tapping update fires the tap event and opens the tagged store listing', async () => {

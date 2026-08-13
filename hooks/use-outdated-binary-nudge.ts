@@ -5,6 +5,7 @@ import {
   VERSION_NUDGE_FLAG,
   DEFAULT_SNOOZE_DAYS,
   parseNudgeConfig,
+  reportNudgeConfigProblem,
   resolveNudgeTier,
   isNudgeSnoozed,
   getNudgeSnooze,
@@ -12,6 +13,7 @@ import {
   openStoreListing,
   envOverrideTier,
   type NudgeConfig,
+  type NudgeConfigResult,
   type NudgeSnooze,
   type NudgeTier,
 } from '@/lib/app-version-nudge';
@@ -25,27 +27,53 @@ export interface OutdatedBinaryNudge {
   onUpdate: () => void;
 }
 
-const HIDDEN: Omit<OutdatedBinaryNudge, 'onDismiss' | 'onUpdate'> = {
-  tier: 'none',
-  targetVersion: null,
+const NO_CONFIG: NudgeConfigResult = { config: null, problem: null };
+
+/**
+ * Stand-in config for the dev/QA override, used only when PostHog has no
+ * usable payload. Without it the override could render the card but not
+ * exercise dismissal (which needs a `recommended` to key the snooze on), so
+ * the one path QA most needs to walk would be dead.
+ */
+const OVERRIDE_CONFIG: NudgeConfig = {
+  recommended: 'override',
+  minimum: null,
+  snoozeDays: DEFAULT_SNOOZE_DAYS,
 };
+
+/**
+ * Reads the flag and its payload behind a try/catch. This is the only
+ * third-party boundary the nudge crosses, it runs during Home's render, and
+ * it runs on a cohort we cannot patch — so a throw from the PostHog client
+ * must degrade to "no banner", never to a broken home screen.
+ */
+function readConfig(): NudgeConfigResult {
+  try {
+    const value = analytics.getFeatureFlag(VERSION_NUDGE_FLAG);
+    // Same shape as the sibling flag gates: an unresolved flag is falsy, and a
+    // string payload counts as on unless it's literally 'false'.
+    const enabled = value === true || (typeof value === 'string' && value !== 'false');
+    if (!enabled) return NO_CONFIG;
+    return parseNudgeConfig(analytics.getFeatureFlagPayload(VERSION_NUDGE_FLAG));
+  } catch {
+    return NO_CONFIG;
+  }
+}
 
 /**
  * Drives the outdated-binary banner on Home (#726). Resolves the PostHog flag
  * `outdated_binary_nudge` + its payload against the binary's native
  * `Updates.runtimeVersion`, then applies the snooze policy.
  *
- * Fails quiet in every failure mode: flag off or still loading, no payload,
- * unparseable versions, web, or unreadable storage all resolve to 'none' with
- * no banner, no crash, and at most one Sentry message per session (raised in
- * parseNudgeConfig, not here).
+ * Fails quiet in every failure mode: flag off or still loading, no payload, a
+ * throwing PostHog client, unparseable versions, web, or unreadable storage
+ * all resolve to 'none' with no banner and no crash — and at most one Sentry
+ * message per session, raised from an effect.
  */
 export function useOutdatedBinaryNudge(): OutdatedBinaryNudge {
   const override = envOverrideTier();
-  const [config, setConfig] = useState<NudgeConfig | null>(() =>
-    analytics.getFeatureFlag(VERSION_NUDGE_FLAG)
-      ? parseNudgeConfig(analytics.getFeatureFlagPayload(VERSION_NUDGE_FLAG))
-      : null
+  const [result, setResult] = useState<NudgeConfigResult>(() =>
+    override !== null ? NO_CONFIG : readConfig()
   );
   // `undefined` = not read yet, and fails closed in isNudgeSnoozed.
   const [snooze, setSnooze] = useState<NudgeSnooze | null | undefined>(undefined);
@@ -55,14 +83,17 @@ export function useOutdatedBinaryNudge(): OutdatedBinaryNudge {
     if (override !== null) return; // override wins; don't consult PostHog
     // Flags usually aren't resolved on the very first render, so re-read once
     // PostHog reports them ready rather than guessing at a timeout.
-    return analytics.onFeatureFlags(() => {
-      setConfig(
-        analytics.getFeatureFlag(VERSION_NUDGE_FLAG)
-          ? parseNudgeConfig(analytics.getFeatureFlagPayload(VERSION_NUDGE_FLAG))
-          : null
-      );
-    });
+    try {
+      return analytics.onFeatureFlags(() => setResult(readConfig()));
+    } catch {
+      return;
+    }
   }, [override]);
+
+  const problem = result.problem;
+  useEffect(() => {
+    if (problem) reportNudgeConfigProblem(problem);
+  }, [problem]);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +105,7 @@ export function useOutdatedBinaryNudge(): OutdatedBinaryNudge {
     };
   }, []);
 
+  const config = override !== null ? result.config ?? OVERRIDE_CONFIG : result.config;
   const currentVersion = Updates.runtimeVersion ?? null;
   const resolvedTier = override ?? resolveNudgeTier(currentVersion, config);
   const targetVersion =
@@ -116,6 +148,6 @@ export function useOutdatedBinaryNudge(): OutdatedBinaryNudge {
     openStoreListing();
   }, [tier, currentVersion, targetVersion]);
 
-  if (tier === 'none') return { ...HIDDEN, onDismiss, onUpdate };
+  if (tier === 'none') return { tier: 'none', targetVersion: null, onDismiss, onUpdate };
   return { tier, targetVersion, onDismiss, onUpdate };
 }

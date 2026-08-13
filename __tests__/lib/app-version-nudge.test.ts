@@ -3,11 +3,12 @@ import { captureMessage } from '@/lib/sentry';
 import {
   compareVersions,
   parseNudgeConfig,
+  reportNudgeConfigProblem,
   resolveNudgeTier,
   isNudgeSnoozed,
   getNudgeSnooze,
   recordNudgeSnooze,
-  resetMalformedPayloadReport,
+  resetNudgeConfigProblemReport,
   storeUrl,
   DEFAULT_SNOOZE_DAYS,
   type NudgeConfig,
@@ -20,7 +21,7 @@ const captureMessageMock = captureMessage as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  resetMalformedPayloadReport();
+  resetNudgeConfigProblemReport();
 });
 
 describe('compareVersions', () => {
@@ -61,9 +62,8 @@ describe('compareVersions', () => {
 describe('parseNudgeConfig', () => {
   it('reads the top-level tiers and defaults the snooze window', () => {
     expect(parseNudgeConfig({ recommended: '1.6.1' }, 'ios')).toEqual({
-      recommended: '1.6.1',
-      minimum: null,
-      snoozeDays: DEFAULT_SNOOZE_DAYS,
+      config: { recommended: '1.6.1', minimum: null, snoozeDays: DEFAULT_SNOOZE_DAYS },
+      problem: null,
     });
   });
 
@@ -73,37 +73,65 @@ describe('parseNudgeConfig', () => {
       snoozeDays: 30,
       android: { recommended: '1.6.0' },
     };
-    expect(parseNudgeConfig(payload, 'android')?.recommended).toBe('1.6.0');
-    expect(parseNudgeConfig(payload, 'ios')?.recommended).toBe('1.6.1');
+    expect(parseNudgeConfig(payload, 'android').config?.recommended).toBe('1.6.0');
+    expect(parseNudgeConfig(payload, 'ios').config?.recommended).toBe('1.6.1');
     // Keys the platform block omits still fall through to the top level.
-    expect(parseNudgeConfig(payload, 'android')?.snoozeDays).toBe(30);
+    expect(parseNudgeConfig(payload, 'android').config?.snoozeDays).toBe(30);
   });
 
   it('ignores a non-positive or non-numeric snoozeDays', () => {
-    expect(parseNudgeConfig({ recommended: '1.6.1', snoozeDays: 0 }, 'ios')?.snoozeDays).toBe(
+    expect(parseNudgeConfig({ recommended: '1.6.1', snoozeDays: 0 }, 'ios').config?.snoozeDays).toBe(
       DEFAULT_SNOOZE_DAYS
     );
-    expect(parseNudgeConfig({ recommended: '1.6.1', snoozeDays: '7' }, 'ios')?.snoozeDays).toBe(
-      DEFAULT_SNOOZE_DAYS
-    );
+    expect(
+      parseNudgeConfig({ recommended: '1.6.1', snoozeDays: '7' }, 'ios').config?.snoozeDays
+    ).toBe(DEFAULT_SNOOZE_DAYS);
   });
 
-  it('returns null on web — there is no store listing to open', () => {
-    expect(parseNudgeConfig({ recommended: '1.6.1' }, 'web')).toBeNull();
+  it('yields no config on web — there is no store listing to open', () => {
+    expect(parseNudgeConfig({ recommended: '1.6.1' }, 'web')).toEqual({
+      config: null,
+      problem: null,
+    });
+  });
+
+  it('is silent for an absent payload — that is just an unconfigured flag', () => {
+    expect(parseNudgeConfig(undefined, 'ios')).toEqual({ config: null, problem: null });
+    expect(parseNudgeConfig(null, 'ios')).toEqual({ config: null, problem: null });
+  });
+
+  it('flags a payload that is present but not an object', () => {
+    // A JSON string is the likeliest misconfig, and it must not be a silent
+    // no-op — that would leave the nudge dark with no signal anywhere.
+    expect(parseNudgeConfig('{"recommended":"1.6.1"}', 'ios')).toEqual({
+      config: null,
+      problem: 'not-an-object',
+    });
+    expect(parseNudgeConfig(42, 'ios').problem).toBe('not-an-object');
+    expect(parseNudgeConfig(true, 'ios').problem).toBe('not-an-object');
+  });
+
+  it('flags an object payload carrying no usable version', () => {
+    expect(parseNudgeConfig({ recomended: '1.6.1' }, 'ios').problem).toBe('no-usable-version');
+    expect(parseNudgeConfig({ recommended: '34' }, 'ios').problem).toBe('no-usable-version');
+  });
+
+  it('never reports to Sentry itself — parsing is pure', () => {
+    parseNudgeConfig('not an object', 'ios');
+    parseNudgeConfig({ recomended: '1.6.1' }, 'ios');
     expect(captureMessageMock).not.toHaveBeenCalled();
   });
+});
 
-  it('returns null for a missing payload without reporting to Sentry', () => {
-    expect(parseNudgeConfig(undefined, 'ios')).toBeNull();
-    expect(parseNudgeConfig(null, 'ios')).toBeNull();
-    expect(parseNudgeConfig('1.6.1', 'ios')).toBeNull();
-    expect(captureMessageMock).not.toHaveBeenCalled();
-  });
-
-  it('reports a payload with no usable version once per session', () => {
-    expect(parseNudgeConfig({ recomended: '1.6.1' }, 'ios')).toBeNull();
-    expect(parseNudgeConfig({ recommended: '34' }, 'ios')).toBeNull();
+describe('reportNudgeConfigProblem', () => {
+  it('reports at most once per session', () => {
+    reportNudgeConfigProblem('not-an-object', 'ios');
+    reportNudgeConfigProblem('no-usable-version', 'ios');
     expect(captureMessageMock).toHaveBeenCalledTimes(1);
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      expect.stringContaining('not-an-object'),
+      expect.objectContaining({ context: 'version-nudge-config' })
+    );
   });
 });
 
@@ -165,6 +193,14 @@ describe('isNudgeSnoozed', () => {
   it('never expires into a permanent dismissal — it only ever snoozes', () => {
     const ancient = { version: '1.6.1', snoozedAt: NOW - 400 * DAY };
     expect(isNudgeSnoozed(ancient, '1.6.1', 7, NOW)).toBe(false);
+  });
+
+  it('ignores a future timestamp from a backwards clock', () => {
+    // Travel, a manual clock change, or a bad NTP sync can leave snoozedAt in
+    // the future. Without the guard that stamp suppresses the banner until the
+    // clock catches up — potentially forever, on an unpatchable cohort.
+    const future = { version: '1.6.1', snoozedAt: NOW + 30 * DAY };
+    expect(isNudgeSnoozed(future, '1.6.1', 7, NOW)).toBe(false);
   });
 });
 

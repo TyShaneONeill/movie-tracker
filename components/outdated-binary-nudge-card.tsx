@@ -14,6 +14,14 @@ function DownloadIcon({ color, size = 20 }: { color: string; size?: number }) {
   );
 }
 
+function ChevronRightIcon({ color, size = 16 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+      <Path d="M9 18l6-6-6-6" />
+    </Svg>
+  );
+}
+
 function CloseIcon({ color, size = 18 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
@@ -86,6 +94,7 @@ export function OutdatedBinaryNudgeCard() {
           <Text style={[Typography.body.sm, { color: colors.textSecondary }]}>{copy.body}</Text>
           <View style={styles.ctaRow}>
             <Text style={[Typography.body.sm, styles.cta, { color: colors.tint }]}>UPDATE</Text>
+            <ChevronRightIcon color={colors.tint} size={16} />
           </View>
         </View>
         {dismissible && (

@@ -112,24 +112,38 @@ export function compareVersions(a: string | null, b: string | null): -1 | 0 | 1 
   return 0;
 }
 
-// One Sentry message per session, not per render — a malformed payload would
-// otherwise fire on every home mount for every user on the flag.
-let malformedPayloadReported = false;
+/**
+ * Why a payload was unusable, when that's a config mistake worth reporting.
+ * An ABSENT payload is not a problem — that's just an unconfigured flag.
+ */
+export type NudgeConfigProblem = 'not-an-object' | 'no-usable-version';
 
-/** Test seam: resets the once-per-session Sentry guard. */
-export function resetMalformedPayloadReport(): void {
-  malformedPayloadReported = false;
+export interface NudgeConfigResult {
+  config: NudgeConfig | null;
+  problem: NudgeConfigProblem | null;
 }
+
+const NO_CONFIG: NudgeConfigResult = { config: null, problem: null };
 
 /**
  * Reads the flag payload into a config, resolving the per-platform block over
- * the top-level values. Returns null (→ no banner) on web, on a missing or
- * unusable payload, and whenever neither tier carries a valid version.
+ * the top-level values. Pure — reporting is the caller's job (see
+ * {@link reportNudgeConfigProblem}) so that nothing fires during render.
+ *
+ * Yields no config on web, on an absent payload, and whenever the payload is
+ * present but unusable; the last case is flagged via `problem`.
  */
-export function parseNudgeConfig(payload: unknown, platform: string = Platform.OS): NudgeConfig | null {
+export function parseNudgeConfig(
+  payload: unknown,
+  platform: string = Platform.OS
+): NudgeConfigResult {
   // Web has no store listing to send anyone to.
-  if (platform !== 'ios' && platform !== 'android') return null;
-  if (!payload || typeof payload !== 'object') return null;
+  if (platform !== 'ios' && platform !== 'android') return NO_CONFIG;
+  // Absent payload = flag configured without one. Silent by design.
+  if (payload === null || payload === undefined) return NO_CONFIG;
+  // Present but not an object — a JSON *string* is the likeliest misconfig,
+  // and silently ignoring it leaves the nudge dark with no signal at all.
+  if (typeof payload !== 'object') return { config: null, problem: 'not-an-object' };
 
   const root = payload as Record<string, unknown>;
   const platformBlock =
@@ -145,18 +159,9 @@ export function parseNudgeConfig(payload: unknown, platform: string = Platform.O
   const recommended = parseVersion(recommendedRaw) ? (recommendedRaw as string) : null;
   const minimum = parseVersion(minimumRaw) ? (minimumRaw as string) : null;
 
-  if (!recommended && !minimum) {
-    // A payload that exists but carries nothing usable is a config mistake
-    // (typo'd key, build number pasted in). Report once, then stay quiet.
-    if (!malformedPayloadReported) {
-      malformedPayloadReported = true;
-      captureMessage('version-nudge: flag payload has no usable version', {
-        context: 'version-nudge-config',
-        platform,
-      });
-    }
-    return null;
-  }
+  // A payload that exists but carries nothing usable is a config mistake —
+  // typo'd key, or a build number pasted where a version belongs.
+  if (!recommended && !minimum) return { config: null, problem: 'no-usable-version' };
 
   const snoozeRaw = pick('snoozeDays');
   const snoozeDays =
@@ -164,7 +169,33 @@ export function parseNudgeConfig(payload: unknown, platform: string = Platform.O
       ? snoozeRaw
       : DEFAULT_SNOOZE_DAYS;
 
-  return { recommended, minimum, snoozeDays };
+  return { config: { recommended, minimum, snoozeDays }, problem: null };
+}
+
+// One Sentry message per session, not per render — a bad payload would
+// otherwise fire on every home mount for every user on the flag.
+let problemReported = false;
+
+/** Test seam: resets the once-per-session Sentry guard. */
+export function resetNudgeConfigProblemReport(): void {
+  problemReported = false;
+}
+
+/**
+ * Reports an unusable flag payload — at most once per session. Call from an
+ * effect, never during render: this can run before Sentry has initialized,
+ * and a render-phase side effect would also double-fire under StrictMode.
+ */
+export function reportNudgeConfigProblem(
+  problem: NudgeConfigProblem,
+  platform: string = Platform.OS
+): void {
+  if (problemReported) return;
+  problemReported = true;
+  captureMessage(`version-nudge: flag payload ${problem}`, {
+    context: 'version-nudge-config',
+    platform,
+  });
 }
 
 /**
@@ -197,7 +228,12 @@ export function isNudgeSnoozed(
   if (snooze === undefined) return true;
   if (snooze === null) return false;
   if (snooze.version !== recommendedVersion) return false;
-  return nowMs - snooze.snoozedAt < snoozeDays * 24 * 60 * 60 * 1000;
+  // A snoozedAt in the future means the device clock moved backwards (travel,
+  // manual change, a bad NTP sync). Without the `elapsed >= 0` guard that
+  // stamp would suppress the banner until the clock caught up — potentially
+  // forever, on the one cohort we cannot patch.
+  const elapsed = nowMs - snooze.snoozedAt;
+  return elapsed >= 0 && elapsed < snoozeDays * 24 * 60 * 60 * 1000;
 }
 
 export async function getNudgeSnooze(): Promise<NudgeSnooze | null> {
