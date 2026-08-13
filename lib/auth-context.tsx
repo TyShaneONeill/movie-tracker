@@ -496,6 +496,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error(data.error) };
       }
 
+      // Destroy the persisted session. Clearing React state alone leaves the
+      // stored access token behind, and it stays valid until it expires — the
+      // next launch restores a session for a user that no longer exists in
+      // auth.users, so every write fails the user_id FK (23503 → HTTP 409).
+      userInitiatedSignOut.current = true;
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        captureException(signOutError as Error, { context: 'deleteAccount-signOut' });
+      }
+
       // Clear all cached queries
       queryClient.clear();
 

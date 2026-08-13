@@ -115,15 +115,32 @@ export function OnboardingV2Provider({ children }: { children: ReactNode }) {
       if (data.name.trim()) profileUpdate.full_name = data.name.trim();
       if (data.handle.trim()) profileUpdate.username = data.handle.trim().toLowerCase();
 
-      const { error: profileError } = await (supabase
+      // .select() so we can tell "saved" from "matched no row". A bare update
+      // reports success against zero rows, which let an orphaned session (auth
+      // user deleted, profile cascade-gone) walk the whole flow and be told it
+      // worked. profiles is publicly readable and its UPDATE policy is
+      // auth.uid() = id, so a live account always matches exactly one row.
+      const { data: updatedProfiles, error: profileError } = await (supabase
         .from('profiles') as ReturnType<typeof supabase.from>)
         .update(profileUpdate)
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select('id');
 
       if (profileError) {
         captureException(new Error(profileError.message), {
           context: 'onboarding-v2-commit-profile',
         });
+        setIsSubmitting(false);
+        return false;
+      }
+
+      // No row matched: this session's account no longer exists. Bail before
+      // the watchlist writes, which would each fail the user_id FK anyway.
+      if (!updatedProfiles || updatedProfiles.length === 0) {
+        captureException(
+          new Error(`onboarding-v2: profile row missing for session user ${user.id}`),
+          { context: 'onboarding-v2-orphaned-session' }
+        );
         setIsSubmitting(false);
         return false;
       }
