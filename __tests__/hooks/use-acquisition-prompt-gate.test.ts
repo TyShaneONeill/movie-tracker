@@ -44,7 +44,7 @@ describe('useAcquisitionPromptGate — resolution', () => {
   it('an already-cached flag is resolved on the first render', () => {
     getFeatureFlagMock.mockReturnValue(true);
     const { result } = renderHook(() => useAcquisitionPromptGate());
-    expect(result.current).toEqual({ enabled: true, resolved: true });
+    expect(result.current).toEqual({ enabled: true, resolved: true, resolution: 'flag' });
   });
 
   it('an unresolved flag reports NOT resolved — never a bare false', () => {
@@ -52,7 +52,7 @@ describe('useAcquisitionPromptGate — resolution', () => {
     const { result } = renderHook(() => useAcquisitionPromptGate());
     // The whole point of the gate: `enabled: false` here means "unknown", and
     // `resolved: false` is what lets the caller wait instead of giving up.
-    expect(result.current).toEqual({ enabled: false, resolved: false });
+    expect(result.current).toEqual({ enabled: false, resolved: false, resolution: 'pending' });
   });
 
   it('flags landing LATE flip the gate to enabled+resolved', async () => {
@@ -65,7 +65,24 @@ describe('useAcquisitionPromptGate — resolution', () => {
     getFeatureFlagMock.mockReturnValue(true);
     act(() => fireFlagsLoaded());
 
-    await waitFor(() => expect(result.current).toEqual({ enabled: true, resolved: true }));
+    await waitFor(() =>
+      expect(result.current).toEqual({ enabled: true, resolved: true, resolution: 'flag' })
+    );
+  });
+
+  it('PostHog answering with no assignment is a REAL answer, not a backstop', async () => {
+    // Flags resolved but this flag isn't assigned to the user: getFeatureFlag
+    // stays undefined. That is genuinely "off for you", and must not be
+    // reported as "we never heard back".
+    getFeatureFlagMock.mockReturnValue(undefined);
+    const fireFlagsLoaded = captureFlagsCallback();
+
+    const { result } = renderHook(() => useAcquisitionPromptGate());
+    act(() => fireFlagsLoaded());
+
+    await waitFor(() =>
+      expect(result.current).toEqual({ enabled: false, resolved: true, resolution: 'flag' })
+    );
   });
 
   it('flags that NEVER land resolve via the backstop and fail closed', async () => {
@@ -79,7 +96,15 @@ describe('useAcquisitionPromptGate — resolution', () => {
         jest.advanceTimersByTime(5000);
       });
 
-      expect(result.current).toEqual({ enabled: false, resolved: true });
+      // resolution MUST say 'backstop': the caller reports a different
+      // gate_evaluated reason for "never answered" than for "flag is off", and
+      // a test that only checked enabled/resolved passed green while the
+      // diagnostic lied.
+      expect(result.current).toEqual({
+        enabled: false,
+        resolved: true,
+        resolution: 'backstop',
+      });
     } finally {
       jest.useRealTimers();
     }
@@ -89,19 +114,16 @@ describe('useAcquisitionPromptGate — resolution', () => {
     // Unresolved for the initial render's reads, resolved by the time the
     // effect re-checks — the race the gate guards explicitly. onFeatureFlags
     // has already fired by then, so only that re-check can save this launch.
-    getFeatureFlagMock
-      .mockReturnValueOnce(undefined)
-      .mockReturnValueOnce(undefined)
-      .mockReturnValue(true);
+    getFeatureFlagMock.mockReturnValueOnce(undefined).mockReturnValue(true);
     const { result } = renderHook(() => useAcquisitionPromptGate());
-    expect(result.current).toEqual({ enabled: true, resolved: true });
+    expect(result.current).toEqual({ enabled: true, resolved: true, resolution: 'flag' });
   });
 
   it('env override "true" is resolved without waiting on PostHog', () => {
     process.env.EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE = 'true';
     getFeatureFlagMock.mockReturnValue(undefined);
     const { result } = renderHook(() => useAcquisitionPromptGate());
-    expect(result.current).toEqual({ enabled: true, resolved: true });
+    expect(result.current).toEqual({ enabled: true, resolved: true, resolution: 'override' });
     expect(onFeatureFlagsMock).not.toHaveBeenCalled();
   });
 
@@ -109,6 +131,6 @@ describe('useAcquisitionPromptGate — resolution', () => {
     process.env.EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE = 'false';
     getFeatureFlagMock.mockReturnValue(true);
     const { result } = renderHook(() => useAcquisitionPromptGate());
-    expect(result.current).toEqual({ enabled: false, resolved: true });
+    expect(result.current).toEqual({ enabled: false, resolved: true, resolution: 'override' });
   });
 });

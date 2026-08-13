@@ -166,16 +166,28 @@ function acquisitionPromptOverride(): boolean | null {
   return null;
 }
 
-function acquisitionPromptFlagEnabled(): boolean {
-  const value = analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG);
+function acquisitionPromptFlagEnabled(value: string | boolean | undefined): boolean {
   return value === true || (typeof value === 'string' && value !== 'false');
 }
 
 /**
+ * How the gate arrived at its answer.
+ *
+ * - `pending` — still waiting on PostHog; `enabled` means nothing yet.
+ * - `flag` — PostHog answered. An undefined flag here is a real answer: the
+ *   flag is not assigned to this user, i.e. off.
+ * - `override` — an `EXPO_PUBLIC_*` dev override decided it.
+ * - `backstop` — PostHog NEVER answered and the timeout gave up. `enabled` is
+ *   whatever was cached (usually false), so a disabled result here means
+ *   UNKNOWN, not off. Callers that report why a surface stayed dark must not
+ *   collapse this into "flag off".
+ */
+export type AcquisitionFlagResolution = 'pending' | 'flag' | 'override' | 'backstop';
+
+/**
  * Gate for the first-run acquisition-source prompt (board attribution mandate).
- * Reports whether the `acquisition_prompt` flag is on AND whether it is
- * RESOLVED — i.e. PostHog has actually loaded flags (or an env override / an
- * already-cached flag makes the answer certain). Dev override
+ * Reports whether the `acquisition_prompt` flag is on, whether it is RESOLVED,
+ * and HOW it resolved. Dev override
  * `EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE = "true" | "false"`.
  *
  * Modelled on `useEpisodeRoomsGate` rather than the shared `useFeatureFlag`,
@@ -186,49 +198,64 @@ function acquisitionPromptFlagEnabled(): boolean {
  * from "not loaded" and would spend its one eligibility run on a flag that had
  * not arrived. `resolved` lets the caller wait instead. A backstop timeout
  * guarantees `resolved` eventually flips even if PostHog never answers
- * (offline / init failure), in which case `enabled` fails closed to whatever
- * is cached — typically false, so no prompt and no profile query.
+ * (offline / init failure), in which case `enabled` fails closed to whatever is
+ * cached — typically false, so no prompt and no profile query. `resolution`
+ * distinguishes that giving-up case from a real answer.
  */
 export function useAcquisitionPromptGate(backstopMs = 5000): {
   enabled: boolean;
   resolved: boolean;
+  resolution: AcquisitionFlagResolution;
 } {
   const override = acquisitionPromptOverride();
 
-  // `enabled` is read at the SAME moment `resolved` flips (from one
-  // getFeatureFlag read), so the two can never disagree.
-  const [state, setState] = useState<{ enabled: boolean; resolved: boolean }>(() => {
-    if (override !== null) return { enabled: override, resolved: true };
+  // `enabled` and `resolution` are derived from a SINGLE getFeatureFlag read,
+  // so the two can never disagree about what PostHog said.
+  const [state, setState] = useState<{
+    enabled: boolean;
+    resolution: AcquisitionFlagResolution;
+  }>(() => {
+    if (override !== null) return { enabled: override, resolution: 'override' };
+    const value = analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG);
     return {
-      enabled: acquisitionPromptFlagEnabled(),
-      resolved: analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG) !== undefined,
+      enabled: acquisitionPromptFlagEnabled(value),
+      resolution: value === undefined ? 'pending' : 'flag',
     };
   });
 
+  const pending = state.resolution === 'pending';
+
   useEffect(() => {
-    if (override !== null || state.resolved) return;
+    if (!pending) return;
 
     let done = false;
-    const finish = () => {
+    const finish = (resolution: AcquisitionFlagResolution) => {
       if (done) return;
       done = true;
-      setState({ enabled: acquisitionPromptFlagEnabled(), resolved: true });
+      const value = analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG);
+      setState({ enabled: acquisitionPromptFlagEnabled(value), resolution });
     };
 
     // Fires when PostHog resolves flags (and on later refreshes).
-    const unsubscribe = analytics.onFeatureFlags(finish);
+    const unsubscribe = analytics.onFeatureFlags(() => finish('flag'));
     // Guard the race where flags landed between render and subscribe.
-    if (analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG) !== undefined) finish();
-    // Never wait forever if PostHog never answers (offline / init failure).
-    const backstop = setTimeout(finish, backstopMs);
+    if (analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG) !== undefined) finish('flag');
+    // Never wait forever if PostHog never answers (offline / init failure). If
+    // a value did land without the callback firing, that still counts as a real
+    // answer — only a genuinely absent one is 'backstop'.
+    const backstop = setTimeout(() => {
+      finish(
+        analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG) === undefined ? 'backstop' : 'flag'
+      );
+    }, backstopMs);
 
     return () => {
       unsubscribe();
       clearTimeout(backstop);
     };
-  }, [override, state.resolved, backstopMs]);
+  }, [pending, backstopMs]);
 
-  return state;
+  return { ...state, resolved: !pending };
 }
 
 /**

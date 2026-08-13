@@ -20,7 +20,11 @@ jest.mock('@react-navigation/native', () => ({
   useIsFocused: jest.fn(() => true),
 }));
 jest.mock('@/hooks/use-feature-flag', () => ({
-  useAcquisitionPromptGate: jest.fn(() => ({ enabled: true, resolved: true })),
+  useAcquisitionPromptGate: jest.fn(() => ({
+    enabled: true,
+    resolved: true,
+    resolution: 'flag',
+  })),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -55,7 +59,7 @@ function gateReasons(): string[] {
 beforeEach(() => {
   jest.clearAllMocks();
   __resetAcquisitionGateTelemetryForTests();
-  gateMock.mockReturnValue({ enabled: true, resolved: true });
+  gateMock.mockReturnValue({ enabled: true, resolved: true, resolution: 'flag' });
   isFocusedMock.mockReturnValue(true);
   getItemMock.mockResolvedValue(null); // not shown locally
   setItemMock.mockResolvedValue(undefined);
@@ -69,7 +73,7 @@ beforeEach(() => {
 
 describe('useAcquisitionPrompt — resolved flag gate', () => {
   it('flag off (resolved): no prompt, NO queries at all, reason flag_off', async () => {
-    gateMock.mockReturnValue({ enabled: false, resolved: true });
+    gateMock.mockReturnValue({ enabled: false, resolved: true, resolution: 'flag' });
 
     const { result } = renderHook(() => useAcquisitionPrompt());
 
@@ -85,7 +89,7 @@ describe('useAcquisitionPrompt — resolved flag gate', () => {
     // The #800 latent defect: on a genuine first run PostHog has not answered
     // yet, and the old mount+1s double-sample burned the one eligibility run on
     // an undefined flag.
-    gateMock.mockReturnValue({ enabled: false, resolved: false });
+    gateMock.mockReturnValue({ enabled: false, resolved: false, resolution: 'pending' });
 
     const { result } = renderHook(() => useAcquisitionPrompt());
 
@@ -96,27 +100,30 @@ describe('useAcquisitionPrompt — resolved flag gate', () => {
   });
 
   it('flags arriving LATE still get the prompt shown', async () => {
-    gateMock.mockReturnValue({ enabled: false, resolved: false });
+    gateMock.mockReturnValue({ enabled: false, resolved: false, resolution: 'pending' });
 
     const { result, rerender } = renderHook(() => useAcquisitionPrompt());
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(result.current.visible).toBe(false);
 
-    gateMock.mockReturnValue({ enabled: true, resolved: true });
+    gateMock.mockReturnValue({ enabled: true, resolved: true, resolution: 'flag' });
     rerender({});
 
     await waitFor(() => expect(result.current.visible).toBe(true), { timeout: 3000 });
   });
 
-  it('flags that never resolve keep the prompt off (backstop fails closed)', async () => {
-    // What the gate's backstop hands us when PostHog never answers.
-    gateMock.mockReturnValue({ enabled: false, resolved: true });
+  it('a backstop resolution reports flag_unresolved, NOT flag_off', async () => {
+    // What the gate hands us when PostHog never answered (offline / init
+    // failure). `enabled: false` here is UNKNOWN, and calling it flag_off would
+    // lie in precisely the scenario gate_evaluated exists to diagnose.
+    gateMock.mockReturnValue({ enabled: false, resolved: true, resolution: 'backstop' });
 
     const { result } = renderHook(() => useAcquisitionPrompt());
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(fromMock).not.toHaveBeenCalled();
     expect(result.current.visible).toBe(false);
+    expect(gateReasons()).toEqual(['flag_unresolved']);
   });
 
   it('flag on: a pre-cutoff dev-tier founder account becomes eligible', async () => {
@@ -243,7 +250,9 @@ describe('useAcquisitionPrompt — observable gating', () => {
     await waitFor(() => expect(gateReasons()).toEqual(['already_shown']));
   });
 
-  it('reports already_shown when the profile already carries a source', async () => {
+  it('reports already_ANSWERED when the profile already carries a source', async () => {
+    // Distinct from already_shown (local latch): the pair "latch set, profile
+    // empty" is a lost answer, and collapsing both into one reason would hide it.
     singleMock.mockResolvedValue({
       data: { ...ELIGIBLE_PROFILE, acquisition_source: 'skipped' },
       error: null,
@@ -251,7 +260,7 @@ describe('useAcquisitionPrompt — observable gating', () => {
 
     renderHook(() => useAcquisitionPrompt());
 
-    await waitFor(() => expect(gateReasons()).toEqual(['already_shown']));
+    await waitFor(() => expect(gateReasons()).toEqual(['already_answered']));
   });
 
   it('reports not_onboarded before onboarding completes', async () => {
@@ -290,7 +299,7 @@ describe('useAcquisitionPrompt — observable gating', () => {
   });
 
   it('emits one event per reason per session, not one per render', async () => {
-    gateMock.mockReturnValue({ enabled: false, resolved: true });
+    gateMock.mockReturnValue({ enabled: false, resolved: true, resolution: 'flag' });
 
     const { rerender } = renderHook(() => useAcquisitionPrompt());
     rerender({});

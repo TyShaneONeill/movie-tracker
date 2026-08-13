@@ -18,6 +18,7 @@ jest.mock('@/lib/sentry', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   shouldShowAcquisitionPrompt,
+  evaluateAcquisitionPrompt,
   hasAcquisitionPromptBeenShown,
   markAcquisitionPromptShown,
   submitAcquisitionSource,
@@ -42,7 +43,6 @@ const NEW_USER: AcquisitionGateInput = {
   onboardingCompleted: true,
   profileCreatedAt: '2026-08-08T12:00:00Z',
   acquisitionSource: null,
-  alreadyShownLocally: false,
 };
 
 beforeEach(() => {
@@ -55,12 +55,6 @@ beforeEach(() => {
 describe('shouldShowAcquisitionPrompt — pure gate', () => {
   it('shows for a post-cutoff user who finished onboarding and never answered', () => {
     expect(shouldShowAcquisitionPrompt(NEW_USER)).toBe(true);
-  });
-
-  it('never shows twice: local shown-flag wins', () => {
-    expect(
-      shouldShowAcquisitionPrompt({ ...NEW_USER, alreadyShownLocally: true })
-    ).toBe(false);
   });
 
   it('never shows twice: any persisted answer wins, including skipped (reinstall guard)', () => {
@@ -97,6 +91,40 @@ describe('shouldShowAcquisitionPrompt — pure gate', () => {
     ).toBe(false);
   });
 
+  describe('reasons', () => {
+    it('an eligible user has no reason', () => {
+      expect(evaluateAcquisitionPrompt(NEW_USER)).toEqual({ eligible: true, reason: null });
+    });
+
+    it('a persisted answer reports already_answered, NOT already_shown', () => {
+      // already_shown is the local-latch reason and belongs to the caller. A
+      // profile that carries a source is the healthy terminal state; conflating
+      // the two hides the case where the latch is set but the answer was lost.
+      expect(evaluateAcquisitionPrompt({ ...NEW_USER, acquisitionSource: 'x' })).toEqual({
+        eligible: false,
+        reason: 'already_answered',
+      });
+      expect(
+        evaluateAcquisitionPrompt({ ...NEW_USER, acquisitionSource: 'skipped' })
+      ).toEqual({ eligible: false, reason: 'already_answered' });
+    });
+
+    it('an unfinished onboarding reports not_onboarded', () => {
+      expect(
+        evaluateAcquisitionPrompt({ ...NEW_USER, onboardingCompleted: false })
+      ).toEqual({ eligible: false, reason: 'not_onboarded' });
+    });
+
+    it('an existing user reports pre_cutoff, missing dates included', () => {
+      expect(
+        evaluateAcquisitionPrompt({ ...NEW_USER, profileCreatedAt: '2026-07-15T00:00:00Z' })
+      ).toEqual({ eligible: false, reason: 'pre_cutoff' });
+      expect(
+        evaluateAcquisitionPrompt({ ...NEW_USER, profileCreatedAt: null })
+      ).toEqual({ eligible: false, reason: 'pre_cutoff' });
+    });
+  });
+
   describe('dev-tier founder bypass', () => {
     const PRE_CUTOFF_DEV: AcquisitionGateInput = {
       ...NEW_USER,
@@ -109,9 +137,6 @@ describe('shouldShowAcquisitionPrompt — pure gate', () => {
     });
 
     it('dev tier bypasses ONLY the cutoff — every other gate still applies', () => {
-      expect(
-        shouldShowAcquisitionPrompt({ ...PRE_CUTOFF_DEV, alreadyShownLocally: true })
-      ).toBe(false);
       expect(
         shouldShowAcquisitionPrompt({ ...PRE_CUTOFF_DEV, acquisitionSource: 'skipped' })
       ).toBe(false);

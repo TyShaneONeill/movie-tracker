@@ -7,9 +7,13 @@
  * never get the sheet dropped on top of it. If we lose focus before showing,
  * we try again on the next focus or launch; nothing is marked as shown.
  *
- * Every launch that does NOT get the prompt reports why via
- * `acquisition:gate_evaluated`, so a dark prompt is one event away from a
- * diagnosis instead of an inference from `$feature_flag_called` volume.
+ * Once the gate actually RUNS, a launch that does not get the prompt reports
+ * why via `acquisition:gate_evaluated`, so a dark prompt is one event away from
+ * a diagnosis instead of an inference from `$feature_flag_called` volume. Three
+ * cases deliberately emit nothing, and their silence is itself the signal:
+ * signed out or Home never focused (the gate never ran), the flag still pending
+ * (we are waiting, not refusing), and a failed profile read (that path raises
+ * to Sentry instead — a broken DB is not a gating decision).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -58,7 +62,11 @@ export function useAcquisitionPrompt() {
   // Founder-first rollout gate (PostHog `acquisition_prompt`). `resolved`
   // separates "flag is off" from "flag has not loaded yet" — the latter is the
   // normal state of the very first session this prompt exists for.
-  const { enabled: flagEnabled, resolved: flagResolved } = useAcquisitionPromptGate();
+  const {
+    enabled: flagEnabled,
+    resolved: flagResolved,
+    resolution: flagResolution,
+  } = useAcquisitionPromptGate();
   const [visible, setVisible] = useState(false);
   // In-flight guard only. Deliberately NOT a once-per-mount latch: an
   // evaluation that ended in `lost_focus` must get another chance when Home
@@ -73,7 +81,10 @@ export function useAcquisitionPrompt() {
     // unresolved flag; the backstop inside the gate guarantees this ends.
     if (!flagResolved || !user?.id || !isFocused) return;
     if (!flagEnabled) {
-      reportGate('flag_off');
+      // A backstop resolution means PostHog never answered, so `enabled: false`
+      // is UNKNOWN, not off. Reporting flag_off here would lie in exactly the
+      // scenario this event exists to diagnose — the offline first launch.
+      reportGate(flagResolution === 'backstop' ? 'flag_unresolved' : 'flag_off');
       return;
     }
     if (inFlightRef.current || openRef.current) return;
@@ -110,7 +121,6 @@ export function useAcquisitionPrompt() {
           onboardingCompleted: data.onboarding_completed ?? false,
           profileCreatedAt: data.created_at,
           acquisitionSource: data.acquisition_source,
-          alreadyShownLocally: false,
           accountTier: data.account_tier,
         });
         if (!eligible) {

@@ -8,11 +8,13 @@ names and properties are stable; coordinate before renaming anything.
 
 The entire prompt is gated on the PostHog feature flag **`acquisition_prompt`**
 (`useAcquisitionPromptGate` in `hooks/use-feature-flag.ts`; dev override
-`EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE`). The gate reports `resolved`
-alongside `enabled`, so an unresolved flag means WAIT, not off — this prompt
-targets a user's first session, which is exactly when PostHog has not answered
-yet. Fails closed once resolved (including via the backstop timeout when
-PostHog never answers): no prompt and no profile query. Founder validation:
+`EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE`). The gate reports `resolved` and
+`resolution` alongside `enabled`, so an unresolved flag means WAIT, not off —
+this prompt targets a user's first session, which is exactly when PostHog has
+not answered yet. Fails closed once resolved: no prompt and no profile query.
+`resolution` distinguishes a real answer (`flag`, `override`) from the backstop
+timeout giving up on one (`backstop`), which is what keeps the `flag_off` /
+`flag_unresolved` reasons below honest. Founder validation:
 `account_tier = 'dev'` profiles bypass the `created_at` cutoff only (all other
 gates apply), so pre-cutoff founder accounts can test on device before the flag
 widens.
@@ -29,13 +31,27 @@ it targets.
 | `acquisition:prompt_shown` | — | The one-time first-run "what brought you here?" sheet becomes visible on Home. |
 | `acquisition:source_selected` | `source`: `producthunt` \| `alternativeto` \| `x` \| `friend` \| `search` \| `other` | User taps a source chip. Fires exactly once per user (the prompt never re-shows). |
 | `acquisition:prompt_dismissed` | — | User skips/dismisses without answering. Also terminal — the prompt never re-shows. |
-| `acquisition:gate_evaluated` | `reason`: `flag_off` \| `already_shown` \| `pre_cutoff` \| `not_onboarded` \| `lost_focus` | A launch evaluated the gate and did NOT get the prompt. Deduped to once per reason per app session. |
+| `acquisition:gate_evaluated` | `reason` (see below) | A launch evaluated the gate and did NOT get the prompt. Deduped to once per reason per app session. |
 
 `gate_evaluated` is the diagnostic channel: a dark prompt should be answerable
 from this one event rather than inferred from `$feature_flag_called` volume.
-Note the absence of a reason is itself information — no `gate_evaluated` and no
-`prompt_shown` means the gate never ran (flag unresolved, signed out, or Home
-never focused).
+
+| `reason` | Meaning |
+|---|---|
+| `flag_off` | PostHog answered; the flag is off for this user. |
+| `flag_unresolved` | PostHog **never** answered and the 5s backstop gave up — offline or a failed init. Not the same as off, and the reason this pair is split: the offline first launch is precisely what this event exists to catch. |
+| `already_shown` | The local latch is set. Paired with an empty `profiles.acquisition_source`, this means an answer was lost in transit. |
+| `already_answered` | `profiles.acquisition_source` is non-null — the healthy terminal state. Every returning user lands here. |
+| `not_onboarded` | Onboarding has not completed. |
+| `pre_cutoff` | Existing user (profile predates `ATTRIBUTION_CUTOFF_ISO`), or a missing/unparseable `created_at`, which fails closed the same way. |
+| `lost_focus` | Home lost focus inside the 600ms show delay, usually the post-onboarding route handoff. |
+
+Silence is also information, but it means less than it looks like. Three cases
+emit no `gate_evaluated` at all: the gate never ran (signed out, or Home never
+focused), the flag is still pending (we are waiting, not refusing), and the
+profile read failed (that path raises to Sentry under
+`acquisition-prompt-profile-read` — a broken DB is not a gating decision).
+**A backstop-resolved launch is not one of them: it emits `flag_unresolved`.**
 
 On `source_selected` the source is also mirrored to the PostHog person as the
 `acquisition_source` person property (via `setPersonProperties`), so cohorts
