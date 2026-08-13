@@ -12,6 +12,7 @@ export type TvTimeImportErrorCode =
   | 'unzip-failed' // magic number matched but fflate couldn't decompress it (corrupt/truncated ZIP)
   | 'missing-expected-csv' // valid ZIP, but none of the allowlisted TV Time CSVs were inside
   | 'csv-parse-failed' // an allowlisted CSV was unreadable as CSV
+  | 'copy-failed' // lib/pick-document.ts's keepLocalCopy() reported a copy error (see DocumentCopyError)
   | 'unknown';
 
 export class TvTimeImportError extends Error {

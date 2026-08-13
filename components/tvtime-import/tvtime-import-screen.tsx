@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
+import { pickTvTimeZipFile } from '@/lib/pick-document';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -42,6 +42,7 @@ import type { TvTimeMatchResult, ParsedTvTimePayload } from '@/lib/tvtime-import
 import { useImportRun, type ImportRunPhase } from '@/lib/tvtime-import/import-run-context';
 import { importScreenView } from '@/lib/tvtime-import/import-run-view';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
+import { classifyTvTimeReadError } from './classify-read-error';
 import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
 import { PickScreen } from './pick-screen';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
@@ -190,8 +191,13 @@ export function TvTimeImportScreen() {
   // is user-facing copy already stripped of any of that, so it's safe to show.
   const reportImportError = useCallback((err: unknown, stage: string) => {
     if (!mountedRef.current) return;
-    const code: TvTimeImportErrorCode = err instanceof TvTimeImportError ? err.code : 'unknown';
-    const message = err instanceof Error ? err.message : 'Something went wrong reading your export.';
+    const code: TvTimeImportErrorCode = classifyTvTimeReadError(err);
+    // Only TvTimeImportError carries a deliberately-authored, safe
+    // user-facing message. Any other Error (raw native/library errors —
+    // e.g. an NSError description surfaced by the picker's keepLocalCopy —
+    // network errors, etc.) falls through to the generic copy instead of
+    // leaking its .message to the UI (#815 review).
+    const message = err instanceof TvTimeImportError ? err.message : 'Something went wrong reading your export.';
     setError(message);
     setErrorCode(code);
     setPhase('pick');
@@ -203,20 +209,20 @@ export function TvTimeImportScreen() {
     setError(null);
     setErrorCode(null);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
+      // pickTvTimeZipFile handles the iOS full-screen picker (issue #810) vs
+      // legacy expo-document-picker branch, plus the OTA-old-binary
+      // fallback, internally — see lib/pick-document.ts.
+      const picked = await pickTvTimeZipFile();
+      if (picked.canceled) return;
+      const pickedUri = picked.uri;
+      const pickedFile = picked.file;
 
-      const pickedAsset = result.assets[0];
-      const pickedUri = pickedAsset.uri;
       setPhase('reading');
       try {
         // On web the picker hands back an in-memory File (blob: URI) that
         // expo-file-system can't read — pass it through so the read path can
         // use Blob.arrayBuffer() instead. `file` is undefined on native.
-        const files = await unzipTvTimeExport(pickedUri, pickedAsset.file);
+        const files = await unzipTvTimeExport(pickedUri, pickedFile);
 
         let parsed: ParsedTvTimePayload;
         try {

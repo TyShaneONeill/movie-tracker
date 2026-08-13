@@ -7,11 +7,21 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
 
 // Defer the heavy import screen (fflate unzip + parser + matcher + the file
-// picker) until the route actually renders. expo-document-picker already ships
-// in the production binary (see app/settings/letterboxd-import.tsx, live), and
-// fflate is pure-JS — so there is NO new native module and no OTA crash risk.
-// The lazy boundary is defensive: it code-splits the heavy module and keeps the
-// route file itself trivial, mirroring app/(tabs)/scanner.tsx.
+// picker) until the route actually renders. The lazy boundary code-splits
+// the heavy module and keeps the route file itself trivial, mirroring
+// app/(tabs)/scanner.tsx.
+//
+// NOTE (post-#815): this screen's module graph now includes
+// @react-native-documents/picker (issue #810's fullScreen picker fix) —
+// that IS a new native module, unlike the fflate/expo-document-picker path
+// this comment used to describe. It is NOT statically imported anywhere
+// (see lib/pick-document.ts), so this lazy boundary is no longer what keeps
+// an OTA update safe on a binary that predates the dependency. That safety
+// is now entirely lib/pick-document.ts's requireNativePicker()'s
+// try/catch — it lazy-requires the native module and falls back to
+// expo-document-picker if the require throws (module not registered).
+// That try/catch is LOAD-BEARING: do not remove it as cleanup, and do not
+// convert its require() to a static import.
 const TvTimeImportScreen = React.lazy(() =>
   import('@/components/tvtime-import/tvtime-import-screen').then((m) => ({ default: m.TvTimeImportScreen }))
 );
