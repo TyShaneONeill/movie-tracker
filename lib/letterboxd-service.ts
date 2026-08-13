@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import { searchMovies, addMovieToLibrary, fetchUserMovies } from './movie-service';
 import { supabase } from './supabase';
+import { captureMessage } from './sentry';
 import type { TMDBMovie } from './tmdb.types';
 import type { MovieStatus } from './database.types';
 
@@ -27,6 +28,10 @@ export interface ImportProgress {
   duplicates: number;
   imported: number;
   current: number;
+  // Movies whose write resolved successfully in importMovies() but were not
+  // found in a post-import reconciliation read — i.e. success theater (#812).
+  // Already subtracted out of `imported`.
+  persistenceFailed: number;
 }
 
 // Letterboxd CSV column names
@@ -42,6 +47,20 @@ interface LetterboxdCSVRow {
 }
 
 export type LetterboxdCSVType = 'watched' | 'diary' | 'ratings' | 'watchlist' | 'unknown';
+
+// Max tmdb_ids per reconciliation .in() filter. A 1,000-id filter serializes
+// to ~9KB and 414s against typical ~8KB gateway URL-length caps — that would
+// silently disable verification for exactly the big-library migrations this
+// fix exists for, so keep each request well under that.
+const RECONCILE_CHUNK_SIZE = 200;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
 
 /** Thrown by detectLetterboxdCSVType/parseLetterboxdCSV when given non-string
  *  input — e.g. a native file read that failed silently and resolved to
@@ -120,6 +139,7 @@ export async function matchMoviesToTMDB(
     duplicates: 0,
     imported: 0,
     current: 0,
+    persistenceFailed: 0,
   };
 
   for (const entry of entries) {
@@ -185,6 +205,7 @@ export async function importMovies(
     duplicates: 0,
     imported: 0,
     current: 0,
+    persistenceFailed: 0,
   };
 
   for (const match of matches) {
@@ -200,12 +221,19 @@ export async function importMovies(
       const status: MovieStatus = 'watched';
       const userMovie = await addMovieToLibrary(userId, match.tmdbMovie, status, { skipEnrich: true });
 
-      // Update watched_at if available from the Letterboxd entry
+      // Update watched_at if available from the Letterboxd entry. Enrichment
+      // only — the row itself was already written by addMovieToLibrary above,
+      // so a failure here shouldn't fail the import, just be visible.
       if (match.entry.watchedDate) {
-        await supabase
+        const { error: watchedAtError } = await supabase
           .from('user_movies')
           .update({ watched_at: match.entry.watchedDate })
           .eq('id', userMovie.id);
+        if (watchedAtError) {
+          captureMessage('letterboxd-import-watched-at-update-failed', {
+            tmdbId: match.tmdbMovie.id,
+          });
+        }
       }
 
       match.status = 'imported';
@@ -223,6 +251,69 @@ export async function importMovies(
 
     progress.current++;
     onProgress?.({ ...progress });
+  }
+
+  // Reconciliation (#812): addMovieToLibrary's upsert can resolve successfully
+  // in the JS layer without the corresponding Postgres write ever landing —
+  // a client/session-level failure mode confirmed NOT reproducible at the
+  // prod API/schema/RLS layer, so we verify rather than trust resolution.
+  const claimed = matches.filter(
+    (m): m is MatchedMovie & { tmdbMovie: TMDBMovie } => m.status === 'imported' && m.tmdbMovie !== null
+  );
+  if (claimed.length > 0) {
+    const claimedTmdbIds = claimed.map((m) => m.tmdbMovie.id);
+    const idChunks = chunkArray(claimedTmdbIds, RECONCILE_CHUNK_SIZE);
+    const persistedIds = new Set<number>();
+    let reconciliationVerified = true;
+
+    for (const idChunk of idChunks) {
+      const { data: persistedRows, error: reconcileError } = await supabase
+        .from('user_movies')
+        .select('tmdb_id')
+        .eq('user_id', userId)
+        // importMovies always writes status 'watched' — matching it here means
+        // a dropped UPDATE on a pre-existing (non-watched) row for the same
+        // tmdb_id can't be mistaken for a successful write.
+        .eq('status', 'watched')
+        .in('tmdb_id', idChunk);
+
+      // Any chunk failing makes the whole batch unverifiable — a partial read
+      // can't distinguish "didn't persist" from "couldn't verify", so don't
+      // downgrade anything off it.
+      if (reconcileError || !persistedRows) {
+        reconciliationVerified = false;
+        break;
+      }
+      for (const row of persistedRows as { tmdb_id: number }[]) {
+        persistedIds.add(row.tmdb_id);
+      }
+    }
+
+    if (reconciliationVerified) {
+      for (const match of claimed) {
+        if (!persistedIds.has(match.tmdbMovie.id)) {
+          // Revert to 'matched' (its pre-import state), not 'unmatched' — the
+          // loop's top-of-iteration guard skips 'unmatched' entries, so a
+          // future retry over this same matches array needs 'matched' to
+          // actually re-attempt these instead of silently skipping them.
+          match.status = 'matched';
+          progress.imported--;
+          progress.persistenceFailed++;
+        }
+      }
+
+      if (progress.persistenceFailed > 0) {
+        // claimed/claimedDistinct vs persisted: a rewatch batch can claim the
+        // same tmdb_id twice (journey_number always defaults to 1, so both
+        // upserts collapse onto one row) — send both so a triager can tell a
+        // real failure from that duplicate-claim noise.
+        captureMessage('letterboxd-import-reconciliation-mismatch', {
+          claimed: claimedTmdbIds.length,
+          claimedDistinct: new Set(claimedTmdbIds).size,
+          persisted: persistedIds.size,
+        });
+      }
+    }
   }
 
   return progress;
