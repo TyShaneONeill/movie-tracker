@@ -421,10 +421,16 @@ export default function LetterboxdImportScreen() {
           </View>
         );
 
-      case 'done':
+      case 'done': {
+        // "Import Complete!" reads as a contradiction sitting directly above
+        // a "didn't save" banner — keep the celebratory title only when
+        // nothing was silently dropped (#812/#814).
+        const hasPersistenceFailure = !!importProgress && importProgress.persistenceFailed > 0;
         return (
           <View style={dynamicStyles.centeredContent}>
-            <Text style={dynamicStyles.doneTitle}>Import Complete!</Text>
+            <Text style={hasPersistenceFailure ? dynamicStyles.doneTitleWarning : dynamicStyles.doneTitle}>
+              {hasPersistenceFailure ? "Import finished — some didn't save" : 'Import Complete!'}
+            </Text>
             {importProgress && importProgress.persistenceFailed > 0 && (
               // Denominator matches importProgress.total — the same value the
               // progress bar above used during 'importing' — so this can't
@@ -466,6 +472,7 @@ export default function LetterboxdImportScreen() {
             </Pressable>
           </View>
         );
+      }
     }
   };
 
@@ -666,6 +673,11 @@ const createStyles = (colors: ThemeColors) =>
     doneTitle: {
       ...Typography.display.h3,
       color: colors.accentSecondary,
+      marginBottom: Spacing.lg,
+    },
+    doneTitleWarning: {
+      ...Typography.display.h3,
+      color: colors.text,
       marginBottom: Spacing.lg,
     },
     wrongFileTitle: {
