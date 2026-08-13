@@ -38,18 +38,12 @@ export type DocumentPickResult =
       cleanupUri?: string;
     };
 
-// Thrown when keepLocalCopy() reports copy.status === 'error'. A distinct
-// class (rather than a plain Error) so callers can classify this failure
-// mode with `instanceof` instead of matching on .message — see
-// components/tvtime-import/classify-read-error.ts. Never carries
-// copy.copyError (the raw NSError description, which can embed a
-// filename — PII) in its message.
-export class DocumentCopyError extends Error {
-  constructor() {
-    super('document-copy-failed');
-    this.name = 'DocumentCopyError';
-  }
-}
+// Lives in its own module so error classifiers can import it without pulling
+// the picker's dependencies in with it. Re-exported here because this is
+// where it's thrown, and where callers expect to find it.
+import { DocumentCopyError } from './pick-document-error';
+
+export { DocumentCopyError };
 
 // Apple UTI strings, inlined rather than imported from the library's
 // `types` export (see the note above on why nothing from this package is
@@ -64,10 +58,15 @@ const IOS_ZIP_TYPES = ['public.zip-archive', 'public.item'];
 const IOS_CSV_TYPES = ['public.comma-separated-values-text', 'public.item'];
 
 // Best-effort removal of a picked file or the directory holding it. Never
-// rejects, so a failure here can't mask whatever the caller was already
-// reporting, and never logs: the path embeds the user's chosen filename.
-function discard(uri: string): Promise<void> {
-  return FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+// rejects — not even if deleteAsync throws synchronously — so a failure here
+// can't mask whatever the caller was already reporting. Never logs either:
+// the path embeds the user's chosen filename.
+async function discard(uri: string): Promise<void> {
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+    // Intentionally swallowed; see above.
+  }
 }
 
 // keepLocalCopy() creates a fresh Caches/<UUID>/ directory per call and moves
@@ -75,11 +74,21 @@ function discard(uri: string): Promise<void> {
 // Deleting just the file leaves that directory behind forever, and since we
 // only ever pass one file per call it holds nothing else — so the directory
 // is the cleanup target.
+//
+// But only when we can positively identify it as one of those directories.
+// The delete is recursive, so mistaking a shared parent — cachesDirectory
+// itself, worst case — for a per-pick one would take unrelated app state with
+// it. Matching the shape of the UUID the native side generates fails closed:
+// anything else falls back to deleting just the file, which is what main did,
+// and whose worst case is the empty directory this is trying to stop leaking.
+const PER_PICK_DIRECTORY_NAME = /^[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}$/i;
+
 function containingDirectory(fileUri: string): string {
   const lastSlash = fileUri.lastIndexOf('/');
-  // Refuse to climb to the scheme root: deleting cachesDirectory itself would
-  // take unrelated app state with it. A uri that shallow isn't one of ours.
-  return lastSlash > 'file:///'.length ? fileUri.slice(0, lastSlash) : fileUri;
+  if (lastSlash < 0) return fileUri;
+  const parent = fileUri.slice(0, lastSlash);
+  const parentName = parent.slice(parent.lastIndexOf('/') + 1);
+  return PER_PICK_DIRECTORY_NAME.test(parentName) ? parent : fileUri;
 }
 
 // expo-document-picker's copyToCacheDirectory writes into a directory it
@@ -96,9 +105,9 @@ function legacyCleanupUri(uri: string): string | undefined {
  * at rest. Accepts any DocumentPickResult (cancellations and web picks are
  * no-ops) and never rejects, so it drops straight into a `finally`.
  */
-export function releasePickedDocument(picked: DocumentPickResult): Promise<void> {
-  if (picked.canceled || !picked.cleanupUri) return Promise.resolve();
-  return discard(picked.cleanupUri);
+export async function releasePickedDocument(picked: DocumentPickResult): Promise<void> {
+  if (picked.canceled || !picked.cleanupUri) return;
+  await discard(picked.cleanupUri);
 }
 
 type NativePickerModule = typeof import('@react-native-documents/picker');

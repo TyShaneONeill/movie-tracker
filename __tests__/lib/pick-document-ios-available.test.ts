@@ -42,8 +42,9 @@ jest.mock('@react-native-documents/picker', () => ({
 import { pickTvTimeZipFile, pickLetterboxdCsvFile, releasePickedDocument } from '@/lib/pick-document';
 
 // keepLocalCopy() puts the copy in a per-pick Caches/<UUID>/ directory, so
-// the fixtures mirror that shape rather than a bare cache path.
-const CACHE_DIR = 'file:///cache/9E1F0C2A-UUID';
+// the fixtures mirror that shape rather than a bare cache path. The UUID has
+// to be well-formed: recognising it is what licenses deleting the directory.
+const CACHE_DIR = 'file:///cache/9E1F0C2A-4B7D-4F2E-9A31-6C5D8E0F1A2B';
 
 describe('pick-document on iOS with the native picker available', () => {
   afterEach(() => {
@@ -192,14 +193,46 @@ describe('pick-document on iOS with the native picker available', () => {
       expect(mockDeleteAsync).not.toHaveBeenCalled();
     });
 
-    it('never climbs past a cache-root uri, which would delete unrelated app state', async () => {
+    // The delete is recursive, so climbing to a parent that isn't a per-pick
+    // directory would take unrelated app state with it. Each of these falls
+    // back to deleting the file alone — main's behavior, whose worst case is
+    // the empty directory this PR is trying to stop leaking.
+    it.each([
+      ['the copy sits directly in a shared cache directory', 'file:///Library/Caches/export.zip'],
+      ['the parent is named but not a UUID', 'file:///Library/Caches/DocumentPicker/export.zip'],
+      ['the parent is UUID-ish but malformed', 'file:///Library/Caches/9E1F0C2A-4B7D-4F2E-9A31/export.zip'],
+      ['the uri has no path separator at all', 'export.zip'],
+    ])('deletes only the file when %s', async (_case, localUri) => {
       mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
-      mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: 'file:///export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri }]);
+      mockDeleteAsync.mockResolvedValue(undefined);
+
+      const picked = await pickTvTimeZipFile();
+
+      expect(picked).toEqual({ canceled: false, uri: localUri, cleanupUri: localUri });
+      await releasePickedDocument(picked);
+      expect(mockDeleteAsync).toHaveBeenCalledWith(localUri, { idempotent: true });
+    });
+
+    it('accepts a lowercase UUID directory, since the match is case-insensitive', async () => {
+      const dir = 'file:///Library/Caches/9e1f0c2a-4b7d-4f2e-9a31-6c5d8e0f1a2b';
+      mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: `${dir}/export.zip` }]);
       mockDeleteAsync.mockResolvedValue(undefined);
 
       await releasePickedDocument(await pickTvTimeZipFile());
 
-      expect(mockDeleteAsync).toHaveBeenCalledWith('file:///export.zip', { idempotent: true });
+      expect(mockDeleteAsync).toHaveBeenCalledWith(dir, { idempotent: true });
+    });
+
+    it('never rejects even if deleteAsync throws synchronously rather than rejecting', async () => {
+      mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: `${CACHE_DIR}/export.zip` }]);
+      mockDeleteAsync.mockImplementation(() => {
+        throw new Error('native module unavailable');
+      });
+
+      await expect(releasePickedDocument(await pickTvTimeZipFile())).resolves.toBeUndefined();
     });
   });
 });
