@@ -15,8 +15,9 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
-import { captureException, Sentry } from '@/lib/sentry';
+import { captureException, captureMessage, Sentry } from '@/lib/sentry';
 import { addMovieToLibrary, updateJourney, getMovieByTmdbId } from '@/lib/movie-service';
+import { fetchPersistedTmdbIds } from '@/lib/reconcile-writes';
 import { invalidateUserMovieQueries } from '@/lib/query-invalidation';
 import type { ProcessedTicket } from '@/lib/ticket-processor';
 import type { JourneyUpdate, TicketScanInsert } from '@/lib/database.types';
@@ -147,10 +148,16 @@ export interface SavedMovie {
 }
 
 export interface SaveTicketsResult {
-  /** Number of tickets saved successfully. */
+  /** Number of tickets whose `user_movies` row was verified as persisted. */
   succeeded: number;
-  /** Number of tickets that failed to save. */
+  /** Number of tickets that failed to save — rejected plus `persistenceFailed`. */
   failed: number;
+  /**
+   * Tickets whose save resolved successfully but whose row was not found in the
+   * post-save reconciliation read — i.e. success theater (#812/#813). Already
+   * counted in `failed`, never in `succeeded`.
+   */
+  persistenceFailed: number;
   /** Number of valid (matched) tickets attempted. */
   attempted: number;
   /** TMDB id of the first successfully saved movie (for single-movie nav). */
@@ -169,6 +176,10 @@ export interface SaveTicketsResult {
  * a TMDB match it adds the movie to `user_movies` (status "watched"), updates
  * the journey row, best-effort persists the barcode + ticket photo, and inserts
  * the legacy theater-visit record. Cache invalidation matches v1.
+ *
+ * Diverges from v1 in one place: the returned counts and `savedMovies` are
+ * reconciled against a post-save read rather than trusted from the resolved
+ * promises (#813) — see the reconciliation block below.
  */
 export async function saveTicketsToJourney(
   tickets: ProcessedTicket[],
@@ -185,7 +196,14 @@ export async function saveTicketsToJourney(
   const watchedWith = buildBatchWatchedWith(companions);
 
   if (validTickets.length === 0) {
-    return { succeeded: 0, failed: 0, attempted: 0, firstMovieTmdbId: null, savedMovies: [] };
+    return {
+      succeeded: 0,
+      failed: 0,
+      persistenceFailed: 0,
+      attempted: 0,
+      firstMovieTmdbId: null,
+      savedMovies: [],
+    };
   }
 
   // Track journey IDs for navigation
@@ -351,10 +369,56 @@ export async function saveTicketsToJourney(
     })
   );
 
-  // Count successes
-  const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-  const failed = results.filter((r) => r.status === 'rejected').length;
+  // Reconciliation (#813, mirroring importMovies in lib/letterboxd-service.ts):
+  // addMovieToLibrary's upsert can resolve in the JS layer without the Postgres
+  // write ever landing, so a fulfilled promise is a claim, not proof. Verify the
+  // user_movies write only — the journey update, barcode insert and photo upload
+  // in each ticket's block are best-effort side effects and are not reconciled.
+  const claimedIndexes: number[] = [];
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === 'fulfilled') claimedIndexes.push(i);
+  }
 
+  // Starts as every claim and only ever shrinks — an unverifiable read leaves it
+  // whole, so nothing is downgraded off a read we couldn't trust.
+  const persistedIndexes = new Set<number>(claimedIndexes);
+  let persistenceFailed = 0;
+
+  if (claimedIndexes.length > 0) {
+    const claimedTmdbIds = claimedIndexes.map((i) => validTickets[i].tmdbMatch!.movie.id);
+    const { verified, persistedIds } = await fetchPersistedTmdbIds(
+      user.id,
+      claimedTmdbIds,
+      // Every ticket here is saved as 'watched' by the addMovieToLibrary call above.
+      'watched'
+    );
+
+    if (verified) {
+      for (const i of claimedIndexes) {
+        if (!persistedIds.has(validTickets[i].tmdbMatch!.movie.id)) {
+          persistedIndexes.delete(i);
+          persistenceFailed++;
+        }
+      }
+
+      if (persistenceFailed > 0) {
+        // Counts only, never titles. Raw vs distinct because two tickets for the
+        // same movie (a double feature re-scan) collapse onto one row — that
+        // shouldn't read as a bigger failure than it is.
+        captureMessage('scan-save-reconciliation-mismatch', {
+          claimed: claimedTmdbIds.length,
+          claimedDistinct: new Set(claimedTmdbIds).size,
+          persisted: persistedIds.size,
+        });
+      }
+    }
+  }
+
+  // Count successes — a save counts only once its row is verified as persisted.
+  const succeeded = persistedIndexes.size;
+  const failed = results.length - succeeded;
+
+  // Unchanged semantics, now fed by reconciled counts: nothing landed at all.
   if (failed > 0 && succeeded === 0) {
     throw new Error('All movies failed to save');
   }
@@ -372,14 +436,23 @@ export async function saveTicketsToJourney(
 
   // Every successfully-saved movie, in save order (mirrors v1's
   // `successfulMovies`). The first entry doubles as the single-movie nav target.
+  // Reconciled, so the First Take wizard never prompts for a movie that isn't
+  // actually in the library.
   const savedMovies: SavedMovie[] = [];
   for (let i = 0; i < results.length; i++) {
-    if (results[i].status === 'fulfilled') {
+    if (persistedIndexes.has(i)) {
       const movie = validTickets[i].tmdbMatch!.movie;
       savedMovies.push({ tmdbId: movie.id, title: movie.title, posterPath: movie.poster_path });
     }
   }
   const firstMovieTmdbId = savedMovies.length > 0 ? savedMovies[0].tmdbId : null;
 
-  return { succeeded, failed, attempted: validTickets.length, firstMovieTmdbId, savedMovies };
+  return {
+    succeeded,
+    failed,
+    persistenceFailed,
+    attempted: validTickets.length,
+    firstMovieTmdbId,
+    savedMovies,
+  };
 }

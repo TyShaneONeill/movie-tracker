@@ -30,6 +30,7 @@ import { useAchievementCheck } from '@/lib/achievement-context';
 import {
   parseLetterboxdCSV,
   matchMoviesToTMDB,
+  markDuplicateMatches,
   importMovies,
   detectLetterboxdCSVType,
   type LetterboxdCSVType,
@@ -166,6 +167,13 @@ export default function LetterboxdImportScreen() {
           }
         });
 
+        // Flag anything already watched before the review screen so "Already
+        // in collection" is a real count and the import skips those rows
+        // (#813). Best-effort: a failed read just leaves them importable.
+        if (user) {
+          await markDuplicateMatches(user.id, matched);
+        }
+
         setMatches(matched);
         setState('review');
       } finally {
@@ -185,7 +193,7 @@ export default function LetterboxdImportScreen() {
       setError('Failed to read or parse the CSV file. Please try again.');
       setState('idle');
     }
-  }, []);
+  }, [user]);
 
   const handleImport = useCallback(async () => {
     if (!user) {
