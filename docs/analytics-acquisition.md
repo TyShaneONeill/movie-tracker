@@ -84,9 +84,11 @@ untracked.**
 
 Properties match `movie:watchlist_add` practice: ids and counts, no title.
 
-**Follow-up (not in this change):** `supabase/functions/post-daily-metrics`
-should add `movie:library_add` to its `ENGAGED_EVENTS` list. That is the actual
-fix for the digest blindness, and it needs its own deploy.
+**Follow-up — issue #824 (not in this change):**
+`supabase/functions/post-daily-metrics` should add `movie:library_add` to its
+`ENGAGED_EVENTS` list (`index.ts:24,191`) once the event exists in prod data.
+That is the actual fix for the digest blindness and it needs its own deploy —
+this event landing on the client does not, by itself, un-blind the digest.
 
 ## Web funnel store-link tagging (public/ pages, Vercel static)
 

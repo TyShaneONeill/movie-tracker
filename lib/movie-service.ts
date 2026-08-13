@@ -217,9 +217,10 @@ export async function addMovieToLibrary(
 
   // This is the SOLE client write path for user_movies, onboarding's watchlist
   // seeding included, and it was silent — which made a whole signup cohort look
-  // dead and left the daily digest structurally blind to seeded adds. Tracked
-  // here rather than at each caller so no future call site can go dark.
+  // dead and left the daily digest structurally blind to seeded adds (#824).
+  // Tracked here rather than at each caller so no future call site can go dark.
   // Properties match `movie:watchlist_add` practice: ids and counts, no title.
+  // The digest stays blind until post-daily-metrics counts this too (#824).
   analytics.track('movie:library_add', {
     source: options.source ?? 'unknown',
     status,
