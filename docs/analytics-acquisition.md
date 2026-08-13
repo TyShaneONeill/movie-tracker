@@ -62,6 +62,32 @@ user who actually answered is never re-asked, reinstall included.
 - Existing users are additionally excluded by a `created_at` cutoff
   (`ATTRIBUTION_CUTOFF_ISO` in `lib/acquisition-service.ts`).
 
+## Library adds — `movie:library_add`
+
+`addMovieToLibrary` (`lib/movie-service.ts`) is the **sole client write path for
+`user_movies`**, onboarding's watchlist seeding included, and it emitted nothing
+at all. That made a whole signup cohort look dead and left the daily board
+digest structurally blind to onboarding-seeded adds.
+
+| Event | Properties | Fired when |
+|---|---|---|
+| `movie:library_add` | `source`: `onboarding` \| `search` \| `scan` \| `import` \| `unknown`; `status`; `tmdb_id` | Any successful `user_movies` write from the client. |
+
+Tracked inside the service rather than at each caller, so a new call site cannot
+go dark. `source` is an optional `options.source`; the call sites wired so far
+are onboarding v2 seeding (`onboarding`), the in-app add paths in
+`use-movie-actions` / `use-user-movies` (`search`), scan save and scan review
+(`scan`), and the Letterboxd import (`import`). The release-calendar add is
+deliberately left at `unknown` — none of the current values describe it, and
+labelling it `search` would pollute that number. **`unknown` means untagged, not
+untracked.**
+
+Properties match `movie:watchlist_add` practice: ids and counts, no title.
+
+**Follow-up (not in this change):** `supabase/functions/post-daily-metrics`
+should add `movie:library_add` to its `ENGAGED_EVENTS` list. That is the actual
+fix for the digest blindness, and it needs its own deploy.
+
 ## Web funnel store-link tagging (public/ pages, Vercel static)
 
 Outbound store links on `welcome.html`, `landing.html`, `tv-time-import.html`

@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type { SearchMoviesResponse, TMDBMovie, SearchType, MovieDetailResponse, MovieListType, MovieListResponse, PersonDetailResponse } from './tmdb.types';
 import type { UserMovie, UserMovieInsert, UserMovieUpdate, MovieStatus, UserMovieLike, UserMovieLikeInsert, JourneyUpdate } from './database.types';
 import { getMovieDetailsWithCache } from './movie-cache-service';
+import { analytics } from './analytics';
 
 // Search movies (title or actor)
 export async function searchMovies(
@@ -173,12 +174,19 @@ export async function fetchUserMovies(
   return data ?? [];
 }
 
+/**
+ * Where a library add came from, reported on `movie:library_add`. Defaults to
+ * 'unknown' for call sites that haven't been threaded yet — a surface reading
+ * 'unknown' means untagged, NOT untracked.
+ */
+export type LibraryAddSource = 'onboarding' | 'search' | 'scan' | 'import' | 'unknown';
+
 // Add movie to user's library
 export async function addMovieToLibrary(
   userId: string,
   movie: TMDBMovie,
   status: MovieStatus = 'watchlist',
-  options: { skipEnrich?: boolean } = {}
+  options: { skipEnrich?: boolean; source?: LibraryAddSource } = {}
 ): Promise<UserMovie> {
   const now = new Date();
   const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -206,6 +214,17 @@ export async function addMovieToLibrary(
   if (error) {
     throw new Error(error.message || 'Failed to add movie');
   }
+
+  // This is the SOLE client write path for user_movies, onboarding's watchlist
+  // seeding included, and it was silent — which made a whole signup cohort look
+  // dead and left the daily digest structurally blind to seeded adds. Tracked
+  // here rather than at each caller so no future call site can go dark.
+  // Properties match `movie:watchlist_add` practice: ids and counts, no title.
+  analytics.track('movie:library_add', {
+    source: options.source ?? 'unknown',
+    status,
+    tmdb_id: movie.id,
+  });
 
   // Fire-and-forget enrichment of release_calendar — improves calendar accuracy
   // for niche/indie titles missed by the daily warming worker. Skipped during

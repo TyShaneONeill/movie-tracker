@@ -670,6 +670,23 @@ describe('importMovies', () => {
     );
   });
 
+  it('tags every imported row as source "import" (and keeps skipEnrich)', async () => {
+    const movieA = makeTMDBMovie({ id: 1, title: 'Movie A' });
+    const matches = [makeMatchedMovie({ tmdbMovie: movieA as any, status: 'matched' })];
+
+    mockAddMovieToLibrary.mockResolvedValueOnce(makeUserMovie({ id: 'row-a', tmdb_id: 1 }));
+    mockFrom.mockReturnValue(mockSupabaseQuery({ data: [{ tmdb_id: 1 }], error: null }));
+
+    await importMovies(USER_ID, matches);
+
+    expect(mockAddMovieToLibrary).toHaveBeenCalledWith(
+      USER_ID,
+      movieA,
+      'watched',
+      { skipEnrich: true, source: 'import' }
+    );
+  });
+
   it('does not downgrade claimed imports when the reconciliation read itself errors', async () => {
     const movieA = makeTMDBMovie({ id: 1, title: 'Movie A' });
     const matches = [makeMatchedMovie({ tmdbMovie: movieA as any, status: 'matched' })];

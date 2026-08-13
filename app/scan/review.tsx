@@ -342,7 +342,7 @@ export default function TicketReviewScreen() {
 
           // 1. Add movie to user_movies with status "watched"
           try {
-            const userMovie = await addMovieToLibrary(user.id, movie, 'watched');
+            const userMovie = await addMovieToLibrary(user.id, movie, 'watched', { source: 'scan' });
             journeyId = userMovie.id;
           } catch (error: any) {
             // If it's a duplicate, get the existing movie record

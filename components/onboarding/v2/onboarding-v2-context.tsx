@@ -132,7 +132,7 @@ export function OnboardingV2Provider({ children }: { children: ReactNode }) {
       if (data.watchlist.length > 0) {
         const results = await Promise.allSettled(
           data.watchlist.map((movie) =>
-            addMovieToLibrary(user.id, movie, 'watchlist')
+            addMovieToLibrary(user.id, movie, 'watchlist', { source: 'onboarding' })
           )
         );
         const failed = results.filter((r) => r.status === 'rejected');

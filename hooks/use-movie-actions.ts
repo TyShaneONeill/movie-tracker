@@ -68,7 +68,7 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
   const addMutation = useMutation({
     mutationFn: async ({ movie, status }: { movie: TMDBMovie; status: MovieStatus }) => {
       if (!user) throw new Error('Not authenticated');
-      return addMovieToLibrary(user.id, movie, status);
+      return addMovieToLibrary(user.id, movie, status, { source: 'search' });
     },
     onMutate: async ({ movie, status }) => {
       await queryClient.cancelQueries({ queryKey: ['userMovie', user?.id, tmdbId] });
