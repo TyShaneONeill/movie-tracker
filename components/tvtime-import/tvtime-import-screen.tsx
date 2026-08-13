@@ -2,11 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import { types as nativeDocumentPickerTypes } from '@react-native-documents/picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { pickDocumentIOSFullScreen } from '@/lib/pick-document';
+import { pickTvTimeZipFile } from '@/lib/pick-document';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -193,7 +191,12 @@ export function TvTimeImportScreen() {
   const reportImportError = useCallback((err: unknown, stage: string) => {
     if (!mountedRef.current) return;
     const code: TvTimeImportErrorCode = err instanceof TvTimeImportError ? err.code : 'unknown';
-    const message = err instanceof Error ? err.message : 'Something went wrong reading your export.';
+    // Only TvTimeImportError carries a deliberately-authored, safe
+    // user-facing message. Any other Error (raw native/library errors —
+    // e.g. an NSError description surfaced by the picker's keepLocalCopy —
+    // network errors, etc.) falls through to the generic copy instead of
+    // leaking its .message to the UI (#815 review).
+    const message = err instanceof TvTimeImportError ? err.message : 'Something went wrong reading your export.';
     setError(message);
     setErrorCode(code);
     setPhase('pick');
@@ -205,24 +208,13 @@ export function TvTimeImportScreen() {
     setError(null);
     setErrorCode(null);
     try {
-      let pickedUri: string;
-      let pickedFile: File | undefined;
-      if (Platform.OS === 'ios') {
-        // iOS-only: expo-document-picker hardcodes 'pageSheet', which is what
-        // triggers the #810 freeze. See lib/pick-document.ts for rationale
-        // and the removal condition.
-        const picked = await pickDocumentIOSFullScreen([nativeDocumentPickerTypes.zip], 'tvtime-export.zip');
-        if (picked.canceled) return;
-        pickedUri = picked.uri;
-      } else {
-        const result = await DocumentPicker.getDocumentAsync({
-          type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
-          copyToCacheDirectory: true,
-        });
-        if (result.canceled || !result.assets?.[0]) return;
-        pickedUri = result.assets[0].uri;
-        pickedFile = result.assets[0].file;
-      }
+      // pickTvTimeZipFile handles the iOS full-screen picker (issue #810) vs
+      // legacy expo-document-picker branch, plus the OTA-old-binary
+      // fallback, internally — see lib/pick-document.ts.
+      const picked = await pickTvTimeZipFile();
+      if (picked.canceled) return;
+      const pickedUri = picked.uri;
+      const pickedFile = picked.file;
 
       setPhase('reading');
       try {
