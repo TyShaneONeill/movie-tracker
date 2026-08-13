@@ -7,11 +7,20 @@ names and properties are stable; coordinate before renaming anything.
 ## Rollout gate
 
 The entire prompt is gated on the PostHog feature flag **`acquisition_prompt`**
-(`useAcquisitionPromptEnabled` in `hooks/use-feature-flag.ts`; dev override
-`EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE`). Fails closed — flag off/loading
-means no prompt and no profile query. Founder validation: `account_tier =
-'dev'` profiles bypass the `created_at` cutoff only (all other gates apply),
-so pre-cutoff founder accounts can test on device before the flag widens.
+(`useAcquisitionPromptGate` in `hooks/use-feature-flag.ts`; dev override
+`EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE`). The gate reports `resolved`
+alongside `enabled`, so an unresolved flag means WAIT, not off — this prompt
+targets a user's first session, which is exactly when PostHog has not answered
+yet. Fails closed once resolved (including via the backstop timeout when
+PostHog never answers): no prompt and no profile query. Founder validation:
+`account_tier = 'dev'` profiles bypass the `created_at` cutoff only (all other
+gates apply), so pre-cutoff founder accounts can test on device before the flag
+widens.
+
+**Delivery**: the prompt is a first-run surface, so it only reaches a user whose
+binary already contains it — the embedded bundle runs on first launch, before
+any OTA applies. Shipping it by OTA alone leaves it dark for exactly the cohort
+it targets.
 
 ## PostHog events
 
@@ -20,10 +29,26 @@ so pre-cutoff founder accounts can test on device before the flag widens.
 | `acquisition:prompt_shown` | — | The one-time first-run "what brought you here?" sheet becomes visible on Home. |
 | `acquisition:source_selected` | `source`: `producthunt` \| `alternativeto` \| `x` \| `friend` \| `search` \| `other` | User taps a source chip. Fires exactly once per user (the prompt never re-shows). |
 | `acquisition:prompt_dismissed` | — | User skips/dismisses without answering. Also terminal — the prompt never re-shows. |
+| `acquisition:gate_evaluated` | `reason`: `flag_off` \| `already_shown` \| `pre_cutoff` \| `not_onboarded` \| `lost_focus` | A launch evaluated the gate and did NOT get the prompt. Deduped to once per reason per app session. |
+
+`gate_evaluated` is the diagnostic channel: a dark prompt should be answerable
+from this one event rather than inferred from `$feature_flag_called` volume.
+Note the absence of a reason is itself information — no `gate_evaluated` and no
+`prompt_shown` means the gate never ran (flag unresolved, signed out, or Home
+never focused).
 
 On `source_selected` the source is also mirrored to the PostHog person as the
 `acquisition_source` person property (via `setPersonProperties`), so cohorts
 can be built without event joins.
+
+## Once-ever latching
+
+The local AsyncStorage latch (`acquisition.prompt_shown`) is written when the
+user ANSWERS — taps a chip or skips — not when the sheet appears. An impression
+nobody answered (backgrounded, force-quit) must not burn the single ask.
+Accepted trade: force-quitting while the sheet is up means one more ask next
+launch. `profiles.acquisition_source` remains the durable once-ever guard, so a
+user who actually answered is never re-asked, reinstall included.
 
 ## Profile persistence
 

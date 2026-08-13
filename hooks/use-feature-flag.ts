@@ -155,26 +155,80 @@ export function usePostImportUpsellEnabled(): boolean {
   return flagOn;
 }
 
-/**
- * Returns true when the first-run acquisition-source prompt (board attribution
- * mandate) should be active. Combines the PostHog flag `acquisition_prompt`
- * and an env-var dev override (EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE =
- * "true" | "false"), mirroring usePostImportUpsellEnabled above.
- *
- * Ships founder-first: the flag is created dark and enabled only for founder
- * accounts for on-device validation, then widens to 100% before the Product
- * Hunt launch. Fails closed (no prompt, and no profile query at all — the
- * eligibility hook checks this flag before touching the network) while the
- * flag is still loading, since `useFeatureFlag`'s `enabled` is false for an
- * undefined value.
- */
-export function useAcquisitionPromptEnabled(): boolean {
-  const { enabled: flagOn } = useFeatureFlag('acquisition_prompt');
-  const envOverride = process.env.EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE;
+const ACQUISITION_PROMPT_FLAG = 'acquisition_prompt';
 
+/** The `EXPO_PUBLIC_*` dev override, or null when unset. Metro inlines the
+ *  literal member access, so this must stay a direct `process.env.X` read. */
+function acquisitionPromptOverride(): boolean | null {
+  const envOverride = process.env.EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE;
   if (envOverride === 'true') return true;
   if (envOverride === 'false') return false;
-  return flagOn;
+  return null;
+}
+
+function acquisitionPromptFlagEnabled(): boolean {
+  const value = analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG);
+  return value === true || (typeof value === 'string' && value !== 'false');
+}
+
+/**
+ * Gate for the first-run acquisition-source prompt (board attribution mandate).
+ * Reports whether the `acquisition_prompt` flag is on AND whether it is
+ * RESOLVED — i.e. PostHog has actually loaded flags (or an env override / an
+ * already-cached flag makes the answer certain). Dev override
+ * `EXPO_PUBLIC_ACQUISITION_PROMPT_OVERRIDE = "true" | "false"`.
+ *
+ * Modelled on `useEpisodeRoomsGate` rather than the shared `useFeatureFlag`,
+ * for a reason specific to this surface: the prompt targets a user's FIRST
+ * session, which is exactly the session where PostHog has not answered yet.
+ * The shared hook samples on mount and once more a second later, and an
+ * unresolved flag reads as a hard `false` — so the caller cannot tell "off"
+ * from "not loaded" and would spend its one eligibility run on a flag that had
+ * not arrived. `resolved` lets the caller wait instead. A backstop timeout
+ * guarantees `resolved` eventually flips even if PostHog never answers
+ * (offline / init failure), in which case `enabled` fails closed to whatever
+ * is cached — typically false, so no prompt and no profile query.
+ */
+export function useAcquisitionPromptGate(backstopMs = 5000): {
+  enabled: boolean;
+  resolved: boolean;
+} {
+  const override = acquisitionPromptOverride();
+
+  // `enabled` is read at the SAME moment `resolved` flips (from one
+  // getFeatureFlag read), so the two can never disagree.
+  const [state, setState] = useState<{ enabled: boolean; resolved: boolean }>(() => {
+    if (override !== null) return { enabled: override, resolved: true };
+    return {
+      enabled: acquisitionPromptFlagEnabled(),
+      resolved: analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG) !== undefined,
+    };
+  });
+
+  useEffect(() => {
+    if (override !== null || state.resolved) return;
+
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      setState({ enabled: acquisitionPromptFlagEnabled(), resolved: true });
+    };
+
+    // Fires when PostHog resolves flags (and on later refreshes).
+    const unsubscribe = analytics.onFeatureFlags(finish);
+    // Guard the race where flags landed between render and subscribe.
+    if (analytics.getFeatureFlag(ACQUISITION_PROMPT_FLAG) !== undefined) finish();
+    // Never wait forever if PostHog never answers (offline / init failure).
+    const backstop = setTimeout(finish, backstopMs);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(backstop);
+    };
+  }, [override, state.resolved, backstopMs]);
+
+  return state;
 }
 
 /**

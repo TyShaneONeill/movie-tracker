@@ -60,27 +60,53 @@ export type AcquisitionGateInput = {
 };
 
 /**
+ * Why a launch did NOT get the prompt. Reported on `acquisition:gate_evaluated`
+ * so a dark prompt can be diagnosed from one event instead of inferred from
+ * `$feature_flag_called` volume. `flag_off` and `lost_focus` are decided by the
+ * caller (hooks/use-acquisition-prompt.ts); the rest come from the pure gate.
+ */
+export type AcquisitionGateReason =
+  | 'flag_off'
+  | 'already_shown'
+  | 'pre_cutoff'
+  | 'not_onboarded'
+  | 'lost_focus';
+
+/**
  * Pure decision function — exported for unit testing the once-ever and
  * existing-user-exclusion paths without touching storage or the network.
+ * Returns the failing `reason` alongside the verdict so the caller can report
+ * it; `reason` is null when eligible.
  */
-export function shouldShowAcquisitionPrompt(input: AcquisitionGateInput): boolean {
+export function evaluateAcquisitionPrompt(input: AcquisitionGateInput): {
+  eligible: boolean;
+  reason: AcquisitionGateReason | null;
+} {
   const { onboardingCompleted, profileCreatedAt, acquisitionSource, alreadyShownLocally } = input;
 
-  if (alreadyShownLocally) return false;
-  if (acquisitionSource !== null) return false;
-  if (!onboardingCompleted) return false;
+  if (alreadyShownLocally) return { eligible: false, reason: 'already_shown' };
+  if (acquisitionSource !== null) return { eligible: false, reason: 'already_shown' };
+  if (!onboardingCompleted) return { eligible: false, reason: 'not_onboarded' };
 
   // Founder-test bypass: dev-tier accounts skip only the cutoff below (their
   // profiles predate the OTA); everything above still applies.
-  if (input.accountTier === 'dev') return true;
+  if (input.accountTier === 'dev') return { eligible: true, reason: null };
 
   // Missing/unparseable created_at → fail closed (treat as existing user)
   // rather than risk prompting a long-time user.
-  if (!profileCreatedAt) return false;
+  if (!profileCreatedAt) return { eligible: false, reason: 'pre_cutoff' };
   const createdMs = Date.parse(profileCreatedAt);
-  if (Number.isNaN(createdMs)) return false;
+  if (Number.isNaN(createdMs)) return { eligible: false, reason: 'pre_cutoff' };
 
-  return createdMs >= Date.parse(ATTRIBUTION_CUTOFF_ISO);
+  if (createdMs < Date.parse(ATTRIBUTION_CUTOFF_ISO)) {
+    return { eligible: false, reason: 'pre_cutoff' };
+  }
+  return { eligible: true, reason: null };
+}
+
+/** Verdict-only view of `evaluateAcquisitionPrompt`. */
+export function shouldShowAcquisitionPrompt(input: AcquisitionGateInput): boolean {
+  return evaluateAcquisitionPrompt(input).eligible;
 }
 
 export async function hasAcquisitionPromptBeenShown(): Promise<boolean> {

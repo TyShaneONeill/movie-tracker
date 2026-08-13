@@ -469,6 +469,7 @@ export default function HomeScreen() {
       <AcquisitionSourcePrompt
         visible={acquisitionPrompt.visible}
         onSelect={acquisitionPrompt.onSelect}
+        onClose={acquisitionPrompt.onClose}
         onDismiss={acquisitionPrompt.onDismiss}
       />
     </SafeAreaView>

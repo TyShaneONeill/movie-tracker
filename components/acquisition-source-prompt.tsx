@@ -18,7 +18,10 @@ import type { AcquisitionSource } from '@/lib/acquisition-service';
 
 interface AcquisitionSourcePromptProps {
   visible: boolean;
+  /** Persists the answer. Called the instant a chip is tapped, before the beat. */
   onSelect: (source: AcquisitionSource) => void;
+  /** Hides the sheet once the thank-you beat has played. */
+  onClose: () => void;
   onDismiss: () => void;
 }
 
@@ -49,6 +52,7 @@ function MapPinIcon({ color }: { color: string }) {
 export function AcquisitionSourcePrompt({
   visible,
   onSelect,
+  onClose,
   onDismiss,
 }: AcquisitionSourcePromptProps) {
   const { effectiveTheme } = useTheme();
@@ -59,7 +63,10 @@ export function AcquisitionSourcePrompt({
     if (thanked) return;
     hapticImpact();
     setThanked(true);
-    setTimeout(() => onSelect(source), THANKS_DISMISS_MS);
+    // Persist FIRST, then play the beat. Backgrounding or force-quitting during
+    // the 1.4s thank-you must not lose the answer the user just gave us.
+    onSelect(source);
+    setTimeout(onClose, THANKS_DISMISS_MS);
   };
 
   const handleDismiss = () => {
