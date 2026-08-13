@@ -25,6 +25,19 @@ import * as DocumentPicker from 'expo-document-picker';
 
 export type DocumentPickResult = { canceled: true } | { canceled: false; uri: string; file?: File };
 
+// Thrown when keepLocalCopy() reports copy.status === 'error'. A distinct
+// class (rather than a plain Error) so callers can classify this failure
+// mode with `instanceof` instead of matching on .message — see
+// components/tvtime-import/classify-read-error.ts. Never carries
+// copy.copyError (the raw NSError description, which can embed a
+// filename — PII) in its message.
+export class DocumentCopyError extends Error {
+  constructor() {
+    super('document-copy-failed');
+    this.name = 'DocumentCopyError';
+  }
+}
+
 // Apple UTI strings, inlined rather than imported from the library's
 // `types` export (see the note above on why nothing from this package is
 // imported statically). Each is paired with the generic 'public.item'
@@ -61,10 +74,12 @@ async function pickFullScreen(type: string[], fallbackFileName: string): Promise
       destination: 'cachesDirectory',
     });
     if (copy.status === 'error') {
-      // Never surface copy.copyError (raw NSError text) to the UI — this is
-      // classified as an unknown error by callers, which show their
-      // existing generic copy instead of err.message.
-      throw new Error('document-copy-failed');
+      // Never surface copy.copyError (raw NSError text, which can embed a
+      // filename) anywhere — not in this thrown error's message, and
+      // callers must not forward err.message either. DocumentCopyError lets
+      // callers classify this failure mode (e.g. Sentry code) without
+      // touching the raw text.
+      throw new DocumentCopyError();
     }
     return { canceled: false, uri: copy.localUri };
   } catch (err) {

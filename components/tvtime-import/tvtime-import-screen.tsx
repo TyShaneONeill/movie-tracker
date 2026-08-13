@@ -42,6 +42,7 @@ import type { TvTimeMatchResult, ParsedTvTimePayload } from '@/lib/tvtime-import
 import { useImportRun, type ImportRunPhase } from '@/lib/tvtime-import/import-run-context';
 import { importScreenView } from '@/lib/tvtime-import/import-run-view';
 import { TicketIcon, ChevronLeftIcon, WarningIcon } from './icons';
+import { classifyTvTimeReadError } from './classify-read-error';
 import { InkStubsCta } from '@/components/tvtime-deck/ink-stubs-cta';
 import { PickScreen } from './pick-screen';
 import { TvTimeFixMatchSheet } from './tvtime-fix-match-sheet';
@@ -190,7 +191,7 @@ export function TvTimeImportScreen() {
   // is user-facing copy already stripped of any of that, so it's safe to show.
   const reportImportError = useCallback((err: unknown, stage: string) => {
     if (!mountedRef.current) return;
-    const code: TvTimeImportErrorCode = err instanceof TvTimeImportError ? err.code : 'unknown';
+    const code: TvTimeImportErrorCode = classifyTvTimeReadError(err);
     // Only TvTimeImportError carries a deliberately-authored, safe
     // user-facing message. Any other Error (raw native/library errors —
     // e.g. an NSError description surfaced by the picker's keepLocalCopy —
