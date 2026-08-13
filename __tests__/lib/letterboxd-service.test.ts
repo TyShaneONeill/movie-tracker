@@ -838,6 +838,50 @@ describe('importMovies', () => {
     expect(matches[1].status).toBe('duplicate');
   });
 
+  it("corrects a duplicate's watched_at from the CSV date without re-writing the row", async () => {
+    const matches = [
+      makeMatchedMovie({
+        tmdbMovie: makeTMDBMovie({ id: 7 }) as any,
+        status: 'duplicate',
+        entry: makeEntry({ watchedDate: '2024-03-15' }),
+      }),
+    ];
+    const watchedAtChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValue(watchedAtChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.duplicates).toBe(1);
+    expect(result.imported).toBe(0);
+    // The date the CSV knows better than the existing row is corrected...
+    expect(watchedAtChain.update).toHaveBeenCalledWith({ watched_at: '2024-03-15' });
+    expect(watchedAtChain.eq).toHaveBeenCalledWith('user_id', USER_ID);
+    expect(watchedAtChain.eq).toHaveBeenCalledWith('tmdb_id', 7);
+    // ...on journey 1 only, so a rewatch's journeys 2..n keep their own dates.
+    expect(watchedAtChain.eq).toHaveBeenCalledWith('journey_number', 1);
+    // ...and nothing else about the row is touched (no re-upsert, so no
+    // watch_time clobber).
+    expect(mockAddMovieToLibrary).not.toHaveBeenCalled();
+    expect(watchedAtChain.upsert).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing at all for a duplicate with no CSV date', async () => {
+    const matches = [
+      makeMatchedMovie({
+        tmdbMovie: makeTMDBMovie({ id: 7 }) as any,
+        status: 'duplicate',
+        entry: makeEntry({ watchedDate: null }),
+      }),
+    ];
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.duplicates).toBe(1);
+    expect(mockAddMovieToLibrary).not.toHaveBeenCalled();
+    // No update — and no reconciliation either, since nothing was claimed.
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it('reports a failed write as unmatched — there is no error-string duplicate path left', async () => {
     const matches = [
       makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 1 }) as any, status: 'matched' }),

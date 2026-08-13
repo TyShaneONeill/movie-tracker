@@ -248,9 +248,31 @@ export async function importMovies(
     }
 
     // Already watched — flagged before the review screen by
-    // markDuplicateMatches. Skipping keeps the "Already in collection" count
-    // honest instead of re-upserting the row and calling it an import.
+    // markDuplicateMatches. Skipping the write keeps the "Already in
+    // collection" count honest instead of re-upserting the row and calling it
+    // an import. The one thing the CSV still knows better than the existing row
+    // is *when* it was watched, so correct that and nothing else — the old
+    // re-upsert path also reset watch_time to import-time, which was never
+    // wanted.
     if (match.status === 'duplicate') {
+      if (match.entry.watchedDate) {
+        const { error: watchedAtError } = await supabase
+          .from('user_movies')
+          .update({ watched_at: match.entry.watchedDate })
+          .eq('user_id', userId)
+          .eq('tmdb_id', match.tmdbMovie.id)
+          // Journey 1 is the row addMovieToLibrary's upsert targets
+          // (journey_number DEFAULT 1) — exactly the row the import used to
+          // write. Scoping to it leaves a rewatch's journeys 2..n alone; an
+          // unscoped update would overwrite every journey's date for this
+          // movie with this single CSV entry.
+          .eq('journey_number', 1);
+        if (watchedAtError) {
+          captureMessage('letterboxd-import-watched-at-update-failed', {
+            tmdbId: match.tmdbMovie.id,
+          });
+        }
+      }
       progress.duplicates++;
       progress.current++;
       onProgress?.({ ...progress });

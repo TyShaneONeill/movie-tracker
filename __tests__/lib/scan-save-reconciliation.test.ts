@@ -170,6 +170,27 @@ describe('saveTicketsToJourney — persistence reconciliation', () => {
     expect(result.persistenceFailed).toBe(0);
   });
 
+  it('short-circuits on a first-chunk error — the second chunk is never queried', async () => {
+    const TICKET_COUNT = 250;
+    const tickets = Array.from({ length: TICKET_COUNT }, (_, i) => makeMatchedTicket(i + 1));
+    const secondChunk = mockSupabaseQuery({
+      data: Array.from({ length: 50 }, (_, i) => ({ tmdb_id: i + 201 })),
+      error: null,
+    });
+    routeFrom([
+      mockSupabaseQuery({ data: null, error: { message: 'gateway timeout' } }),
+      secondChunk,
+    ]);
+
+    const result = await saveTicketsToJourney(tickets, USER, queryClient, triggerAchievementCheck);
+
+    // The batch is already unverifiable, so the remaining read is wasted work.
+    expect(mockFrom.mock.calls.filter(([table]) => table === 'user_movies')).toHaveLength(1);
+    expect(secondChunk.in).not.toHaveBeenCalled();
+    expect(result.succeeded).toBe(TICKET_COUNT);
+    expect(result.persistenceFailed).toBe(0);
+  });
+
   it('treats any chunk erroring as the whole batch being unverifiable — no partial downgrades', async () => {
     const TICKET_COUNT = 250;
     const tickets = Array.from({ length: TICKET_COUNT }, (_, i) => makeMatchedTicket(i + 1));
