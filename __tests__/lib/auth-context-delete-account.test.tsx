@@ -11,6 +11,7 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
 
 jest.mock('@/lib/supabase', () => ({
+  clearPersistedAuthSession: jest.fn().mockResolvedValue(undefined),
   supabase: {
     auth: {
       getSession: jest.fn().mockResolvedValue({
@@ -63,10 +64,11 @@ jest.mock('expo-apple-authentication', () => ({
 }));
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
-import { supabase } from '@/lib/supabase';
+import { supabase, clearPersistedAuthSession } from '@/lib/supabase';
 
 const mockSignOut = supabase.auth.signOut as jest.Mock;
 const mockInvoke = supabase.functions.invoke as jest.Mock;
+const mockClearPersisted = clearPersistedAuthSession as jest.Mock;
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
@@ -109,6 +111,29 @@ describe('AuthContext.deleteAccount', () => {
 
     expect(outcome?.error).toBeNull();
     expect(result.current.user).toBeNull();
+  });
+
+  // supabase-js signOut() returns before _removeSession() on any error that is
+  // not a 401/403/404, so the stored token would otherwise survive.
+  it('wipes the persisted session directly when sign-out errors', async () => {
+    mockSignOut.mockResolvedValue({ error: { message: 'network request failed' } });
+    const result = await renderAuth();
+
+    await act(async () => {
+      await result.current.deleteAccount();
+    });
+
+    expect(mockClearPersisted).toHaveBeenCalled();
+  });
+
+  it('does not touch storage directly when sign-out succeeds', async () => {
+    const result = await renderAuth();
+
+    await act(async () => {
+      await result.current.deleteAccount();
+    });
+
+    expect(mockClearPersisted).not.toHaveBeenCalled();
   });
 
   it('does not sign out when the delete Edge Function fails', async () => {

@@ -12,7 +12,7 @@ import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import Toast from 'react-native-toast-message';
-import { supabase } from './supabase';
+import { supabase, clearPersistedAuthSession } from './supabase';
 import { queryClient } from './query-client';
 import { setSentryUser, captureException, captureMessage } from './sentry';
 import { analytics } from '@/lib/analytics';
@@ -504,6 +504,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) {
         captureException(signOutError as Error, { context: 'deleteAccount-signOut' });
+        // signOut() bails before removing the stored session on any error that
+        // isn't a 401/403/404, so a transient network failure would hand the
+        // token straight back to the next launch. Wipe it directly.
+        await clearPersistedAuthSession();
       }
 
       // Clear all cached queries

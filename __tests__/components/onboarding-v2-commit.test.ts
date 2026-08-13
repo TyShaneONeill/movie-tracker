@@ -58,6 +58,7 @@ const mockUseOnboarding = useOnboarding as jest.Mock;
 const mockCapture = captureException as jest.Mock;
 const mockAddMovie = addMovieToLibrary as jest.Mock;
 const mockCompleteOnboarding = jest.fn();
+const mockSignOut = jest.fn();
 
 const USER_ID = '2ee0425b-dec3-409a-a424-3c921db50471';
 
@@ -87,7 +88,8 @@ function renderCommit() {
 describe('onboarding v2 commit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: { id: USER_ID } });
+    mockUseAuth.mockReturnValue({ user: { id: USER_ID }, signOut: mockSignOut });
+    mockSignOut.mockResolvedValue(undefined);
     mockCompleteOnboarding.mockResolvedValue(true);
     mockUseOnboarding.mockReturnValue({ completeOnboarding: mockCompleteOnboarding });
     mockAddMovie.mockResolvedValue({ id: 'row-1' });
@@ -98,12 +100,12 @@ describe('onboarding v2 commit', () => {
   it('commits and writes watchlist rows for a live account', async () => {
     const result = renderCommit();
 
-    let ok: boolean | undefined;
+    let ok: string | undefined;
     await act(async () => {
       ok = await result.current.commit();
     });
 
-    expect(ok).toBe(true);
+    expect(ok).toBe('ok');
     expect(mockAddMovie).toHaveBeenCalledWith(USER_ID, MOVIE, 'watchlist');
     expect(analytics.track).toHaveBeenCalledWith('onboarding:complete', expect.anything());
   });
@@ -112,12 +114,12 @@ describe('onboarding v2 commit', () => {
     mockProfileSelect.mockResolvedValue({ data: [], error: null });
     const result = renderCommit();
 
-    let ok: boolean | undefined;
+    let ok: string | undefined;
     await act(async () => {
       ok = await result.current.commit();
     });
 
-    expect(ok).toBe(false);
+    expect(ok).toBe('account-missing');
     expect(mockCapture).toHaveBeenCalledWith(
       expect.objectContaining({ message: expect.stringContaining('profile row missing') }),
       { context: 'onboarding-v2-orphaned-session' }
@@ -142,16 +144,51 @@ describe('onboarding v2 commit', () => {
     mockProfileSelect.mockResolvedValue({ data: null, error: { message: 'db down' } });
     const result = renderCommit();
 
-    let ok: boolean | undefined;
+    let ok: string | undefined;
     await act(async () => {
       ok = await result.current.commit();
     });
 
-    expect(ok).toBe(false);
+    expect(ok).toBe('failed');
     expect(mockCapture).toHaveBeenCalledWith(expect.anything(), {
       context: 'onboarding-v2-commit-profile',
     });
     expect(mockAddMovie).not.toHaveBeenCalled();
+  });
+
+  it('signs out on an orphaned session so onboarding is not a dead end', async () => {
+    mockProfileSelect.mockResolvedValue({ data: [], error: null });
+    const result = renderCommit();
+
+    await act(async () => {
+      await result.current.commit();
+    });
+
+    expect(mockSignOut).toHaveBeenCalled();
+  });
+
+  it('still reports account-missing when the sign-out call throws', async () => {
+    mockProfileSelect.mockResolvedValue({ data: [], error: null });
+    mockSignOut.mockRejectedValue(new Error('network down'));
+    const result = renderCommit();
+
+    let ok: string | undefined;
+    await act(async () => {
+      ok = await result.current.commit();
+    });
+
+    expect(ok).toBe('account-missing');
+  });
+
+  it('does not sign out on an ordinary failure, which is worth retrying', async () => {
+    mockProfileSelect.mockResolvedValue({ data: null, error: { message: 'db down' } });
+    const result = renderCommit();
+
+    await act(async () => {
+      await result.current.commit();
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 
   it('clears isSubmitting after an orphaned-session bail', async () => {
