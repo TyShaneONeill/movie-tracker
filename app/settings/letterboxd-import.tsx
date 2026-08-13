@@ -17,7 +17,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import Svg, { Path } from 'react-native-svg';
 import { Image } from 'expo-image';
 
-import { pickLetterboxdCsvFile } from '@/lib/pick-document';
+import { pickLetterboxdCsvFile, releasePickedDocument } from '@/lib/pick-document';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -169,12 +169,11 @@ export default function LetterboxdImportScreen() {
         setMatches(matched);
         setState('review');
       } finally {
-        // Native only: delete the picker's cache copy of the CSV — it's the
-        // user's full watch history and must not linger at rest. On web there's
-        // no cache copy (blob: URI, GC'd) and expo-file-system can't touch it.
-        if (Platform.OS !== 'web') {
-          FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
-        }
+        // Delete the picker's cache copy of the CSV — it's the user's full
+        // watch history and must not linger at rest. What that means per
+        // platform (a cache directory, a cache file, or nothing at all on
+        // web) is pick-document's business, not ours.
+        void releasePickedDocument(picked);
       }
     } catch (err) {
       console.error('[Letterboxd] Import error:', err);

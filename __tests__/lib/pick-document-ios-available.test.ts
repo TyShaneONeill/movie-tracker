@@ -11,6 +11,11 @@ jest.mock('expo-document-picker', () => ({
   getDocumentAsync: (...args: unknown[]) => mockGetDocumentAsync(...args),
 }));
 
+const mockDeleteAsync = jest.fn();
+jest.mock('expo-file-system/legacy', () => ({
+  deleteAsync: (...args: unknown[]) => mockDeleteAsync(...args),
+}));
+
 const mockPick = jest.fn();
 const mockKeepLocalCopy = jest.fn();
 
@@ -34,22 +39,29 @@ jest.mock('@react-native-documents/picker', () => ({
   errorCodes: { OPERATION_CANCELED: 'OPERATION_CANCELED' },
 }));
 
-import { pickTvTimeZipFile, pickLetterboxdCsvFile } from '@/lib/pick-document';
+import { pickTvTimeZipFile, pickLetterboxdCsvFile, releasePickedDocument } from '@/lib/pick-document';
+
+// keepLocalCopy() puts the copy in a per-pick Caches/<UUID>/ directory, so
+// the fixtures mirror that shape rather than a bare cache path.
+const CACHE_DIR = 'file:///cache/9E1F0C2A-UUID';
 
 describe('pick-document on iOS with the native picker available', () => {
   afterEach(() => {
     mockPick.mockReset();
     mockKeepLocalCopy.mockReset();
     mockGetDocumentAsync.mockReset();
+    mockDeleteAsync.mockReset();
   });
 
   it('pickTvTimeZipFile presents fullScreen with zip + allFiles UTIs and returns the cached uri', async () => {
     mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
-    mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: 'file:///cache/export.zip' }]);
+    mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: `${CACHE_DIR}/export.zip` }]);
 
     const result = await pickTvTimeZipFile();
 
-    expect(result).toEqual({ canceled: false, uri: 'file:///cache/export.zip' });
+    // Reads come from the file; cleanup targets the directory that holds it,
+    // so the per-pick directory doesn't outlive the copy (issue #816).
+    expect(result).toEqual({ canceled: false, uri: `${CACHE_DIR}/export.zip`, cleanupUri: CACHE_DIR });
     expect(mockPick).toHaveBeenCalledWith({ type: ['public.zip-archive', 'public.item'], presentationStyle: 'fullScreen' });
     expect(mockKeepLocalCopy).toHaveBeenCalledWith({
       files: [{ uri: 'file:///picked/export.zip', fileName: 'export.zip' }],
@@ -60,11 +72,11 @@ describe('pick-document on iOS with the native picker available', () => {
 
   it('pickLetterboxdCsvFile presents fullScreen with csv + allFiles UTIs and returns the cached uri', async () => {
     mockPick.mockResolvedValue([{ uri: 'file:///picked/watched.csv', name: null }]);
-    mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: 'file:///cache/watched.csv' }]);
+    mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: `${CACHE_DIR}/watched.csv` }]);
 
     const result = await pickLetterboxdCsvFile();
 
-    expect(result).toEqual({ canceled: false, uri: 'file:///cache/watched.csv' });
+    expect(result).toEqual({ canceled: false, uri: `${CACHE_DIR}/watched.csv`, cleanupUri: CACHE_DIR });
     expect(mockPick).toHaveBeenCalledWith({
       type: ['public.comma-separated-values-text', 'public.item'],
       presentationStyle: 'fullScreen',
@@ -97,6 +109,12 @@ describe('pick-document on iOS with the native picker available', () => {
     mockKeepLocalCopy.mockResolvedValue([{ status: 'error', copyError: 'disk full: /private/var/mobile/...' }]);
 
     await expect(pickTvTimeZipFile()).rejects.toThrow('document-copy-failed');
+    // Pins the native contract this path relies on: the copy is a move into
+    // a directory created first, so a reported error means no file landed —
+    // and the empty directory's path is never sent to JS, leaving nothing
+    // for us to delete. If a future library version starts returning a uri
+    // on error, this expectation is what should force the cleanup.
+    expect(mockDeleteAsync).not.toHaveBeenCalled();
   });
 
   it('guards against pick() resolving with an empty array', async () => {
@@ -106,5 +124,82 @@ describe('pick-document on iOS with the native picker available', () => {
 
     expect(result).toEqual({ canceled: true });
     expect(mockKeepLocalCopy).not.toHaveBeenCalled();
+  });
+
+  // The copy is the user's TV Time export — auth-token / password-hash CSVs.
+  // A copy the wrapper throws away instead of returning is one the caller can
+  // never delete, because it never receives a uri for it (issue #816).
+  describe('cleanup of the cache copy', () => {
+    // Fault injection at the one point that matters: after keepLocalCopy has
+    // reported success, so a copy exists on disk. localUri is read twice in
+    // pickFullScreen — once to derive the cleanup directory, once to build
+    // the result — so throwing on the second read stands in for any step
+    // added between the copy and the return.
+    function copyThenThrowOnUse(localUri: string, error: Error) {
+      let reads = 0;
+      return {
+        status: 'success',
+        get localUri() {
+          reads += 1;
+          if (reads > 1) throw error;
+          return localUri;
+        },
+      };
+    }
+
+    it('deletes the copy and rethrows when a step after keepLocalCopy throws', async () => {
+      const boom = new Error('post-copy-step-failed');
+      mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([copyThenThrowOnUse(`${CACHE_DIR}/export.zip`, boom)]);
+      mockDeleteAsync.mockResolvedValue(undefined);
+
+      await expect(pickTvTimeZipFile()).rejects.toThrow('post-copy-step-failed');
+      expect(mockDeleteAsync).toHaveBeenCalledWith(CACHE_DIR, { idempotent: true });
+    });
+
+    it('surfaces the original error even when the cleanup delete fails', async () => {
+      const boom = new Error('post-copy-step-failed');
+      mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([copyThenThrowOnUse(`${CACHE_DIR}/export.zip`, boom)]);
+      mockDeleteAsync.mockRejectedValue(new Error('file busy'));
+
+      await expect(pickTvTimeZipFile()).rejects.toThrow('post-copy-step-failed');
+    });
+
+    it('releasePickedDocument removes the whole per-pick directory', async () => {
+      mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: `${CACHE_DIR}/export.zip` }]);
+      mockDeleteAsync.mockResolvedValue(undefined);
+
+      await releasePickedDocument(await pickTvTimeZipFile());
+
+      expect(mockDeleteAsync).toHaveBeenCalledWith(CACHE_DIR, { idempotent: true });
+    });
+
+    it('releasePickedDocument never rejects, so callers can use it bare in a finally', async () => {
+      mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: `${CACHE_DIR}/export.zip` }]);
+      mockDeleteAsync.mockRejectedValue(new Error('file busy'));
+
+      await expect(releasePickedDocument(await pickTvTimeZipFile())).resolves.toBeUndefined();
+    });
+
+    it('releasePickedDocument is a no-op on a cancelled pick', async () => {
+      mockPick.mockRejectedValue(new MockNativeModuleError('OPERATION_CANCELED'));
+
+      await releasePickedDocument(await pickTvTimeZipFile());
+
+      expect(mockDeleteAsync).not.toHaveBeenCalled();
+    });
+
+    it('never climbs past a cache-root uri, which would delete unrelated app state', async () => {
+      mockPick.mockResolvedValue([{ uri: 'file:///picked/export.zip', name: 'export.zip' }]);
+      mockKeepLocalCopy.mockResolvedValue([{ status: 'success', localUri: 'file:///export.zip' }]);
+      mockDeleteAsync.mockResolvedValue(undefined);
+
+      await releasePickedDocument(await pickTvTimeZipFile());
+
+      expect(mockDeleteAsync).toHaveBeenCalledWith('file:///export.zip', { idempotent: true });
+    });
   });
 });

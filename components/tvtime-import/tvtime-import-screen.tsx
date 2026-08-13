@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import * as FileSystem from 'expo-file-system/legacy';
 
-import { pickTvTimeZipFile } from '@/lib/pick-document';
+import { pickTvTimeZipFile, releasePickedDocument } from '@/lib/pick-document';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -237,13 +236,11 @@ export function TvTimeImportScreen() {
         const matched = await matchTvTimePayload(parsed, createDefaultTmdbGateway());
         applyMatchResult(matched);
       } finally {
-        // Native only: delete the picker's cache copy of the ZIP — it holds the
-        // export's auth-token / password-hash CSVs and must not linger at rest.
-        // On web there's no cache copy (the File lives in memory and is GC'd) and
-        // expo-file-system can't touch a blob: URI, so skip it.
-        if (Platform.OS !== 'web') {
-          FileSystem.deleteAsync(pickedUri, { idempotent: true }).catch(() => {});
-        }
+        // Delete the picker's cache copy of the ZIP — it holds the export's
+        // auth-token / password-hash CSVs and must not linger at rest. What
+        // that means per platform (a cache directory, a cache file, or
+        // nothing at all on web) is pick-document's business, not ours.
+        void releasePickedDocument(picked);
       }
     } catch (err) {
       reportImportError(err, 'tvtime-import-select-file');

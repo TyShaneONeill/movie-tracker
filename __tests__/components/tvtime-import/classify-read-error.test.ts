@@ -1,8 +1,10 @@
-// lib/pick-document.ts imports expo-document-picker at module load and that
-// package ships untransformed ESM (it is not in jest.config's
+// lib/pick-document.ts imports expo-document-picker and expo-file-system at
+// module load and both ship untransformed ESM (neither is in jest.config's
 // transformIgnorePatterns allowlist). Only the DocumentCopyError class is
-// under test here and no picker call is made, so an empty mock is enough.
+// under test here and no picker or filesystem call is made, so empty mocks
+// are enough.
 jest.mock('expo-document-picker', () => ({}));
+jest.mock('expo-file-system/legacy', () => ({}));
 
 import { classifyTvTimeReadError } from '@/components/tvtime-import/classify-read-error';
 // Imported from the errors module directly, not the '@/lib/tvtime-import'
