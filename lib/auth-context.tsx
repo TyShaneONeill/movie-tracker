@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -17,7 +18,54 @@ import { queryClient } from './query-client';
 import { setSentryUser, captureException, captureMessage } from './sentry';
 import { analytics } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push-notification-service';
+import { withTimeout, TimeoutError } from '@/lib/with-timeout';
 import type { Session, User } from '@supabase/supabase-js';
+
+// Bound for the initial getSession() call. supabase-js reads the persisted
+// session from SecureStore locally (fast), but auto-refreshes an
+// already-expiring token over the network before resolving — with no
+// AbortController anywhere in this flow, a stalled connection can hang that
+// refresh indefinitely. Cap it so cold start can't spin forever; Ty's
+// reported real-world 5-6s on bad 5G still completes well under this.
+const AUTH_SESSION_TIMEOUT_MS = 8000;
+
+const AUTH_USER_CACHE_KEY = 'pocketstubs_last_known_user';
+
+/**
+ * Minimal local cache of the last resolved user, used only as a fallback
+ * when getSession() times out (see AUTH_SESSION_TIMEOUT_MS). Deliberately
+ * stores the User (profile-shaped, no secrets) and NOT the Session —
+ * nothing in this app reads session.access_token/refresh_token from React
+ * context (deleteAccount() etc. re-fetch a fresh session directly), so
+ * there's no reason to duplicate real tokens into AsyncStorage, which is
+ * less protected than the SecureStore-backed session supabase-js already
+ * persists.
+ */
+async function readCachedUser(): Promise<User | null> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTH_USER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && typeof (parsed as { id?: unknown }).id === 'string') {
+      return parsed as User;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedUser(user: User | null): Promise<void> {
+  try {
+    if (user) {
+      await AsyncStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem(AUTH_USER_CACHE_KEY);
+    }
+  } catch {
+    // Silent — cache write failure is non-fatal, worst case a future hang has no fallback
+  }
+}
 
 // Dynamically import Apple Authentication to avoid crash on web (iOS-only native module)
 let AppleAuthentication: typeof import('expo-apple-authentication') | null = null;
@@ -116,7 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+    const sessionPromise = supabase.auth.getSession();
+
+    sessionPromise.then(({ data: { session: s }, error }) => {
       if (error) {
         const isRefreshError =
           error.message?.includes('Refresh Token') ||
@@ -129,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setUser(null);
         setSentryUser(null);
+        writeCachedUser(null);
         if (isRefreshError) {
           Toast.show({
             type: 'info',
@@ -141,10 +192,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(s);
         setUser(s?.user ?? null);
         setSentryUser(s?.user?.id ?? null);
+        writeCachedUser(s?.user ?? null);
       }
       setIsLoading(false);
     }).catch(() => {
       // Catch any unexpected throw (e.g. storage read failure)
+      setIsLoading(false);
+    });
+
+    // Bound the cold-start spinner: if getSession() is still pending after
+    // AUTH_SESSION_TIMEOUT_MS (e.g. a hung token refresh on a bad connection),
+    // fall back to the last known user from cache and let the app render.
+    // `sessionPromise` is NOT cancelled — the .then()/.catch() above keeps
+    // running in the background and will correct this fallback (including
+    // clearing it via writeCachedUser(null) on error) whenever it actually
+    // settles.
+    withTimeout(sessionPromise, AUTH_SESSION_TIMEOUT_MS).catch(async (err) => {
+      if (!(err instanceof TimeoutError)) return; // a real getSession() rejection is already handled above
+      const cachedUser = await readCachedUser();
+      if (cachedUser) {
+        setUser(cachedUser);
+        setSentryUser(cachedUser.id);
+        // `session` is intentionally left as-is (null on cold start) — see
+        // readCachedUser() doc for why we don't fabricate one. The two
+        // screens that read `session` instead of `user` (followers/[id].tsx,
+        // achievements.tsx) only use `session.user.id`, and will pick up the
+        // real value once the background getSession() call above resolves.
+      }
       setIsLoading(false);
     });
 
@@ -160,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setUser(null);
         setSentryUser(null);
+        writeCachedUser(null);
         Toast.show({
           type: 'info',
           text1: 'Session expired',
@@ -188,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
       // Update Sentry user context when auth state changes
       setSentryUser(newSession?.user?.id ?? null);
+      writeCachedUser(newSession?.user ?? null);
 
       // On web, set a cookie so Vercel skips the landing-page redirect for returning users
       if (Platform.OS === 'web' && typeof document !== 'undefined' && newSession?.user) {
@@ -261,6 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Explicitly clear the state to ensure immediate UI update
       setSession(null);
       setUser(null);
+      writeCachedUser(null);
     } catch (error) {
       captureException(error as Error, { context: 'signOut' });
       // Clear storage, cache and state even if the API call fails, so the user
@@ -269,6 +346,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.clear();
       setSession(null);
       setUser(null);
+      writeCachedUser(null);
       throw error;
     }
   };
@@ -531,6 +609,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear the session and user state
       setSession(null);
       setUser(null);
+      writeCachedUser(null);
 
       return { error: null };
     } catch (error) {
