@@ -62,3 +62,12 @@ supabase/.branches/
 
 # Superpowers / agent tooling local state
 .superpowers/
+
+# design-sync (machine state — durable set stays committed)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+.design-sync/pkg/dist/
+.design-sync/pkg/tsconfig.dts.json
