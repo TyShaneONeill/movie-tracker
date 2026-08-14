@@ -12,7 +12,7 @@ import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import Toast from 'react-native-toast-message';
-import { supabase } from './supabase';
+import { supabase, clearPersistedAuthSession } from './supabase';
 import { queryClient } from './query-client';
 import { setSentryUser, captureException, captureMessage } from './sentry';
 import { analytics } from '@/lib/analytics';
@@ -233,6 +233,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null, needsEmailConfirmation };
   };
 
+  // supabase-js's signOut() returns before removing the stored session unless
+  // the failure was a 401/403/404, so any failed sign-out has to wipe the token
+  // itself — otherwise the next launch restores a session we just ended. The
+  // wipe is best-effort on purpose: failing to clean up storage must never be
+  // the reason a sign-out or an account deletion reports failure to the user.
+  const clearPersistedSessionSafely = async () => {
+    try {
+      await clearPersistedAuthSession();
+    } catch (storageError) {
+      captureException(storageError as Error, { context: 'clearPersistedAuthSession' });
+    }
+  };
+
   const signOut = async () => {
     try {
       userInitiatedSignOut.current = true;
@@ -250,7 +263,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     } catch (error) {
       captureException(error as Error, { context: 'signOut' });
-      // Clear cache and state even if API call fails to ensure user is logged out locally
+      // Clear storage, cache and state even if the API call fails, so the user
+      // is logged out locally and no token survives to rehydrate the session.
+      await clearPersistedSessionSafely();
       queryClient.clear();
       setSession(null);
       setUser(null);
@@ -494,6 +509,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data?.error) {
         return { error: new Error(data.error) };
+      }
+
+      // Destroy the persisted session. Clearing React state alone leaves the
+      // stored access token behind, and it stays valid until it expires — the
+      // next launch restores a session for a user that no longer exists in
+      // auth.users, so every write fails the user_id FK (23503 → HTTP 409).
+      userInitiatedSignOut.current = true;
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        captureException(signOutError as Error, { context: 'deleteAccount-signOut' });
+        // Not redundant with the guard in signOut(): this path calls
+        // supabase.auth.signOut() directly and must not throw on an account
+        // that is already gone server-side.
+        await clearPersistedSessionSafely();
       }
 
       // Clear all cached queries

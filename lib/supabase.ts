@@ -56,6 +56,22 @@ const ExpoStorageAdapter = {
   },
 };
 
+// supabase-js derives its default storage key as
+// `sb-${hostname.split('.')[0]}-auth-token`. Mirrored here so we can clear the
+// persisted session ourselves: signOut() returns early WITHOUT removing it when
+// the sign-out call fails with anything other than a 401/403/404, which would
+// leave a live token behind for an account that no longer exists.
+export function getAuthStorageKey(): string {
+  return `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
+}
+
+/** Last-resort session wipe. Safe to call when nothing is stored. */
+export async function clearPersistedAuthSession(): Promise<void> {
+  const key = getAuthStorageKey();
+  await ExpoStorageAdapter.removeItem(key);
+  await ExpoStorageAdapter.removeItem(`${key}-code-verifier`);
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: ExpoStorageAdapter,

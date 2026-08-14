@@ -12,7 +12,7 @@ import { CTAButton } from '@/components/onboarding/v2/shared/cta-button';
 import { StubCard } from '@/components/onboarding/v2/shared/stub-card';
 import { MONO_FONT } from '@/components/onboarding/v2/shared/mono';
 import { useReducedMotion } from '@/components/onboarding/v2/shared/use-reduced-motion';
-import { useOnboardingV2 } from '@/components/onboarding/v2/onboarding-v2-context';
+import { useOnboardingV2, type CommitResult } from '@/components/onboarding/v2/onboarding-v2-context';
 import { useTour } from '@/lib/onboarding/tour-context';
 import { setPostOnboardingRoute } from '@/lib/post-onboarding-intent';
 import type { StepProps } from '@/components/onboarding/v2/types';
@@ -50,10 +50,26 @@ export function SuccessStep(_props: StepProps) {
       ? `${count} ${count === 1 ? 'film' : 'films'} queued up and ready.`
       : "Your seat's ready. Let's find your first film.";
 
+  // 'account-missing' means commit() already signed us out, so the auth guard
+  // handles navigation and only the explanation is left to show. Retrying is
+  // pointless in that case, which the generic copy would wrongly invite.
+  const showCommitError = (outcome: CommitResult) => {
+    Toast.show(
+      outcome === 'account-missing'
+        ? {
+            type: 'error',
+            text1: 'Your account is no longer available',
+            text2: 'Please sign in again.',
+            visibilityTime: 4000,
+          }
+        : { type: 'error', text1: 'Something went wrong saving your profile', visibilityTime: 2500 }
+    );
+  };
+
   const handleEnter = async () => {
-    const ok = await commit();
-    if (!ok) {
-      Toast.show({ type: 'error', text1: 'Something went wrong saving your profile', visibilityTime: 2500 });
+    const outcome = await commit();
+    if (outcome !== 'ok') {
+      showCommitError(outcome);
       return;
     }
     router.replace('/(tabs)');
@@ -72,9 +88,9 @@ export function SuccessStep(_props: StepProps) {
   // teardown and gets dropped, stranding the user on home.
   const handleImportFromTvTime = async () => {
     if (isSubmitting) return;
-    const ok = await commit();
-    if (!ok) {
-      Toast.show({ type: 'error', text1: 'Something went wrong saving your profile', visibilityTime: 2500 });
+    const outcome = await commit();
+    if (outcome !== 'ok') {
+      showCommitError(outcome);
       return;
     }
     setPostOnboardingRoute('/settings/tvtime-import?from=onboarding_completion');

@@ -41,6 +41,13 @@ const EMPTY: OnboardingV2Data = {
   avatarUrl: null,
 };
 
+/**
+ * 'account-missing' means this session outlived its auth user, so the commit
+ * signed out. It is distinct from 'failed' because retrying can never succeed
+ * and onboarding offers no other way out.
+ */
+export type CommitResult = 'ok' | 'failed' | 'account-missing';
+
 interface OnboardingV2ContextValue {
   data: OnboardingV2Data;
   update: (patch: Partial<OnboardingV2Data>) => void;
@@ -48,15 +55,15 @@ interface OnboardingV2ContextValue {
   toggleEra: (slug: string) => void;
   setEraAgnostic: () => void;
   toggleWatchlist: (movie: TMDBMovie) => void;
-  /** Persist everything to Supabase. Returns true on success. */
-  commit: () => Promise<boolean>;
+  /** Persist everything to Supabase. */
+  commit: () => Promise<CommitResult>;
   isSubmitting: boolean;
 }
 
 const Ctx = createContext<OnboardingV2ContextValue | undefined>(undefined);
 
 export function OnboardingV2Provider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { completeOnboarding } = useOnboarding();
   const queryClient = useQueryClient();
 
@@ -100,8 +107,8 @@ export function OnboardingV2Provider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const commit = useCallback(async (): Promise<boolean> => {
-    if (!user?.id) return false;
+  const commit = useCallback(async (): Promise<CommitResult> => {
+    if (!user?.id) return 'failed';
     setIsSubmitting(true);
 
     try {
@@ -115,17 +122,38 @@ export function OnboardingV2Provider({ children }: { children: ReactNode }) {
       if (data.name.trim()) profileUpdate.full_name = data.name.trim();
       if (data.handle.trim()) profileUpdate.username = data.handle.trim().toLowerCase();
 
-      const { error: profileError } = await (supabase
+      // .select() so we can tell "saved" from "matched no row". A bare update
+      // reports success against zero rows, which let an orphaned session (auth
+      // user deleted, profile cascade-gone) walk the whole flow and be told it
+      // worked. profiles is publicly readable and its UPDATE policy is
+      // auth.uid() = id, so a live account always matches exactly one row.
+      const { data: updatedProfiles, error: profileError } = await (supabase
         .from('profiles') as ReturnType<typeof supabase.from>)
         .update(profileUpdate)
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select('id');
 
       if (profileError) {
         captureException(new Error(profileError.message), {
           context: 'onboarding-v2-commit-profile',
         });
-        setIsSubmitting(false);
-        return false;
+        return 'failed';
+      }
+
+      // No row matched: this session's account no longer exists. Bail before
+      // the watchlist writes, which would each fail the user_id FK anyway, and
+      // sign out — retrying can never succeed and onboarding has no other exit.
+      if (!updatedProfiles || updatedProfiles.length === 0) {
+        captureException(
+          new Error(`onboarding-v2: profile row missing for session user ${user.id}`),
+          { context: 'onboarding-v2-orphaned-session' }
+        );
+        try {
+          await signOut();
+        } catch {
+          // signOut clears local state even when the network call fails.
+        }
+        return 'account-missing';
       }
 
       // 2. Watchlist rows — best-effort; a single failure shouldn't block entry.
@@ -171,16 +199,16 @@ export function OnboardingV2Provider({ children }: { children: ReactNode }) {
       //    instance wasn't unmounted between sessions.
       if (onboardingPersisted) setData(EMPTY);
 
-      return onboardingPersisted;
+      return onboardingPersisted ? 'ok' : 'failed';
     } catch (err) {
       captureException(err instanceof Error ? err : new Error(String(err)), {
         context: 'onboarding-v2-commit',
       });
-      return false;
+      return 'failed';
     } finally {
       setIsSubmitting(false);
     }
-  }, [user?.id, data, completeOnboarding, queryClient]);
+  }, [user?.id, data, completeOnboarding, queryClient, signOut]);
 
   const value = useMemo(
     () => ({
