@@ -42,6 +42,7 @@ import { InkStubsCard } from '@/components/tvtime-deck/ink-stubs-card';
 import { consumePostOnboardingRoute } from '@/lib/post-onboarding-intent';
 import { AcquisitionSourcePrompt } from '@/components/acquisition-source-prompt';
 import { useAcquisitionPrompt } from '@/hooks/use-acquisition-prompt';
+import { OutdatedBinaryNudgeCard } from '@/components/outdated-binary-nudge-card';
 
 function SunIcon({ color }: { color: string }) {
   return (
@@ -238,6 +239,11 @@ export default function HomeScreen() {
             </TourTarget>
           </View>
         </View>
+
+        {/* Outdated-binary nudge (#726). Sits above the other home cards: for a
+            binary the OTA channel can no longer reach, this is the only
+            message that still matters. Renders nothing when up to date. */}
+        <OutdatedBinaryNudgeCard />
 
         {/* Coming from TV Time? — dismissable import entry card */}
         {tvtimeCard.visible && (
