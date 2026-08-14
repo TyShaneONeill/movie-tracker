@@ -106,7 +106,7 @@ describe('onboarding v2 commit', () => {
     });
 
     expect(ok).toBe('ok');
-    expect(mockAddMovie).toHaveBeenCalledWith(USER_ID, MOVIE, 'watchlist');
+    expect(mockAddMovie).toHaveBeenCalledWith(USER_ID, MOVIE, 'watchlist', { source: 'onboarding' });
     expect(analytics.track).toHaveBeenCalledWith('onboarding:complete', expect.anything());
   });
 
