@@ -233,6 +233,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null, needsEmailConfirmation };
   };
 
+  // supabase-js's signOut() returns before removing the stored session unless
+  // the failure was a 401/403/404, so any failed sign-out has to wipe the token
+  // itself — otherwise the next launch restores a session we just ended. The
+  // wipe is best-effort on purpose: failing to clean up storage must never be
+  // the reason a sign-out or an account deletion reports failure to the user.
+  const clearPersistedSessionSafely = async () => {
+    try {
+      await clearPersistedAuthSession();
+    } catch (storageError) {
+      captureException(storageError as Error, { context: 'clearPersistedAuthSession' });
+    }
+  };
+
   const signOut = async () => {
     try {
       userInitiatedSignOut.current = true;
@@ -250,7 +263,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     } catch (error) {
       captureException(error as Error, { context: 'signOut' });
-      // Clear cache and state even if API call fails to ensure user is logged out locally
+      // Clear storage, cache and state even if the API call fails, so the user
+      // is logged out locally and no token survives to rehydrate the session.
+      await clearPersistedSessionSafely();
       queryClient.clear();
       setSession(null);
       setUser(null);
@@ -504,10 +519,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) {
         captureException(signOutError as Error, { context: 'deleteAccount-signOut' });
-        // signOut() bails before removing the stored session on any error that
-        // isn't a 401/403/404, so a transient network failure would hand the
-        // token straight back to the next launch. Wipe it directly.
-        await clearPersistedAuthSession();
+        // Not redundant with the guard in signOut(): this path calls
+        // supabase.auth.signOut() directly and must not throw on an account
+        // that is already gone server-side.
+        await clearPersistedSessionSafely();
       }
 
       // Clear all cached queries

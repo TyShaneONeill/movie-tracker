@@ -136,6 +136,22 @@ describe('AuthContext.deleteAccount', () => {
     expect(mockClearPersisted).not.toHaveBeenCalled();
   });
 
+  // A storage failure must not turn an already-completed deletion into an
+  // error the user is told to retry, nor leave them looking signed in.
+  it('reports success and clears state even if the storage wipe throws', async () => {
+    mockSignOut.mockResolvedValue({ error: { message: 'network request failed' } });
+    mockClearPersisted.mockRejectedValue(new Error('SecureStore unavailable'));
+    const result = await renderAuth();
+
+    let outcome: { error: Error | null } | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteAccount();
+    });
+
+    expect(outcome?.error).toBeNull();
+    expect(result.current.user).toBeNull();
+  });
+
   it('does not sign out when the delete Edge Function fails', async () => {
     mockInvoke.mockResolvedValue({ data: null, error: new Error('edge down') });
     const result = await renderAuth();
@@ -147,5 +163,37 @@ describe('AuthContext.deleteAccount', () => {
 
     expect(outcome?.error).toBeTruthy();
     expect(mockSignOut).not.toHaveBeenCalled();
+  });
+});
+
+// The onboarding orphaned-session branch reaches storage through signOut(),
+// so the guard has to live here rather than at each call site.
+describe('AuthContext.signOut', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClearPersisted.mockResolvedValue(undefined);
+  });
+
+  it('wipes the persisted session when the sign-out call fails', async () => {
+    mockSignOut.mockResolvedValue({ error: { message: 'network request failed' } });
+    const result = await renderAuth();
+
+    await act(async () => {
+      await expect(result.current.signOut()).rejects.toBeTruthy();
+    });
+
+    expect(mockClearPersisted).toHaveBeenCalled();
+    expect(result.current.user).toBeNull();
+  });
+
+  it('leaves storage alone on a clean sign-out', async () => {
+    mockSignOut.mockResolvedValue({ error: null });
+    const result = await renderAuth();
+
+    await act(async () => {
+      await result.current.signOut();
+    });
+
+    expect(mockClearPersisted).not.toHaveBeenCalled();
   });
 });
