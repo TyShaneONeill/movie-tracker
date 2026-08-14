@@ -494,6 +494,34 @@ describe('useMovieActions', () => {
   });
 
   // ==========================================================================
+  // library_add source tagging (#800 follow-up — digest blindness)
+  // ==========================================================================
+
+  describe('library_add source tagging', () => {
+    it('tags the in-app add path as source "search"', async () => {
+      const { wrapper } = createTestHarness();
+
+      mockGetMovieByTmdbId.mockResolvedValue(null);
+      mockAddMovieToLibrary.mockResolvedValue(makeUserMovie({ status: 'watchlist' }));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+      await waitFor(() => expect(result.current.isSaved).toBe(false));
+
+      const movie = makeTMDBMovie();
+      await act(async () => {
+        await result.current.addToWatchlist(movie as any, 'watchlist');
+      });
+
+      expect(mockAddMovieToLibrary).toHaveBeenCalledWith(
+        expect.any(String),
+        movie,
+        'watchlist',
+        { source: 'search' }
+      );
+    });
+  });
+
+  // ==========================================================================
   // Watchlist invalidation (cross-screen freshness — SP4-A follow-up)
   // ==========================================================================
 

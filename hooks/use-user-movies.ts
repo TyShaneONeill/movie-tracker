@@ -93,7 +93,7 @@ export function useUserMovies(status?: MovieStatus, orderBy: UserMovieOrderBy = 
     }: {
       movie: TMDBMovie;
       status?: MovieStatus;
-    }) => addMovieToLibrary(user!.id, movie, status),
+    }) => addMovieToLibrary(user!.id, movie, status, { source: 'search' }),
     onSuccess: () => {
       invalidateUserMovieQueries(queryClient);
     },

@@ -16,6 +16,10 @@ jest.mock('@/lib/movie-cache-service', () => ({
   getMovieDetailsWithCache: jest.fn(),
 }));
 
+jest.mock('@/lib/analytics', () => ({
+  analytics: { track: jest.fn() },
+}));
+
 import {
   searchMovies,
   discoverMoviesByGenre,
@@ -39,6 +43,7 @@ import {
 } from '@/lib/movie-service';
 import { supabase } from '@/lib/supabase';
 import { getMovieDetailsWithCache } from '@/lib/movie-cache-service';
+import { analytics } from '@/lib/analytics';
 import type { UserMovie } from '@/lib/database.types';
 import type { MovieDetailResponse } from '@/lib/tmdb.types';
 
@@ -494,6 +499,48 @@ describe('addMovieToLibrary', () => {
       expect.objectContaining({ status: 'watched' }),
       expect.any(Object)
     );
+  });
+
+  it('tracks movie:library_add with the caller-supplied source and status', async () => {
+    setupQueryChain({ data: upserted, error: null });
+
+    await addMovieToLibrary(USER_ID, movie as any, 'watched', { source: 'onboarding' });
+
+    expect(analytics.track).toHaveBeenCalledWith('movie:library_add', {
+      source: 'onboarding',
+      status: 'watched',
+      tmdb_id: movie.id,
+    });
+  });
+
+  it('defaults the source to unknown rather than going untracked', async () => {
+    setupQueryChain({ data: upserted, error: null });
+
+    await addMovieToLibrary(USER_ID, movie as any);
+
+    expect(analytics.track).toHaveBeenCalledWith('movie:library_add', {
+      source: 'unknown',
+      status: 'watchlist',
+      tmdb_id: movie.id,
+    });
+  });
+
+  it('does not send a title (matches movie:watchlist_add — ids and counts only)', async () => {
+    setupQueryChain({ data: upserted, error: null });
+
+    await addMovieToLibrary(USER_ID, movie as any);
+
+    const [, props] = (analytics.track as jest.Mock).mock.calls.find(
+      ([event]) => event === 'movie:library_add'
+    )!;
+    expect(props).not.toHaveProperty('title');
+  });
+
+  it('does NOT track when the upsert fails', async () => {
+    setupQueryChain({ data: null, error: { message: 'Insert failed' } });
+
+    await expect(addMovieToLibrary(USER_ID, movie as any)).rejects.toThrow('Insert failed');
+    expect(analytics.track).not.toHaveBeenCalled();
   });
 
   it('throws error message on failure', async () => {

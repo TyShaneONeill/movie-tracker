@@ -49,8 +49,6 @@ export type AcquisitionGateInput = {
   profileCreatedAt: string | null;
   /** profiles.acquisition_source — non-null means already answered/skipped. */
   acquisitionSource: string | null;
-  /** Local AsyncStorage fast-path flag. */
-  alreadyShownLocally: boolean;
   /**
    * profiles.account_tier — 'dev' (the 2-3 founder accounts) bypasses the
    * created_at cutoff ONLY, so founders whose profiles predate the OTA can
@@ -60,27 +58,72 @@ export type AcquisitionGateInput = {
 };
 
 /**
- * Pure decision function — exported for unit testing the once-ever and
- * existing-user-exclusion paths without touching storage or the network.
+ * Why a launch did NOT get the prompt. Reported on `acquisition:gate_evaluated`
+ * so a dark prompt can be diagnosed from one event instead of inferred from
+ * `$feature_flag_called` volume.
+ *
+ * Decided by the caller (hooks/use-acquisition-prompt.ts):
+ * - `flag_off` — PostHog answered and the flag is off for this user.
+ * - `flag_unresolved` — PostHog never answered; the backstop gave up. NOT the
+ *   same as off, and distinguishing the two is the point: the offline /
+ *   init-failed first launch is exactly what this event exists to diagnose.
+ * - `already_shown` — the local AsyncStorage latch is set. Paired with an empty
+ *   `profiles.acquisition_source` this means an answer was lost in transit.
+ * - `lost_focus` — Home lost focus before the sheet could fire.
+ *
+ * Decided by the pure gate below:
+ * - `already_answered` — `profiles.acquisition_source` is non-null. The healthy
+ *   terminal state; every returning user lands here.
+ * - `not_onboarded`, `pre_cutoff` — see `evaluateAcquisitionPrompt`.
  */
-export function shouldShowAcquisitionPrompt(input: AcquisitionGateInput): boolean {
-  const { onboardingCompleted, profileCreatedAt, acquisitionSource, alreadyShownLocally } = input;
+export type AcquisitionGateReason =
+  | 'flag_off'
+  | 'flag_unresolved'
+  | 'already_shown'
+  | 'already_answered'
+  | 'pre_cutoff'
+  | 'not_onboarded'
+  | 'lost_focus';
 
-  if (alreadyShownLocally) return false;
-  if (acquisitionSource !== null) return false;
-  if (!onboardingCompleted) return false;
+/**
+ * Pure decision function over PROFILE state — exported for unit testing the
+ * once-ever and existing-user-exclusion paths without touching storage or the
+ * network. Returns the failing `reason` alongside the verdict; `reason` is null
+ * when eligible.
+ *
+ * The local AsyncStorage latch is deliberately NOT an input: the caller checks
+ * it first as a fast path that avoids the profile read entirely, and reports
+ * `already_shown` itself. Accepting it here too would be a second, dead copy of
+ * that decision.
+ */
+export function evaluateAcquisitionPrompt(input: AcquisitionGateInput): {
+  eligible: boolean;
+  reason: AcquisitionGateReason | null;
+} {
+  const { onboardingCompleted, profileCreatedAt, acquisitionSource } = input;
+
+  if (acquisitionSource !== null) return { eligible: false, reason: 'already_answered' };
+  if (!onboardingCompleted) return { eligible: false, reason: 'not_onboarded' };
 
   // Founder-test bypass: dev-tier accounts skip only the cutoff below (their
   // profiles predate the OTA); everything above still applies.
-  if (input.accountTier === 'dev') return true;
+  if (input.accountTier === 'dev') return { eligible: true, reason: null };
 
   // Missing/unparseable created_at → fail closed (treat as existing user)
   // rather than risk prompting a long-time user.
-  if (!profileCreatedAt) return false;
+  if (!profileCreatedAt) return { eligible: false, reason: 'pre_cutoff' };
   const createdMs = Date.parse(profileCreatedAt);
-  if (Number.isNaN(createdMs)) return false;
+  if (Number.isNaN(createdMs)) return { eligible: false, reason: 'pre_cutoff' };
 
-  return createdMs >= Date.parse(ATTRIBUTION_CUTOFF_ISO);
+  if (createdMs < Date.parse(ATTRIBUTION_CUTOFF_ISO)) {
+    return { eligible: false, reason: 'pre_cutoff' };
+  }
+  return { eligible: true, reason: null };
+}
+
+/** Verdict-only view of `evaluateAcquisitionPrompt`. */
+export function shouldShowAcquisitionPrompt(input: AcquisitionGateInput): boolean {
+  return evaluateAcquisitionPrompt(input).eligible;
 }
 
 export async function hasAcquisitionPromptBeenShown(): Promise<boolean> {

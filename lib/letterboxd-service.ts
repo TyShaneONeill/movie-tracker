@@ -281,7 +281,10 @@ export async function importMovies(
 
     try {
       const status: MovieStatus = 'watched';
-      const userMovie = await addMovieToLibrary(userId, match.tmdbMovie, status, { skipEnrich: true });
+      const userMovie = await addMovieToLibrary(userId, match.tmdbMovie, status, {
+        skipEnrich: true,
+        source: 'import',
+      });
 
       // Update watched_at if available from the Letterboxd entry. Enrichment
       // only — the row itself was already written by addMovieToLibrary above,
