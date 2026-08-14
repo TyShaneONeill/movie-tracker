@@ -10,6 +10,7 @@ import { hapticImpact } from '@/lib/haptics';
 import { useTvTimeImportGate } from '@/hooks/use-tvtime-import';
 import { useImportRun } from '@/lib/tvtime-import/import-run-context';
 import { importPillView } from '@/lib/tvtime-import/import-run-view';
+import { useEasedProgress } from '@/lib/tvtime-import/import-progress-easing';
 import { TicketIcon } from './icons';
 
 // A small non-blocking pill that surfaces an in-flight import while the user is
@@ -37,6 +38,9 @@ export function ImportProgressPill() {
   const { phase, progress, screenFocused, reset } = useImportRun();
   const gate = useTvTimeImportGate();
   const pathname = usePathname();
+  // Eased for smooth motion between chunk-boundary updates (PR-CD part 2) —
+  // never ahead of the real `progress` above, just smoothed toward it.
+  const eased = useEasedProgress(progress);
 
   // Visible whenever an import is active/finished AND the user isn't on the
   // import screen. Flag-gated like the rest of the feature.
@@ -44,8 +48,8 @@ export function ImportProgressPill() {
     enabled: gate.enabled,
     phase,
     screenFocused,
-    processed: progress.processed,
-    total: progress.total,
+    processed: eased.processed,
+    total: eased.total,
   });
   // Never render over the full-screen import FLOW routes: the import screen
   // (which shows its own UI) or the blank-stubs deck (a tabless route reached
