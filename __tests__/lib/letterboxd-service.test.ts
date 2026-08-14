@@ -20,6 +20,7 @@ jest.mock('@/lib/movie-service', () => ({
 import {
   parseLetterboxdCSV,
   matchMoviesToTMDB,
+  markDuplicateMatches,
   importMovies,
   exportCollectionCSV,
   detectLetterboxdCSVType,
@@ -466,6 +467,90 @@ describe('matchMoviesToTMDB', () => {
 });
 
 // ============================================================================
+// markDuplicateMatches (#813: "Already in collection" was structurally always 0)
+// ============================================================================
+
+describe('markDuplicateMatches', () => {
+  it('marks only the matches already watched, leaving the rest importable', async () => {
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 1 }) as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 2 }) as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: null, status: 'unmatched' }),
+    ];
+    const lookupChain = mockSupabaseQuery({ data: [{ tmdb_id: 2 }], error: null });
+    mockFrom.mockReturnValue(lookupChain);
+
+    const duplicates = await markDuplicateMatches(USER_ID, matches);
+
+    expect(duplicates).toBe(1);
+    expect(matches[0].status).toBe('matched');
+    expect(matches[1].status).toBe('duplicate');
+    expect(matches[2].status).toBe('unmatched');
+  });
+
+  it('queries watched rows for the candidate tmdb_ids only', async () => {
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 1 }) as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 2 }) as any, status: 'matched' }),
+      // Unmatched entries have no movie to look up.
+      makeMatchedMovie({ tmdbMovie: null, status: 'unmatched' }),
+    ];
+    const lookupChain = mockSupabaseQuery({ data: [], error: null });
+    mockFrom.mockReturnValue(lookupChain);
+
+    await markDuplicateMatches(USER_ID, matches);
+
+    expect(mockFrom).toHaveBeenCalledWith('user_movies');
+    expect(lookupChain.select).toHaveBeenCalledWith('tmdb_id');
+    expect(lookupChain.eq).toHaveBeenCalledWith('user_id', USER_ID);
+    // Scoped to 'watched': a watchlist row for the same movie is NOT a
+    // duplicate — importing it is what flips it to watched.
+    expect(lookupChain.eq).toHaveBeenCalledWith('status', 'watched');
+    expect(lookupChain.in).toHaveBeenCalledWith('tmdb_id', [1, 2]);
+  });
+
+  it('marks nothing when the lookup errors — an unverified read must not hide movies from the import', async () => {
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 1 }) as any, status: 'matched' }),
+    ];
+    mockFrom.mockReturnValue(
+      mockSupabaseQuery({ data: null, error: { message: 'gateway timeout' } })
+    );
+
+    const duplicates = await markDuplicateMatches(USER_ID, matches);
+
+    expect(duplicates).toBe(0);
+    expect(matches[0].status).toBe('matched');
+  });
+
+  it('chunks the lookup at 200 ids and unions the chunk responses', async () => {
+    const matches = Array.from({ length: 250 }, (_, i) =>
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: i + 1 }) as any, status: 'matched' })
+    );
+    const firstChunkIds = Array.from({ length: 200 }, (_, i) => i + 1);
+    const secondChunkIds = Array.from({ length: 50 }, (_, i) => i + 201);
+    const firstChunk = mockSupabaseQuery({ data: [{ tmdb_id: 5 }], error: null });
+    const secondChunk = mockSupabaseQuery({ data: [{ tmdb_id: 205 }], error: null });
+    mockFrom.mockReturnValueOnce(firstChunk).mockReturnValueOnce(secondChunk);
+
+    const duplicates = await markDuplicateMatches(USER_ID, matches);
+
+    expect(firstChunk.in).toHaveBeenCalledWith('tmdb_id', firstChunkIds);
+    expect(secondChunk.in).toHaveBeenCalledWith('tmdb_id', secondChunkIds);
+    expect(duplicates).toBe(2);
+    expect(matches[4].status).toBe('duplicate');
+    expect(matches[204].status).toBe('duplicate');
+  });
+
+  it('skips the read entirely when there is nothing matched to check', async () => {
+    const matches = [makeMatchedMovie({ tmdbMovie: null, status: 'unmatched' })];
+
+    expect(await markDuplicateMatches(USER_ID, matches)).toBe(0);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
 // importMovies — reconciliation (#812: "Imported: 3" but zero rows persisted)
 // ============================================================================
 
@@ -732,6 +817,85 @@ describe('importMovies', () => {
     expect(result.imported).toBe(0);
     expect(result.persistenceFailed).toBe(0);
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('counts pre-flagged duplicates without re-writing them (#813)', async () => {
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 1 }) as any, status: 'matched' }),
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 2 }) as any, status: 'duplicate' }),
+    ];
+    mockAddMovieToLibrary.mockResolvedValueOnce(makeUserMovie({ id: 'row-a', tmdb_id: 1 }));
+    mockFrom.mockReturnValue(mockSupabaseQuery({ data: [{ tmdb_id: 1 }], error: null }));
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.imported).toBe(1);
+    // The row the user already has is reported as such, not re-upserted and
+    // then counted as an import.
+    expect(result.duplicates).toBe(1);
+    expect(result.unmatched).toBe(0);
+    expect(mockAddMovieToLibrary).toHaveBeenCalledTimes(1);
+    expect(matches[1].status).toBe('duplicate');
+  });
+
+  it("corrects a duplicate's watched_at from the CSV date without re-writing the row", async () => {
+    const matches = [
+      makeMatchedMovie({
+        tmdbMovie: makeTMDBMovie({ id: 7 }) as any,
+        status: 'duplicate',
+        entry: makeEntry({ watchedDate: '2024-03-15' }),
+      }),
+    ];
+    const watchedAtChain = mockSupabaseQuery({ data: null, error: null });
+    mockFrom.mockReturnValue(watchedAtChain);
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.duplicates).toBe(1);
+    expect(result.imported).toBe(0);
+    // The date the CSV knows better than the existing row is corrected...
+    expect(watchedAtChain.update).toHaveBeenCalledWith({ watched_at: '2024-03-15' });
+    expect(watchedAtChain.eq).toHaveBeenCalledWith('user_id', USER_ID);
+    expect(watchedAtChain.eq).toHaveBeenCalledWith('tmdb_id', 7);
+    // ...on journey 1 only, so a rewatch's journeys 2..n keep their own dates.
+    expect(watchedAtChain.eq).toHaveBeenCalledWith('journey_number', 1);
+    // ...and nothing else about the row is touched (no re-upsert, so no
+    // watch_time clobber).
+    expect(mockAddMovieToLibrary).not.toHaveBeenCalled();
+    expect(watchedAtChain.upsert).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing at all for a duplicate with no CSV date', async () => {
+    const matches = [
+      makeMatchedMovie({
+        tmdbMovie: makeTMDBMovie({ id: 7 }) as any,
+        status: 'duplicate',
+        entry: makeEntry({ watchedDate: null }),
+      }),
+    ];
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.duplicates).toBe(1);
+    expect(mockAddMovieToLibrary).not.toHaveBeenCalled();
+    // No update — and no reconciliation either, since nothing was claimed.
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed write as unmatched — there is no error-string duplicate path left', async () => {
+    const matches = [
+      makeMatchedMovie({ tmdbMovie: makeTMDBMovie({ id: 1 }) as any, status: 'matched' }),
+    ];
+    // addMovieToLibrary upserts, so it never throws 'DUPLICATE'; the old catch
+    // branch that read it was dead and duplicates are now flagged up front.
+    mockAddMovieToLibrary.mockRejectedValueOnce(new Error('DUPLICATE'));
+
+    const result = await importMovies(USER_ID, matches);
+
+    expect(result.duplicates).toBe(0);
+    expect(result.unmatched).toBe(1);
+    expect(result.imported).toBe(0);
+    expect(matches[0].status).toBe('unmatched');
   });
 });
 

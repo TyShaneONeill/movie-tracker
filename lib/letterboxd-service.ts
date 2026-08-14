@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import { searchMovies, addMovieToLibrary, fetchUserMovies } from './movie-service';
 import { supabase } from './supabase';
 import { captureMessage } from './sentry';
+import { fetchPersistedTmdbIds } from './reconcile-writes';
 import type { TMDBMovie } from './tmdb.types';
 import type { MovieStatus } from './database.types';
 
@@ -47,20 +48,6 @@ interface LetterboxdCSVRow {
 }
 
 export type LetterboxdCSVType = 'watched' | 'diary' | 'ratings' | 'watchlist' | 'unknown';
-
-// Max tmdb_ids per reconciliation .in() filter. A 1,000-id filter serializes
-// to ~9KB and 414s against typical ~8KB gateway URL-length caps — that would
-// silently disable verification for exactly the big-library migrations this
-// fix exists for, so keep each request well under that.
-const RECONCILE_CHUNK_SIZE = 200;
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
 
 /** Thrown by detectLetterboxdCSVType/parseLetterboxdCSV when given non-string
  *  input — e.g. a native file read that failed silently and resolved to
@@ -189,9 +176,52 @@ export async function matchMoviesToTMDB(
 }
 
 /**
+ * Flag matches the user has already watched so the review screen's "Already in
+ * collection" count is real and `importMovies` can skip them (#813).
+ *
+ * Detection is an explicit pre-import read rather than a reaction to a thrown
+ * error: `addMovieToLibrary` always upserts, so a re-import of an existing
+ * movie succeeds silently and never surfaces a duplicate to catch.
+ *
+ * Scoped to `status: 'watched'` — a watchlist row for the same movie is NOT a
+ * duplicate. Importing it flips it to watched, which is the whole point of the
+ * import, so it must stay in the matched set.
+ *
+ * Mutates `matches` in place (same convention as `importMovies`) and returns
+ * how many were marked. Returns 0 without marking anything when the read can't
+ * be verified — worst case those movies get re-upserted, which is harmless.
+ */
+export async function markDuplicateMatches(
+  userId: string,
+  matches: MatchedMovie[]
+): Promise<number> {
+  const candidates = matches.filter(
+    (m): m is MatchedMovie & { tmdbMovie: TMDBMovie } => m.status === 'matched' && m.tmdbMovie !== null
+  );
+  if (candidates.length === 0) return 0;
+
+  const { verified, persistedIds } = await fetchPersistedTmdbIds(
+    userId,
+    candidates.map((m) => m.tmdbMovie.id),
+    'watched'
+  );
+  if (!verified) return 0;
+
+  let duplicates = 0;
+  for (const match of candidates) {
+    if (persistedIds.has(match.tmdbMovie.id)) {
+      match.status = 'duplicate';
+      duplicates++;
+    }
+  }
+  return duplicates;
+}
+
+/**
  * Import matched movies into the user's collection.
- * Skips unmatched entries and handles duplicate detection.
- * Sets watched_at date if available from the Letterboxd entry.
+ * Skips unmatched entries and movies already flagged as duplicates by
+ * `markDuplicateMatches`. Sets watched_at date if available from the
+ * Letterboxd entry.
  */
 export async function importMovies(
   userId: string,
@@ -217,6 +247,38 @@ export async function importMovies(
       continue;
     }
 
+    // Already watched — flagged before the review screen by
+    // markDuplicateMatches. Skipping the write keeps the "Already in
+    // collection" count honest instead of re-upserting the row and calling it
+    // an import. The one thing the CSV still knows better than the existing row
+    // is *when* it was watched, so correct that and nothing else — the old
+    // re-upsert path also reset watch_time to import-time, which was never
+    // wanted.
+    if (match.status === 'duplicate') {
+      if (match.entry.watchedDate) {
+        const { error: watchedAtError } = await supabase
+          .from('user_movies')
+          .update({ watched_at: match.entry.watchedDate })
+          .eq('user_id', userId)
+          .eq('tmdb_id', match.tmdbMovie.id)
+          // Journey 1 is the row addMovieToLibrary's upsert targets
+          // (journey_number DEFAULT 1) — exactly the row the import used to
+          // write. Scoping to it leaves a rewatch's journeys 2..n alone; an
+          // unscoped update would overwrite every journey's date for this
+          // movie with this single CSV entry.
+          .eq('journey_number', 1);
+        if (watchedAtError) {
+          captureMessage('letterboxd-import-watched-at-update-failed', {
+            tmdbId: match.tmdbMovie.id,
+          });
+        }
+      }
+      progress.duplicates++;
+      progress.current++;
+      onProgress?.({ ...progress });
+      continue;
+    }
+
     try {
       const status: MovieStatus = 'watched';
       const userMovie = await addMovieToLibrary(userId, match.tmdbMovie, status, { skipEnrich: true });
@@ -238,15 +300,13 @@ export async function importMovies(
 
       match.status = 'imported';
       progress.imported++;
-    } catch (error) {
-      if (error instanceof Error && error.message === 'DUPLICATE') {
-        match.status = 'duplicate';
-        progress.duplicates++;
-      } else {
-        // Treat other errors as unmatched for progress tracking
-        match.status = 'unmatched';
-        progress.unmatched++;
-      }
+    } catch {
+      // Treat errors as unmatched for progress tracking. (There is no
+      // 'DUPLICATE' branch here: addMovieToLibrary upserts and never throws
+      // that string, so the old catch-based duplicate detection could never
+      // fire — duplicates are now flagged up front by markDuplicateMatches.)
+      match.status = 'unmatched';
+      progress.unmatched++;
     }
 
     progress.current++;
@@ -262,34 +322,15 @@ export async function importMovies(
   );
   if (claimed.length > 0) {
     const claimedTmdbIds = claimed.map((m) => m.tmdbMovie.id);
-    const idChunks = chunkArray(claimedTmdbIds, RECONCILE_CHUNK_SIZE);
-    const persistedIds = new Set<number>();
-    let reconciliationVerified = true;
+    // 'watched' is what importMovies writes — see fetchPersistedTmdbIds on why
+    // the status filter matters.
+    const { verified, persistedIds } = await fetchPersistedTmdbIds(
+      userId,
+      claimedTmdbIds,
+      'watched'
+    );
 
-    for (const idChunk of idChunks) {
-      const { data: persistedRows, error: reconcileError } = await supabase
-        .from('user_movies')
-        .select('tmdb_id')
-        .eq('user_id', userId)
-        // importMovies always writes status 'watched' — matching it here means
-        // a dropped UPDATE on a pre-existing (non-watched) row for the same
-        // tmdb_id can't be mistaken for a successful write.
-        .eq('status', 'watched')
-        .in('tmdb_id', idChunk);
-
-      // Any chunk failing makes the whole batch unverifiable — a partial read
-      // can't distinguish "didn't persist" from "couldn't verify", so don't
-      // downgrade anything off it.
-      if (reconcileError || !persistedRows) {
-        reconciliationVerified = false;
-        break;
-      }
-      for (const row of persistedRows as { tmdb_id: number }[]) {
-        persistedIds.add(row.tmdb_id);
-      }
-    }
-
-    if (reconciliationVerified) {
+    if (verified) {
       for (const match of claimed) {
         if (!persistedIds.has(match.tmdbMovie.id)) {
           // Revert to 'matched' (its pre-import state), not 'unmatched' — the
