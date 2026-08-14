@@ -22,21 +22,28 @@
 // to the legacy picker instead of crashing the screen.
 import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 
-export type DocumentPickResult = { canceled: true } | { canceled: false; uri: string; file?: File };
+export type DocumentPickResult =
+  | { canceled: true }
+  | {
+      canceled: false;
+      uri: string;
+      file?: File;
+      // What releasePickedDocument() deletes once the caller is done reading.
+      // Distinct from `uri` because the native picker puts its copy inside a
+      // directory it created for this pick alone, and the directory is what
+      // has to go. Undefined on web, where the pick is an in-memory File on a
+      // blob: uri and nothing was written to disk.
+      cleanupUri?: string;
+    };
 
-// Thrown when keepLocalCopy() reports copy.status === 'error'. A distinct
-// class (rather than a plain Error) so callers can classify this failure
-// mode with `instanceof` instead of matching on .message — see
-// components/tvtime-import/classify-read-error.ts. Never carries
-// copy.copyError (the raw NSError description, which can embed a
-// filename — PII) in its message.
-export class DocumentCopyError extends Error {
-  constructor() {
-    super('document-copy-failed');
-    this.name = 'DocumentCopyError';
-  }
-}
+// Lives in its own module so error classifiers can import it without pulling
+// the picker's dependencies in with it. Re-exported here because this is
+// where it's thrown, and where callers expect to find it.
+import { DocumentCopyError } from './pick-document-error';
+
+export { DocumentCopyError };
 
 // Apple UTI strings, inlined rather than imported from the library's
 // `types` export (see the note above on why nothing from this package is
@@ -49,6 +56,59 @@ export class DocumentCopyError extends Error {
 // narrows prior behavior.
 const IOS_ZIP_TYPES = ['public.zip-archive', 'public.item'];
 const IOS_CSV_TYPES = ['public.comma-separated-values-text', 'public.item'];
+
+// Best-effort removal of a picked file or the directory holding it. Never
+// rejects — not even if deleteAsync throws synchronously — so a failure here
+// can't mask whatever the caller was already reporting. Never logs either:
+// the path embeds the user's chosen filename.
+async function discard(uri: string): Promise<void> {
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+    // Intentionally swallowed; see above.
+  }
+}
+
+// keepLocalCopy() creates a fresh Caches/<UUID>/ directory per call and moves
+// the pick into it (the package's ios/swift/FileOperations.swift, moveFiles).
+// Deleting just the file leaves that directory behind forever, and since we
+// only ever pass one file per call it holds nothing else — so the directory
+// is the cleanup target.
+//
+// But only when we can positively identify it as one of those directories.
+// The delete is recursive, so mistaking a shared parent — cachesDirectory
+// itself, worst case — for a per-pick one would take unrelated app state with
+// it. Matching the shape of the UUID the native side generates fails closed:
+// anything else falls back to deleting just the file, which is what main did,
+// and whose worst case is the empty directory this is trying to stop leaking.
+const PER_PICK_DIRECTORY_NAME = /^[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}$/i;
+
+function containingDirectory(fileUri: string): string {
+  const lastSlash = fileUri.lastIndexOf('/');
+  if (lastSlash < 0) return fileUri;
+  const parent = fileUri.slice(0, lastSlash);
+  const parentName = parent.slice(parent.lastIndexOf('/') + 1);
+  return PER_PICK_DIRECTORY_NAME.test(parentName) ? parent : fileUri;
+}
+
+// expo-document-picker's copyToCacheDirectory writes into a directory it
+// shares across picks, so on the legacy path the file itself is the cleanup
+// target. On web there is no on-disk copy to clean up at all.
+function legacyCleanupUri(uri: string): string | undefined {
+  return Platform.OS === 'web' ? undefined : uri;
+}
+
+/**
+ * Deletes the picker's on-disk copy of a pick. Callers must call this once
+ * they're done reading it — for TV Time that copy is the export ZIP, which
+ * carries the account's auth-token / password-hash CSVs and must not linger
+ * at rest. Accepts any DocumentPickResult (cancellations and web picks are
+ * no-ops) and never rejects, so it drops straight into a `finally`.
+ */
+export async function releasePickedDocument(picked: DocumentPickResult): Promise<void> {
+  if (picked.canceled || !picked.cleanupUri) return;
+  await discard(picked.cleanupUri);
+}
 
 type NativePickerModule = typeof import('@react-native-documents/picker');
 
@@ -66,6 +126,14 @@ async function pickFullScreen(type: string[], fallbackFileName: string): Promise
   const picker = requireNativePicker();
   if (!picker) return null; // native module absent (e.g. pre-#815 binary) — caller falls back to the legacy picker
 
+  // Set the instant keepLocalCopy() reports success, so the catch below can
+  // delete the copy if anything after that throws. Nothing sits between the
+  // assignment and the return today, but a copy this function throws away
+  // rather than returns is one the caller can never clean up — it has no uri
+  // to delete — and for TV Time that copy is the export's credential CSVs
+  // sitting in cache at rest (issue #816). Ownership lives here so a future
+  // step added below can't quietly reopen that gap.
+  let copiedDir: string | null = null;
   try {
     const [pickedDoc] = await picker.pick({ type, presentationStyle: 'fullScreen' });
     if (!pickedDoc) return { canceled: true }; // defensive: pick() contractually resolves with >=1 item
@@ -74,6 +142,13 @@ async function pickFullScreen(type: string[], fallbackFileName: string): Promise
       destination: 'cachesDirectory',
     });
     if (copy.status === 'error') {
+      // Nothing to clean up on this path, and nothing we could clean up if
+      // there were: the native side creates the destination directory and
+      // then moves the file into it, so a reported error means the move
+      // failed and only an empty directory remains — whose path is never
+      // returned to JS (FileOperations.swift, moveFiles/moveSingleFile). It
+      // holds no file content and is left to OS cache eviction.
+      //
       // Never surface copy.copyError (raw NSError text, which can embed a
       // filename) anywhere — not in this thrown error's message, and
       // callers must not forward err.message either. DocumentCopyError lets
@@ -81,8 +156,10 @@ async function pickFullScreen(type: string[], fallbackFileName: string): Promise
       // touching the raw text.
       throw new DocumentCopyError();
     }
-    return { canceled: false, uri: copy.localUri };
+    copiedDir = containingDirectory(copy.localUri);
+    return { canceled: false, uri: copy.localUri, cleanupUri: copiedDir };
   } catch (err) {
+    if (copiedDir) await discard(copiedDir);
     if (picker.isErrorWithCode(err) && err.code === picker.errorCodes.OPERATION_CANCELED) {
       return { canceled: true };
     }
@@ -96,7 +173,8 @@ async function pickLegacyZip(): Promise<DocumentPickResult> {
     copyToCacheDirectory: true,
   });
   if (result.canceled || !result.assets?.[0]) return { canceled: true };
-  return { canceled: false, uri: result.assets[0].uri, file: result.assets[0].file };
+  const asset = result.assets[0];
+  return { canceled: false, uri: asset.uri, file: asset.file, cleanupUri: legacyCleanupUri(asset.uri) };
 }
 
 async function pickLegacyCsv(): Promise<DocumentPickResult> {
@@ -105,7 +183,8 @@ async function pickLegacyCsv(): Promise<DocumentPickResult> {
     copyToCacheDirectory: true,
   });
   if (result.canceled || !result.assets || result.assets.length === 0) return { canceled: true };
-  return { canceled: false, uri: result.assets[0].uri };
+  const asset = result.assets[0];
+  return { canceled: false, uri: asset.uri, cleanupUri: legacyCleanupUri(asset.uri) };
 }
 
 export async function pickTvTimeZipFile(): Promise<DocumentPickResult> {

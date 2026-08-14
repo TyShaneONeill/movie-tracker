@@ -14,6 +14,8 @@ jest.mock('expo-document-picker', () => ({
   getDocumentAsync: (...args: unknown[]) => mockGetDocumentAsync(...args),
 }));
 
+jest.mock('expo-file-system/legacy', () => ({ deleteAsync: jest.fn() }));
+
 // Simulates require('@react-native-documents/picker') throwing because the
 // native module was never registered in this binary.
 jest.mock('@react-native-documents/picker', () => {
@@ -35,7 +37,12 @@ describe('pick-document on iOS with the native picker unavailable (pre-#815 bina
 
     const result = await pickTvTimeZipFile();
 
-    expect(result).toEqual({ canceled: false, uri: 'file:///picked/export.zip', file: undefined });
+    expect(result).toEqual({
+      canceled: false,
+      uri: 'file:///picked/export.zip',
+      file: undefined,
+      cleanupUri: 'file:///picked/export.zip',
+    });
     expect(mockGetDocumentAsync).toHaveBeenCalledWith({
       type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
       copyToCacheDirectory: true,
@@ -50,7 +57,12 @@ describe('pick-document on iOS with the native picker unavailable (pre-#815 bina
 
     const result = await pickLetterboxdCsvFile();
 
-    expect(result).toEqual({ canceled: false, uri: 'file:///picked/watched.csv', file: undefined });
+    expect(result).toEqual({
+      canceled: false,
+      uri: 'file:///picked/watched.csv',
+      file: undefined,
+      cleanupUri: 'file:///picked/watched.csv',
+    });
   });
 
   it('a user cancel on the fallback picker is still a clean cancel', async () => {

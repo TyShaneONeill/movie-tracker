@@ -5,8 +5,11 @@
 // the same hazard). The errors module is imported directly rather than
 // through the barrel for the same reason: the barrel re-exports
 // import-client, which instantiates the Supabase client at module load.
+// DocumentCopyError comes from pick-document-error rather than pick-document
+// on the same principle: the picker module imports expo-document-picker and
+// expo-file-system at load, and only the error class is needed here.
 import { TvTimeImportError, type TvTimeImportErrorCode } from '@/lib/tvtime-import/errors';
-import { DocumentCopyError } from '@/lib/pick-document';
+import { DocumentCopyError } from '@/lib/pick-document-error';
 
 export function classifyTvTimeReadError(err: unknown): TvTimeImportErrorCode {
   if (err instanceof TvTimeImportError) return err.code;
