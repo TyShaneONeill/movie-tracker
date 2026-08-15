@@ -19,12 +19,12 @@ jest.mock('@expo/vector-icons', () => {
 jest.mock('@/lib/notification-preferences-service', () => ({
   getNotificationPreference: jest.fn(),
   setNotificationPreference: jest.fn(),
-  NOTIFICATION_FEATURE_DEFAULTS: {
-    release_reminders: true,
-    tv_episode_reminders: true,
-    day2_bridge: true,
-    continue_watching_nudges: true,
-  },
+  // The REAL defaults map, not a hand-copied literal. A local copy drifts every
+  // time a feature is added: this one had gone stale on three keys, so the
+  // newly-visible continue_watching row read as OFF in tests while shipping ON.
+  NOTIFICATION_FEATURE_DEFAULTS: jest.requireActual(
+    '@/lib/notification-preferences-service'
+  ).NOTIFICATION_FEATURE_DEFAULTS,
 }));
 jest.mock('@/hooks/use-push-notifications', () => ({
   usePushNotifications: jest.fn(),

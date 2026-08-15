@@ -18,12 +18,22 @@ interface Result {
   candidates: number;
   sent: number;
   errors: number;
+  elapsed_ms: number;
   error?: string;
 }
+
+// The fan-out is sequential, one send-push-notification round-trip per user, so
+// wall time scales with the candidate count. The cron ticks hourly and the local
+// send window is two ticks wide, so a run that approaches this threshold is on
+// course to still be sending when the next tick starts — two overlapping runs
+// would both read the same pre-send candidate list. Log loudly well before that.
+const SLOW_RUN_WARN_MS = 5 * 60 * 1000;
 
 Deno.serve(async (req: Request) => {
   const authError = requireServiceRole(req);
   if (authError) return authError;
+
+  const startedAt = Date.now();
 
   // Forward the inbound auth header for the internal call to
   // send-push-notification — see the identical comment + PR #416 history in
@@ -54,12 +64,23 @@ Deno.serve(async (req: Request) => {
     const candidates = (candidateRows ?? []) as ContinueWatchingCandidate[];
 
     if (candidates.length === 0) {
-      const empty: Result = { candidates: 0, sent: 0, errors: 0 };
+      const empty: Result = {
+        candidates: 0,
+        sent: 0,
+        errors: 0,
+        elapsed_ms: Date.now() - startedAt,
+      };
       return new Response(
         JSON.stringify(empty),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    // Logged before the fan-out starts, so a run that dies or overruns mid-loop
+    // still tells us how much work it had picked up.
+    console.log(
+      `[send-continue-watching-nudges] fanning out to ${candidates.length} candidate(s)`
+    );
 
     // One payload per user (the RPC already returns at most one per user).
     const payloads = buildContinueWatchingPayloads(candidates);
@@ -109,8 +130,14 @@ Deno.serve(async (req: Request) => {
       candidates: candidates.length,
       sent,
       errors,
+      elapsed_ms: Date.now() - startedAt,
     };
     console.log("[send-continue-watching-nudges]", JSON.stringify(result));
+    if (result.elapsed_ms > SLOW_RUN_WARN_MS) {
+      console.warn(
+        `[send-continue-watching-nudges] SLOW RUN: ${result.elapsed_ms}ms for ${result.candidates} candidate(s) — the sequential fan-out is approaching the hourly tick interval`
+      );
+    }
     return new Response(
       JSON.stringify(result),
       { status: 200, headers: { "Content-Type": "application/json" } }

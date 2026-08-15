@@ -15,6 +15,9 @@
  * and is also Jest-testable via relative path from __tests__/edge-functions/
  * (mirrors weekly-recap-copy.ts).
  *
+ * REVIEWED COPY — voice-reviewed in the #829 cold review (verdict: on-brand,
+ * no nag); the variety itself was requested by Ty 2026-08-15. Supersedes the
+ * DRAFT / Content-Queue-review-pending marker this file carried from 2026-07-21.
  * Voice is warm cinephile / company brand (never solo-dev).
  */
 
@@ -24,8 +27,19 @@ export interface ContinueWatchingCandidate {
   season_number: number;
   episode_number: number;
   show_name: string;
-  /** TMDB episode title, when the catalog has one. */
+  /**
+   * TMDB episode title, when the catalog has one. DELIBERATELY never rendered
+   * into copy — episode titles spoil ("The One Where Everybody Finds Out"). It
+   * rides along only so logs and callers can identify the episode; don't put it
+   * in a variant.
+   */
   episode_name: string | null;
+  /**
+   * The recipient's local date (`YYYY-MM-DD`) at send time — the RPC's
+   * `local_today` column. The copy rotation keys on this, never on the server's
+   * UTC date; see selectContinueWatchingVariant.
+   */
+  local_today: string;
 }
 
 export interface ContinueWatchingPayload {
@@ -67,8 +81,15 @@ const BRAND_TITLE = '🎬 PocketStubs';
 /**
  * The variant pool. Each entry names the show and the SxEy label and nothing
  * else — deliberately no episode TITLE, which would spoil, and no other user
- * data. Titles alternate between the brand line and a show-anchored line
- * (the latter mirrors send-tv-episode-reminders).
+ * data.
+ *
+ * INVARIANT (enforced by test): the BODY alone identifies the episode — it
+ * always carries both the show name and the SxEy label. Titles are short and
+ * fixed-length, never `${show}`-anchored. A long show name in the title is the
+ * one thing that reliably truncates in the notification shade, and a variant
+ * whose only identifying text lived there ("Unfinished business. 👀" under a
+ * cut-off title) would degrade to gibberish for exactly the users with the
+ * longest titles — and would bias the variant experiment against itself.
  */
 export const CONTINUE_WATCHING_VARIANTS: readonly CopyVariant[] = [
   {
@@ -102,8 +123,8 @@ export const CONTINUE_WATCHING_VARIANTS: readonly CopyVariant[] = [
   {
     id: 'ready_when_you_are',
     render: (show, label) => ({
-      title: `📺 ${show} — ${label}`,
-      body: "Next episode's ready when you are.",
+      title: '📺 Next episode',
+      body: `${show} ${label} — ready when you are.`,
     }),
   },
   {
@@ -123,8 +144,8 @@ export const CONTINUE_WATCHING_VARIANTS: readonly CopyVariant[] = [
   {
     id: 'tonight',
     render: (show, label) => ({
-      title: `📺 ${show}`,
-      body: `${label} has been sitting in your queue. Tonight?`,
+      title: '🍿 Tonight?',
+      body: `${show} ${label} has been sitting in your queue.`,
     }),
   },
   {
@@ -151,8 +172,8 @@ export const CONTINUE_WATCHING_VARIANTS: readonly CopyVariant[] = [
   {
     id: 'unfinished',
     render: (show, label) => ({
-      title: `📺 ${show} — ${label}`,
-      body: 'Unfinished business. 👀',
+      title: '👀 Unfinished business',
+      body: `${show} ${label} is still waiting.`,
     }),
   },
 ] as const;
@@ -167,13 +188,9 @@ function hashKey(s: string): number {
 }
 
 /** Whole days since the epoch for a `YYYY-MM-DD` date (0 if unparseable). */
-function dayIndex(today: string): number {
-  const ms = Date.parse(`${today}T00:00:00Z`);
+function dayIndex(localDate: string): number {
+  const ms = Date.parse(`${localDate}T00:00:00Z`);
   return Number.isNaN(ms) ? 0 : Math.floor(ms / 86_400_000);
-}
-
-function todayUTC(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 /**
@@ -183,36 +200,43 @@ function todayUTC(): string {
  * repeat on consecutive days impossible — which a plain `hash % N` could not
  * guarantee — while staying fully deterministic, and therefore testable.
  *
- * `today` is the UTC date. The send window is 17:00-18:00 local, so a user's
- * nudges can straddle a UTC boundary; that only shifts which variant they get,
- * never repeats one, because the offset is per-user and the step is per-day.
+ * `localDate` MUST be the recipient's own calendar date (the RPC's
+ * `local_today`), never the server's UTC date. The send goes out at 17:00-18:00
+ * local, so for a western-hemisphere user two consecutive local evenings can
+ * land on the same UTC date (23:00Z then 00:00Z in UTC-6) — and on a
+ * spring-forward date they always do (America/Denver, 2026-03-07 17:00 MST =
+ * 2026-03-08 00:00Z, 2026-03-08 17:00 MDT = 2026-03-08 23:00Z). Keyed on UTC,
+ * those users get the identical message two nights running, which is precisely
+ * the no-consecutive-repeat guarantee this function exists to make. Keyed on the
+ * user's local date, the invariant holds in the calendar they actually live in.
  */
 export function selectContinueWatchingVariant(
   userId: string,
-  today: string = todayUTC()
+  localDate: string
 ): CopyVariant {
   const n = CONTINUE_WATCHING_VARIANTS.length;
   const offset = ((hashKey(userId) % n) + n) % n;
-  return CONTINUE_WATCHING_VARIANTS[(offset + dayIndex(today)) % n];
+  return CONTINUE_WATCHING_VARIANTS[(offset + dayIndex(localDate)) % n];
 }
 
 /** Title + body for one candidate, from the rotating variant pool. */
 export function buildContinueWatchingCopy(
-  candidate: ContinueWatchingCandidate,
-  today: string = todayUTC()
+  candidate: ContinueWatchingCandidate
 ): ContinueWatchingCopy {
-  const variant = selectContinueWatchingVariant(candidate.user_id, today);
+  const variant = selectContinueWatchingVariant(
+    candidate.user_id,
+    candidate.local_today
+  );
   const label = `S${candidate.season_number}E${candidate.episode_number}`;
   const { title, body } = variant.render(candidate.show_name, label);
   return { title, body, variant: variant.id };
 }
 
 export function buildContinueWatchingPayloads(
-  candidates: readonly ContinueWatchingCandidate[],
-  today: string = todayUTC()
+  candidates: readonly ContinueWatchingCandidate[]
 ): ContinueWatchingPayload[] {
   return candidates.map((c) => {
-    const copy = buildContinueWatchingCopy(c, today);
+    const copy = buildContinueWatchingCopy(c);
     return {
       user_ids: [c.user_id],
       title: copy.title,

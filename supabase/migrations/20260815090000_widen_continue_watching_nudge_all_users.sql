@@ -1,13 +1,35 @@
--- Graduate the continue-watching nudge from the founder allowlist to ALL users.
+-- Graduate the continue-watching nudge from the founder allowlist to ALL users,
+-- and expose the user-local send date the function already computes.
 --
 -- The experiment shipped founder-only in #744 (2026-07-22): the RPC opened with
 -- a `founders` CTE selecting three auth.users emails, and every downstream CTE
 -- hung off it. Ty has received it daily since and approved widening
--- (2026-08-15). This migration removes ONLY that CTE — eligible_users now draws
--- straight from profiles ⋈ push_tokens. Every other clause is unchanged.
+-- (2026-08-15). This migration removes that CTE — eligible_users now draws
+-- straight from profiles ⋈ push_tokens — and adds one output column.
 --
--- The caps that make this non-naggy are DELIBERATELY untouched and still carry
--- the whole burden now that the population is everyone:
+-- ── Why the new column ───────────────────────────────────────────────────────
+-- `local_today` is (now() AT TIME ZONE eff_tz)::date, already computed inside
+-- watching_shows to decide whether the next episode has aired. The consumer now
+-- returns it so the copy rotation can key on the USER'S calendar day. Keying on
+-- the UTC date instead is wrong twice over: a 17:00-local send in UTC-6 lands at
+-- 23:00Z one day and 00:00Z the next, and on a spring-forward date (America/
+-- Denver, 2026-03-08) two consecutive local evenings collapse onto ONE UTC date,
+-- which would repeat the same message two nights running.
+--
+-- ── Why DROP + CREATE, not CREATE OR REPLACE ─────────────────────────────────
+-- Adding a column to RETURNS TABLE changes the function's result type, which
+-- CREATE OR REPLACE cannot do ("cannot change return type of existing
+-- function"). DROP + CREATE is therefore mandatory here — and unlike CREATE OR
+-- REPLACE, it RESETS the ACL, re-applying Supabase's default privileges that
+-- GRANT EXECUTE to anon and authenticated. That is precisely the hole
+-- 20260727040000 closed after it sat open on prod for five days, so the
+-- REVOKE/GRANT pair at the bottom is not belt-and-braces here: it is load-
+-- bearing, and all THREE of PUBLIC, anon and authenticated must be named
+-- (revoking PUBLIC alone is a no-op against the default privileges — burned
+-- 06-05, 07-03, 07-22). Verify the ACL on staging AND prod after applying.
+--
+-- ── Caps / anti-nag ──────────────────────────────────────────────────────────
+-- Unchanged, and carrying the whole burden now that the population is everyone:
 --   * send window: 17:00-18:00 user-local (23:00 UTC fallback when no synced tz)
 --   * <= 1 continue_watching push per user per 20h (status IN ('sent','delivered')
 --     — the terminal-success SET, never '= sent'; check-push-receipts promotes
@@ -18,23 +40,17 @@
 --     enabled). The settings toggle that writes that row was itself hidden
 --     behind the episode_rooms flag; the same PR ungates it, so every user who
 --     can now RECEIVE the nudge can also turn it off in-app.
---
--- ── ACL posture ──────────────────────────────────────────────────────────────
--- CREATE OR REPLACE PRESERVES the existing ACL, so the anon/authenticated
--- revoke from 20260727040000 survives this migration. The grants are re-asserted
--- below anyway (idempotent) because the blast radius of an anon-executable
--- SECURITY DEFINER changed with this widen: it used to leak three founder rows,
--- it would now leak nudge candidates for the entire user base. All THREE of
--- PUBLIC, anon and authenticated must be named — revoking PUBLIC alone is a
--- no-op against Supabase's default privileges (burned 06-05, 07-03, 07-22).
-CREATE OR REPLACE FUNCTION "public"."get_continue_watching_nudge_candidates"()
+DROP FUNCTION IF EXISTS "public"."get_continue_watching_nudge_candidates"();
+
+CREATE FUNCTION "public"."get_continue_watching_nudge_candidates"()
     RETURNS TABLE(
         "user_id" "uuid",
         "tmdb_id" integer,
         "season_number" integer,
         "episode_number" integer,
         "show_name" "text",
-        "episode_name" "text"
+        "episode_name" "text",
+        "local_today" "date"
     )
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -141,6 +157,7 @@ CREATE OR REPLACE FUNCTION "public"."get_continue_watching_nudge_candidates"()
       nu.tmdb_id,
       nu.show_name,
       nu.updated_at,
+      nu.local_today,
       nu.next_season,
       nu.next_episode,
       nu.next_episode_name
@@ -175,15 +192,21 @@ CREATE OR REPLACE FUNCTION "public"."get_continue_watching_nudge_candidates"()
     q.next_season AS season_number,
     q.next_episode AS episode_number,
     q.show_name,
-    q.next_episode_name AS episode_name
+    q.next_episode_name AS episode_name,
+    q.local_today
   FROM qualified q
   ORDER BY q.user_id, q.updated_at DESC NULLS LAST;
 $$;
 
 ALTER FUNCTION "public"."get_continue_watching_nudge_candidates"() OWNER TO "postgres";
 
-COMMENT ON FUNCTION "public"."get_continue_watching_nudge_candidates"() IS 'Returns, per user with a push token in their 5-7pm local window (or 23:00 UTC fallback), the most-recently-watched status=watching show that has a next UNWATCHED, AIRED episode (next-up semantics mirror lib/episode-room-logic.ts against tv_show_episodes; aired uses user-local today). Caps: <=1 continue_watching push/user/20h, <=2 sent/delivered strikes per (user,show,season,episode), never an already-watched episode. Respects notification_preferences continue_watching_nudges opt-out (absent = enabled). Widened from the founder allowlist to all users 2026-08-15. Internal use only — called by send-continue-watching-nudges edge function.';
+COMMENT ON FUNCTION "public"."get_continue_watching_nudge_candidates"() IS 'Returns, per user with a push token in their 5-7pm local window (or 23:00 UTC fallback), the most-recently-watched status=watching show that has a next UNWATCHED, AIRED episode, plus that user''s local date (next-up semantics mirror lib/episode-room-logic.ts against tv_show_episodes; aired uses user-local today). Caps: <=1 continue_watching push/user/20h, <=2 sent/delivered strikes per (user,show,season,episode), never an already-watched episode. Respects notification_preferences continue_watching_nudges opt-out (absent = enabled). Widened from the founder allowlist to all users 2026-08-15. Internal use only — called by send-continue-watching-nudges edge function.';
 
+-- MANDATORY after the DROP above: DROP+CREATE reset the ACL back to Supabase's
+-- default privileges, which grant EXECUTE to anon and authenticated. Without
+-- these two statements this migration would silently reopen the anon hole that
+-- 20260727040000 closed — on a function that now returns candidates for the
+-- whole user base rather than three founders.
 REVOKE ALL ON FUNCTION "public"."get_continue_watching_nudge_candidates"()
   FROM PUBLIC, "anon", "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."get_continue_watching_nudge_candidates"()

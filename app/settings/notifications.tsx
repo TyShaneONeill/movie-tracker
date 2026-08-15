@@ -302,7 +302,9 @@ export default function NotificationsSettingsScreen() {
                 colors={colors}
               />
             )}
-            {/* Ungated 2026-08-15 alongside the RPC widen. The toggle used to
+            {/* REVIEWED copy — voice-reviewed in #829 cold review (verdict:
+                on-brand, no nag); variety requested by Ty 2026-08-15.
+                Ungated 2026-08-15 alongside the RPC widen. The toggle used to
                 hide behind episode_rooms because only allowlisted founders could
                 receive the nudge; now that every user can, the opt-out has to be
                 reachable by every user too — a push you can't turn off in-app is
