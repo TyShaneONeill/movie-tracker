@@ -23,6 +23,7 @@ jest.mock('@/lib/notification-preferences-service', () => ({
     release_reminders: true,
     tv_episode_reminders: true,
     day2_bridge: true,
+    continue_watching_nudges: true,
   },
 }));
 jest.mock('@/hooks/use-push-notifications', () => ({
@@ -132,6 +133,29 @@ describe('NotificationsSettingsScreen — granted permission', () => {
     const dayTwoBridge = await findByLabelText('Day-2 nudge', {}, { timeout: 8000 });
     expect(dayTwoBridge.props.accessibilityState.checked).toBe(true);
   }, 15000);
+
+  it('renders the continue_watching toggle without any feature flag, so everyone the widened nudge can reach can opt out', async () => {
+    getPrefMock.mockResolvedValue(null);
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    // No episode_rooms mock here on purpose: the row used to hide behind that
+    // flag, which after the 2026-08-15 widen would have left flag-off users
+    // receiving a push with no in-app off switch.
+    const continueWatching = await findByLabelText('Continue watching', {}, { timeout: 8000 });
+    expect(continueWatching.props.accessibilityState.checked).toBe(true);
+  }, 15000);
+
+  it('toggling continue_watching OFF calls setNotificationPreference and fires analytics', async () => {
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const continueWatching = await findByLabelText('Continue watching');
+    fireEvent(continueWatching, 'valueChange', false);
+    await waitFor(() =>
+      expect(setPrefMock).toHaveBeenCalledWith('continue_watching_nudges', false)
+    );
+    expect(trackSpy).toHaveBeenCalledWith('notifications:toggle_changed', {
+      feature: 'continue_watching_nudges',
+      enabled: false,
+    });
+  });
 
   it('toggling day2_bridge OFF calls setNotificationPreference and fires analytics', async () => {
     const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });

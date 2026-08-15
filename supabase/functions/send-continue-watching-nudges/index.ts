@@ -6,13 +6,13 @@ import {
   type ContinueWatchingCandidate,
 } from "./continue-watching-copy.ts";
 
-// Continue-watching → Debrief Room nudge (retention experiment, founder-only).
-// Fills the gap left by send-tv-episode-reminders (which only fires when a
-// brand-new episode AIRS): a once-a-day nudge back to the next UNWATCHED, AIRED
-// episode of a show the user is actively watching. Recipient selection + caps
-// live in get_continue_watching_nudge_candidates (server-side SQL); this
-// consumer just fans the candidates out to send-push-notification, mirroring
-// send-tv-episode-reminders / send-weekly-recap exactly.
+// Continue-watching → Debrief Room nudge (all users since 2026-08-15; shipped
+// founder-only in #744). Fills the gap left by send-tv-episode-reminders (which
+// only fires when a brand-new episode AIRS): a once-a-day nudge back to the next
+// UNWATCHED, AIRED episode of a show the user is actively watching. Recipient
+// selection + caps live in get_continue_watching_nudge_candidates (server-side
+// SQL); this consumer just fans the candidates out to send-push-notification,
+// mirroring send-tv-episode-reminders / send-weekly-recap exactly.
 
 interface Result {
   candidates: number;

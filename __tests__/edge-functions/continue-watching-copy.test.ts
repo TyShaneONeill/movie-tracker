@@ -1,6 +1,8 @@
 import {
-  buildContinueWatchingBody,
+  buildContinueWatchingCopy,
   buildContinueWatchingPayloads,
+  selectContinueWatchingVariant,
+  CONTINUE_WATCHING_VARIANTS,
   selectNextUnwatchedEpisode,
   passesCaps,
   passesGate,
@@ -21,27 +23,79 @@ const candidate = (
   ...over,
 });
 
-describe('buildContinueWatchingBody', () => {
-  it('produces a warm, on-brand line naming the show and SxEy label', () => {
-    const body = buildContinueWatchingBody(candidate());
-    expect(body).toContain('The Office');
-    expect(body).toContain('S2E5');
+const DAY = '2026-08-15';
+
+describe('buildContinueWatchingCopy', () => {
+  it('names the show and the SxEy label across title + body, in every variant', () => {
+    for (let i = 0; i < CONTINUE_WATCHING_VARIANTS.length; i++) {
+      const { title, body } = CONTINUE_WATCHING_VARIANTS[i].render(
+        'The Office',
+        'S2E5'
+      );
+      const line = `${title} ${body}`;
+      expect(line).toContain('The Office');
+      expect(line).toContain('S2E5');
+    }
   });
 
-  it('is deterministic for a given (show, season, episode)', () => {
-    expect(buildContinueWatchingBody(candidate())).toBe(
-      buildContinueWatchingBody(candidate())
+  it('leaks nothing about the user beyond the show and the episode label', () => {
+    const c = candidate();
+    const { title, body } = buildContinueWatchingCopy(c, DAY);
+    const line = `${title} ${body}`;
+    // The episode TITLE would spoil, and the user id is not copy.
+    expect(line).not.toContain(c.episode_name!);
+    expect(line).not.toContain(c.user_id);
+  });
+
+  it('is deterministic for a given (user, day)', () => {
+    expect(buildContinueWatchingCopy(candidate(), DAY)).toEqual(
+      buildContinueWatchingCopy(candidate(), DAY)
     );
   });
 
-  it('varies copy across different episodes of the same show', () => {
-    const bodies = new Set(
-      [1, 2, 3, 4].map((episode_number) =>
-        buildContinueWatchingBody(candidate({ episode_number }))
+  it('does not repeat the same variant on consecutive days', () => {
+    // The rotation steps by exactly one variant per day, so a back-to-back
+    // repeat is impossible — this is why the index is offset+day, not a plain
+    // hash of the day.
+    const days = [
+      '2026-08-15',
+      '2026-08-16',
+      '2026-08-17',
+      '2026-08-18',
+      '2026-08-19',
+    ];
+    const variants = days.map(
+      (d) => buildContinueWatchingCopy(candidate(), d).variant
+    );
+    for (let i = 1; i < variants.length; i++) {
+      expect(variants[i]).not.toBe(variants[i - 1]);
+    }
+  });
+
+  it('walks the whole pool over N consecutive days', () => {
+    const n = CONTINUE_WATCHING_VARIANTS.length;
+    const start = Date.parse(`${DAY}T00:00:00Z`);
+    const seen = new Set<string>();
+    for (let i = 0; i < n; i++) {
+      const day = new Date(start + i * 86_400_000).toISOString().slice(0, 10);
+      seen.add(buildContinueWatchingCopy(candidate(), day).variant);
+    }
+    expect(seen.size).toBe(n);
+  });
+
+  it('gives different users different starting variants on the same day', () => {
+    const variants = new Set(
+      ['u1', 'u2', 'u3', 'u4', 'u5', 'u6'].map(
+        (user_id) => selectContinueWatchingVariant(user_id, DAY).id
       )
     );
-    // At least two distinct variants across four episodes (not a single fixed string).
-    expect(bodies.size).toBeGreaterThan(1);
+    expect(variants.size).toBeGreaterThan(1);
+  });
+
+  it('carries a pool of at least 8 variants with unique ids', () => {
+    expect(CONTINUE_WATCHING_VARIANTS.length).toBeGreaterThanOrEqual(8);
+    const ids = new Set(CONTINUE_WATCHING_VARIANTS.map((v) => v.id));
+    expect(ids.size).toBe(CONTINUE_WATCHING_VARIANTS.length);
   });
 });
 
@@ -51,7 +105,7 @@ describe('buildContinueWatchingPayloads', () => {
   });
 
   it('builds one payload per candidate with the /tv/{id} deep link and room-upgrade fields', () => {
-    const payloads = buildContinueWatchingPayloads([candidate()]);
+    const payloads = buildContinueWatchingPayloads([candidate()], DAY);
     expect(payloads).toHaveLength(1);
     const p = payloads[0];
     expect(p.user_ids).toEqual(['u1']);
@@ -64,6 +118,23 @@ describe('buildContinueWatchingPayloads', () => {
     expect(p.data.season).toBe(2);
     expect(p.data.episode).toBe(5);
     expect(p.data.feature).toBe('continue_watching');
+  });
+
+  it('stamps the copy variant into data so opens are attributable per line', () => {
+    const [p] = buildContinueWatchingPayloads([candidate()], DAY);
+    const copy = buildContinueWatchingCopy(candidate(), DAY);
+    expect(p.data.variant).toBe(copy.variant);
+    expect(p.title).toBe(copy.title);
+    expect(p.body).toBe(copy.body);
+  });
+
+  it('gives two users nudged the same evening their own rotation', () => {
+    const payloads = buildContinueWatchingPayloads(
+      [candidate({ user_id: 'u1' }), candidate({ user_id: 'u2' })],
+      DAY
+    );
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0].data.variant).not.toBe(payloads[1].data.variant);
   });
 });
 
@@ -179,37 +250,22 @@ describe('passesCaps', () => {
 });
 
 describe('passesGate', () => {
-  it('allows a founder with no preference row (absent = enabled)', () => {
-    expect(
-      passesGate({ email: 'tyshaneoneill@gmail.com', preferenceEnabled: null })
-    ).toBe(true);
+  it('allows a user with no preference row (absent = enabled)', () => {
+    expect(passesGate({ preferenceEnabled: null })).toBe(true);
+    expect(passesGate({ preferenceEnabled: undefined })).toBe(true);
   });
 
-  it('allows a founder with an explicit enabled=true row', () => {
-    expect(
-      passesGate({ email: 'g@g.g', preferenceEnabled: true })
-    ).toBe(true);
+  it('allows a user with an explicit enabled=true row', () => {
+    expect(passesGate({ preferenceEnabled: true })).toBe(true);
   });
 
-  it('blocks a founder who explicitly opted out (enabled=false)', () => {
-    expect(
-      passesGate({ email: 'tyoneill97@gmail.com', preferenceEnabled: false })
-    ).toBe(false);
+  it('blocks a user who explicitly opted out (enabled=false)', () => {
+    expect(passesGate({ preferenceEnabled: false })).toBe(false);
   });
 
-  it('blocks a non-founder even with the preference enabled', () => {
-    expect(
-      passesGate({ email: 'someone@else.com', preferenceEnabled: true })
-    ).toBe(false);
-  });
-
-  it('is case-insensitive on the allowlist match', () => {
-    expect(
-      passesGate({ email: 'TyShaneONeill@Gmail.com', preferenceEnabled: undefined })
-    ).toBe(true);
-  });
-
-  it('blocks when there is no email', () => {
-    expect(passesGate({ email: null, preferenceEnabled: null })).toBe(false);
+  it('no longer gates on a founder allowlist (widened 2026-08-15)', () => {
+    // Any user with the preference on qualifies; the SQL dropped the
+    // auth.users email allowlist, so this mirror must not reintroduce one.
+    expect(passesGate({ preferenceEnabled: true })).toBe(true);
   });
 });
