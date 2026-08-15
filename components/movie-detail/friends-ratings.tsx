@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native';
 import { Avatar } from '@/components/ui/avatar';
 import { useFriendsRatings } from '@/hooks/use-friends-ratings';
 import { useTheme } from '@/lib/theme-context';
+import { formatRating } from '@/lib/first-takes-v2-logic';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import type { ReviewItem } from '@/lib/review-service';
@@ -124,7 +125,7 @@ export function FriendsRatings({ tmdbId }: FriendsRatingsProps) {
         {averageRating !== null && (
           <View style={styles.averageBadge}>
             <Text style={styles.averageText}>
-              Friends avg: {averageRating.toFixed(1)} / 10
+              Friends avg: {formatRating(Math.round(averageRating * 10) / 10)} / 10
             </Text>
           </View>
         )}

@@ -26,6 +26,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { Colors, Spacing, BorderRadius, Fonts } from '@/constants/theme';
 import { Typography } from '@/constants/typography';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
+import { formatRating } from '@/lib/first-takes-v2-logic';
 
 type ThemeColors = typeof Colors.dark;
 
@@ -173,7 +174,7 @@ export function TicketFlipCard({
           {firstTake?.rating && (
             <View style={styles.ratingRow}>
               <Text style={styles.ratingText}>
-                {firstTake.rating.toFixed(1)}
+                {formatRating(firstTake.rating)}
               </Text>
               {journey.journey_tagline && (
                 <Text style={styles.taglineText}>

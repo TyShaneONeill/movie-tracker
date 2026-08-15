@@ -38,6 +38,7 @@ import { useModalKeyboardGuardEnabled } from '@/hooks/use-feature-flag';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { createFirstTake } from '@/lib/first-take-service';
+import { formatRating } from '@/lib/first-takes-v2-logic';
 import { captureException } from '@/lib/sentry';
 import type { ReviewVisibility } from '@/lib/database.types';
 import type { SavedMovie } from '@/lib/scan-save';
@@ -626,7 +627,7 @@ function SummaryCard({ take }: { take: TakeDraft }) {
           <ScanText style={{ fontFamily: Fonts.inter.semibold, fontSize: s(14), lineHeight: s(17), color: c.ter }}>No rating</ScanText>
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-            <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(18), lineHeight: s(22), color: ScanV2Accent.primary }}>{take.rating.toFixed(1)}</ScanText>
+            <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(18), lineHeight: s(22), color: ScanV2Accent.primary }}>{formatRating(take.rating)}</ScanText>
             <ScanText style={{ fontFamily: Fonts.outfit.bold, fontSize: s(13), lineHeight: s(17), color: c.ter }}>{' / 10'}</ScanText>
           </View>
         )}

@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Colors, Spacing, BorderRadius, Fonts, FontSizes } from '@/constants/theme';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { buildAvatarUrl } from '@/lib/avatar-service';
+import { formatRating } from '@/lib/first-takes-v2-logic';
 
 interface ShareableFirstTakeCardProps {
   movieTitle: string;
@@ -60,7 +61,7 @@ const ShareableFirstTakeCard = React.forwardRef<View, ShareableFirstTakeCardProp
             )}
             {hasRating ? (
               <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(rating!) }]}>
-                <Text style={styles.ratingText}>{rating}</Text>
+                <Text style={styles.ratingText}>{formatRating(rating!)}</Text>
               </View>
             ) : (
               <View style={styles.emojiBadge}>
