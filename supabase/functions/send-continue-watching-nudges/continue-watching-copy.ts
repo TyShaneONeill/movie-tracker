@@ -6,18 +6,19 @@
  *   2. Executable-spec reference implementations of the recipient rules that
  *      the SQL RPC (get_continue_watching_nudge_candidates) enforces —
  *      next-unwatched-episode selection, the once-a-day + 2-strike caps, and
- *      the allowlist/preference gate. These mirror the SQL so the rules are
- *      unit-tested without a live database (the RPC is the source of truth at
- *      runtime; keep the two in sync). The selection mirror also matches the
- *      client's lib/episode-room-logic.ts resolveNextUpEpisode.
+ *      the preference gate. These mirror the SQL so the rules are unit-tested
+ *      without a live database (the RPC is the source of truth at runtime;
+ *      keep the two in sync). The selection mirror also matches the client's
+ *      lib/episode-room-logic.ts resolveNextUpEpisode.
  *
  * Lives inside supabase/functions/ so the Deno runtime can import it directly,
  * and is also Jest-testable via relative path from __tests__/edge-functions/
  * (mirrors weekly-recap-copy.ts).
  *
- * DRAFT COPY — FOR CONTENT QUEUE REVIEW (2026-07-21). Voice is warm cinephile
- * / company brand (never solo-dev); exact wording not final. The machinery
- * ships regardless — no cron is armed until copy is approved.
+ * REVIEWED COPY — voice-reviewed in the #829 cold review (verdict: on-brand,
+ * no nag); the variety itself was requested by Ty 2026-08-15. Supersedes the
+ * DRAFT / Content-Queue-review-pending marker this file carried from 2026-07-21.
+ * Voice is warm cinephile / company brand (never solo-dev).
  */
 
 export interface ContinueWatchingCandidate {
@@ -26,8 +27,19 @@ export interface ContinueWatchingCandidate {
   season_number: number;
   episode_number: number;
   show_name: string;
-  /** TMDB episode title, when the catalog has one. */
+  /**
+   * TMDB episode title, when the catalog has one. DELIBERATELY never rendered
+   * into copy — episode titles spoil ("The One Where Everybody Finds Out"). It
+   * rides along only so logs and callers can identify the episode; don't put it
+   * in a variant.
+   */
   episode_name: string | null;
+  /**
+   * The recipient's local date (`YYYY-MM-DD`) at send time — the RPC's
+   * `local_today` column. The copy rotation keys on this, never on the server's
+   * UTC date; see selectContinueWatchingVariant.
+   */
+  local_today: string;
 }
 
 export interface ContinueWatchingPayload {
@@ -43,36 +55,128 @@ export interface ContinueWatchingPayload {
     tmdb_id: number;
     season: number;
     episode: number;
+    /** Copy variant id — lands in push_notification_log.data so open rates can
+     *  be attributed per variant (the client forwards it on the tap event). */
+    variant: string;
     feature: 'continue_watching';
   };
   feature: 'continue_watching';
   channel_id: 'reminders';
 }
 
-/**
- * Body copy for one candidate. Warm, brand-voiced, varied by a stable hash of
- * the (show, season, episode) so a user doesn't see the identical sentence on a
- * re-nudge, but the copy for a given episode is deterministic (testable).
- *
- * Example (from the brief): "Ready for The Office S2E5? 👀"
- */
-export function buildContinueWatchingBody(
-  candidate: ContinueWatchingCandidate
-): string {
-  const label = `S${candidate.season_number}E${candidate.episode_number}`;
-  const show = candidate.show_name;
-  const variants = [
-    `Ready for ${show} ${label}? 👀`,
-    `${show} ${label} is queued up whenever you are. 🍿`,
-    `Pick ${show} back up — ${label} is waiting. 📺`,
-    `Your next ${show}: ${label}. Roll it? 🎬`,
-  ];
-  const idx =
-    Math.abs(
-      hashKey(`${candidate.tmdb_id}-${candidate.season_number}-${candidate.episode_number}`)
-    ) % variants.length;
-  return variants[idx];
+export interface ContinueWatchingCopy {
+  title: string;
+  body: string;
+  /** Stable id of the chosen variant (analytics + tests). */
+  variant: string;
 }
+
+interface CopyVariant {
+  id: string;
+  render: (show: string, label: string) => { title: string; body: string };
+}
+
+const BRAND_TITLE = '🎬 PocketStubs';
+
+/**
+ * The variant pool. Each entry names the show and the SxEy label and nothing
+ * else — deliberately no episode TITLE, which would spoil, and no other user
+ * data.
+ *
+ * INVARIANT (enforced by test): the BODY alone identifies the episode — it
+ * always carries both the show name and the SxEy label. Titles are short and
+ * fixed-length, never `${show}`-anchored. A long show name in the title is the
+ * one thing that reliably truncates in the notification shade, and a variant
+ * whose only identifying text lived there ("Unfinished business. 👀" under a
+ * cut-off title) would degrade to gibberish for exactly the users with the
+ * longest titles — and would bias the variant experiment against itself.
+ */
+export const CONTINUE_WATCHING_VARIANTS: readonly CopyVariant[] = [
+  {
+    id: 'ready',
+    render: (show, label) => ({
+      title: BRAND_TITLE,
+      body: `Ready for ${show} ${label}? 👀`,
+    }),
+  },
+  {
+    id: 'queued',
+    render: (show, label) => ({
+      title: BRAND_TITLE,
+      body: `${show} ${label} is queued up whenever you are. 🍿`,
+    }),
+  },
+  {
+    id: 'pick_back_up',
+    render: (show, label) => ({
+      title: BRAND_TITLE,
+      body: `Pick ${show} back up — ${label} is waiting. 📺`,
+    }),
+  },
+  {
+    id: 'roll_it',
+    render: (show, label) => ({
+      title: BRAND_TITLE,
+      body: `Your next ${show}: ${label}. Roll it? 🎬`,
+    }),
+  },
+  {
+    id: 'ready_when_you_are',
+    render: (show, label) => ({
+      title: '📺 Next episode',
+      body: `${show} ${label} — ready when you are.`,
+    }),
+  },
+  {
+    id: 'still_watching',
+    render: (show, label) => ({
+      title: '🍿 Still watching?',
+      body: `${show} left off right where you did. ${label} is next.`,
+    }),
+  },
+  {
+    id: 'one_tap',
+    render: (show, label) => ({
+      title: BRAND_TITLE,
+      body: `Still thinking about ${show}? ${label} is one tap away.`,
+    }),
+  },
+  {
+    id: 'tonight',
+    render: (show, label) => ({
+      title: '🍿 Tonight?',
+      body: `${show} ${label} has been sitting in your queue.`,
+    }),
+  },
+  {
+    id: 'save_the_stub',
+    render: (show, label) => ({
+      title: '🎟️ Next up',
+      body: `${show} ${label} — press play, we'll save the stub.`,
+    }),
+  },
+  {
+    id: 'couch_free',
+    render: (show, label) => ({
+      title: '🍿 Next up',
+      body: `${show} ${label}, whenever the couch is free.`,
+    }),
+  },
+  {
+    id: 'one_more',
+    render: (show, label) => ({
+      title: BRAND_TITLE,
+      body: `One more ${show}? ${label} is cued and waiting.`,
+    }),
+  },
+  {
+    id: 'unfinished',
+    render: (show, label) => ({
+      title: '👀 Unfinished business',
+      body: `${show} ${label} is still waiting.`,
+    }),
+  },
+] as const;
 
 /** Small deterministic string hash (djb2) — stable across Deno + Node. */
 function hashKey(s: string): number {
@@ -83,23 +187,72 @@ function hashKey(s: string): number {
   return h | 0;
 }
 
+/** Whole days since the epoch for a `YYYY-MM-DD` date (0 if unparseable). */
+function dayIndex(localDate: string): number {
+  const ms = Date.parse(`${localDate}T00:00:00Z`);
+  return Number.isNaN(ms) ? 0 : Math.floor(ms / 86_400_000);
+}
+
+/**
+ * Picks the variant for one candidate: a per-user starting offset (hash of the
+ * user id, so two users nudged the same evening rarely read the same line) plus
+ * the day number, so the index advances by exactly one each day. That makes a
+ * repeat on consecutive days impossible — which a plain `hash % N` could not
+ * guarantee — while staying fully deterministic, and therefore testable.
+ *
+ * `localDate` MUST be the recipient's own calendar date (the RPC's
+ * `local_today`), never the server's UTC date. The send goes out at 17:00-18:00
+ * local, so for a western-hemisphere user two consecutive local evenings can
+ * land on the same UTC date (23:00Z then 00:00Z in UTC-6) — and on a
+ * spring-forward date they always do (America/Denver, 2026-03-07 17:00 MST =
+ * 2026-03-08 00:00Z, 2026-03-08 17:00 MDT = 2026-03-08 23:00Z). Keyed on UTC,
+ * those users get the identical message two nights running, which is precisely
+ * the no-consecutive-repeat guarantee this function exists to make. Keyed on the
+ * user's local date, the invariant holds in the calendar they actually live in.
+ */
+export function selectContinueWatchingVariant(
+  userId: string,
+  localDate: string
+): CopyVariant {
+  const n = CONTINUE_WATCHING_VARIANTS.length;
+  const offset = ((hashKey(userId) % n) + n) % n;
+  return CONTINUE_WATCHING_VARIANTS[(offset + dayIndex(localDate)) % n];
+}
+
+/** Title + body for one candidate, from the rotating variant pool. */
+export function buildContinueWatchingCopy(
+  candidate: ContinueWatchingCandidate
+): ContinueWatchingCopy {
+  const variant = selectContinueWatchingVariant(
+    candidate.user_id,
+    candidate.local_today
+  );
+  const label = `S${candidate.season_number}E${candidate.episode_number}`;
+  const { title, body } = variant.render(candidate.show_name, label);
+  return { title, body, variant: variant.id };
+}
+
 export function buildContinueWatchingPayloads(
   candidates: readonly ContinueWatchingCandidate[]
 ): ContinueWatchingPayload[] {
-  return candidates.map((c) => ({
-    user_ids: [c.user_id],
-    title: '🎬 PocketStubs',
-    body: buildContinueWatchingBody(c),
-    data: {
-      url: `/tv/${c.tmdb_id}`,
-      tmdb_id: c.tmdb_id,
-      season: c.season_number,
-      episode: c.episode_number,
+  return candidates.map((c) => {
+    const copy = buildContinueWatchingCopy(c);
+    return {
+      user_ids: [c.user_id],
+      title: copy.title,
+      body: copy.body,
+      data: {
+        url: `/tv/${c.tmdb_id}`,
+        tmdb_id: c.tmdb_id,
+        season: c.season_number,
+        episode: c.episode_number,
+        variant: copy.variant,
+        feature: 'continue_watching',
+      },
       feature: 'continue_watching',
-    },
-    feature: 'continue_watching',
-    channel_id: 'reminders',
-  }));
+      channel_id: 'reminders',
+    };
+  });
 }
 
 // ── Executable-spec mirrors of the SQL recipient rules (unit-tested) ─────────
@@ -213,28 +366,16 @@ export function passesCaps(
 }
 
 /**
- * Reference implementation of the founder allowlist + opt-out preference gate
- * (mirrors the SQL). A user qualifies when their email is in the allowlist AND
- * they have NOT explicitly disabled the continue_watching_nudges preference
- * (absent row = enabled).
+ * Reference implementation of the opt-out preference gate (mirrors the SQL).
+ * Since the 2026-08-15 widen there is no allowlist: every user with a push
+ * token qualifies unless they have explicitly disabled the
+ * continue_watching_nudges preference (absent row = enabled).
  */
-export const FOUNDER_ALLOWLIST = [
-  'tyshaneoneill@gmail.com',
-  'tyoneill97@gmail.com',
-  'g@g.g',
-] as const;
-
 export function passesGate(params: {
-  email: string | null;
   /** notification_preferences.enabled for continue_watching_nudges, or
    *  null/undefined when there is no row (absent = enabled). */
   preferenceEnabled: boolean | null | undefined;
 }): boolean {
-  const { email, preferenceEnabled } = params;
-  if (!email) return false;
-  if (!(FOUNDER_ALLOWLIST as readonly string[]).includes(email.toLowerCase())) {
-    return false;
-  }
   // Absent row (null/undefined) = enabled; only an explicit false opts out.
-  return preferenceEnabled !== false;
+  return params.preferenceEnabled !== false;
 }

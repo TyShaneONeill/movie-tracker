@@ -21,7 +21,6 @@ import { hapticImpact } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
 import type { NotificationFeature } from '@/lib/notification-preferences-service';
 import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
-import { useEpisodeRoomsEnabled } from '@/hooks/use-episode-rooms-enabled';
 import { usePremiumGate } from '@/hooks/use-premium';
 import { PremiumBadge } from '@/components/premium/premium-badge';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
@@ -191,7 +190,6 @@ export default function NotificationsSettingsScreen() {
   const colors = Colors[effectiveTheme];
   const { permissionStatus, requestPermission, isAvailable } = usePushNotifications();
   const streakSpineEnabled = useStreakSpineEnabled();
-  const episodeRoomsEnabled = useEpisodeRoomsEnabled();
   const { isUnlocked: remindersUnlocked, isLoading: premiumLoading } =
     usePremiumGate('release_reminders');
 
@@ -304,19 +302,21 @@ export default function NotificationsSettingsScreen() {
                 colors={colors}
               />
             )}
-            {/* DRAFT copy — Content Queue review pending (retention experiment,
-                2026-07-21). Founder-only: the nudge sends only to the
-                get_continue_watching_nudge_candidates allowlist, and the toggle
-                stays hidden behind episode_rooms (the room it deep-links into)
-                until the experiment widens. */}
-            {episodeRoomsEnabled && (
-              <FeatureToggleRow
-                feature="continue_watching_nudges"
-                title="Continue watching"
-                description="An evening nudge to pick a show back up where you left off."
-                colors={colors}
-              />
-            )}
+            {/* REVIEWED copy — voice-reviewed in #829 cold review (verdict:
+                on-brand, no nag); variety requested by Ty 2026-08-15.
+                Ungated 2026-08-15 alongside the RPC widen. The toggle used to
+                hide behind episode_rooms because only allowlisted founders could
+                receive the nudge; now that every user can, the opt-out has to be
+                reachable by every user too — a push you can't turn off in-app is
+                the nag failure mode the caps exist to prevent. Nothing here
+                reveals the room: the row names only the nudge, and the push
+                deep-links to /tv/{id} for flag-off builds. */}
+            <FeatureToggleRow
+              feature="continue_watching_nudges"
+              title="Continue watching"
+              description="An evening nudge to pick a show back up where you left off."
+              colors={colors}
+            />
           </View>
         )}
 

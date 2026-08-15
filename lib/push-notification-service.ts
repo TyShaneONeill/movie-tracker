@@ -337,6 +337,9 @@ export function handleNotificationResponse(
       tmdb_id: typeof data.tmdb_id === 'number' ? data.tmdb_id : null,
       season: typeof data.season === 'number' ? data.season : null,
       episode: typeof data.episode === 'number' ? data.episode : null,
+      // Copy variant id, so open rate is attributable per line. Absent on
+      // pushes sent before the variant pool shipped (2026-08-15).
+      variant: typeof data.variant === 'string' ? data.variant : null,
     });
   }
 
