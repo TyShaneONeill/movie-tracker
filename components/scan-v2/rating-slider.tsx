@@ -93,6 +93,12 @@ export function RatingSlider({ value, onChange }: RatingSliderProps) {
           handleAt(e.nativeEvent.pageX);
         },
         onPanResponderMove: (e: GestureResponderEvent, g) => handleAt(g.moveX),
+        // The sheet's enclosing ScrollView (first-take-sheet.tsx) must not steal
+        // an in-progress horizontal drag just because it picks up vertical
+        // wobble — both default to "let the parent take it", so refuse the JS
+        // termination request and block the native (Android) responder too.
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
       }),
     [handleAt]
   );
