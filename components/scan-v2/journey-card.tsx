@@ -24,11 +24,14 @@
  */
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Pressable, Animated } from 'react-native';
+import { View, Pressable, Animated, Platform, StyleSheet } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { Fonts } from '@/constants/theme';
 import { useScanColors, ScanV2Accent } from '@/constants/scan-v2-theme';
+import { useEffectiveColorScheme } from '@/lib/theme-context';
 import { s } from '@/lib/scan-v2/scale';
 import { getTMDBImageUrl } from '@/lib/tmdb.types';
 import { SignedPhoto } from '@/components/journey/signed-photo';
@@ -38,6 +41,7 @@ import {
   getWatchContextLabel,
 } from '@/lib/scan-v2/journey-stub-fields';
 import type { UserMovie, FirstTake } from '@/lib/database.types';
+import { formatRating } from '@/lib/first-takes-v2-logic';
 import { Icon, ScanText } from './primitives';
 import { AvatarStack, type AvatarStackPerson } from './avatar-stack';
 
@@ -383,6 +387,7 @@ export function JourneyCard({
   onSelectVariant,
 }: JourneyCardProps) {
   const c = useScanColors();
+  const isDark = useEffectiveColorScheme() !== 'light';
   const rating = firstTake?.rating ?? null;
   const note = firstTake?.quote_text?.trim() || null;
   const hasTake = rating != null || !!note;
@@ -391,6 +396,15 @@ export function JourneyCard({
     if (showAi && journey.ai_poster_url) return journey.ai_poster_url;
     return getTMDBImageUrl(journey.poster_path ?? null, 'w780');
   }, [showAi, journey.ai_poster_url, journey.poster_path]);
+
+  // Blur layer behind the stub — always the TMDB poster (even when the AI
+  // poster is shown up top): the AI poster lives in a private bucket and
+  // would need SignedPhoto, and this is a backdrop, not a pixel-exact match.
+  // Falls back to nothing (plain stubBg) when there's no poster_path.
+  const blurPosterUri = useMemo(
+    () => getTMDBImageUrl(journey.poster_path ?? null, 'w500'),
+    [journey.poster_path],
+  );
 
   // Front stub = at most 3 priority fields (Date · Cinema/Service/Airline-or-
   // Format · With) in ONE row — empty fields are omitted (never "N/A"), long
@@ -509,6 +523,43 @@ export function JourneyCard({
           overflow: 'hidden',
         }}
       >
+        {/* Blurred poster backdrop — behind all stub content, clipped by the
+            container's overflow:'hidden' + border radii above. Falls back to
+            plain stubBg (no layer at all) when there's no poster_path. */}
+        {blurPosterUri ? (
+          <>
+            <ExpoImage
+              source={{ uri: blurPosterUri }}
+              style={[
+                StyleSheet.absoluteFill,
+                Platform.OS === 'web'
+                  ? ({ filter: 'blur(20px)', transform: [{ scale: 1.1 }] } as any)
+                  : null,
+              ]}
+              contentFit="cover"
+              transition={200}
+            />
+            {Platform.OS === 'web' ? (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: isDark ? 'rgba(9,9,11,0.55)' : 'rgba(255,255,255,0.55)' },
+                ]}
+              />
+            ) : (
+              <BlurView
+                intensity={80}
+                tint={isDark ? 'dark' : 'light'}
+                experimentalBlurMethod="dimezisBlurView"
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: isDark ? 'rgba(9,9,11,0.55)' : 'rgba(255,255,255,0.55)' },
+                ]}
+              />
+            )}
+          </>
+        ) : null}
+
         {/* Header: one-line title + rating chip (only when rating exists) */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: s(10) }}>
           <ScanText
@@ -535,7 +586,7 @@ export function JourneyCard({
                   color: ScanV2Accent.primary,
                 }}
               >
-                {rating.toFixed(1)}
+                {formatRating(rating)}
               </ScanText>
               <ScanText
                 style={{
@@ -587,7 +638,7 @@ export function JourneyCard({
                     <View style={{ width: `${rating * 10}%`, height: '100%', borderRadius: 999, backgroundColor: ScanV2Accent.primary }} />
                   </View>
                   <ScanText style={{ fontFamily: Fonts.outfit.extrabold, fontSize: s(14), color: ScanV2Accent.primary }}>
-                    {rating}/10
+                    {formatRating(rating)}/10
                   </ScanText>
                 </View>
               ) : null}
