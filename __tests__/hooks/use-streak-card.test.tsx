@@ -8,12 +8,13 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 
 import { useStreakCard } from '@/hooks/use-streak-card';
+import { useStreakSpineGate } from '@/hooks/use-feature-flag';
 import { getStreakCard } from '@/lib/streak-service';
 import { localTodayISO } from '@/lib/streak-logic';
 import type { StreakCard } from '@/lib/streak-service';
 
 jest.mock('@/hooks/use-feature-flag', () => ({
-  useStreakSpineEnabled: jest.fn(() => true),
+  useStreakSpineGate: jest.fn(() => ({ enabled: true, resolved: true })),
 }));
 
 jest.mock('@/lib/streak-context', () => ({
@@ -30,6 +31,7 @@ jest.mock('@/lib/streak-logic', () => ({
 
 const mockGet = getStreakCard as jest.Mock;
 const mockToday = localTodayISO as jest.Mock;
+const mockGate = useStreakSpineGate as jest.Mock;
 
 function card(localDate: string, streak: number): StreakCard {
   return {
@@ -53,6 +55,35 @@ describe('useStreakCard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockToday.mockReturnValue('2026-08-15');
+    mockGate.mockReturnValue({ enabled: true, resolved: true });
+  });
+
+  describe('the flag gate it reads', () => {
+    it('reads the SUBSCRIBING gate, so a late-resolving flag still starts the fetch', () => {
+      // The two-sample useStreakSpineEnabled latches at 1s. A flag that lands
+      // between 1s and 5s left this hook false forever while the route stayed
+      // open, and reload() could not rescue it — the effect early-returns on
+      // !enabled. Reading the subscribing gate is what makes the late flip
+      // reach the fetch.
+      mockGate.mockReturnValue({ enabled: false, resolved: false });
+      mockGet.mockResolvedValue(card('2026-08-15', 12));
+
+      const { rerender, result } = renderHook(() => useStreakCard());
+      expect(mockGet).not.toHaveBeenCalled();
+      expect(result.current.loaded).toBe(false);
+
+      // PostHog answers at t=2s.
+      mockGate.mockReturnValue({ enabled: true, resolved: true });
+      rerender({});
+
+      expect(mockGet).toHaveBeenCalled();
+    });
+
+    it('fetches nothing at all while the flag is off', () => {
+      mockGate.mockReturnValue({ enabled: false, resolved: true });
+      renderHook(() => useStreakCard());
+      expect(mockGet).not.toHaveBeenCalled();
+    });
   });
 
   it('ignores a fetch that resolves after a newer one', async () => {

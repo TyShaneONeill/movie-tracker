@@ -229,6 +229,28 @@ describe('StreakScreen', () => {
       expect(router.replace).not.toHaveBeenCalled();
       expect(getByText('Streak')).toBeTruthy();
     });
+
+    it('shows the header but NOT the feature chrome while unresolved', () => {
+      // The ✕ has to exist — it is the only way out of a modal route. The tabs
+      // pill must not, because this user may turn out not to be in the rollout.
+      mockGate.mockReturnValue({ enabled: false, resolved: false });
+      mockCard.mockReturnValue({ enabled: false, card: null, loaded: false, reload: jest.fn() });
+
+      const { getByLabelText, queryByText, queryByLabelText } = render(<StreakScreen />);
+      expect(getByLabelText('Close')).toBeTruthy();
+      expect(queryByText('PERSONAL')).toBeNull();
+      expect(queryByText('FRIENDS')).toBeNull();
+      expect(queryByLabelText('Loading your streak')).toBeNull();
+    });
+
+    it('shows the chrome as soon as the flag resolves ON', () => {
+      mockGate.mockReturnValue({ enabled: true, resolved: true });
+      mockCard.mockReturnValue({ enabled: true, card: null, loaded: false, reload: jest.fn() });
+
+      const { getByText, getByLabelText } = render(<StreakScreen />);
+      expect(getByText('PERSONAL')).toBeTruthy();
+      expect(getByLabelText('Loading your streak')).toBeTruthy();
+    });
   });
 
   describe('load states', () => {

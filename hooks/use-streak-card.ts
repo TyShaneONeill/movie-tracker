@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
-import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
+import { useStreakSpineGate } from '@/hooks/use-feature-flag';
 import { useStreak } from '@/lib/streak-context';
 import { getStreakCard, type StreakCard } from '@/lib/streak-service';
 import { localTodayISO } from '@/lib/streak-logic';
@@ -21,7 +21,13 @@ export function useStreakCard(): {
   loaded: boolean;
   reload: () => void;
 } {
-  const enabled = useStreakSpineEnabled();
+  // The SUBSCRIBING gate, not the two-sample `useStreakSpineEnabled`. That one
+  // samples on mount and once more at 1s and then latches forever, so a flag
+  // resolving between 1s and 5s left this hook stuck on false while the route
+  // (which does subscribe) stayed open — a skeleton with no way out, since
+  // `reload()` bumps the nonce but the effect below still early-returns on
+  // `!enabled`. Both surfaces now read one subscription.
+  const { enabled } = useStreakSpineGate();
   const { streakVersion } = useStreak();
   const [card, setCard] = useState<StreakCard | null>(null);
   const [loaded, setLoaded] = useState(false);

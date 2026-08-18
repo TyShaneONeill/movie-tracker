@@ -171,7 +171,11 @@ export default function StreakScreen() {
           <View style={styles.close} />
         </View>
 
-        {!view ? (
+        {/* Nothing below the header until the flag has answered. The header is
+            unconditional because the ✕ is the only way out of a modal route,
+            but a deep-linker who is NOT in the rollout must not be shown the
+            feature's chrome for the ~5s the gate can take to resolve. */}
+        {!resolved ? null : !view ? (
           loaded ? (
             <StreakLoadFailed c={c} onRetry={reload} />
           ) : (
