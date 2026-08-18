@@ -28,12 +28,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Svg, {
+  Circle,
   Defs,
-  FeDropShadow,
-  Filter,
   G,
   LinearGradient,
   Path,
+  RadialGradient,
   Stop,
   Text as SvgText,
 } from 'react-native-svg';
@@ -395,7 +395,7 @@ function StreakLoadFailed({ c, onRetry }: { c: StreakColorTokens; onRetry: () =>
  * ink under a warm glow hugging the glyphs. Milestone is gradient ink in both
  * themes — drawn as SVG text with a gradient fill, because the MaskedView the
  * handoff suggests would need a native module (and therefore a store build) for
- * one numeral. The wrapper's celebration glow rides the same SVG filter.
+ * one numeral. The wide half of the bloom is `NumeralHalo`, not a shadow.
  */
 function HeroNumber({
   view,
@@ -424,6 +424,7 @@ function HeroNumber({
       ]}
       pointerEvents="none"
     >
+      {lit && <NumeralHalo label={label} mile={mile} isDark={isDark} />}
       {mile ? (
         <GradientNumeral label={label} isDark={isDark} />
       ) : (
@@ -434,12 +435,11 @@ function HeroNumber({
             styles.num,
             lit
               ? isDark
-                ? {
-                    color: '#ffffff',
-                    textShadowColor: 'rgba(255,205,160,0.55)',
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 34,
-                  }
+                // The whole bloom is `NumeralHalo`. A `textShadow` under it
+                // read a third brighter on iOS than on Android at the glyph
+                // edge — the same divergence in miniature — and the halo
+                // covers that band on its own.
+                ? { color: '#ffffff' }
                 : {
                     color: c.text,
                     textShadowColor: 'rgba(255,150,60,0.45)',
@@ -487,16 +487,169 @@ const NUM_LINE_HEIGHT = 96;
  * Where RN puts the baseline inside an 88/96 Outfit line box, and how tall the
  * digits are once it does — both measured off the device, so the milestone
  * numeral lands on the same pixels as the plain one instead of a few points
- * lower. The gradient is mapped to that cap band, not to the box: spread over
- * the whole box the white end would fall above the glyphs and the digits would
- * read uniformly gold.
+ * lower. (It does on Android. On iOS the plain numeral still sits 7.7pt higher
+ * than this — see `NUM_TEXT_RISE`. Closing that means moving a signed-off
+ * composition, so it is flagged, not fixed.) The gradient is mapped to that cap
+ * band, not to the box: spread over the whole box the white end would fall
+ * above the glyphs and the digits would read uniformly gold.
  */
 const NUM_BASELINE = 81;
 const NUM_CAP_TOP = NUM_BASELINE - 63;
+/** Outfit ExtraBold's digit advance at 88px, measured off the device. */
+const NUM_DIGIT_ADVANCE = 52;
+/**
+ * How much higher the plain numeral's glyphs sit than the milestone numeral's.
+ *
+ * The two are drawn by different engines: `Text` lets RN place an 88/96 Outfit
+ * line, and `GradientNumeral` plants a baseline at a measured constant. Android
+ * zeroes the font's top padding (`includeFontPadding: false`) and the two land
+ * within a point of each other; iOS has no such switch and puts the Text 7.7pt
+ * higher. Measured on both, in both states. The bloom is identical geometry
+ * either way — this only moves what it is centred on.
+ */
+const NUM_TEXT_RISE = Platform.OS === 'ios' ? 7.7 : 0;
+
+/**
+ * The wide half of the numeral's bloom, painted as geometry.
+ *
+ * The mock lights the numeral with two stacked shadows — a 34px one on the
+ * glyphs and a 90px one behind them — and neither of RN's two ways of saying
+ * that survives the crossing:
+ *
+ *  · `Text` takes ONE `textShadow`, so the wide one was simply dropped, and
+ *    `textShadowRadius` is a tighter gaussian than a CSS blur of the same
+ *    number — tighter again on Android than on iOS.
+ *  · The milestone numeral's `FeDropShadow` lived inside a 230×96 `<Svg>`.
+ *    Android clips a filter at its box (18px of headroom above the glyphs, none
+ *    to the left, so: no halo at all); iOS bleeds past it instead, blooming
+ *    wider than the mock.
+ *
+ * A circle under a radial gradient has no filter and no clip, so it lands on
+ * the same pixels on both platforms, and it carries the whole bloom — a
+ * `textShadow` left under it for the tight core read a third brighter on iOS
+ * than on Android at the glyph edge, which is the same divergence in miniature.
+ *
+ * Circular, not elliptical, on purpose: given `rx` ≠ `ry` Android scales the
+ * gradient by `rx` on both axes while iOS honours the ellipse, which would have
+ * reintroduced the very divergence this replaces. With one radius there is
+ * nothing left to disagree about.
+ *
+ * The stops are fitted to the mock's own falloff — luminance above #09090b,
+ * sampled straight up from the glyph top, the one direction clear of the beam,
+ * the sub-label and the camera. Light mode is deliberately NOT given the wide
+ * halo: its spec is a 16px glow hugging the glyphs, and round 9 rejected the
+ * wide smear by name.
+ */
+type HaloSpec = {
+  rgb: string;
+  /** Radius from the glyph centre, in points. */
+  r: number;
+  stops: readonly (readonly [number, number])[];
+};
+
+function haloSpec(mile: boolean, isDark: boolean): HaloSpec | null {
+  if (isDark) {
+    return mile
+      ? {
+          rgb: '251,191,36',
+          r: 105,
+          stops: [
+            [0, 0.105],
+            [0.35, 0.092],
+            [0.4, 0.078],
+            [0.45, 0.06],
+            [0.5, 0.054],
+            [0.59, 0.033],
+            [0.69, 0.017],
+            [0.79, 0.007],
+            [1, 0],
+          ],
+        }
+      : {
+          rgb: '255,170,110',
+          r: 130,
+          stops: [
+            // Everything under 0.242 is behind the glyphs and never shows.
+            [0, 0.21],
+            [0.242, 0.192],
+            [0.281, 0.163],
+            [0.36, 0.091],
+            [0.4, 0.062],
+            [0.47, 0.043],
+            [0.55, 0.024],
+            [0.66, 0.015],
+            [0.78, 0.009],
+            [1, 0],
+          ],
+        };
+  }
+  // Light keeps its tight hug. The plain numeral already has it as a 16px
+  // shadow; the milestone numeral had it as the filter this replaces.
+  return mile
+    ? {
+        rgb: '245,158,11',
+        r: 56,
+        stops: [
+          [0, 0.13],
+          [0.5, 0.07],
+          [1, 0],
+        ],
+      }
+    : null;
+}
+
+function NumeralHalo({
+  label,
+  mile,
+  isDark,
+}: {
+  label: string;
+  mile: boolean;
+  isDark: boolean;
+}) {
+  const spec = haloSpec(mile, isDark);
+  if (!spec) return null;
+
+  const { r } = spec;
+  // Centred on the digits' advance box, which is within a few points of their
+  // ink either way — nothing a 130pt pool can show.
+  const cx = (label.length * NUM_DIGIT_ADVANCE) / 2;
+  const cy = (NUM_CAP_TOP + NUM_BASELINE) / 2 - (mile ? 0 : NUM_TEXT_RISE);
+  // Gradient ids are resolved across every mounted Svg root, not per root, so
+  // the variant is baked into the id — the same reason the milestone discs
+  // suffix theirs with the day.
+  const id = `numHalo-${mile ? 'mile' : 'warm'}-${isDark ? 'dark' : 'light'}`;
+
+  return (
+    <Svg
+      width={r * 2}
+      height={r * 2}
+      pointerEvents="none"
+      style={[styles.halo, { left: cx - r, top: cy - r }]}
+    >
+      <Defs>
+        <RadialGradient id={id} cx={r} cy={r} rx={r} ry={r} gradientUnits="userSpaceOnUse">
+          {spec.stops.map(([offset, opacity]) => (
+            // rgb + stopOpacity, never an rgba() string: react-native-svg drops
+            // the alpha channel of an rgba stopColor and paints it opaque.
+            <Stop
+              key={offset}
+              offset={offset}
+              stopColor={`rgb(${spec.rgb})`}
+              stopOpacity={opacity}
+            />
+          ))}
+        </RadialGradient>
+      </Defs>
+      <Circle cx={r} cy={r} r={r} fill={`url(#${id})`} />
+    </Svg>
+  );
+}
 
 function GradientNumeral({ label, isDark }: { label: string; isDark: boolean }) {
   // Wide enough for three digits at 88px; the text is left-anchored so extra
-  // width costs nothing and never clips the celebration glow.
+  // width costs nothing. Nothing here bleeds outside the box any more — the
+  // celebration glow is `NumeralHalo`, its own Svg behind this one.
   const width = 230;
   const height = NUM_LINE_HEIGHT;
   return (
@@ -513,27 +666,16 @@ function GradientNumeral({ label, isDark }: { label: string; isDark: boolean }) 
           <Stop offset="0" stopColor={isDark ? '#ffffff' : '#c26208'} />
           <Stop offset="1" stopColor={isDark ? '#fde68a' : '#e9910c'} />
         </LinearGradient>
-        <Filter id="numGlow" x="-40%" y="-40%" width="180%" height="180%">
-          <FeDropShadow
-            dx="0"
-            dy="0"
-            stdDeviation={isDark ? '14' : '8'}
-            floodColor={isDark ? 'rgba(251,191,36,0.4)' : 'rgba(245,158,11,0.30)'}
-            floodOpacity="1"
-          />
-        </Filter>
       </Defs>
-      <G filter="url(#numGlow)">
-        <SvgText
-          x="0"
-          y={NUM_BASELINE}
-          fill="url(#numInk)"
-          fontFamily={Fonts.outfit.extrabold}
-          fontSize={NUM_FONT_SIZE}
-        >
-          {label}
-        </SvgText>
-      </G>
+      <SvgText
+        x="0"
+        y={NUM_BASELINE}
+        fill="url(#numInk)"
+        fontFamily={Fonts.outfit.extrabold}
+        fontSize={NUM_FONT_SIZE}
+      >
+        {label}
+      </SvgText>
     </Svg>
   );
 }
@@ -980,6 +1122,7 @@ const styles = StyleSheet.create({
     height: CAMERA_HEIGHT,
   },
   heroNum: { position: 'absolute', left: 24, gap: 4 },
+  halo: { position: 'absolute' },
   num: {
     fontFamily: Fonts.outfit.extrabold,
     fontSize: NUM_FONT_SIZE,

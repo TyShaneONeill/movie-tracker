@@ -99,6 +99,20 @@ function mount(over: Parameters<typeof card>[0]) {
   return render(<StreakScreen />);
 }
 
+/**
+ * The gradient ids of every numeral halo in the tree. The halo is geometry
+ * rather than a shadow precisely so it renders the same on both platforms, so
+ * its id is the one handle a unit test has on it — and deduping doubles as the
+ * uniqueness check, since ids resolve across every mounted Svg root at once.
+ */
+function haloIds(tree: ReturnType<typeof mount>): string[] {
+  type Node = { props: Record<string, unknown> };
+  const ids: string[] = tree.UNSAFE_root
+    .findAll((n: Node) => typeof n.props?.id === 'string' && n.props.id.startsWith('numHalo-'))
+    .map((n: Node) => String(n.props.id));
+  return [...new Set(ids)];
+}
+
 describe('StreakScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -130,6 +144,21 @@ describe('StreakScreen', () => {
       const { getByText } = mount({ streak: 0, extendedToday: false });
       expect(getByText('Thread the projector.')).toBeTruthy();
       expect(getByText(/log anything today and the first frame prints\./)).toBeTruthy();
+    });
+  });
+
+  describe('the numeral bloom', () => {
+    it('paints one warm halo behind a lit numeral', () => {
+      expect(haloIds(mount({ streak: 12, extendedToday: true }))).toEqual(['numHalo-warm-dark']);
+    });
+
+    it('swaps it for the gold one at a milestone', () => {
+      expect(haloIds(mount({ streak: 30, extendedToday: true }))).toEqual(['numHalo-mile-dark']);
+    });
+
+    it('leaves an unlit numeral bare — the bloom is what "lit" means', () => {
+      expect(haloIds(mount({ streak: 12, extendedToday: false }))).toEqual([]);
+      expect(haloIds(mount({ streak: 0, extendedToday: false }))).toEqual([]);
     });
   });
 
