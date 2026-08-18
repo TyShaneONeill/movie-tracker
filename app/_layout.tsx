@@ -392,6 +392,8 @@ function RootLayoutNav() {
         <Stack.Screen name="tvtime-deck" options={{ headerShown: false }} />
         <Stack.Screen name="streaming-services" options={{ headerShown: false }} />
         <Stack.Screen name="upgrade" options={{ headerShown: false }} />
+        {/* PS-15 streak screen — modal, so the ✕ reads as a dismiss. */}
+        <Stack.Screen name="streak" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />

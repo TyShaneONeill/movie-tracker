@@ -91,8 +91,8 @@ export function useDailyHooksEnabled(): boolean {
 }
 
 /**
- * Returns true when the punch-card streak spine (PS-15 PR 3) should be active —
- * activity recording, the profile punch card, and the streak settings toggle.
+ * Returns true when the streak spine (PS-15) should be active — activity
+ * recording, the Stats entry cell, the streak screen, and the settings toggle.
  *
  * SEPARATE flag from `daily_hooks` (@100% since 2026-07-07 for the priming
  * sheet): the streak spine ships dark for Ty-only device validation first,

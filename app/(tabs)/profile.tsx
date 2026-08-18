@@ -15,7 +15,6 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ContentContainer } from '@/components/content-container';
-import { StreakPunchCard } from '@/components/streak/streak-punch-card';
 import { useAds } from '@/lib/ads-context';
 import { BannerAdComponent } from '@/components/ads/banner-ad';
 import {
@@ -765,13 +764,6 @@ export default function ProfileScreen() {
                 {renderAchievementsRow()}
             </Animated.View>
 
-            {/* PS-15 PR 3: punch-card streak. Rendered OUTSIDE the collapsing
-                header — that Animated.View clamps to HEADER_MAX_HEIGHT (350) with
-                overflow:'hidden', which clipped the card off the bottom (hidden
-                behind the stat-tab bar). Here it scrolls as normal content above
-                the tab bar. Renders nothing when streak_spine is off. */}
-            <StreakPunchCard />
-
             {/* Combined Stat-Tab Bar */}
             <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
                 {renderStatTabBar()}
@@ -1261,10 +1253,6 @@ export default function ProfileScreen() {
                         {/* Achievements Row */}
                         {renderAchievementsRow()}
                     </Animated.View>
-
-                    {/* PS-15 PR 3: punch-card streak — outside the collapsing
-                        header (see native path note); scrolls above the tab bar. */}
-                    <StreakPunchCard />
 
                     {/* Combined Stat-Tab Bar (CSS sticky on web) */}
                     <View style={[styles.statTabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }, isWeb && styles.statTabBarSticky]}>

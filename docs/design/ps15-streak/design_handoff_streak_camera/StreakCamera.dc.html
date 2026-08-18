@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/pocketstubs-design-system-070300a9-799d-4d32-ad83-93db9c3a6b77/styles.css">
+  <script src="_ds/pocketstubs-design-system-070300a9-799d-4d32-ad83-93db9c3a6b77/_ds_bundle.js"></script>
+</helmet>
+<div style="position:relative;width:100%;height:100%;overflow:hidden;{{ vars }}">
+  <div style="position:absolute;left:0;right:172px;top:50%;height:150px;transform:translateY(calc(-50% + 17px));opacity:var(--beamOp);background:linear-gradient(to left,var(--beamA),var(--beamB) 55%,transparent 92%);clip-path:polygon(100% 45%,100% 55%,0 0,0 100%);filter:blur(2px)"></div>
+  <div style="position:absolute;left:0;right:172px;top:50%;height:150px;transform:translateY(calc(-50% + 17px));opacity:var(--beamOp);background:linear-gradient(to left,rgba(255,255,255,.5),transparent 72%);clip-path:polygon(100% 47%,100% 53%,0 26%,0 74%);filter:blur(7px)"></div>
+  <sc-if value="{{ isReel }}" hint-placeholder-val="{{ true }}">
+    <svg viewBox="0 0 200 160" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);width:170px;height:136px;overflow:visible;filter:var(--camGlow)">
+      <circle cx="118" cy="84" r="72" fill="none" stroke-width="3" style="stroke:var(--ring);opacity:var(--celebr)"></circle>
+      <path d="M52 10 L58 16 L52 22 L46 16 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <path d="M190 46 L195 51 L190 56 L185 51 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <path d="M44 128 L49 133 L44 138 L39 133 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <circle cx="152" cy="4" r="3" style="fill:var(--spark);opacity:var(--celebr)"></circle>
+      <circle cx="196" cy="120" r="2.5" style="fill:var(--spark);opacity:var(--celebr)"></circle>
+      <circle cx="156" cy="46" r="27" style="fill:var(--reelB)"></circle>
+      <circle cx="156" cy="46" r="17" style="fill:var(--reelIn)"></circle>
+      <circle cx="156" cy="37.5" r="4.5" style="fill:var(--holes)"></circle>
+      <circle cx="148.6" cy="50.25" r="4.5" style="fill:var(--holes)"></circle>
+      <circle cx="163.4" cy="50.25" r="4.5" style="fill:var(--holes)"></circle>
+      <circle cx="156" cy="46" r="3" style="fill:var(--holes)"></circle>
+      <circle cx="96" cy="42" r="32" style="fill:var(--reelA)"></circle>
+      <circle cx="96" cy="42" r="20" style="fill:var(--reelIn)"></circle>
+      <circle cx="96" cy="32" r="5" style="fill:var(--holes)"></circle>
+      <circle cx="87.3" cy="47" r="5" style="fill:var(--holes)"></circle>
+      <circle cx="104.7" cy="47" r="5" style="fill:var(--holes)"></circle>
+      <circle cx="96" cy="42" r="3.5" style="fill:var(--holes)"></circle>
+      <rect x="56" y="62" width="136" height="84" rx="24" style="fill:var(--body)"></rect>
+      <rect x="104" y="78" width="64" height="46" rx="13" style="fill:var(--mount)"></rect>
+      <rect x="116" y="89" width="40" height="7" rx="3.5" style="fill:var(--body)"></rect>
+      <rect x="116" y="102" width="40" height="7" rx="3.5" style="fill:var(--body)"></rect>
+      <rect x="56" y="118" width="136" height="28" rx="14" style="fill:var(--bodySh)"></rect>
+      <rect x="50" y="78" width="20" height="40" rx="8" style="fill:var(--lens)"></rect>
+      <rect x="20" y="86" width="42" height="30" rx="8" style="fill:var(--lens)"></rect>
+      <rect x="6" y="80" width="18" height="42" rx="9" style="fill:var(--face)"></rect>
+      <circle cx="172" cy="128" r="6" style="fill:var(--dotc)"></circle>
+      <circle cx="15" cy="101" r="13" style="fill:var(--glowHalo);filter:blur(7px);opacity:var(--glowOp)"></circle>
+      <circle cx="15" cy="101" r="6" style="fill:var(--glowCore);opacity:var(--glowOp)"></circle>
+      <rect x="0" y="99" width="32" height="4" rx="2" fill="rgba(255,255,255,.85)" style="filter:blur(3px);opacity:var(--glowOp)"></rect>
+    </svg>
+  </sc-if>
+  <sc-if value="{{ isProj }}" hint-placeholder-val="{{ false }}">
+    <svg viewBox="0 0 200 160" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);width:170px;height:136px;overflow:visible;filter:var(--camGlow)">
+      <circle cx="112" cy="86" r="72" fill="none" stroke-width="3" style="stroke:var(--ring);opacity:var(--celebr)"></circle>
+      <path d="M46 14 L52 20 L46 26 L40 20 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <path d="M192 60 L197 65 L192 70 L187 65 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <path d="M40 130 L45 135 L40 140 L35 135 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <circle cx="176" cy="10" r="3" style="fill:var(--spark);opacity:var(--celebr)"></circle>
+      <circle cx="60" cy="156" r="2.5" style="fill:var(--spark);opacity:var(--celebr)"></circle>
+      <circle cx="70" cy="60" r="20" style="fill:var(--reelB)"></circle>
+      <circle cx="70" cy="60" r="12" style="fill:var(--reelIn)"></circle>
+      <circle cx="70" cy="53.5" r="3" style="fill:var(--holes)"></circle>
+      <circle cx="64.4" cy="63.25" r="3" style="fill:var(--holes)"></circle>
+      <circle cx="75.6" cy="63.25" r="3" style="fill:var(--holes)"></circle>
+      <circle cx="70" cy="60" r="2.5" style="fill:var(--holes)"></circle>
+      <circle cx="132" cy="48" r="40" style="fill:var(--reelA)"></circle>
+      <circle cx="132" cy="48" r="27" style="fill:var(--reelIn)"></circle>
+      <circle cx="132" cy="34" r="6.5" style="fill:var(--holes)"></circle>
+      <circle cx="119.9" cy="55" r="6.5" style="fill:var(--holes)"></circle>
+      <circle cx="144.1" cy="55" r="6.5" style="fill:var(--holes)"></circle>
+      <circle cx="132" cy="48" r="4.5" style="fill:var(--holes)"></circle>
+      <rect x="66" y="142" width="26" height="10" rx="5" style="fill:var(--bodySh)"></rect>
+      <rect x="148" y="142" width="26" height="10" rx="5" style="fill:var(--bodySh)"></rect>
+      <rect x="48" y="80" width="144" height="62" rx="20" style="fill:var(--body)"></rect>
+      <rect x="48" y="124" width="144" height="18" rx="9" style="fill:var(--bodySh)"></rect>
+      <rect x="14" y="86" width="40" height="28" rx="8" style="fill:var(--lens)"></rect>
+      <rect x="2" y="81" width="16" height="38" rx="8" style="fill:var(--face)"></rect>
+      <circle cx="170" cy="112" r="6" style="fill:var(--dotc)"></circle>
+      <circle cx="10" cy="100" r="13" style="fill:var(--glowHalo);filter:blur(7px);opacity:var(--glowOp)"></circle>
+      <circle cx="10" cy="100" r="6" style="fill:var(--glowCore);opacity:var(--glowOp)"></circle>
+      <rect x="-4" y="98" width="32" height="4" rx="2" fill="rgba(255,255,255,.85)" style="filter:blur(3px);opacity:var(--glowOp)"></rect>
+    </svg>
+  </sc-if>
+  <sc-if value="{{ isHead }}" hint-placeholder-val="{{ false }}">
+    <svg viewBox="0 0 200 160" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);width:170px;height:136px;overflow:visible;filter:var(--camGlow)">
+      <circle cx="120" cy="88" r="70" fill="none" stroke-width="3" style="stroke:var(--ring);opacity:var(--celebr)"></circle>
+      <path d="M50 12 L56 18 L50 24 L44 18 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <path d="M194 70 L199 75 L194 80 L189 75 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <path d="M42 140 L47 145 L42 150 L37 145 Z" style="fill:var(--spark);opacity:var(--celebr)"></path>
+      <circle cx="170" cy="8" r="3" style="fill:var(--spark);opacity:var(--celebr)"></circle>
+      <circle cx="24" cy="52" r="2.5" style="fill:var(--spark);opacity:var(--celebr)"></circle>
+      <circle cx="166" cy="44" r="11" style="fill:var(--reelB)"></circle>
+      <rect x="16" y="84" width="60" height="32" rx="10" style="fill:var(--lens)"></rect>
+      <circle cx="124" cy="92" r="56" style="fill:var(--reelA)"></circle>
+      <circle cx="124" cy="92" r="42" style="fill:var(--reelIn)"></circle>
+      <circle cx="141" cy="75" r="9" style="fill:var(--holes)"></circle>
+      <circle cx="107" cy="75" r="9" style="fill:var(--holes)"></circle>
+      <circle cx="107" cy="109" r="9" style="fill:var(--holes)"></circle>
+      <circle cx="141" cy="109" r="9" style="fill:var(--holes)"></circle>
+      <circle cx="124" cy="92" r="13" style="fill:var(--reelB)"></circle>
+      <circle cx="124" cy="92" r="5" style="fill:var(--holes)"></circle>
+      <rect x="4" y="78" width="18" height="44" rx="9" style="fill:var(--face)"></rect>
+      <circle cx="13" cy="100" r="13" style="fill:var(--glowHalo);filter:blur(7px);opacity:var(--glowOp)"></circle>
+      <circle cx="13" cy="100" r="6" style="fill:var(--glowCore);opacity:var(--glowOp)"></circle>
+      <rect x="-2" y="98" width="32" height="4" rx="2" fill="rgba(255,255,255,.85)" style="filter:blur(3px);opacity:var(--glowOp)"></rect>
+    </svg>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:393,&quot;height&quot;:170},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;active&quot;,&quot;milestone&quot;],&quot;default&quot;:&quot;active&quot;,&quot;tsType&quot;:&quot;'idle'|'active'|'milestone'&quot;,&quot;section&quot;:&quot;Camera&quot;},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reel&quot;,&quot;projector&quot;,&quot;reelhead&quot;],&quot;default&quot;:&quot;reel&quot;,&quot;tsType&quot;:&quot;'reel'|'projector'|'reelhead'&quot;,&quot;section&quot;:&quot;Camera&quot;},&quot;beam&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Camera&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const state = this.props.state ?? 'active';
+    const variant = this.props.variant ?? 'reel';
+    const beam = this.props.beam ?? true;
+    const palettes = {
+      idle: {body:'#2c2c33',bodySh:'#242429',reelA:'#3f3f46',reelB:'#37373e',reelIn:'#1b1b1f',holes:'#52525b',lens:'#37373e',face:'#4a4a52',dotc:'#4a4a52',mount:'#52525b',ring:'#3f3f46',spark:'#3f3f46',glowCore:'#ffffff',glowHalo:'#ffffff',beamA:'rgba(0,0,0,0)',beamB:'rgba(0,0,0,0)',glowOp:0,celebr:0,camGlow:'none'},
+      active: {body:'#e11d48',bodySh:'#be123c',reelA:'#f43f5e',reelB:'#be123c',reelIn:'#1c1017',holes:'#fda4af',lens:'#9f1239',face:'#ffe4e6',dotc:'#fecdd3',mount:'#d4d4d8',ring:'#f43f5e',spark:'#fda4af',glowCore:'#ffffff',glowHalo:'#ffdcc2',beamA:'rgba(255,222,196,.55)',beamB:'rgba(255,222,196,.14)',glowOp:1,celebr:0,camGlow:'drop-shadow(0 6px 24px rgba(225,29,72,.35))'},
+      milestone: {body:'#f59e0b',bodySh:'#d97706',reelA:'#fbbf24',reelB:'#d97706',reelIn:'#241703',holes:'#fde68a',lens:'#b45309',face:'#fef3c7',dotc:'#fde68a',mount:'#fde68a',ring:'#fbbf24',spark:'#fde68a',glowCore:'#ffffff',glowHalo:'#ffe58f',beamA:'rgba(255,224,138,.6)',beamB:'rgba(255,224,138,.16)',glowOp:1,celebr:1,camGlow:'drop-shadow(0 6px 26px rgba(251,191,36,.35))'}
+    };
+    const p = palettes[state] || palettes.active;
+    const on = beam && state !== 'idle' ? 1 : 0;
+    const vars = `--body:${p.body};--bodySh:${p.bodySh};--reelA:${p.reelA};--reelB:${p.reelB};--reelIn:${p.reelIn};--holes:${p.holes};--lens:${p.lens};--face:${p.face};--dotc:${p.dotc};--mount:${p.mount};--ring:${p.ring};--spark:${p.spark};--glowCore:${p.glowCore};--glowHalo:${p.glowHalo};--beamA:${p.beamA};--beamB:${p.beamB};--glowOp:${p.glowOp};--celebr:${p.celebr};--beamOp:${on};--camGlow:${p.camGlow}`;
+    return {vars, isReel: variant === 'reel', isProj: variant === 'projector', isHead: variant === 'reelhead'};
+  }
+}
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import {
   isWrappedSeason,
 } from '@/components/stats-v2/going-deeper';
 import { usePremium } from '@/hooks/use-premium';
+import { useStreakCard } from '@/hooks/use-streak-card';
 
 // Mock @expo/vector-icons — pulls in expo-asset which isn't in transformIgnorePatterns.
 jest.mock('@expo/vector-icons', () => {
@@ -39,7 +40,14 @@ jest.mock('@/hooks/use-premium', () => ({
   usePremium: jest.fn(),
 }));
 
+// The Watch Streaks cell goes live behind streak_spine; with the flag off the
+// hook returns no card and the cell falls back to the "Coming soon" teaser.
+jest.mock('@/hooks/use-streak-card', () => ({
+  useStreakCard: jest.fn(() => ({ enabled: false, card: null, loaded: false })),
+}));
+
 const mockUsePremium = usePremium as jest.Mock;
+const mockUseStreakCard = useStreakCard as jest.Mock;
 
 const FREE = { isPremium: false, isLoading: false, tier: 'free' };
 const MEMBER = { isPremium: true, isLoading: false, tier: 'plus' };
@@ -60,6 +68,7 @@ describe('GoingDeeper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUsePremium.mockReturnValue(FREE);
+    mockUseStreakCard.mockReturnValue({ enabled: false, card: null, loaded: false });
   });
 
   it('renders the section header and every chip title', () => {
@@ -156,6 +165,75 @@ describe('GoingDeeper', () => {
     const { queryByText } = render(<GoingDeeper loggedCount={ENOUGH} now={LATE_JAN} />);
 
     expect(queryByText(/Wrapped/)).toBeNull();
+  });
+});
+
+describe('GoingDeeper · Watch Streaks cell (PS-15)', () => {
+  const streakCard = (streak: number, extendedToday: boolean) => ({
+    enabled: true,
+    loaded: true,
+    card: {
+      snapshot: {
+        currentStreak: streak,
+        longestStreak: 14,
+        lastActivityDate: extendedToday ? '2026-08-15' : '2026-08-14',
+        rainChecks: 1,
+        rainChecksUsed: 0,
+        lastEarnDate: null,
+      },
+      activityDays: extendedToday
+        ? [{ local_date: '2026-08-15', first_action: 'log', action_count: 1 }]
+        : [{ local_date: '2026-08-14', first_action: 'log', action_count: 1 }],
+      localDate: '2026-08-15',
+      windowStart: '2026-08-01',
+      alive: streak > 0,
+      effectiveStreak: streak,
+    },
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUsePremium.mockReturnValue(FREE);
+  });
+
+  it('falls back to the untouched "Coming soon" cell while the flag is off', () => {
+    mockUseStreakCard.mockReturnValue({ enabled: false, card: null, loaded: false });
+
+    const { getAllByText, queryByText } = render(<GoingDeeper loggedCount={ENOUGH} now={JULY} />);
+
+    expect(getAllByText('Coming soon')).toHaveLength(SOON_COUNT);
+    expect(queryByText('12')).toBeNull();
+  });
+
+  it('goes live for a FREE user — the streak is never Plus-gated', () => {
+    mockUseStreakCard.mockReturnValue(streakCard(12, true));
+
+    const { getByText, getAllByText } = render(<GoingDeeper loggedCount={ENOUGH} now={JULY} />);
+
+    expect(getByText('12')).toBeTruthy();
+    expect(getByText('DAYS')).toBeTruthy();
+    expect(getByText('Today is already in the can. Best 14.')).toBeTruthy();
+    // one fewer "Coming soon": Watch Streaks left the not-yet-buildable set,
+    // and it reads "Live for you" despite the FREE membership above.
+    expect(getAllByText('Coming soon')).toHaveLength(SOON_COUNT - 1);
+    expect(getAllByText('Live for you').length).toBeGreaterThan(0);
+  });
+
+  it('reads the pending copy when today is still blank', () => {
+    mockUseStreakCard.mockReturnValue(streakCard(12, false));
+
+    const { getByText } = render(<GoingDeeper loggedCount={ENOUGH} now={JULY} />);
+
+    expect(getByText('Today\u2019s frame is still blank. Best 14.')).toBeTruthy();
+  });
+
+  it('reads the day-0 copy with nothing on the reel', () => {
+    mockUseStreakCard.mockReturnValue(streakCard(0, false));
+
+    const { getByText } = render(<GoingDeeper loggedCount={ENOUGH} now={JULY} />);
+
+    expect(getByText('0')).toBeTruthy();
+    expect(getByText('No run yet \u2014 log anything today and day one prints.')).toBeTruthy();
   });
 });
 
