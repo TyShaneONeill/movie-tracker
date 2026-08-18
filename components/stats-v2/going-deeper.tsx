@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Fonts } from '@/constants/theme';
 import { usePremium } from '@/hooks/use-premium';
 import { useStatsColors, type StatsV2ColorTokens } from '@/constants/stats-v2-theme';
+import { analytics } from '@/lib/analytics';
 import { useStreakCard } from '@/hooks/use-streak-card';
 import { deriveHeroState, type StreakHeroState } from '@/lib/streak-view';
 
@@ -251,7 +252,7 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
           const status = live
             ? { glyph: 'chevron-forward' as const, icon: 'star' as const, label: 'Live for you', color: c.status.live }
             : chipStatus(feature, isPremium, insightsReady, c);
-          const route = live ? '/streak' : feature.route;
+          const route = live ? '/streak?from=stats_cell' : feature.route;
           const chipStyle = [
             span ? styles.chipSpan : styles.chip,
             hasRight && { borderRightWidth: 1, borderRightColor: c.line },
@@ -330,10 +331,23 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
                   if (Platform.OS !== 'web') {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }
+                  if (live) {
+                    analytics.track('streak:stats_cell_tap', {
+                      state: live.state,
+                      streak: live.streak,
+                    });
+                  }
                   router.push(route as never);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={feature.title}
+                // The numeral's colour is the whole status read, and colour does
+                // not reach a screen reader — so the label has to say the number
+                // and what it means.
+                accessibilityLabel={
+                  live
+                    ? `${feature.title}, ${live.streak} ${live.streak === 1 ? 'day' : 'days'}. ${streakCellBlurb(live)}`
+                    : feature.title
+                }
                 style={({ pressed }) => [...chipStyle, pressed && { opacity: 0.6 }]}
               >
                 {chipBody}

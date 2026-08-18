@@ -12,12 +12,23 @@ import { render, fireEvent } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import StreakScreen from '@/app/streak';
-import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
+import { useStreakSpineGate } from '@/hooks/use-feature-flag';
 import { useStreakCard } from '@/hooks/use-streak-card';
 import type { StreakCard } from '@/lib/streak-service';
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn() },
+  router: {
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+    dismissTo: jest.fn(),
+    canGoBack: jest.fn(() => true),
+  },
+  useLocalSearchParams: () => ({}),
+}));
+
+jest.mock('@/lib/analytics', () => ({
+  analytics: { track: jest.fn(), getFeatureFlag: jest.fn(), onFeatureFlags: jest.fn(() => () => {}) },
 }));
 
 jest.mock('expo-haptics', () => ({
@@ -36,14 +47,14 @@ jest.mock('@/lib/theme-context', () => ({
 }));
 
 jest.mock('@/hooks/use-feature-flag', () => ({
-  useStreakSpineEnabled: jest.fn(() => true),
+  useStreakSpineGate: jest.fn(() => ({ enabled: true, resolved: true })),
 }));
 
 jest.mock('@/hooks/use-streak-card', () => ({
   useStreakCard: jest.fn(),
 }));
 
-const mockFlag = useStreakSpineEnabled as jest.Mock;
+const mockGate = useStreakSpineGate as jest.Mock;
 const mockCard = useStreakCard as jest.Mock;
 
 const TODAY = '2026-08-15';
@@ -54,6 +65,7 @@ function card(over: {
   longest?: number;
   rainChecks?: number;
   rainChecksUsed?: number;
+  alive?: boolean;
 }): StreakCard {
   const days: string[] = [];
   const last = over.extendedToday ? TODAY : '2026-08-14';
@@ -72,20 +84,26 @@ function card(over: {
     activityDays: days.map((d) => ({ local_date: d, first_action: 'log', action_count: 1 })),
     localDate: TODAY,
     windowStart: '2026-08-01',
-    alive: over.streak > 0,
+    alive: over.alive ?? over.streak > 0,
     effectiveStreak: over.streak,
   };
 }
 
 function mount(over: Parameters<typeof card>[0]) {
-  mockCard.mockReturnValue({ enabled: true, card: card(over), loaded: true });
+  mockCard.mockReturnValue({
+    enabled: true,
+    card: card(over),
+    loaded: true,
+    reload: jest.fn(),
+  });
   return render(<StreakScreen />);
 }
 
 describe('StreakScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFlag.mockReturnValue(true);
+    mockGate.mockReturnValue({ enabled: true, resolved: true });
+    (router.canGoBack as jest.Mock).mockReturnValue(true);
   });
 
   describe('message card', () => {
@@ -135,11 +153,13 @@ describe('StreakScreen', () => {
       expect(queryByText('First Take')).toBeNull();
     });
 
-    it('dismisses the screen and lands where its sub-label says', () => {
+    it('dismisses to where its sub-label says, in one navigation', () => {
       const { getByText } = mount({ streak: 12, extendedToday: false });
       fireEvent.press(getByText('Scan ticket'));
-      expect(router.back).toHaveBeenCalled();
-      expect(router.push).toHaveBeenCalledWith('/(tabs)/scanner');
+      // One operation, not a back() and a push() racing in the same tick.
+      expect(router.dismissTo).toHaveBeenCalledWith('/(tabs)/scanner');
+      expect(router.push).not.toHaveBeenCalled();
+      expect(router.back).not.toHaveBeenCalled();
     });
   });
 
@@ -164,12 +184,83 @@ describe('StreakScreen', () => {
     });
   });
 
-  it('renders nothing and bounces home when streak_spine is off', () => {
-    mockFlag.mockReturnValue(false);
-    mockCard.mockReturnValue({ enabled: false, card: null, loaded: false });
+  describe('a dead run', () => {
+    // Product call: the logged days themselves are real history and stay
+    // painted. The rain-cloud and milestone marks are annotations OF a run
+    // ("a check bridged this", "the count hit 7 here") and have no subject
+    // once the run is over — both derive from a last_activity_date that now
+    // belongs to a run that ended.
+    it('keeps active days but drops the run-relative annotations', () => {
+      mockCard.mockReturnValue({
+        enabled: true,
+        loaded: true,
+        reload: jest.fn(),
+        card: {
+          ...card({ streak: 30, extendedToday: false, rainChecksUsed: 1, alive: false }),
+          effectiveStreak: 0,
+        },
+      });
 
-    const { queryByText } = render(<StreakScreen />);
-    expect(queryByText('Streak')).toBeNull();
-    expect(router.replace).toHaveBeenCalledWith('/(tabs)');
+      const { queryByLabelText, getAllByLabelText } = render(<StreakScreen />);
+      expect(queryByLabelText(/covered by a rain check/)).toBeNull();
+      expect(queryByLabelText(/milestone reached/)).toBeNull();
+      // the history is still on the calendar
+      expect(getAllByLabelText(/, active$/).length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('the flag gate', () => {
+    it('renders nothing and bounces home once the flag resolves OFF', () => {
+      mockGate.mockReturnValue({ enabled: false, resolved: true });
+      mockCard.mockReturnValue({ enabled: false, card: null, loaded: false, reload: jest.fn() });
+
+      const { queryByText } = render(<StreakScreen />);
+      expect(queryByText('Streak')).toBeNull();
+      expect(router.replace).toHaveBeenCalledWith('/(tabs)');
+    });
+
+    it('waits instead of bouncing while the flag is still UNRESOLVED', () => {
+      // A cold deep link lands before PostHog answers. Redirecting on that
+      // unresolved false would evict a user who is in the rollout.
+      mockGate.mockReturnValue({ enabled: false, resolved: false });
+      mockCard.mockReturnValue({ enabled: false, card: null, loaded: false, reload: jest.fn() });
+
+      const { getByText } = render(<StreakScreen />);
+      expect(router.replace).not.toHaveBeenCalled();
+      expect(getByText('Streak')).toBeTruthy();
+    });
+  });
+
+  describe('load states', () => {
+    it('shows the header and a skeleton — never a blank rectangle — while loading', () => {
+      mockCard.mockReturnValue({ enabled: true, card: null, loaded: false, reload: jest.fn() });
+
+      const { getByText, getByLabelText } = render(<StreakScreen />);
+      // The ✕ is the only way out of a modal route, so it exists before data.
+      expect(getByLabelText('Close')).toBeTruthy();
+      expect(getByText('Streak')).toBeTruthy();
+      expect(getByLabelText('Loading your streak')).toBeTruthy();
+    });
+
+    it('offers a retry when the card loaded but came back empty', () => {
+      const reload = jest.fn();
+      mockCard.mockReturnValue({ enabled: true, card: null, loaded: true, reload });
+
+      const { getByText, getByLabelText } = render(<StreakScreen />);
+      expect(getByText('We couldn’t load your streak just now.')).toBeTruthy();
+      expect(getByLabelText('Close')).toBeTruthy();
+
+      fireEvent.press(getByText('Try again'));
+      expect(reload).toHaveBeenCalled();
+    });
+
+    it('falls back to replace when there is nothing to go back to', () => {
+      (router.canGoBack as jest.Mock).mockReturnValue(false);
+      const { getByLabelText } = mount({ streak: 12, extendedToday: true });
+
+      fireEvent.press(getByLabelText('Close'));
+      expect(router.replace).toHaveBeenCalledWith('/(tabs)');
+      expect(router.back).not.toHaveBeenCalled();
+    });
   });
 });

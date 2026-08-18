@@ -38,8 +38,6 @@ export interface StreakCalendarDay {
   isToday: boolean;
   /** After today — dimmed. */
   future: boolean;
-  /** Before the fetched window — we genuinely don't know. */
-  unknown: boolean;
   /** A milestone threshold was crossed on this day. */
   milestone: boolean;
 }
@@ -73,15 +71,17 @@ export function firstOfMonth(date: string): string {
 }
 
 /**
- * Earliest local_date the screen needs: the 1st of the displayed month, or 35
- * days back, whichever reaches further. The calendar draws the whole current
- * month, so a plain trailing window blanks out early-month days that we do in
- * fact have rows for.
+ * Earliest local_date the screen needs: a rolling 35 days back.
+ *
+ * The calendar draws the whole displayed month, so the window has to reach at
+ * least its 1st — the old trailing 14-ROW window blanked out early-month days
+ * we did have rows for. 35 days clears that unconditionally: the longest month
+ * is 31 days, so this always lands on or before the 1st (asserted in the tests)
+ * and usually weeks earlier, which is what lets a run that began last month
+ * still be drawn as one run.
  */
 export function activityWindowStart(today: string): string {
-  const monthStart = firstOfMonth(today);
-  const rolling = shiftDate(today, -34); // 35 days inclusive of today
-  return monthStart < rolling ? monthStart : rolling;
+  return shiftDate(today, -34); // 35 days inclusive of today
 }
 
 /** "August 2026" for the month `date` falls in. */
@@ -220,9 +220,8 @@ export function buildCalendar(params: {
   activeDates: ReadonlySet<string>;
   covered: ReadonlySet<string>;
   milestoneDays: ReadonlySet<string>;
-  windowStart: string;
 }): StreakCalendarWeek[] {
-  const { today, activeDates, covered, milestoneDays, windowStart } = params;
+  const { today, activeDates, covered, milestoneDays } = params;
   const [year, month] = today.split('-').map(Number);
   const firstDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
   const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -243,7 +242,6 @@ export function buildCalendar(params: {
       inRun: active || isCovered,
       isToday: date === today,
       future: date > today,
-      unknown: !active && date < windowStart,
       milestone: milestoneDays.has(date),
     });
   }
@@ -266,9 +264,26 @@ function blankDay(): StreakCalendarDay {
     inRun: false,
     isToday: false,
     future: false,
-    unknown: false,
     milestone: false,
   };
+}
+
+/**
+ * What a screen reader says for one calendar cell. The visual language here is
+ * entirely colour and shape — a rose disc, a gold disc, a cloud, a ring — and
+ * none of that survives into the accessibility tree on its own.
+ */
+export function calendarDayLabel(day: StreakCalendarDay, monthLabel: string): string {
+  if (day.day === null) return '';
+  const month = monthLabel.split(' ')[0];
+  const date = `${month} ${day.day}`;
+  if (day.milestone) return `${date}, milestone reached`;
+  if (day.isToday && day.active) return `${date}, today, logged`;
+  if (day.isToday) return `${date}, today, not yet logged`;
+  if (day.covered) return `${date}, covered by a rain check`;
+  if (day.active) return `${date}, active`;
+  if (day.future) return date;
+  return `${date}, nothing logged`;
 }
 
 /** Contiguous in-run cells in one week row, as pill spans. */

@@ -14,7 +14,7 @@
  * FRIENDS tab are later rungs of the ladder.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Svg, {
   Defs,
@@ -39,8 +39,9 @@ import Svg, {
 } from 'react-native-svg';
 
 import { Fonts } from '@/constants/theme';
+import { analytics } from '@/lib/analytics';
 import { cameraPalette, useStreakColors, type StreakColorTokens } from '@/constants/streak-theme';
-import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
+import { useStreakSpineGate } from '@/hooks/use-feature-flag';
 import { useStreakCard } from '@/hooks/use-streak-card';
 import { MILESTONES } from '@/lib/streak-logic';
 import {
@@ -55,6 +56,7 @@ import {
 } from '@/components/streak/streak-camera';
 import {
   buildCalendar,
+  calendarDayLabel,
   deriveCoveredDays,
   deriveHeroState,
   deriveMilestoneDays,
@@ -80,25 +82,33 @@ const ROUTES = {
 type Destination = keyof typeof ROUTES;
 
 export default function StreakScreen() {
-  const enabled = useStreakSpineEnabled();
+  const { enabled, resolved } = useStreakSpineGate();
   const { c, isDark } = useStreakColors();
   const { width: screenWidth } = useWindowDimensions();
-  const { card } = useStreakCard();
+  const { card, loaded, reload } = useStreakCard();
+  const { from } = useLocalSearchParams<{ from?: string }>();
 
   // __DEV__ QA harness: long-pressing the title cycles the four states so all
   // of them can be screenshot against the mock without seeding the database.
-  // Impossible to reach in a production build — the whole block compiles out.
+  // `__DEV__` is a build-time constant, so a release bundle keeps the fixture
+  // builder as unreachable dead code and never attaches the handler.
   const [devState, setDevState] = useState(0);
   const cycleDevState = useCallback(() => {
-    if (!__DEV__) return;
     setDevState((n) => (n + 1) % (DEV_FIXTURES.length + 1));
   }, []);
 
-  // The flag fails closed everywhere else; the route has to as well, or a
-  // deep link would open a screen the user isn't in the rollout for.
+  const dismiss = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  }, []);
+
+  // The flag fails closed everywhere else and the route has to as well — but
+  // only once PostHog has ANSWERED. A cold deep link lands before flags
+  // resolve, and redirecting on the unresolved `false` would bounce a user who
+  // is in the rollout straight back home, permanently.
   useEffect(() => {
-    if (!enabled) router.replace('/(tabs)');
-  }, [enabled]);
+    if (resolved && !enabled) router.replace('/(tabs)');
+  }, [resolved, enabled]);
 
   const view = useMemo(() => {
     if (__DEV__ && devState > 0) return DEV_FIXTURES[devState - 1];
@@ -106,21 +116,35 @@ export default function StreakScreen() {
     return viewModel(card);
   }, [card, devState]);
 
-  if (!enabled || !view) {
+  // One view event per mount, once we know which state the user actually saw.
+  const tracked = useRef(false);
+  useEffect(() => {
+    if (!view || tracked.current) return;
+    tracked.current = true;
+    analytics.track('streak:screen_view', {
+      state: view.state,
+      streak: view.streak,
+      entry_point: from ?? 'direct',
+    });
+  }, [view, from]);
+
+  // The redirect above is already running; paint the ground, not a flash of UI.
+  if (resolved && !enabled) {
     return <View style={[styles.flex, { backgroundColor: c.bg }]} />;
   }
 
-  const palette = cameraPalette(view.state, isDark);
-  const lit = view.state !== 'idle';
+  const palette = view ? cameraPalette(view.state, isDark) : null;
+  const lit = view ? view.state !== 'idle' : false;
   const beamWidth = Math.max(0, screenWidth - BEAM_RIGHT_INSET);
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: c.bg }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* 1 · header */}
+        {/* 1 · header. Rendered in every phase — the ✕ is the only way out of a
+            modal route, so it must exist before the data does. */}
         <View style={styles.bar}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={dismiss}
             accessibilityRole="button"
             accessibilityLabel="Close"
             hitSlop={12}
@@ -138,7 +162,7 @@ export default function StreakScreen() {
           </Pressable>
           <Text
             maxFontSizeMultiplier={1.2}
-            onLongPress={cycleDevState}
+            onLongPress={__DEV__ ? cycleDevState : undefined}
             suppressHighlighting
             style={[styles.title, { color: c.text }]}
           >
@@ -147,6 +171,14 @@ export default function StreakScreen() {
           <View style={styles.close} />
         </View>
 
+        {!view ? (
+          loaded ? (
+            <StreakLoadFailed c={c} onRetry={reload} />
+          ) : (
+            <StreakSkeleton c={c} />
+          )
+        ) : (
+          <>
         {/* 2 · tabs — FRIENDS is a later rung, so it is rendered and inert */}
         <View
           style={[styles.tabs, { backgroundColor: c.tabTrough, borderColor: c.line }]}
@@ -180,11 +212,11 @@ export default function StreakScreen() {
           )}
           {lit && (
             <View style={styles.beam}>
-              <StreakBeam width={beamWidth} palette={palette} isDark={isDark} />
+              <StreakBeam width={beamWidth} palette={palette!} isDark={isDark} />
             </View>
           )}
           <View style={styles.camera}>
-            <StreakCamera palette={palette} lit={lit} celebrate={view.state === 'milestone'} />
+            <StreakCamera palette={palette!} lit={lit} celebrate={view.state === 'milestone'} />
           </View>
           <HeroNumber view={view} c={c} isDark={isDark} screenWidth={screenWidth} />
         </View>
@@ -212,7 +244,7 @@ export default function StreakScreen() {
                   { label: 'Comment', dest: 'Feed' as Destination, go: false },
                 ])
             ).map((a) => (
-              <ExtendPill key={a.label} {...a} c={c} />
+              <ExtendPill key={a.label} {...a} c={c} state={view.state} />
             ))}
           </View>
         )}
@@ -276,7 +308,7 @@ export default function StreakScreen() {
                 />
               ))}
               {week.days.map((day, di) => (
-                <CalendarCell key={di} day={day} c={c} isDark={isDark} />
+                <CalendarCell key={di} day={day} c={c} monthLabel={view.monthLabel} />
               ))}
             </View>
           ))}
@@ -286,12 +318,73 @@ export default function StreakScreen() {
         <Text maxFontSizeMultiplier={1.2} style={[styles.footnote, { color: c.faint }]}>
           {view.footnote}
         </Text>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 /* ------------------------------------------------------------------ pieces */
+
+/**
+ * What the screen shows while the card is in flight. The tabs are static
+ * chrome, so they render for real; the hero and message card hold their
+ * finished dimensions as empty ground, which keeps the header from jumping
+ * when the data lands.
+ */
+function StreakSkeleton({ c }: { c: StreakColorTokens }) {
+  return (
+    <View accessibilityRole="progressbar" accessibilityLabel="Loading your streak">
+      <View style={[styles.tabs, { backgroundColor: c.tabTrough, borderColor: c.line }]}>
+        <View style={[styles.tab, { backgroundColor: c.tabActive }]}>
+          <Text maxFontSizeMultiplier={1.1} style={[styles.tabLabel, { color: c.text }]}>
+            PERSONAL
+          </Text>
+        </View>
+        <View style={styles.tab}>
+          <Text maxFontSizeMultiplier={1.1} style={[styles.tabLabel, { color: c.tabIdle }]}>
+            FRIENDS
+          </Text>
+          <View style={[styles.soon, { borderColor: c.soonLine }]}>
+            <Text maxFontSizeMultiplier={1.1} style={[styles.soonLabel, { color: c.muted }]}>
+              SOON
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.hero} />
+      <View
+        style={[styles.msg, styles.skeletonMsg, { backgroundColor: c.card, borderColor: c.line }]}
+      />
+    </View>
+  );
+}
+
+/** Loaded, but there is no card — signed out, offline, or the query errored. */
+function StreakLoadFailed({ c, onRetry }: { c: StreakColorTokens; onRetry: () => void }) {
+  return (
+    <View style={styles.failed}>
+      <Text maxFontSizeMultiplier={1.4} style={[styles.failedText, { color: c.sec }]}>
+        We couldn’t load your streak just now.
+      </Text>
+      <Pressable
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Try loading your streak again"
+        style={({ pressed }) => [
+          styles.retry,
+          { borderColor: c.tint, backgroundColor: c.tint },
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text maxFontSizeMultiplier={1.2} style={styles.retryLabel}>
+          Try again
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
 
 /**
  * The numeral. Dark lit is white under a warm shadow; light lit is near-black
@@ -446,11 +539,13 @@ function ExtendPill({
   dest,
   go,
   c,
+  state,
 }: {
   label: string;
   dest: Destination;
   go: boolean;
   c: StreakColorTokens;
+  state: StreakHeroState;
 }) {
   return (
     <Pressable
@@ -458,10 +553,13 @@ function ExtendPill({
       accessibilityLabel={`${label} — go to ${dest}`}
       onPress={() => {
         if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // Dismiss the streak screen on the way out — the user came here to go
-        // do the thing, not to come back to a stale count.
-        router.back();
-        router.push(ROUTES[dest] as never);
+        analytics.track('streak:extend_pill_tap', { pill: label, destination: dest, state });
+        // The user came here to go do the thing, not to come back to a stale
+        // count — so the screen dismisses on the way out. `dismissTo` performs
+        // the pop and the navigation as ONE operation: popping and pushing in
+        // the same tick would aim the push at nav state the pop is still
+        // unwinding.
+        router.dismissTo(ROUTES[dest] as never);
       }}
       style={({ pressed }) => [
         styles.act,
@@ -537,28 +635,40 @@ function StatChip({
 function CalendarCell({
   day,
   c,
-  isDark,
+  monthLabel,
 }: {
   day: StreakCalendarDay;
   c: StreakColorTokens;
-  isDark: boolean;
+  monthLabel: string;
 }) {
   if (day.day === null) return <View style={styles.calCell} />;
 
+  const a11y = calendarDayLabel(day, monthLabel);
+
   if (day.milestone) {
+    // Gradient ids are resolved across every mounted Svg root, not per root, so
+    // a shared id would have every milestone disc read one cell's gradient.
+    const gradientId = `mileDisc-${day.day}`;
     return (
-      <View style={styles.calCell}>
+      <View style={styles.calCell} accessible accessibilityLabel={a11y}>
         <View style={[styles.discRing, { backgroundColor: 'rgba(251,191,36,0.55)' }]}>
           <View style={[styles.discGap, { backgroundColor: c.bg }]}>
             <View style={styles.disc}>
               <Svg width={DISC} height={DISC} style={StyleSheet.absoluteFill}>
                 <Defs>
-                  <LinearGradient id="mileDisc" x1="0" y1="0" x2="0" y2={DISC} gradientUnits="userSpaceOnUse">
+                  <LinearGradient
+                    id={gradientId}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2={DISC}
+                    gradientUnits="userSpaceOnUse"
+                  >
                     <Stop offset="0" stopColor="#fbbf24" />
                     <Stop offset="1" stopColor="#f59e0b" />
                   </LinearGradient>
                 </Defs>
-                <Path d={discPath()} fill="url(#mileDisc)" />
+                <Path d={discPath()} fill={`url(#${gradientId})`} />
               </Svg>
               <Text maxFontSizeMultiplier={1} style={styles.discLabel}>
                 {day.day}
@@ -572,7 +682,7 @@ function CalendarCell({
 
   if (day.isToday && day.active) {
     return (
-      <View style={styles.calCell}>
+      <View style={styles.calCell} accessible accessibilityLabel={a11y}>
         <View style={[styles.discRing, { backgroundColor: 'rgba(225,29,72,0.55)' }]}>
           <View style={[styles.discGap, { backgroundColor: c.bg }]}>
             <View style={[styles.disc, { backgroundColor: c.tint }]}>
@@ -588,28 +698,47 @@ function CalendarCell({
 
   if (day.covered) {
     return (
-      <View style={styles.calCell}>
+      <View style={styles.calCell} accessible accessibilityLabel={a11y}>
         <RainGlyph color={c.gold} />
       </View>
     );
   }
 
-  const todayRing = day.isToday
-    ? { borderWidth: 1.75, borderColor: 'rgba(225,29,72,0.62)', borderRadius: 18 }
-    : null;
-  const ink = day.active ? c.runInk : c.offInk;
-  const dim = day.future ? 0.34 : day.unknown ? 0.5 : 1;
+  // An unlogged today still has to be findable.
+  //
+  // ⚠️ DELIBERATE DIVERGENCE FROM THE MOCK — flagged in the PR for Ty to veto.
+  // The mock puts the ring on the cell itself (`border-radius:18px` + an inset
+  // shadow on a 1/7-width grid cell), which renders as a ~50×36 stadium. That
+  // is the same silhouette as a single-day run pill, just hollow instead of
+  // filled, and it is the one mark on this calendar that isn't a 34px disc.
+  // Review asked for a fixed circle matching the disc sizes. Revert to
+  // `[styles.calCell, { borderWidth: 1.75, borderColor, borderRadius: 18 }]`
+  // to restore the mock exactly.
+  if (day.isToday) {
+    return (
+      <View style={styles.calCell} accessible accessibilityLabel={a11y}>
+        <View style={styles.todayRing}>
+          <Text
+            maxFontSizeMultiplier={1}
+            style={[styles.dayLabel, styles.dayLabelStrong, { color: c.text }]}
+          >
+            {day.day}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.calCell, todayRing]}>
+    <View style={styles.calCell} accessible accessibilityLabel={a11y}>
       <Text
         maxFontSizeMultiplier={1}
         style={[
           styles.dayLabel,
+          day.active && styles.dayLabelStrong,
           {
-            color: day.isToday && !day.active ? c.text : ink,
-            opacity: dim,
-            fontFamily: day.active || day.isToday ? Fonts.inter.semibold : Fonts.inter.medium,
+            color: day.active ? c.runInk : c.offInk,
+            opacity: day.future ? 0.34 : 1,
           },
         ]}
       >
@@ -645,6 +774,8 @@ function discPath(): string {
 
 /* ------------------------------------------------------------- view model */
 
+const EMPTY_DAYS: ReadonlySet<string> = new Set();
+
 interface StreakView {
   state: StreakHeroState;
   streak: number;
@@ -658,12 +789,21 @@ interface StreakView {
 }
 
 function viewModel(card: NonNullable<ReturnType<typeof useStreakCard>['card']>): StreakView {
-  const { snapshot, activityDays, localDate, windowStart, effectiveStreak } = card;
+  const { snapshot, activityDays, localDate, windowStart, alive, effectiveStreak } = card;
   const activeDates = new Set(activityDays.map((d) => d.local_date));
-  const covered = deriveCoveredDays(snapshot, activeDates, windowStart);
-  const milestoneDays = deriveMilestoneDays(snapshot, activeDates, covered, windowStart);
+
+  // Rain-cloud days and milestone discs are annotations OF a run: they say
+  // "a check bridged this" and "the count hit 7 here". Once the run is dead
+  // those sentences have no subject, and both derivations are anchored to
+  // `last_activity_date`, which now belongs to a run that ended. The logged
+  // days themselves stay painted — that history is real and did happen.
+  const covered = alive ? deriveCoveredDays(snapshot, activeDates, windowStart) : EMPTY_DAYS;
+  const milestoneDays = alive
+    ? deriveMilestoneDays(snapshot, activeDates, covered, windowStart)
+    : EMPTY_DAYS;
+
   const state = deriveHeroState(effectiveStreak, activeDates.has(localDate));
-  const weeks = buildCalendar({ today: localDate, activeDates, covered, milestoneDays, windowStart });
+  const weeks = buildCalendar({ today: localDate, activeDates, covered, milestoneDays });
 
   const monthPrefix = localDate.slice(0, 7);
   const daysActive = [...activeDates].filter((d) => d.startsWith(monthPrefix)).length;
@@ -739,13 +879,7 @@ function buildDevFixtures(): StreakView[] {
       daysActive: active.size,
       rainChecks: opts.rainChecks,
       rainChecksUsed: opts.rainChecksUsed,
-      weeks: buildCalendar({
-        today,
-        activeDates: active,
-        covered,
-        milestoneDays,
-        windowStart: monthStart,
-      }),
+      weeks: buildCalendar({ today, activeDates: active, covered, milestoneDays }),
       footnote: footnoteFor(today, monthStart, opts.streak),
     };
   };
@@ -876,6 +1010,28 @@ const styles = StyleSheet.create({
   },
   msgText: { fontFamily: Fonts.inter.regular, fontSize: 13.5, lineHeight: 20 },
   msgLead: { fontFamily: Fonts.inter.semibold },
+  // The message card's two-line height, held while the copy is in flight.
+  skeletonMsg: { height: 66 },
+
+  failed: { marginHorizontal: SCREEN_PAD, marginTop: 48, alignItems: 'center', gap: 16 },
+  failedText: {
+    fontFamily: Fonts.inter.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  retry: {
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  retryLabel: {
+    fontFamily: Fonts.inter.semibold,
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#ffffff',
+  },
 
   acts: { flexDirection: 'row', gap: 7, marginHorizontal: SCREEN_PAD, marginTop: 10 },
   act: {
@@ -954,7 +1110,17 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   calCell: { flex: 1, height: CELL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
-  dayLabel: { fontSize: 13, lineHeight: 17 },
+  dayLabel: { fontSize: 13, lineHeight: 17, fontFamily: Fonts.inter.medium },
+  dayLabelStrong: { fontFamily: Fonts.inter.semibold },
+  todayRing: {
+    width: DISC,
+    height: DISC,
+    borderRadius: DISC / 2,
+    borderWidth: 1.75,
+    borderColor: 'rgba(225,29,72,0.62)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   discRing: {
     width: DISC + 7,
     height: DISC + 7,

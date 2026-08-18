@@ -109,6 +109,73 @@ export function useStreakSpineEnabled(): boolean {
   return flagOn;
 }
 
+/** The `EXPO_PUBLIC_*` dev override, or null when unset. Metro inlines the
+ *  literal member access, so this must stay a direct `process.env.X` read. */
+function streakSpineOverride(): boolean | null {
+  const envOverride = process.env.EXPO_PUBLIC_STREAK_SPINE_OVERRIDE;
+  if (envOverride === 'true') return true;
+  if (envOverride === 'false') return false;
+  return null;
+}
+
+/**
+ * Same gate as `useStreakSpineEnabled`, but it also reports whether PostHog has
+ * actually ANSWERED yet — modelled on `useAcquisitionPromptGate`.
+ *
+ * Surfaces that merely render (the Stats cell) can keep using the boolean: an
+ * unresolved flag reads false and the cell shows its pre-streak fallback for a
+ * beat. The streak ROUTE cannot, because its fail-closed branch navigates: a
+ * cold deep link into `/streak` arrives before flags land, and a plain boolean
+ * would bounce the user home permanently for a flag that was about to say yes.
+ * `resolved` lets the route wait instead. The backstop guarantees it eventually
+ * flips even if PostHog never answers, in which case `enabled` fails closed to
+ * whatever is cached — so a redirect still happens, just not prematurely.
+ */
+export function useStreakSpineGate(backstopMs = 5000): {
+  enabled: boolean;
+  resolved: boolean;
+} {
+  const override = streakSpineOverride();
+
+  const [state, setState] = useState<{ enabled: boolean; pending: boolean }>(() => {
+    if (override !== null) return { enabled: override, pending: false };
+    const value = analytics.getFeatureFlag('streak_spine');
+    return {
+      enabled: value === true || (typeof value === 'string' && value !== 'false'),
+      pending: value === undefined,
+    };
+  });
+
+  const { pending } = state;
+
+  useEffect(() => {
+    if (!pending) return;
+
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      const value = analytics.getFeatureFlag('streak_spine');
+      setState({
+        enabled: value === true || (typeof value === 'string' && value !== 'false'),
+        pending: false,
+      });
+    };
+
+    const unsubscribe = analytics.onFeatureFlags(finish);
+    // Guard the race where flags landed between render and subscribe.
+    if (analytics.getFeatureFlag('streak_spine') !== undefined) finish();
+    const backstop = setTimeout(finish, backstopMs);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(backstop);
+    };
+  }, [pending, backstopMs]);
+
+  return { enabled: state.enabled, resolved: !pending };
+}
+
 /**
  * Returns true when the modal keyboard guard is active: in the First Take /
  * Review / Multi First Take sheets, a backdrop press while the keyboard is up

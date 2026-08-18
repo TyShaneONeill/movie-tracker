@@ -8,6 +8,7 @@
 import {
   activityWindowStart,
   buildCalendar,
+  calendarDayLabel,
   deriveCoveredDays,
   deriveHeroState,
   deriveMilestoneDays,
@@ -52,21 +53,21 @@ describe('date helpers', () => {
 });
 
 describe('activityWindowStart', () => {
-  it('reaches the 1st of the month once the month is longer than 35 days back', () => {
-    // Late in the month the 1st is inside the rolling window, so the rolling
-    // floor wins and we still get a full extra month of context.
+  it('is a rolling 35 days back, inclusive of today', () => {
     expect(activityWindowStart('2026-08-28')).toBe('2026-07-25');
-  });
-
-  it('reaches the 1st of the month early in the month', () => {
-    // Day 3: the rolling 35-day floor reaches further back than the 1st.
     expect(activityWindowStart('2026-08-03')).toBe('2026-06-30');
   });
 
-  it('never starts after the 1st of the displayed month', () => {
-    for (const day of ['01', '05', '15', '31']) {
-      const today = `2026-08-${day}`;
-      expect(activityWindowStart(today) <= firstOfMonth(today)).toBe(true);
+  it('always reaches the 1st of the displayed month, every day of the year', () => {
+    // This is the invariant the calendar depends on, and the reason 35 is the
+    // number: no month is longer than 31 days, so the rolling floor can never
+    // land after the 1st and leave early-month cells blank.
+    for (let month = 1; month <= 12; month++) {
+      const length = new Date(Date.UTC(2026, month, 0)).getUTCDate();
+      for (let day = 1; day <= length; day++) {
+        const today = `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        expect(activityWindowStart(today) <= firstOfMonth(today)).toBe(true);
+      }
     }
   });
 });
@@ -216,6 +217,48 @@ describe('deriveMilestoneDays', () => {
   });
 });
 
+describe('calendarDayLabel', () => {
+  const cell = (over: Partial<StreakCalendarDay>): StreakCalendarDay => ({
+    day: 12,
+    date: '2026-08-12',
+    active: false,
+    covered: false,
+    inRun: false,
+    isToday: false,
+    future: false,
+    milestone: false,
+    ...over,
+  });
+
+  it('says nothing for a padding slot', () => {
+    expect(calendarDayLabel(cell({ day: null }), 'August 2026')).toBe('');
+  });
+
+  it('names what each visual treatment means, since colour and shape do not carry', () => {
+    expect(calendarDayLabel(cell({ active: true }), 'August 2026')).toBe('August 12, active');
+    expect(calendarDayLabel(cell({}), 'August 2026')).toBe('August 12, nothing logged');
+    expect(calendarDayLabel(cell({ covered: true }), 'August 2026')).toBe(
+      'August 12, covered by a rain check'
+    );
+    expect(calendarDayLabel(cell({ isToday: true }), 'August 2026')).toBe(
+      'August 12, today, not yet logged'
+    );
+    expect(calendarDayLabel(cell({ isToday: true, active: true }), 'August 2026')).toBe(
+      'August 12, today, logged'
+    );
+  });
+
+  it('lets the milestone win when it lands on today', () => {
+    expect(
+      calendarDayLabel(cell({ milestone: true, isToday: true, active: true }), 'August 2026')
+    ).toBe('August 12, milestone reached');
+  });
+
+  it('leaves a future day as a bare date — there is nothing to report yet', () => {
+    expect(calendarDayLabel(cell({ future: true }), 'August 2026')).toBe('August 12');
+  });
+});
+
 describe('segmentRuns', () => {
   const cell = (inRun: boolean): StreakCalendarDay => ({
     day: 1,
@@ -225,7 +268,6 @@ describe('segmentRuns', () => {
     inRun,
     isToday: false,
     future: false,
-    unknown: false,
     milestone: false,
   });
 
@@ -251,7 +293,6 @@ describe('buildCalendar', () => {
     today: '2026-08-15',
     covered: new Set<string>(),
     milestoneDays: new Set<string>(),
-    windowStart: '2026-08-01',
   };
 
   it('lays August 2026 out from its real first weekday', () => {
@@ -264,13 +305,12 @@ describe('buildCalendar', () => {
     expect(weeks.flatMap((w) => w.days)).toHaveLength(42);
   });
 
-  it('flags today, future days, and days before the window', () => {
-    const weeks = buildCalendar({ ...base, activeDates: new Set(), windowStart: '2026-08-10' });
+  it('flags today and future days', () => {
+    const weeks = buildCalendar({ ...base, activeDates: new Set() });
     const days = weeks.flatMap((w) => w.days).filter((d) => d.day !== null);
     expect(days.find((d) => d.day === 15)?.isToday).toBe(true);
     expect(days.find((d) => d.day === 16)?.future).toBe(true);
-    expect(days.find((d) => d.day === 5)?.unknown).toBe(true);
-    expect(days.find((d) => d.day === 12)?.unknown).toBe(false);
+    expect(days.find((d) => d.day === 14)?.future).toBe(false);
   });
 
   it('puts covered days in the run pill but not in the active set', () => {
