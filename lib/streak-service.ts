@@ -1,10 +1,10 @@
 /**
- * Streak service (PS-15 PR 3) — the client's thin wrapper over the streak
- * spine. `recordUserActivity` calls the SECURITY DEFINER RPC on qualifying
- * actions; `getStreakCard` reads the user's own streak state + recent activity
- * days for the profile punch card. All day math the DB cares about is
- * server-side (profiles.timezone); the client only derives its own local date
- * for display liveness.
+ * Streak service (PS-15) — the client's thin wrapper over the streak spine.
+ * `recordUserActivity` calls the SECURITY DEFINER RPC on qualifying actions;
+ * `getStreakCard` reads the user's own streak state + the activity days the
+ * streak screen and the Stats entry cell draw. All day math the DB cares about
+ * is server-side (profiles.timezone); the client only derives its own local
+ * date for display liveness.
  *
  * Gating: `maybeRecordActivity` no-ops unless the streak_spine feature is on
  * (flag or env override), so nothing is written while the feature is dark —
@@ -20,6 +20,7 @@ import {
   isStreakAlive,
   localTodayISO,
 } from './streak-logic';
+import { activityWindowStart } from './streak-view';
 
 /** Free-text action taxonomy — kept open (no DB enum) so PR 4's Marquee answer can join. */
 export type StreakAction =
@@ -57,11 +58,20 @@ export interface StreakCard {
   snapshot: StreakSnapshot;
   activityDays: StreakActivityDay[];
   localDate: string;
+  /** Earliest local_date the fetch covers — before this we genuinely don't know. */
+  windowStart: string;
   alive: boolean;
   effectiveStreak: number;
 }
 
-const ACTIVITY_DAYS_WINDOW = 14;
+/**
+ * Hard ceiling on activity rows, not the window itself — the window is a date
+ * range (see activityWindowStart), because the streak screen draws a whole
+ * calendar month and a trailing 14-day window blanked out early-month days we
+ * had rows for. 100 covers the longest possible range (a 31-day month plus the
+ * 35-day rolling floor) with room to spare.
+ */
+const ACTIVITY_DAYS_LIMIT = 100;
 
 /**
  * Non-hook gate mirroring useStreakSpineEnabled (hooks/use-feature-flag.ts) so
@@ -69,7 +79,7 @@ const ACTIVITY_DAYS_WINDOW = 14;
  * React context.
  *
  * `streak_spine` is a SEPARATE flag from `daily_hooks` (which is @100% since
- * 2026-07-07 for the priming sheet): the punch card must be device-validated
+ * 2026-07-07 for the priming sheet): the streak UI must be device-validated
  * Ty-only before anyone sees it — same rollout playbook as PR 1.
  */
 export function streakSpineEnabledNow(): boolean {
@@ -112,6 +122,9 @@ export async function getStreakCard(): Promise<StreakCard | null> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
+    const localDate = localTodayISO();
+    const windowStart = activityWindowStart(localDate);
+
     const [streakRes, daysRes] = await Promise.all([
       supabase
         .from('user_streaks')
@@ -124,14 +137,14 @@ export async function getStreakCard(): Promise<StreakCard | null> {
         .from('user_activity_days')
         .select('local_date, first_action, action_count')
         .eq('user_id', user.id)
+        .gte('local_date', windowStart)
         .order('local_date', { ascending: false })
-        .limit(ACTIVITY_DAYS_WINDOW),
+        .limit(ACTIVITY_DAYS_LIMIT),
     ]);
 
     if (streakRes.error) throw streakRes.error;
     if (daysRes.error) throw daysRes.error;
 
-    const localDate = localTodayISO();
     const row = streakRes.data;
     const snapshot: StreakSnapshot = row
       ? {
@@ -155,6 +168,7 @@ export async function getStreakCard(): Promise<StreakCard | null> {
       snapshot,
       activityDays: (daysRes.data ?? []) as StreakActivityDay[],
       localDate,
+      windowStart,
       alive: isStreakAlive(snapshot, localDate),
       effectiveStreak: effectiveStreak(snapshot, localDate),
     };

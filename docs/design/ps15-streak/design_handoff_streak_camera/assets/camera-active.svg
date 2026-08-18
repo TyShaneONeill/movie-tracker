@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160"><defs><filter id="b7" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="7"></feGaussianBlur></filter><filter id="b3" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"></feGaussianBlur></filter></defs>
+  <circle cx="156" cy="46" r="27" fill="#be123c"></circle>
+  <circle cx="156" cy="46" r="17" fill="#1c1017"></circle>
+  <circle cx="156" cy="37.5" r="4.5" fill="#fda4af"></circle>
+  <circle cx="148.6" cy="50.25" r="4.5" fill="#fda4af"></circle>
+  <circle cx="163.4" cy="50.25" r="4.5" fill="#fda4af"></circle>
+  <circle cx="156" cy="46" r="3" fill="#fda4af"></circle>
+  <circle cx="96" cy="42" r="32" fill="#f43f5e"></circle>
+  <circle cx="96" cy="42" r="20" fill="#1c1017"></circle>
+  <circle cx="96" cy="32" r="5" fill="#fda4af"></circle>
+  <circle cx="87.3" cy="47" r="5" fill="#fda4af"></circle>
+  <circle cx="104.7" cy="47" r="5" fill="#fda4af"></circle>
+  <circle cx="96" cy="42" r="3.5" fill="#fda4af"></circle>
+  <rect x="56" y="62" width="136" height="84" rx="24" fill="#e11d48"></rect>
+  <rect x="104" y="78" width="64" height="46" rx="13" fill="#d4d4d8"></rect>
+  <rect x="116" y="89" width="40" height="7" rx="3.5" fill="#e11d48"></rect>
+  <rect x="116" y="102" width="40" height="7" rx="3.5" fill="#e11d48"></rect>
+  <rect x="56" y="118" width="136" height="28" rx="14" fill="#be123c"></rect>
+  <rect x="50" y="78" width="20" height="40" rx="8" fill="#9f1239"></rect>
+  <rect x="20" y="86" width="42" height="30" rx="8" fill="#9f1239"></rect>
+  <rect x="6" y="80" width="18" height="42" rx="9" fill="#ffe4e6"></rect>
+  <circle cx="172" cy="128" r="6" fill="#fecdd3"></circle>
+  <circle cx="15" cy="101" r="13" fill="#ffdcc2" filter="url(#b7)"></circle>
+  <circle cx="15" cy="101" r="6" fill="#ffffff"></circle>
+  <rect x="0" y="99" width="32" height="4" rx="2" fill="rgba(255,255,255,.85)" filter="url(#b3)"></rect>
+</svg>

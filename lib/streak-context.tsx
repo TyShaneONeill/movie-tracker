@@ -9,7 +9,7 @@ import { recordUserActivity, type StreakAction } from './streak-service';
  * triggerFirstWinCheck in notification-priming-context). On a milestone
  * (3/7/30/100) it pops the existing AchievementCelebration — no new
  * celebration UI. `streakVersion` bumps after every recorded action so the
- * profile punch card can refetch without a manual refresh.
+ * streak surfaces can refetch without a manual refresh.
  *
  * Gated on streak_spine (separate from daily_hooks — Ty-only until
  * device-validated): when off, recordActivity is a no-op and nothing is

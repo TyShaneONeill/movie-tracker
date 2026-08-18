@@ -7,6 +7,9 @@ import * as Haptics from 'expo-haptics';
 import { Fonts } from '@/constants/theme';
 import { usePremium } from '@/hooks/use-premium';
 import { useStatsColors, type StatsV2ColorTokens } from '@/constants/stats-v2-theme';
+import { analytics } from '@/lib/analytics';
+import { useStreakCard } from '@/hooks/use-streak-card';
+import { deriveHeroState, type StreakHeroState } from '@/lib/streak-view';
 
 /**
  * Stats v2 "Going deeper" section (design section 1E) — the future/insight
@@ -143,10 +146,47 @@ function chipStatus(
   return { glyph: 'chevron-forward', icon: 'star', label: 'Live for you', color: c.status.live };
 }
 
+/**
+ * The live Watch Streaks cell (PS-15). Explicitly FREE — no lock, no Plus gate:
+ * the streak is a habit surface, not a premium insight, so it is the one cell
+ * whose status never depends on `isPremium`. Behind `streak_spine`; with the
+ * flag off the cell falls back byte-identically to the "Coming soon" teaser.
+ */
+type StreakCellView = { state: StreakHeroState; streak: number; best: number };
+
+function streakCellView(card: ReturnType<typeof useStreakCard>['card']): StreakCellView | null {
+  if (!card) return null;
+  const extendedToday = card.activityDays.some((d) => d.local_date === card.localDate);
+  return {
+    state: deriveHeroState(card.effectiveStreak, extendedToday),
+    streak: card.effectiveStreak,
+    best: card.snapshot.longestStreak,
+  };
+}
+
+function streakNumColor(state: StreakHeroState, c: StatsV2ColorTokens): string {
+  if (state === 'milestone') return c.gold;
+  if (state === 'active') return c.accent.primary;
+  return c.ter;
+}
+
+function streakCellBlurb(v: StreakCellView): string {
+  if (v.streak === 0) return 'No run yet — log anything today and day one prints.';
+  if (v.state === 'milestone') {
+    return v.streak >= v.best
+      ? `Longest run yet — day ${v.streak} is in the can.`
+      : `Day ${v.streak} is in the can. Best ${v.best}.`;
+  }
+  if (v.state === 'active') return `Today is already in the can. Best ${v.best}.`;
+  return `Today’s frame is still blank. Best ${v.best}.`;
+}
+
 export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: number; now?: Date }) {
   const c = useStatsColors();
   const { isPremium, isLoading } = usePremium();
   const insightsReady = loggedCount >= INSIGHTS_THRESHOLD;
+  const { card: streakCard } = useStreakCard();
+  const streak = streakCellView(streakCard);
 
   const features = GOING_DEEPER_FEATURES;
   const n = features.length;
@@ -208,8 +248,11 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
           const span = i === n - 1 && n % 2 === 1 && n > 1;
           const hasRight = !span && i % 2 === 0 && i + 1 < n;
           const hasBelow = i < n - lastRowCount;
-          const status = chipStatus(feature, isPremium, insightsReady, c);
-          const route = feature.route;
+          const live = feature.key === 'streaks' && streak ? streak : null;
+          const status = live
+            ? { glyph: 'chevron-forward' as const, icon: 'star' as const, label: 'Live for you', color: c.status.live }
+            : chipStatus(feature, isPremium, insightsReady, c);
+          const route = live ? '/streak?from=stats_cell' : feature.route;
           const chipStyle = [
             span ? styles.chipSpan : styles.chip,
             hasRight && { borderRightWidth: 1, borderRightColor: c.line },
@@ -227,7 +270,9 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
                 >
                   {feature.title}
                 </Text>
-                {!isLoading && (
+                {/* The streak cell is free, so its glyph doesn't wait on
+                    premium status the way the gated chips do. */}
+                {(!isLoading || live) && (
                   <Ionicons
                     name={status.glyph}
                     size={status.glyph === 'chevron-forward' ? 15 : 13}
@@ -236,13 +281,38 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
                   />
                 )}
               </View>
+              {/* No glyph in this cell — the numeral's colour is the whole
+                  status read: rose when today is in the can, gold at a
+                  milestone, flat grey when today's frame is still blank. */}
+              {live && (
+                <View style={styles.streakRow}>
+                  <Text
+                    maxFontSizeMultiplier={1.1}
+                    style={[
+                      styles.streakNum,
+                      { color: streakNumColor(live.state, c) },
+                      live.state !== 'idle' && {
+                        textShadowColor:
+                          live.state === 'milestone' ? 'rgba(251,191,36,0.34)' : 'rgba(225,29,72,0.30)',
+                        textShadowOffset: { width: 0, height: 0 },
+                        textShadowRadius: 18,
+                      },
+                    ]}
+                  >
+                    {live.streak}
+                  </Text>
+                  <Text maxFontSizeMultiplier={1.1} style={[styles.streakUnit, { color: c.ter }]}>
+                    {live.streak === 1 ? 'DAY' : 'DAYS'}
+                  </Text>
+                </View>
+              )}
               <Text
                 maxFontSizeMultiplier={1.3}
                 style={[styles.chipBlurb, span && styles.chipBlurbSpan, { color: c.ter }]}
               >
-                {feature.blurb}
+                {live ? streakCellBlurb(live) : feature.blurb}
               </Text>
-              {!isLoading && (
+              {(!isLoading || live) && (
                 <View style={styles.chipStatusRow}>
                   <Ionicons name={status.icon} size={10} color={status.color} />
                   <Text maxFontSizeMultiplier={1.3} style={[styles.chipStatusText, { color: status.color }]}>
@@ -261,10 +331,23 @@ export function GoingDeeper({ loggedCount, now = new Date() }: { loggedCount: nu
                   if (Platform.OS !== 'web') {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }
+                  if (live) {
+                    analytics.track('streak:stats_cell_tap', {
+                      state: live.state,
+                      streak: live.streak,
+                    });
+                  }
                   router.push(route as never);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={feature.title}
+                // The numeral's colour is the whole status read, and colour does
+                // not reach a screen reader — so the label has to say the number
+                // and what it means.
+                accessibilityLabel={
+                  live
+                    ? `${feature.title}, ${live.streak} ${live.streak === 1 ? 'day' : 'days'}. ${streakCellBlurb(live)}`
+                    : feature.title
+                }
                 style={({ pressed }) => [...chipStyle, pressed && { opacity: 0.6 }]}
               >
                 {chipBody}
@@ -415,5 +498,24 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.inter.bold,
     fontSize: 9.5,
     lineHeight: 13,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 7,
+    marginTop: -5, // the chip's own 10pt gap already sits above the numeral
+  },
+  streakNum: {
+    fontFamily: Fonts.outfit.extrabold,
+    fontSize: 40,
+    lineHeight: 43,
+    letterSpacing: -1.6, // -.04em
+  },
+  streakUnit: {
+    fontFamily: Fonts.mono.medium,
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 1.2,
+    paddingBottom: 8,
   },
 });
