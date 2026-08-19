@@ -495,9 +495,15 @@ button.gd-cell:focus-visible{outline:2px solid var(--m-tint);outline-offset:-2px
   position:absolute;right:14px;top:50%;transform:translateY(-50%);
   width:170px;height:136px;z-index:1;
 }
+/* Round 11 (founder-ordered): the sub line sits centred under the numeral
+   rather than flush to its left edge. The block stays anchored at left:24 and
+   sized by its widest line — `align-items:center` is the whole mechanism, so
+   it holds at any digit count with nothing to measure. Where the milestone
+   chip makes the sub row the wider of the two, the numeral centres over IT;
+   the two share one axis either way, which is the ask. */
 .d2-heronum{
   position:absolute;left:24px;top:50%;transform:translateY(-48%);z-index:2;
-  display:flex;flex-direction:column;gap:4px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
 }
 .d2-hero.mile .d2-heronum{gap:5px;filter:drop-shadow(0 0 28px rgba(251,191,36,.4))}
 .d2-num{
@@ -975,7 +981,7 @@ button.gd-cell:focus-visible{outline:2px solid var(--m-tint);outline-offset:-2px
   <header class="topbar">
     <div class="topbar-id">
       <div class="topbar-title">Streak Card Redesign</div>
-      <div class="topbar-sub">PS-15 · round 10 · the handoff camera</div>
+      <div class="topbar-sub">PS-15 · round 11 · the handoff camera</div>
     </div>
     <div class="toggle">
       <span class="tglabel">Mocks</span>
@@ -987,13 +993,14 @@ button.gd-cell:focus-visible{outline:2px solid var(--m-tint);outline-offset:-2px
   </header>
 
   <section class="hero">
-    <p class="eyebrow">Round 10 · direction D</p>
+    <p class="eyebrow">Round 11 · direction D</p>
     <h1>The founder<br><span class="dim">shipped the camera.</span></h1>
     <p>Round 4 put three cameras up for a vote. None of them won — <b>Tyshane drew the answer himself</b> in a separate design session and sent back a high-fidelity handoff: baked SVG geometry per state, a state-palette table, a two-layer beam spec, and the whole screen re-specified at 393pt. Round 5 was a <b>transplant, not a reinterpretation</b>. Colours, geometry, typography and spacing below are his, copied across value for value.</p>
     <div class="verdict">
-      <p class="eyebrow">What changed in round 10</p>
+      <p class="eyebrow">What changed in round 11</p>
       <ul>
-        <li><b>The warm wash is locked in, and it stops leaking.</b> He picked 2B out of round 9&rsquo;s two grounds, so the plain card and the <code>2A / 2B</code> sub-toggle are gone — the wash is just what light mode does under a lit hero. It was also bleeding: round 9 let it overshoot the hero by 26px at each end to avoid a seam, which put warm tint on the tabs pill above it (visible on <em>FRIENDS · SOON</em>) and on the message card below. It is now bounded by the hero and masked to zero before it reaches those bounds, so there is nothing to clip and no edge to see. Outside the hero band the screen is pixel-for-pixel the plain ground.</li>
+        <li><b>The sub line is centred under the numeral.</b> Founder-ordered. It was flush to the numeral&rsquo;s left edge, which reads as centred at two digits and visibly off at one or three. The number block now centres its column: the block stays anchored at <code>left:24</code> and sized by its widest line, and <code>align-items:center</code> is the entire mechanism — it holds at any digit count with nothing measured and no per-state rule. Where the milestone chip makes the sub row wider than the number, the two still share one axis; the number centres over the row rather than the row under the number, which is the same picture. Note that this moves the numeral off the block&rsquo;s left edge in exactly those cases (a one-digit count, or a milestone), by half the difference between the two lines.</li>
+        <li><b>Round 10 — the warm wash is locked in, and it stops leaking.</b> He picked 2B out of round 9&rsquo;s two grounds, so the plain card and the <code>2A / 2B</code> sub-toggle are gone — the wash is just what light mode does under a lit hero. It was also bleeding: round 9 let it overshoot the hero by 26px at each end to avoid a seam, which put warm tint on the tabs pill above it (visible on <em>FRIENDS · SOON</em>) and on the message card below. It is now bounded by the hero and masked to zero before it reaches those bounds, so there is nothing to clip and no edge to see. Outside the hero band the screen is pixel-for-pixel the plain ground.</li>
         <li><b>Round 9 — the screening room is deleted; light mode gets the founder&rsquo;s warm light on white.</b> Round 7&rsquo;s reasoning was that projection needs darkness, so it handed the hero a dark band to sit in. He answered with a browser mock proving the opposite: the beam on white was too <em>weak</em>, not too pale. Repainted at ~60% alpha at the lens and falling off linearly to the far edge, the cone reads as light on paper. The dark band, its vignette, its top highlight and its forced dark token block are all gone.</li>
         <li><b>Round 9 — every light-mode value is sampled off his screenshot.</b> Idle numeral zinc, lit numeral near-black <code>#18181b</code> under a 16px warm glow instead of round 6&rsquo;s 90px smear, milestone numeral an amber-brown gradient with a <code>#b45309</code> chip, and the idle camera moved to the light half of the zinc ramp. His lit and milestone camera palettes decode back to the handoff hexes exactly, so those are untouched.</li>
         <li><b>Round 8 — the milestone chip stops hiding under the camera.</b> On screens narrower than the 393pt artboard the sub row kept its full width and slid the gold <code>MILESTONE</code> chip onto the barrel, where gold on gold made it vanish outright; a bug since the round-5 transplant, in both themes. The number block now carries a container-query ceiling — everything left of the lens, less 20px of air — and the sub row wraps, so below ~370pt the chip drops to its own line instead of into the camera. At 393 the hero renders identically to round 7, element for element.</li>
