@@ -424,34 +424,39 @@ function HeroNumber({
       ]}
       pointerEvents="none"
     >
-      {lit && <NumeralHalo label={label} mile={mile} isDark={isDark} />}
-      {mile ? (
-        <GradientNumeral label={label} isDark={isDark} />
-      ) : (
-        <Text
-          maxFontSizeMultiplier={1}
-          allowFontScaling={false}
-          style={[
-            styles.num,
-            lit
-              ? isDark
-                // The whole bloom is `NumeralHalo`. A `textShadow` under it
-                // read a third brighter on iOS than on Android at the glyph
-                // edge — the same divergence in miniature — and the halo
-                // covers that band on its own.
-                ? { color: '#ffffff' }
-                : {
-                    color: c.text,
-                    textShadowColor: 'rgba(255,150,60,0.45)',
-                    textShadowOffset: { width: 0, height: 0 },
-                    textShadowRadius: 16,
-                  }
-              : { color: '#a1a1aa' },
-          ]}
-        >
-          {label}
-        </Text>
-      )}
+      {/* The numeral gets its own box, which shrinks to the digits. That box is
+          what the sub row centres against and what the bloom centres inside, so
+          both track real ink at any digit count without measuring anything. */}
+      <View>
+        {lit && <NumeralHalo mile={mile} isDark={isDark} />}
+        {mile ? (
+          <GradientNumeral label={label} isDark={isDark} />
+        ) : (
+          <Text
+            maxFontSizeMultiplier={1}
+            allowFontScaling={false}
+            style={[
+              styles.num,
+              lit
+                ? isDark
+                  // The whole bloom is `NumeralHalo`. A `textShadow` under it
+                  // read a third brighter on iOS than on Android at the glyph
+                  // edge — the same divergence in miniature — and the halo
+                  // covers that band on its own.
+                  ? { color: '#ffffff' }
+                  : {
+                      color: c.text,
+                      textShadowColor: 'rgba(255,150,60,0.45)',
+                      textShadowOffset: { width: 0, height: 0 },
+                      textShadowRadius: 16,
+                    }
+                : { color: '#a1a1aa' },
+            ]}
+          >
+            {label}
+          </Text>
+        )}
+      </View>
       <View style={[styles.unitRow, mile && styles.unitRowWrap]}>
         <Text
           maxFontSizeMultiplier={1.2}
@@ -495,8 +500,6 @@ const NUM_LINE_HEIGHT = 96;
  */
 const NUM_BASELINE = 81;
 const NUM_CAP_TOP = NUM_BASELINE - 63;
-/** Outfit ExtraBold's digit advance at 88px, measured off the device. */
-const NUM_DIGIT_ADVANCE = 52;
 /**
  * How much higher the plain numeral's glyphs sit than the milestone numeral's.
  *
@@ -598,22 +601,11 @@ function haloSpec(mile: boolean, isDark: boolean): HaloSpec | null {
     : null;
 }
 
-function NumeralHalo({
-  label,
-  mile,
-  isDark,
-}: {
-  label: string;
-  mile: boolean;
-  isDark: boolean;
-}) {
+function NumeralHalo({ mile, isDark }: { mile: boolean; isDark: boolean }) {
   const spec = haloSpec(mile, isDark);
   if (!spec) return null;
 
   const { r } = spec;
-  // Centred on the digits' advance box, which is within a few points of their
-  // ink either way — nothing a 130pt pool can show.
-  const cx = (label.length * NUM_DIGIT_ADVANCE) / 2;
   const cy = (NUM_CAP_TOP + NUM_BASELINE) / 2 - (mile ? 0 : NUM_TEXT_RISE);
   // Gradient ids are resolved across every mounted Svg root, not per root, so
   // the variant is baked into the id — the same reason the milestone discs
@@ -621,62 +613,72 @@ function NumeralHalo({
   const id = `numHalo-${mile ? 'mile' : 'warm'}-${isDark ? 'dark' : 'light'}`;
 
   return (
-    <Svg
-      width={r * 2}
-      height={r * 2}
-      pointerEvents="none"
-      style={[styles.halo, { left: cx - r, top: cy - r }]}
-    >
-      <Defs>
-        <RadialGradient id={id} cx={r} cy={r} rx={r} ry={r} gradientUnits="userSpaceOnUse">
-          {spec.stops.map(([offset, opacity]) => (
-            // rgb + stopOpacity, never an rgba() string: react-native-svg drops
-            // the alpha channel of an rgba stopColor and paints it opaque.
-            <Stop
-              key={offset}
-              offset={offset}
-              stopColor={`rgb(${spec.rgb})`}
-              stopOpacity={opacity}
-            />
-          ))}
-        </RadialGradient>
-      </Defs>
-      <Circle cx={r} cy={r} r={r} fill={`url(#${id})`} />
-    </Svg>
+    // Horizontally the halo is centred by layout, not arithmetic: the anchor
+    // spans the numeral box and centres the circle in it, so the bloom sits on
+    // the digits' true midpoint. A digit-count estimate would miss it — Outfit's
+    // "1" is barely half the advance of its other numerals.
+    <View pointerEvents="none" style={[styles.haloAnchor, { top: cy - r, height: r * 2 }]}>
+      <Svg width={r * 2} height={r * 2}>
+        <Defs>
+          <RadialGradient id={id} cx={r} cy={r} rx={r} ry={r} gradientUnits="userSpaceOnUse">
+            {spec.stops.map(([offset, opacity]) => (
+              // rgb + stopOpacity, never an rgba() string: react-native-svg
+              // drops the alpha channel of an rgba stopColor and paints it
+              // opaque.
+              <Stop
+                key={offset}
+                offset={offset}
+                stopColor={`rgb(${spec.rgb})`}
+                stopOpacity={opacity}
+              />
+            ))}
+          </RadialGradient>
+        </Defs>
+        <Circle cx={r} cy={r} r={r} fill={`url(#${id})`} />
+      </Svg>
+    </View>
   );
 }
 
 function GradientNumeral({ label, isDark }: { label: string; isDark: boolean }) {
-  // Wide enough for three digits at 88px; the text is left-anchored so extra
-  // width costs nothing. Nothing here bleeds outside the box any more — the
-  // celebration glow is `NumeralHalo`, its own Svg behind this one.
-  const width = 230;
-  const height = NUM_LINE_HEIGHT;
   return (
-    <Svg width={width} height={height}>
-      <Defs>
-        <LinearGradient
-          id="numInk"
-          x1="0"
-          y1={NUM_CAP_TOP}
-          x2="0"
-          y2={NUM_BASELINE}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop offset="0" stopColor={isDark ? '#ffffff' : '#c26208'} />
-          <Stop offset="1" stopColor={isDark ? '#fde68a' : '#e9910c'} />
-        </LinearGradient>
-      </Defs>
-      <SvgText
-        x="0"
-        y={NUM_BASELINE}
-        fill="url(#numInk)"
-        fontFamily={Fonts.outfit.extrabold}
-        fontSize={NUM_FONT_SIZE}
+    <View>
+      {/* An invisible copy of the numeral sizes the box. The font measures
+          itself, so this is exactly as wide as the digits are — which is what
+          the sub row centres against. A fixed width (it used to be 230, room
+          for three digits) would centre the row on empty space instead. */}
+      <Text
+        maxFontSizeMultiplier={1}
+        allowFontScaling={false}
+        style={[styles.num, styles.numGhost]}
       >
         {label}
-      </SvgText>
-    </Svg>
+      </Text>
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient
+            id="numInk"
+            x1="0"
+            y1={NUM_CAP_TOP}
+            x2="0"
+            y2={NUM_BASELINE}
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0" stopColor={isDark ? '#ffffff' : '#c26208'} />
+            <Stop offset="1" stopColor={isDark ? '#fde68a' : '#e9910c'} />
+          </LinearGradient>
+        </Defs>
+        <SvgText
+          x="0"
+          y={NUM_BASELINE}
+          fill="url(#numInk)"
+          fontFamily={Fonts.outfit.extrabold}
+          fontSize={NUM_FONT_SIZE}
+        >
+          {label}
+        </SvgText>
+      </Svg>
+    </View>
   );
 }
 
@@ -1121,8 +1123,11 @@ const styles = StyleSheet.create({
     width: CAMERA_WIDTH,
     height: CAMERA_HEIGHT,
   },
-  heroNum: { position: 'absolute', left: 24, gap: 4 },
-  halo: { position: 'absolute' },
+  // The block is anchored left and sized by its widest line; `alignItems`
+  // centres the sub row under the numeral (and the numeral under the sub row
+  // when the milestone chip makes that row the wider of the two).
+  heroNum: { position: 'absolute', left: 24, gap: 4, alignItems: 'center' },
+  haloAnchor: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   num: {
     fontFamily: Fonts.outfit.extrabold,
     fontSize: NUM_FONT_SIZE,
@@ -1131,6 +1136,8 @@ const styles = StyleSheet.create({
     lineHeight: NUM_LINE_HEIGHT,
     ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
   },
+  // Present for its width only — the gradient numeral paints over it.
+  numGhost: { opacity: 0 },
   unitRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   unitRowWrap: { flexWrap: 'wrap', rowGap: 5 },
   unit: { fontFamily: Fonts.inter.regular, fontSize: 15, lineHeight: 20 },
