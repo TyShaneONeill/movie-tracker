@@ -7,6 +7,7 @@ import * as prefService from '@/lib/notification-preferences-service';
 import * as pushHook from '@/hooks/use-push-notifications';
 import * as analyticsModule from '@/lib/analytics';
 import { usePremiumGate } from '@/hooks/use-premium';
+import { useStreakSpineGate } from '@/hooks/use-feature-flag';
 import { router } from 'expo-router';
 
 // Mock @expo/vector-icons — pulls in expo-asset which isn't in
@@ -35,6 +36,12 @@ jest.mock('@/hooks/use-premium', () => ({
   usePremiumGate: jest.fn(),
 }));
 jest.mock('@/lib/haptics', () => ({ hapticImpact: jest.fn() }));
+// Only the streak gate is overridden — the rest of the module stays real so a
+// flag hook used by a nested row here doesn't silently become undefined.
+jest.mock('@/hooks/use-feature-flag', () => ({
+  ...jest.requireActual('@/hooks/use-feature-flag'),
+  useStreakSpineGate: jest.fn(() => ({ enabled: false, resolved: true })),
+}));
 jest.mock('@/lib/theme-context', () => ({
   useTheme: () => ({ effectiveTheme: 'dark' }),
 }));
@@ -43,6 +50,7 @@ const getPrefMock = prefService.getNotificationPreference as jest.Mock;
 const setPrefMock = prefService.setNotificationPreference as jest.Mock;
 const usePushMock = pushHook.usePushNotifications as jest.Mock;
 const usePremiumGateMock = usePremiumGate as jest.Mock;
+const useStreakSpineGateMock = useStreakSpineGate as jest.Mock;
 const routerPushMock = router.push as jest.Mock;
 const trackSpy = jest.spyOn(analyticsModule.analytics, 'track');
 const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
@@ -72,6 +80,8 @@ beforeEach(() => {
     tier: 'plus',
     isLoading: false,
   });
+  // streak_spine is still dark by default; its own block resolves it on.
+  useStreakSpineGateMock.mockReturnValue({ enabled: false, resolved: true });
 });
 
 describe('NotificationsSettingsScreen — undetermined permission', () => {
@@ -216,6 +226,38 @@ describe('NotificationsSettingsScreen — granted permission', () => {
     fireEvent(master, 'valueChange', false);
     await waitFor(() => expect(openURLSpy).toHaveBeenCalledWith('app-settings:'));
   });
+});
+
+describe('NotificationsSettingsScreen — streak reminders gate', () => {
+  beforeEach(() => {
+    usePushMock.mockReturnValue({
+      permissionStatus: 'granted',
+      requestPermission: jest.fn(),
+      isAvailable: true,
+    });
+  });
+
+  it('gate resolved ON: renders the streak reminders row', async () => {
+    // This row reads the SUBSCRIBING gate. The two-sample hook it used to read
+    // latched whatever the flag said while this screen mounted, so opening
+    // Settings before PostHog answered hid the row for the whole session.
+    useStreakSpineGateMock.mockReturnValue({ enabled: true, resolved: true });
+    getPrefMock.mockResolvedValue(null);
+    const { findByLabelText } = render(<NotificationsSettingsScreen />, { wrapper });
+    const streak = await findByLabelText('Streak reminders', {}, { timeout: 8000 });
+    expect(streak).toBeTruthy();
+  }, 15000);
+
+  it('gate off: the row stays hidden, so the toggle cannot reveal a dark feature', async () => {
+    useStreakSpineGateMock.mockReturnValue({ enabled: false, resolved: true });
+    getPrefMock.mockResolvedValue(null);
+    const { findByLabelText, queryByLabelText } = render(<NotificationsSettingsScreen />, {
+      wrapper,
+    });
+    // Wait for the list to paint before asserting the absence.
+    await findByLabelText('Release reminders', {}, { timeout: 8000 });
+    expect(queryByLabelText('Streak reminders')).toBeNull();
+  }, 15000);
 });
 
 describe('NotificationsSettingsScreen — release reminders premium gate', () => {

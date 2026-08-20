@@ -74,9 +74,15 @@ export interface StreakCard {
 const ACTIVITY_DAYS_LIMIT = 100;
 
 /**
- * Non-hook gate mirroring useStreakSpineEnabled (hooks/use-feature-flag.ts) so
- * service-layer callers (e.g. episode logging) can gate identically without a
- * React context.
+ * The gate for every streak WRITE. Non-hook by design: it reads the flag at the
+ * moment it is called, so it answers correctly for an action taken in the first
+ * seconds after launch — before PostHog's identify call has delivered
+ * person-targeted flags, and before any React subscription has resolved.
+ *
+ * Hook-shaped gates must NOT be used for writes. `StreakProvider` mounts at the
+ * app root, so a hook that sampled the flag during its render latched false for
+ * the whole session and silently dropped every qualifying action (#834). Render
+ * surfaces subscribe via `useStreakSpineGate`; writes check here.
  *
  * `streak_spine` is a SEPARATE flag from `daily_hooks` (which is @100% since
  * 2026-07-07 for the priming sheet): the streak UI must be device-validated
