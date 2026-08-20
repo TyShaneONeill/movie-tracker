@@ -22,6 +22,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  BackHandler,
   Platform,
   Pressable,
   StyleSheet,
@@ -86,6 +87,8 @@ const BUTTON_RISE_PX = 46;
 const BUTTON_RISE_OVERSHOOT_PX = -3;
 
 const CTA_COPY = 'Keep it rolling';
+/** Gutter for the text rows. Deliberately NOT on the column — see styles.content. */
+const CONTENT_PADDING = 24;
 
 // The light envelope is symmetric ON PURPOSE (trap 02): an expo-out races every
 // interval to its end value and turns a beat of light into a strobe, and there
@@ -148,10 +151,12 @@ function Takeover({
   const columns = useMemo(() => digitColumns(from, to), [from, to]);
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+  /** Mirrors `dismissing` for render — a ref alone can't drop pointerEvents. */
+  const [exiting, setExiting] = useState(false);
   const startedAt = useRef(0);
   const atRest = useRef(false);
   const dismissing = useRef(false);
-  const hapticTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const sequenceTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const dim = useSharedValue(0);
   // The content's own fade, so the numeral's 0.19 floor doesn't sit visible
@@ -182,9 +187,14 @@ function Takeover({
     [roll0, roll1, roll2, roll3]
   );
 
-  const clearHaptics = useCallback(() => {
-    hapticTimers.current.forEach(clearTimeout);
-    hapticTimers.current = [];
+  /**
+   * The sequence's JS-side timers: the haptic marks and the at-rest flip. They
+   * are discrete events rather than animation — everything that MOVES is a
+   * UI-thread Reanimated run — but they still have to die with a skip.
+   */
+  const clearSequenceTimers = useCallback(() => {
+    sequenceTimers.current.forEach(clearTimeout);
+    sequenceTimers.current = [];
   }, []);
 
   /**
@@ -356,7 +366,7 @@ function Takeover({
        the buzz is the light catching, so it hangs off the flicker's own onsets
        rather than a second timeline that could drift from it. */
     const mark = (at: number, fire: () => void) => {
-      hapticTimers.current.push(setTimeout(fire, at));
+      sequenceTimers.current.push(setTimeout(fire, at));
     };
     flickerOnsets().forEach((onset) => {
       mark(t.flickStart + onset, () => hapticImpact(ImpactFeedbackStyle.Light));
@@ -367,25 +377,26 @@ function Takeover({
     });
 
     return () => {
-      clearHaptics();
+      clearSequenceTimers();
     };
   }, [
-    reduceMotion, timeline, columns, from, to, milestone, settle, clearHaptics,
+    reduceMotion, timeline, columns, from, to, milestone, settle, clearSequenceTimers,
     dim, veil, keyLine, camOpacity, camScale, camY, shakeAmp, shakePhase, light,
     numScale, subLine, buttonOpacity, buttonY, rolls,
   ]);
 
-  useEffect(() => clearHaptics, [clearHaptics]);
+  useEffect(() => clearSequenceTimers, [clearSequenceTimers]);
 
   /** Fade the whole thing out, then hand back at the settle point — not at t=0. */
   const dismiss = useCallback(() => {
     if (dismissing.current) return;
     dismissing.current = true;
-    clearHaptics();
+    setExiting(true);
+    clearSequenceTimers();
     exit.value = withTiming(0, { duration: EXIT_MS, easing: EXIT }, (finished) => {
       if (finished) runOnJS(onDismissed)();
     });
-  }, [clearHaptics, exit, onDismissed]);
+  }, [clearSequenceTimers, exit, onDismissed]);
 
   /** Whole-screen tap: jump to the lit end state, or dismiss if already there. */
   const onBackdropPress = useCallback(() => {
@@ -399,16 +410,38 @@ function Takeover({
       at_ms: at,
       phase: phaseAt(at, timeline),
     });
-    clearHaptics();
+    clearSequenceTimers();
     settle();
     atRest.current = true;
-  }, [clearHaptics, dismiss, settle, timeline]);
+  }, [clearSequenceTimers, dismiss, settle, timeline]);
 
   const onCtaPress = useCallback(() => {
-    analytics.track('streak:celebration_cta_tap');
+    analytics.track('streak:celebration_cta_tap', {
+      from,
+      to,
+      milestone: milestone ?? null,
+      // Whether they sat through it or skipped to the button reads very
+      // differently, and the shown/skipped events cannot answer it alone.
+      at_ms: Date.now() - startedAt.current,
+    });
     hapticSelection();
     dismiss();
-  }, [dismiss]);
+  }, [dismiss, from, to, milestone]);
+
+  /**
+   * Android's back gesture gets the same semantics as a tap anywhere: skip
+   * mid-sequence, dismiss once at rest. Returning true swallows the event —
+   * without this, back pops the route UNDERNEATH a takeover that stays on
+   * screen, because the takeover is a sibling of the navigator rather than a
+   * Modal (and a Modal is what it must not be — see the file header).
+   */
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBackdropPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBackdropPress]);
 
   /* ------------------------------------------------------------- styles */
 
@@ -458,6 +491,10 @@ function Takeover({
       style={[StyleSheet.absoluteFill, styles.root, rootStyle]}
       accessibilityViewIsModal
       accessible={false}
+      // Once dismissed the overlay is fading but still full-screen: leaving it
+      // touchable makes the first 260ms after the tap an invisible dead zone
+      // over whatever the user is trying to reach underneath.
+      pointerEvents={exiting ? 'none' : 'auto'}
     >
       <Animated.View style={[StyleSheet.absoluteFill, styles.dim, dimStyle]} pointerEvents="none" />
 
@@ -576,7 +613,11 @@ function DigitSlot({
 const styles = StyleSheet.create({
   root: { zIndex: 100, elevation: 100 },
   dim: { backgroundColor: 'rgba(9,6,10,0.94)' },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  // No horizontal padding here on purpose: the stage is full-bleed (the beam
+  // runs to the screen edge) and its geometry is computed in SCREEN
+  // coordinates. Padding on this column would inset the stage and silently
+  // shift the lens the beam is aimed at. The text rows carry their own.
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   keyLine: {
     fontFamily: Fonts.inter.medium,
     fontSize: 13,
@@ -585,6 +626,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: '#a1a1aa',
     marginBottom: 8,
+    paddingHorizontal: CONTENT_PADDING,
+    textAlign: 'center',
   },
   numeral: { flexDirection: 'row', alignItems: 'flex-start' },
   slot: { height: NUM_BOX, overflow: 'hidden' },
@@ -605,8 +648,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#d4d4d8',
     marginTop: 6,
+    paddingHorizontal: CONTENT_PADDING,
+    textAlign: 'center',
   },
-  ctaWrap: { marginTop: 44 },
+  ctaWrap: { marginTop: 44, marginHorizontal: CONTENT_PADDING },
   ctaShelf: {
     position: 'absolute',
     left: 0,

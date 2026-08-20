@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, BackHandler } from 'react-native';
 
 import { StreakCelebrationTakeover } from '@/components/streak/streak-celebration-takeover';
 import { analytics } from '@/lib/analytics';
@@ -167,12 +167,92 @@ describe('StreakCelebrationTakeover — tap to skip', () => {
   });
 });
 
+/**
+ * The takeover is a sibling of the navigator, not a Modal, so nothing swallows
+ * the Android back gesture on its behalf. Left unhandled, back pops the route
+ * UNDERNEATH a takeover that stays on screen.
+ */
+describe('StreakCelebrationTakeover — Android back', () => {
+  /** The handler the takeover registered, or null if it registered none. */
+  function backHandler(): (() => boolean) | null {
+    const add = BackHandler.addEventListener as unknown as jest.Mock;
+    const call = add.mock.calls.find((c) => c[0] === 'hardwareBackPress');
+    return call ? call[1] : null;
+  }
+
+  beforeEach(() => {
+    jest.spyOn(BackHandler, 'addEventListener');
+  });
+
+  it('registers a hardwareBackPress handler while it is up', async () => {
+    await mount(extension());
+    expect(backHandler()).not.toBeNull();
+  });
+
+  it('registers nothing when idle — back must behave normally', async () => {
+    await mount(null);
+    expect(backHandler()).toBeNull();
+  });
+
+  it('swallows the event so back cannot pop the route underneath', async () => {
+    await mount(extension());
+    expect(backHandler()!()).toBe(true);
+  });
+
+  it('skips mid-sequence, exactly like a tap anywhere', async () => {
+    await mount(extension());
+    act(() => {
+      jest.advanceTimersByTime(900);
+    });
+
+    act(() => {
+      backHandler()!();
+    });
+
+    const skipped = track.mock.calls.find((c) => c[0] === 'streak:celebration_skipped');
+    expect(skipped).toBeDefined();
+    expect(skipped![1].phase).toBe('flicker');
+    expect(mockDismissCelebration).not.toHaveBeenCalled();
+  });
+
+  it('dismisses once at rest, exactly like a tap anywhere', async () => {
+    await mount(extension());
+
+    act(() => {
+      backHandler()!(); // skips to the end state
+    });
+    act(() => {
+      backHandler()!(); // now dismisses
+    });
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(mockDismissCelebration).toHaveBeenCalledTimes(1);
+  });
+
+  it('unregisters when it unmounts', async () => {
+    const remove = jest.fn();
+    (BackHandler.addEventListener as unknown as jest.Mock).mockReturnValue({ remove });
+
+    const { unmount } = await mount(extension());
+    unmount();
+
+    expect(remove).toHaveBeenCalled();
+  });
+});
+
 describe('StreakCelebrationTakeover — the button', () => {
   it('reports the tap and hands back only after the exit has run', async () => {
     const { getByLabelText } = await mount(extension());
 
     fireEvent.press(getByLabelText('Keep it rolling'));
-    expect(track).toHaveBeenCalledWith('streak:celebration_cta_tap');
+    // Carries which extension it closed and how long the user gave it —
+    // "sat through it" and "skipped to the button" read very differently.
+    const tap = track.mock.calls.find((c) => c[0] === 'streak:celebration_cta_tap');
+    expect(tap).toBeDefined();
+    expect(tap![1]).toMatchObject({ from: 12, to: 13, milestone: null });
+    expect(typeof tap![1].at_ms).toBe('number');
     // Handing back at t=0 would let a milestone modal land on the exit.
     expect(mockDismissCelebration).not.toHaveBeenCalled();
 

@@ -12,17 +12,22 @@
  * drifting off the spec.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import {
   EMPTY_CELEBRATION_MEMORY,
   HOUSE_CUT,
   PRE_BUTTON_GUARD_MS,
+  clearCelebrationMemory,
   deriveCelebration,
   digitColumns,
   flickerOnsets,
   flickerSpan,
   nextCelebrationMemory,
   phaseAt,
+  readCelebrationMemory,
   takeoverTimeline,
+  writeCelebrationMemory,
   type CelebrationMemory,
 } from '@/lib/streak-celebration';
 import type { StreakRpcResult } from '@/lib/streak-service';
@@ -153,6 +158,63 @@ describe('nextCelebrationMemory', () => {
       to: 13,
       milestone: null,
     });
+  });
+});
+
+describe('celebration memory — per account, and gone on sign-out', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+    (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([]);
+  });
+
+  it('reads and writes under a key scoped to the user', async () => {
+    await writeCelebrationMemory('user-a', {
+      lastStreak: 12,
+      lastCelebratedDate: '2026-08-20',
+    });
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      '@streak_celebration_memory:user-a',
+      JSON.stringify({ lastStreak: 12, lastCelebratedDate: '2026-08-20' })
+    );
+
+    await readCelebrationMemory('user-b');
+    expect(AsyncStorage.getItem).toHaveBeenCalledWith(
+      '@streak_celebration_memory:user-b'
+    );
+  });
+
+  it('reads an empty memory rather than throwing on corrupt JSON', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue('{not json');
+    await expect(readCelebrationMemory('user-a')).resolves.toEqual(
+      EMPTY_CELEBRATION_MEMORY
+    );
+  });
+
+  it('drops every account on sign-out, leaving unrelated keys alone', async () => {
+    (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([
+      '@streak_celebration_memory:user-a',
+      '@streak_celebration_memory:user-b',
+      '@some_other_feature',
+    ]);
+
+    await clearCelebrationMemory();
+
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
+      '@streak_celebration_memory:user-a',
+      '@streak_celebration_memory:user-b',
+    ]);
+  });
+
+  it('does not call multiRemove when there is nothing of ours to clear', async () => {
+    (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue(['@unrelated']);
+    await clearCelebrationMemory();
+    expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
+  });
+
+  it('never throws out of a sign-out, whatever storage does', async () => {
+    (AsyncStorage.getAllKeys as jest.Mock).mockRejectedValue(new Error('disk'));
+    await expect(clearCelebrationMemory()).resolves.toBeUndefined();
   });
 });
 

@@ -9,9 +9,15 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { StreakProvider, useStreak } from '@/lib/streak-context';
 import * as streakService from '@/lib/streak-service';
+
+let mockUserId: string | null = 'user-a';
+jest.mock('@/hooks/use-auth', () => ({
+  useAuth: () => ({ user: mockUserId ? { id: mockUserId } : null }),
+}));
 
 // The real celebration pulls in theme-context/reanimated/haptics — irrelevant
 // here. Stubbed down to the one fact these tests ask of it: whether it is up.
@@ -51,6 +57,9 @@ function renderProvider() {
 beforeEach(() => {
   jest.clearAllMocks();
   recordUserActivityMock.mockResolvedValue(null);
+  mockUserId = 'user-a';
+  (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+  (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
 });
 
 describe('StreakProvider — streak_spine write gate', () => {
@@ -165,16 +174,33 @@ describe('StreakProvider — celebration handoff', () => {
               : 'none'}
           </Text>
         </Pressable>
+        {/* The id increments per raise, so it catches a second takeover that
+            replaced the first rather than stacking visibly beside it. */}
+        <Text testID="celebration-id">{String(pendingCelebration?.id ?? 0)}</Text>
       </>
     );
   }
 
+  /**
+   * `includeHiddenElements` is required, not incidental: while a takeover is up
+   * the provider marks the whole app tree `no-hide-descendants` so TalkBack
+   * cannot read the feed through the dim, and RNTL's queries honour that the
+   * same way a screen reader does. The probe lives inside that tree, so these
+   * tests have to ask for it explicitly.
+   */
   function mount() {
-    return render(
+    const utils = render(
       <StreakProvider>
         <CelebrationProbe />
       </StreakProvider>
     );
+    return {
+      ...utils,
+      getByTestId: (id: string) =>
+        utils.getByTestId(id, { includeHiddenElements: true }),
+      queryByTestId: (id: string) =>
+        utils.queryByTestId(id, { includeHiddenElements: true }),
+    };
   }
 
   beforeEach(() => {
@@ -228,6 +254,114 @@ describe('StreakProvider — celebration handoff', () => {
 
     await waitFor(() => expect(getByTestId('milestone-modal')).toBeTruthy());
     expect(getByTestId('milestone-modal')).toHaveTextContent('30-Day Streak');
+    expect(getByTestId('pending')).toHaveTextContent('none');
+  });
+
+  /**
+   * Every shipped client is on the remembered-baseline path until the
+   * previous_streak migration deploys, so two actions landing together is a
+   * live risk, not a theoretical one.
+   */
+  it('raises exactly one takeover when two qualifying actions land together', async () => {
+    // A tiny in-memory store, so the second action reads what the first wrote.
+    const store: Record<string, string> = {};
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((k: string) =>
+      Promise.resolve(store[k] ?? null)
+    );
+    (AsyncStorage.setItem as jest.Mock).mockImplementation((k: string, v: string) => {
+      store[k] = v;
+      return Promise.resolve();
+    });
+    // Server truth absent — this is the fallback path the race lives on.
+    recordUserActivityMock.mockResolvedValue(
+      rpc({ previous_streak: undefined, advanced: undefined, current_streak: 13 })
+    );
+    // Seed the baseline the way a previous day's action would have.
+    store['@streak_celebration_memory:user-a'] = JSON.stringify({
+      lastStreak: 12,
+      lastCelebratedDate: '2026-08-19',
+    });
+
+    const { getByTestId } = mount();
+    fireEvent.press(getByTestId('act'));
+    fireEvent.press(getByTestId('act'));
+
+    await waitFor(() => expect(getByTestId('pending')).toHaveTextContent('12->13'));
+    await waitFor(() => expect(recordUserActivityMock).toHaveBeenCalledTimes(2));
+    // Still one, and still the first one — not re-raised by the second result.
+    expect(getByTestId('pending')).toHaveTextContent('12->13');
+    expect(getByTestId('celebration-id')).toHaveTextContent('1');
+  });
+
+  /**
+   * The takeover is a sibling of the navigator rather than a Modal, so nothing
+   * hides the app beneath it from a screen reader on its own. iOS gets that from
+   * accessibilityViewIsModal on the takeover; Android needs the siblings marked.
+   */
+  it('hides the app content from screen readers only while a takeover is up', async () => {
+    recordUserActivityMock.mockResolvedValue(rpc());
+    const { getByTestId, queryByTestId, UNSAFE_root } = mount();
+
+    const wrapper = () =>
+      UNSAFE_root.findAll(
+        (n: { props?: Record<string, unknown> }) =>
+          n.props?.importantForAccessibility !== undefined
+      )[0];
+
+    expect(wrapper().props.importantForAccessibility).toBe('auto');
+    // Reachable by a screen reader before the takeover.
+    expect(queryByTestId('act')).not.toBeNull();
+
+    fireEvent.press(getByTestId('act'));
+    await waitFor(() => expect(getByTestId('pending')).toHaveTextContent('12->13'));
+
+    expect(wrapper().props.importantForAccessibility).toBe('no-hide-descendants');
+
+    fireEvent.press(getByTestId('dismiss'));
+    await waitFor(() =>
+      expect(wrapper().props.importantForAccessibility).toBe('auto')
+    );
+  });
+
+  it('keeps each account in its own namespace', async () => {
+    recordUserActivityMock.mockResolvedValue(rpc());
+    const { getByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+
+    await waitFor(() =>
+      expect(AsyncStorage.getItem).toHaveBeenCalledWith(
+        '@streak_celebration_memory:user-a'
+      )
+    );
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      '@streak_celebration_memory:user-a',
+      expect.any(String)
+    );
+  });
+
+  it("does not read the previous account's stamp after a user switch", async () => {
+    recordUserActivityMock.mockResolvedValue(rpc());
+    mockUserId = 'user-b';
+    const { getByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+
+    await waitFor(() => expect(AsyncStorage.getItem).toHaveBeenCalled());
+    const keysRead = (AsyncStorage.getItem as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(keysRead).toContain('@streak_celebration_memory:user-b');
+    expect(keysRead).not.toContain('@streak_celebration_memory:user-a');
+  });
+
+  it('records nothing against storage for a signed-out session', async () => {
+    recordUserActivityMock.mockResolvedValue(rpc());
+    mockUserId = null;
+    const { getByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+
+    await waitFor(() => expect(recordUserActivityMock).toHaveBeenCalled());
+    expect(AsyncStorage.getItem).not.toHaveBeenCalled();
     expect(getByTestId('pending')).toHaveTextContent('none');
   });
 

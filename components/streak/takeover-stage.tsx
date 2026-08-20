@@ -49,7 +49,8 @@ const CAMERA_WIDTH_PCT = 0.51;
 /** Air between the camera's right edge and the screen's. */
 const CAMERA_RIGHT_INSET_PCT = 0.04;
 /** Static body tilt, between the entrance and the shake. */
-const TILT_DEG = '-8deg';
+const TILT_DEG_VALUE = -8;
+const TILT_DEG = `${TILT_DEG_VALUE}deg`;
 /**
  * The lamp's position as a fraction of the artwork, per RN trap 03 — the beam
  * origin is a percentage of the camera SVG (lens at x 7.5%, optical axis at
@@ -83,16 +84,34 @@ export function TakeoverStage({
   const cameraWidth = CAMERA_WIDTH * scale;
   const cameraHeight = CAMERA_HEIGHT * scale;
 
-  // The beam leaves the lens and sweeps LEFT, so its box runs full-bleed from
-  // the screen edge and its NARROW end has to land exactly on the lamp. Derived
-  // from where the camera actually sits rather than eyeballed, or the cone
-  // detaches from the lens the moment the screen width changes.
+  // Where the lamp ACTUALLY lands on screen, which is not where the naive
+  // arithmetic puts it. Two corrections, both verified with a temporary green
+  // backgroundColor on beamLayer:
+  //
+  //  1. `transform: scale` does not resize the Yoga box. The rig lays out at the
+  //     SVG's intrinsic CAMERA_WIDTH and then paints wider, overflowing its own
+  //     box symmetrically — so the visible left edge is half the difference
+  //     further left than `alignSelf: flex-end` would suggest.
+  //  2. The static -8° tilt rotates the lens about the body's centre, carrying
+  //     it right and down. At this scale that is ~4pt and ~12pt: small, and
+  //     plainly visible as a detached cone if ignored.
+  const overflow = (cameraWidth - CAMERA_WIDTH) / 2;
   const cameraLeft =
-    screenWidth * (1 - CAMERA_RIGHT_INSET_PCT) - cameraWidth;
-  const beamWidth = Math.max(0, cameraLeft + cameraWidth * LENS_X_PCT);
-  // The stage centres the camera, but the optical axis sits below the body's
-  // middle — drop the beam by the difference so it is level with the lamp.
-  const beamAxisOffset = cameraHeight * (LENS_AXIS_Y_PCT - 0.5);
+    screenWidth * (1 - CAMERA_RIGHT_INSET_PCT) - CAMERA_WIDTH - overflow;
+
+  const tilt = (TILT_DEG_VALUE * Math.PI) / 180;
+  const lensFromCentreX = cameraWidth * (LENS_X_PCT - 0.5);
+  const lensFromCentreY = cameraHeight * (LENS_AXIS_Y_PCT - 0.5);
+  const tiltedX =
+    lensFromCentreX * Math.cos(tilt) - lensFromCentreY * Math.sin(tilt);
+  const tiltedY =
+    lensFromCentreX * Math.sin(tilt) + lensFromCentreY * Math.cos(tilt);
+
+  // The cone's narrow end is the right edge of this box, so its width IS the
+  // lamp's x. The stage centres the camera vertically, so the axis offset is
+  // measured from that centre.
+  const beamWidth = Math.max(0, cameraLeft + cameraWidth / 2 + tiltedX);
+  const beamAxisOffset = tiltedY;
 
   const litStyle = useAnimatedStyle(() => ({ opacity: light.value }));
   // The beam and the lens flash ride the same envelope at the preset's
@@ -102,7 +121,10 @@ export function TakeoverStage({
   }));
 
   return (
-    <View style={styles.stage} pointerEvents="none">
+    <View
+      style={[styles.stage, { height: cameraHeight * 1.6 }]}
+      pointerEvents="none"
+    >
       <Animated.View
         style={[
           styles.beamLayer,
@@ -132,7 +154,12 @@ export function TakeoverStage({
 
 const styles = StyleSheet.create({
   stage: {
-    height: CAMERA_HEIGHT * 1.6,
+    // MUST stretch. The beam is absolutely positioned, and absolute children do
+    // not size a Yoga parent — so without this the stage shrink-wraps to the
+    // camera, `left: 0` on the beam means "left edge of the CAMERA", and the
+    // cone's narrow end lands nowhere near the lens. Verified with a temporary
+    // green backgroundColor on beamLayer.
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -17,6 +17,7 @@ import { queryClient } from './query-client';
 import { setSentryUser, captureException, captureMessage } from './sentry';
 import { analytics } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push-notification-service';
+import { clearCelebrationMemory } from '@/lib/streak-celebration';
 import type { Session, User } from '@supabase/supabase-js';
 
 // Dynamically import Apple Authentication to avoid crash on web (iOS-only native module)
@@ -258,6 +259,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       analytics.track('auth:sign_out');
       // Clear all cached queries to prevent stale user data
       queryClient.clear();
+      // Celebration baselines are keyed per user, but one left on the device is
+      // how the next account inherits an "already celebrated today" stamp and
+      // silently loses its first real celebration.
+      await clearCelebrationMemory();
       // Explicitly clear the state to ensure immediate UI update
       setSession(null);
       setUser(null);
@@ -527,6 +532,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Clear all cached queries
       queryClient.clear();
+      // Same reason as signOut: the account is gone, its celebration baseline
+      // must not outlive it on this device.
+      await clearCelebrationMemory();
 
       // Clear the session and user state
       setSession(null);

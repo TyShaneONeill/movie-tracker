@@ -12,6 +12,8 @@
  *     signed-off spec rather than transcribed numbers that drift.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import type { StreakRpcResult } from './streak-service';
 
 /* ------------------------------------------------------------------ trigger */
@@ -82,6 +84,62 @@ export function deriveCelebration(
   if (to <= from) return null;
 
   return { from, to, milestone: result.milestone };
+}
+
+/* ------------------------------------------------------------ persistence */
+
+/**
+ * Namespaced by user id. Two accounts on one device have unrelated streaks, and
+ * a shared key would hand the second one the first one's baseline and its
+ * "already celebrated today" stamp — swallowing a real celebration or firing a
+ * phantom one. Sign-out clears every namespace too (clearCelebrationMemory), so
+ * the id is a partition rather than the only guard.
+ */
+const MEMORY_KEY_PREFIX = '@streak_celebration_memory';
+
+function memoryKey(userId: string): string {
+  return `${MEMORY_KEY_PREFIX}:${userId}`;
+}
+
+export async function readCelebrationMemory(userId: string): Promise<CelebrationMemory> {
+  try {
+    const raw = await AsyncStorage.getItem(memoryKey(userId));
+    if (!raw) return EMPTY_CELEBRATION_MEMORY;
+    const parsed = JSON.parse(raw) as Partial<CelebrationMemory>;
+    return {
+      lastStreak: typeof parsed.lastStreak === 'number' ? parsed.lastStreak : null,
+      lastCelebratedDate:
+        typeof parsed.lastCelebratedDate === 'string' ? parsed.lastCelebratedDate : null,
+    };
+  } catch {
+    return EMPTY_CELEBRATION_MEMORY;
+  }
+}
+
+export async function writeCelebrationMemory(
+  userId: string,
+  memory: CelebrationMemory
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(memoryKey(userId), JSON.stringify(memory));
+  } catch {
+    // A failed write costs at most one duplicate celebration; never the action.
+  }
+}
+
+/**
+ * Drops every account's celebration memory. Called from both sign-out paths —
+ * a baseline left behind is how the next account on the device inherits a stale
+ * "already celebrated today" stamp.
+ */
+export async function clearCelebrationMemory(): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const ours = keys.filter((key) => key.startsWith(MEMORY_KEY_PREFIX));
+    if (ours.length > 0) await AsyncStorage.multiRemove(ours);
+  } catch {
+    // Never the reason a sign-out or an account deletion reports failure.
+  }
 }
 
 /** The memory to persist after a result, whether or not it celebrated. */

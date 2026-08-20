@@ -6,20 +6,21 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { StyleSheet, View } from 'react-native';
 import { AchievementCelebration } from '@/components/achievement-celebration';
+import { useAuth } from '@/hooks/use-auth';
 import {
   recordUserActivity,
   streakSpineEnabledNow,
   type StreakAction,
+  type StreakRpcResult,
 } from './streak-service';
 import { MILESTONES } from './streak-logic';
 import {
-  EMPTY_CELEBRATION_MEMORY,
   deriveCelebration,
   nextCelebrationMemory,
-  type CelebrationMemory,
+  readCelebrationMemory,
+  writeCelebrationMemory,
 } from './streak-celebration';
 
 /**
@@ -84,36 +85,6 @@ export function useStreak() {
 }
 
 /**
- * Survives cold starts on purpose: an in-memory baseline is empty again after
- * every launch, and the first action of a day the user had already acted on
- * would read as an extension and celebrate twice.
- */
-const CELEBRATION_MEMORY_KEY = '@streak_celebration_memory';
-
-async function readCelebrationMemory(): Promise<CelebrationMemory> {
-  try {
-    const raw = await AsyncStorage.getItem(CELEBRATION_MEMORY_KEY);
-    if (!raw) return EMPTY_CELEBRATION_MEMORY;
-    const parsed = JSON.parse(raw) as Partial<CelebrationMemory>;
-    return {
-      lastStreak: typeof parsed.lastStreak === 'number' ? parsed.lastStreak : null,
-      lastCelebratedDate:
-        typeof parsed.lastCelebratedDate === 'string' ? parsed.lastCelebratedDate : null,
-    };
-  } catch {
-    return EMPTY_CELEBRATION_MEMORY;
-  }
-}
-
-async function writeCelebrationMemory(memory: CelebrationMemory): Promise<void> {
-  try {
-    await AsyncStorage.setItem(CELEBRATION_MEMORY_KEY, JSON.stringify(memory));
-  } catch {
-    // A failed write costs at most one duplicate celebration; never the action.
-  }
-}
-
-/**
  * Dev-only: raise a takeover on launch without waiting for a real day boundary.
  * A genuine extension can only happen once per local day, so there is otherwise
  * no way to watch the sequence twice in an afternoon.
@@ -161,32 +132,62 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
   const [pendingCelebration, setPendingCelebration] = useState<PendingCelebration | null>(
     null
   );
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   // Held back until the takeover clears, so the modal never lands on top of it.
   const queuedMilestone = useRef<MilestoneCelebration | null>(null);
   const celebrationId = useRef(0);
+  /**
+   * Two qualifying actions can land within the same tick — a rating and a log
+   * from one save, say. Interleaved read-derive-write against the persisted
+   * baseline would let BOTH read `lastStreak: 12`, both derive 12→13, and both
+   * raise a takeover. Chaining every result through one promise makes the second
+   * read the baseline the first just wrote, which resolves it to "13 is not more
+   * than 13" and drops it. Matters NOW: every shipped client is on the
+   * remembered-baseline path until the previous_streak migration deploys.
+   */
+  const resultQueue = useRef<Promise<void>>(Promise.resolve());
+  /** Belt and braces against the same race: one takeover on screen at a time. */
+  const celebrationInFlight = useRef(false);
 
   useEffect(() => {
     const demo = demoCelebration();
     if (!demo) return;
     celebrationId.current += 1;
+    celebrationInFlight.current = true;
     queuedMilestone.current = demo.milestone
       ? milestoneCelebration(demo.milestone)
       : null;
     setPendingCelebration({ id: celebrationId.current, ...demo });
   }, []);
 
-  const recordActivity = useCallback((action: StreakAction) => {
-    // Gate before the write — nothing is recorded while streak_spine is dark.
-    // Read now, not at mount: see the call-time note in the file header.
-    if (!streakSpineEnabledNow()) return;
-    recordUserActivity(action)
-      .then(async (result) => {
-        if (!result) return;
-        setStreakVersion((v) => v + 1);
+  const recordActivity = useCallback(
+    (action: StreakAction) => {
+      // Gate before the write — nothing is recorded while streak_spine is dark.
+      // Read now, not at mount: see the call-time note in the file header.
+      if (!streakSpineEnabledNow()) return;
+      recordUserActivity(action)
+        .then((result) => {
+          if (!result) return;
+          setStreakVersion((v) => v + 1);
+          // Serialized: see resultQueue. Errors are swallowed per-link so one
+          // bad result cannot poison the chain for every later action.
+          resultQueue.current = resultQueue.current
+            .then(() => handleResult(result))
+            .catch(() => {});
+        })
+        .catch(() => {});
 
-        const memory = await readCelebrationMemory();
+      async function handleResult(result: StreakRpcResult) {
+        // An anonymous/guest session has no namespace to remember against, and
+        // no streak either — the RPC would have thrown before reaching here.
+        if (!userId) return;
+
+        const memory = await readCelebrationMemory(userId);
         const trigger = deriveCelebration(result, memory);
         await writeCelebrationMemory(
+          userId,
           nextCelebrationMemory(result, memory, trigger !== null)
         );
 
@@ -198,14 +199,17 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        if (celebrationInFlight.current) return;
+        celebrationInFlight.current = true;
         celebrationId.current += 1;
         queuedMilestone.current = trigger.milestone
           ? milestoneCelebration(trigger.milestone)
           : null;
         setPendingCelebration({ id: celebrationId.current, ...trigger });
-      })
-      .catch(() => {});
-  }, []);
+      }
+    },
+    [userId]
+  );
 
   /**
    * The takeover has finished clearing. Only now may a milestone modal open —
@@ -213,6 +217,7 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
    */
   const dismissCelebration = useCallback(() => {
     setPendingCelebration(null);
+    celebrationInFlight.current = false;
     const queued = queuedMilestone.current;
     queuedMilestone.current = null;
     if (queued) setCelebration(queued);
@@ -222,7 +227,21 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
     <StreakContext.Provider
       value={{ recordActivity, streakVersion, pendingCelebration, dismissCelebration }}
     >
-      {children}
+      {/* The takeover mounts as a sibling of the navigator rather than inside a
+          Modal, so nothing hides the app beneath it from a screen reader on its
+          own — TalkBack would happily read the feed through the dim. iOS gets
+          that from accessibilityViewIsModal on the takeover itself; Android
+          needs the siblings marked, which means marking the whole app tree
+          here. Layout-neutral: a flex:1 View inside the flex parents it
+          already had. */}
+      <View
+        style={styles.appContent}
+        importantForAccessibility={
+          pendingCelebration ? 'no-hide-descendants' : 'auto'
+        }
+      >
+        {children}
+      </View>
       <AchievementCelebration
         achievement={celebration}
         visible={celebration !== null}
@@ -231,3 +250,7 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
     </StreakContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  appContent: { flex: 1 },
+});
