@@ -14,10 +14,14 @@ import { StreakProvider, useStreak } from '@/lib/streak-context';
 import * as streakService from '@/lib/streak-service';
 
 // The real celebration pulls in theme-context/reanimated/haptics — irrelevant
-// here, where the only question is whether the RPC is reached.
-jest.mock('@/components/achievement-celebration', () => ({
-  AchievementCelebration: () => null,
-}));
+// here. Stubbed down to the one fact these tests ask of it: whether it is up.
+jest.mock('@/components/achievement-celebration', () => {
+  const { Text } = require('react-native');
+  return {
+    AchievementCelebration: ({ visible, achievement }: any) =>
+      visible ? <Text testID="milestone-modal">{achievement?.name}</Text> : null,
+  };
+});
 
 jest.mock('@/lib/streak-service', () => ({
   recordUserActivity: jest.fn(),
@@ -119,5 +123,123 @@ describe('StreakProvider — streak_spine write gate', () => {
     fireEvent.press(getByTestId('act'));
 
     await waitFor(() => expect(getByTestId('version')).toHaveTextContent('1'));
+  });
+});
+
+/**
+ * The celebration takeover, and the order it shares the screen with the
+ * milestone modal. The modal used to pop the instant the RPC answered, which
+ * would now bury a running takeover.
+ */
+describe('StreakProvider — celebration handoff', () => {
+  function rpc(over: Record<string, unknown> = {}) {
+    return {
+      current_streak: 13,
+      previous_streak: 12,
+      advanced: true,
+      longest_streak: 13,
+      rain_checks: 0,
+      rain_checks_used: 0,
+      last_activity_date: '2026-08-20',
+      local_date: '2026-08-20',
+      first_action: 'log',
+      milestone: null,
+      rain_check_consumed: false,
+      rain_check_earned: false,
+      ...over,
+    };
+  }
+
+  /** Surfaces the pending celebration and lets a test dismiss it like the takeover would. */
+  function CelebrationProbe() {
+    const { recordActivity, pendingCelebration, dismissCelebration } = useStreak();
+    return (
+      <>
+        <Pressable testID="act" onPress={() => recordActivity('log')}>
+          <Text>act</Text>
+        </Pressable>
+        <Pressable testID="dismiss" onPress={dismissCelebration}>
+          <Text testID="pending">
+            {pendingCelebration
+              ? `${pendingCelebration.from}->${pendingCelebration.to}`
+              : 'none'}
+          </Text>
+        </Pressable>
+      </>
+    );
+  }
+
+  function mount() {
+    return render(
+      <StreakProvider>
+        <CelebrationProbe />
+      </StreakProvider>
+    );
+  }
+
+  beforeEach(() => {
+    streakSpineEnabledNowMock.mockReturnValue(true);
+  });
+
+  it('raises a takeover with the streak it rolled from and to', async () => {
+    recordUserActivityMock.mockResolvedValue(rpc());
+    const { getByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+
+    await waitFor(() => expect(getByTestId('pending')).toHaveTextContent('12->13'));
+  });
+
+  it('raises nothing on a same-day repeat', async () => {
+    recordUserActivityMock.mockResolvedValue(
+      rpc({ previous_streak: 13, advanced: false })
+    );
+    const { getByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+
+    await waitFor(() => expect(recordUserActivityMock).toHaveBeenCalled());
+    expect(getByTestId('pending')).toHaveTextContent('none');
+  });
+
+  it('raises nothing when the streak reset', async () => {
+    recordUserActivityMock.mockResolvedValue(rpc({ current_streak: 1 }));
+    const { getByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+
+    await waitFor(() => expect(recordUserActivityMock).toHaveBeenCalled());
+    expect(getByTestId('pending')).toHaveTextContent('none');
+  });
+
+  it('holds the milestone modal back until the takeover has cleared', async () => {
+    recordUserActivityMock.mockResolvedValue(
+      rpc({ previous_streak: 29, current_streak: 30, milestone: 30 })
+    );
+    const { getByTestId, queryByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+    await waitFor(() => expect(getByTestId('pending')).toHaveTextContent('29->30'));
+
+    // The takeover is still playing — the modal must not be on top of it.
+    expect(queryByTestId('milestone-modal')).toBeNull();
+
+    fireEvent.press(getByTestId('dismiss'));
+
+    await waitFor(() => expect(getByTestId('milestone-modal')).toBeTruthy());
+    expect(getByTestId('milestone-modal')).toHaveTextContent('30-Day Streak');
+    expect(getByTestId('pending')).toHaveTextContent('none');
+  });
+
+  it('leaves no modal behind when the extension was not a milestone', async () => {
+    recordUserActivityMock.mockResolvedValue(rpc());
+    const { getByTestId, queryByTestId } = mount();
+
+    fireEvent.press(getByTestId('act'));
+    await waitFor(() => expect(getByTestId('pending')).toHaveTextContent('12->13'));
+    fireEvent.press(getByTestId('dismiss'));
+
+    await waitFor(() => expect(getByTestId('pending')).toHaveTextContent('none'));
+    expect(queryByTestId('milestone-modal')).toBeNull();
   });
 });

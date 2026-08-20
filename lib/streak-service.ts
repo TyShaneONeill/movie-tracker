@@ -24,7 +24,6 @@ import { activityWindowStart } from './streak-view';
 
 /** Free-text action taxonomy — kept open (no DB enum) so PR 4's Marquee answer can join. */
 export type StreakAction =
-  | 'rate'
   | 'log'
   | 'first_take'
   | 'review'
@@ -46,6 +45,17 @@ export interface StreakRpcResult {
   milestone: number | null;
   rain_check_consumed: boolean;
   rain_check_earned: boolean;
+  /**
+   * The streak before this call, and whether this call is the one that moved
+   * it. The RPC has always computed both; PS-15 v2 made it return them so the
+   * celebration takeover can tell an extension (12→13) from a same-day repeat
+   * (13→13) and from a reset (12→1) — indistinguishable from the snapshot
+   * alone. OPTIONAL because a binary can outrun the migration: an older
+   * function returns neither, and lib/streak-celebration falls back to a
+   * remembered baseline. Drop the `?` once no shipped build predates it.
+   */
+  previous_streak?: number;
+  advanced?: boolean;
 }
 
 export interface StreakActivityDay {

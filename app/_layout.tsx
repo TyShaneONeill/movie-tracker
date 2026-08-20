@@ -56,6 +56,7 @@ import { StreakProvider } from '@/lib/streak-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { TourProvider } from '@/lib/onboarding/tour-context';
 import { TourOverlay } from '@/components/coachmark/tour-overlay';
+import { StreakCelebrationTakeover } from '@/components/streak/streak-celebration-takeover';
 import { initAnalytics, analytics, shutdownAnalytics } from '@/lib/analytics';
 import { isInternalEmail } from '@/lib/internal-accounts';
 import { useSessionTracking, useScreenTracking } from '@/hooks/use-analytics-lifecycle';
@@ -401,6 +402,11 @@ function RootLayoutNav() {
       <OfflineBanner />
       <ImportProgressPill />
       <TourOverlay />
+      {/* Sibling of the <Stack>, not a Modal — RN's Modal re-mounts into its own
+          window and drops the dim's first frames. Being a sibling here is also
+          what puts it over the tab bar. Renders null until the streak context
+          reports an extension. */}
+      <StreakCelebrationTakeover />
     </NavigationThemeProvider>
   );
 }

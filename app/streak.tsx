@@ -238,7 +238,7 @@ export default function StreakScreen() {
           <View style={styles.acts}>
             {(view.streak === 0
               ? ([
-                  { label: 'Rate a film', dest: 'Home' as Destination, go: true },
+                  { label: 'Log a film', dest: 'Home' as Destination, go: true },
                   { label: 'Scan ticket', dest: 'Scan' as Destination, go: false },
                   { label: 'First Take', dest: 'Home' as Destination, go: false },
                 ])
