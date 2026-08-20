@@ -90,25 +90,6 @@ export function useDailyHooksEnabled(): boolean {
   return flagOn;
 }
 
-/**
- * Returns true when the streak spine (PS-15) should be active — activity
- * recording, the Stats entry cell, the streak screen, and the settings toggle.
- *
- * SEPARATE flag from `daily_hooks` (@100% since 2026-07-07 for the priming
- * sheet): the streak spine ships dark for Ty-only device validation first,
- * then widens — same rollout playbook as the priming sheet. Env override
- * EXPO_PUBLIC_STREAK_SPINE_OVERRIDE = "true" | "false" for dev. Fails closed
- * while the flag is loading, like useDailyHooksEnabled.
- */
-export function useStreakSpineEnabled(): boolean {
-  const { enabled: flagOn } = useFeatureFlag('streak_spine');
-  const envOverride = process.env.EXPO_PUBLIC_STREAK_SPINE_OVERRIDE;
-
-  if (envOverride === 'true') return true;
-  if (envOverride === 'false') return false;
-  return flagOn;
-}
-
 /** The `EXPO_PUBLIC_*` dev override, or null when unset. Metro inlines the
  *  literal member access, so this must stay a direct `process.env.X` read. */
 function streakSpineOverride(): boolean | null {
@@ -119,10 +100,27 @@ function streakSpineOverride(): boolean | null {
 }
 
 /**
- * Same gate as `useStreakSpineEnabled`, but it also reports whether PostHog has
- * actually ANSWERED yet — modelled on `useAcquisitionPromptGate`.
+ * The `streak_spine` gate (PS-15) — activity recording, the Stats entry cell,
+ * the streak screen, and the settings toggle. It reports whether PostHog has
+ * actually ANSWERED yet as well as the value — modelled on
+ * `useAcquisitionPromptGate`.
  *
- * Surfaces that merely render (the Stats cell) can keep using the boolean: an
+ * SEPARATE flag from `daily_hooks` (@100% since 2026-07-07 for the priming
+ * sheet): the streak spine ships dark for Ty-only device validation first, then
+ * widens. Env override EXPO_PUBLIC_STREAK_SPINE_OVERRIDE = "true" | "false" for
+ * dev. Fails closed while the flag is loading.
+ *
+ * This is the ONLY hook-shaped gate for this flag. A two-sample variant
+ * (`useStreakSpineEnabled`) used to live here and latched its answer a second
+ * after mount; every consumer that mounted before PostHog's identify call
+ * delivered person-targeted flags was stuck on false for the whole session.
+ * That silently dropped every streak write (#834) and intermittently hid the
+ * settings toggle. It was deleted rather than fixed so it cannot be reused.
+ * WRITES should not use this hook at all — they call `streakSpineEnabledNow()`
+ * (lib/streak-service.ts) when the user acts, which also covers the first
+ * seconds after launch, before any subscription has resolved.
+ *
+ * Surfaces that merely render (the Stats cell) can use the boolean alone: an
  * unresolved flag reads false and the cell shows its pre-streak fallback for a
  * beat. The streak ROUTE cannot, because its fail-closed branch navigates: a
  * cold deep link into `/streak` arrives before flags land, and a plain boolean

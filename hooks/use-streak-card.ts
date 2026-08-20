@@ -21,12 +21,12 @@ export function useStreakCard(): {
   loaded: boolean;
   reload: () => void;
 } {
-  // The SUBSCRIBING gate, not the two-sample `useStreakSpineEnabled`. That one
-  // samples on mount and once more at 1s and then latches forever, so a flag
-  // resolving between 1s and 5s left this hook stuck on false while the route
-  // (which does subscribe) stayed open — a skeleton with no way out, since
-  // `reload()` bumps the nonce but the effect below still early-returns on
-  // `!enabled`. Both surfaces now read one subscription.
+  // The SUBSCRIBING gate. The two-sample hook it replaced sampled on mount and
+  // once more at 1s and then latched forever, so a flag resolving between 1s
+  // and 5s left this hook stuck on false while the route (which does subscribe)
+  // stayed open — a skeleton with no way out, since `reload()` bumps the nonce
+  // but the effect below still early-returns on `!enabled`. Both surfaces now
+  // read one subscription.
   const { enabled } = useStreakSpineGate();
   const { streakVersion } = useStreak();
   const [card, setCard] = useState<StreakCard | null>(null);

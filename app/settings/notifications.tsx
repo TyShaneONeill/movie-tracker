@@ -20,7 +20,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { hapticImpact } from '@/lib/haptics';
 import { analytics } from '@/lib/analytics';
 import type { NotificationFeature } from '@/lib/notification-preferences-service';
-import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
+import { useStreakSpineGate } from '@/hooks/use-feature-flag';
 import { usePremiumGate } from '@/hooks/use-premium';
 import { PremiumBadge } from '@/components/premium/premium-badge';
 import { UpgradePromptSheet } from '@/components/premium/upgrade-prompt-sheet';
@@ -189,7 +189,9 @@ export default function NotificationsSettingsScreen() {
   const { effectiveTheme } = useTheme();
   const colors = Colors[effectiveTheme];
   const { permissionStatus, requestPermission, isAvailable } = usePushNotifications();
-  const streakSpineEnabled = useStreakSpineEnabled();
+  // The SUBSCRIBING gate: a hook that samples the flag while this screen mounts
+  // latches false, and the streak-reminders row vanishes for the session.
+  const { enabled: streakSpineEnabled } = useStreakSpineGate();
   const { isUnlocked: remindersUnlocked, isLoading: premiumLoading } =
     usePremiumGate('release_reminders');
 

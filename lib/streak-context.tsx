@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { AchievementCelebration } from '@/components/achievement-celebration';
-import { useStreakSpineEnabled } from '@/hooks/use-feature-flag';
-import { recordUserActivity, type StreakAction } from './streak-service';
+import {
+  recordUserActivity,
+  streakSpineEnabledNow,
+  type StreakAction,
+} from './streak-service';
 
 /**
  * Streak context (PS-15 PR 3). Exposes a single imperative `recordActivity`
@@ -14,6 +17,13 @@ import { recordUserActivity, type StreakAction } from './streak-service';
  * Gated on streak_spine (separate from daily_hooks — Ty-only until
  * device-validated): when off, recordActivity is a no-op and nothing is
  * written or shown.
+ *
+ * The gate is read at CALL TIME, not at mount. This provider mounts at the app
+ * root, before PostHog's identify call delivers person-targeted flags, so any
+ * hook that samples the flag while rendering the provider latches false for the
+ * whole session and silently drops every qualifying action. Checking when the
+ * user actually acts also covers actions in the first seconds after launch,
+ * which a subscribing hook would still miss.
  */
 
 interface MilestoneCelebration {
@@ -59,14 +69,14 @@ function milestoneCelebration(milestone: number): MilestoneCelebration {
 }
 
 export function StreakProvider({ children }: { children: React.ReactNode }) {
-  const streakSpineEnabled = useStreakSpineEnabled();
   const [celebration, setCelebration] = useState<MilestoneCelebration | null>(null);
   const [streakVersion, setStreakVersion] = useState(0);
 
   const recordActivity = useCallback(
     (action: StreakAction) => {
       // Gate before the write — nothing is recorded while streak_spine is dark.
-      if (!streakSpineEnabled) return;
+      // Read now, not at mount: see the call-time note in the file header.
+      if (!streakSpineEnabledNow()) return;
       recordUserActivity(action)
         .then((result) => {
           if (!result) return;
@@ -77,7 +87,7 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
         })
         .catch(() => {});
     },
-    [streakSpineEnabled]
+    []
   );
 
   return (

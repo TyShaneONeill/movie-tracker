@@ -31,8 +31,8 @@ export function episodeRoomsEnabled(): boolean {
 
 /**
  * Episode Rooms (per-episode discussion) master gate. Defaults OFF whenever the
- * `episode_rooms` PostHog flag is missing or unresolved. Mirrors
- * `useStreakSpineEnabled`: an `EXPO_PUBLIC_*` literal override wins so the
+ * `episode_rooms` PostHog flag is missing or unresolved. Like the other
+ * `EXPO_PUBLIC_*`-overridable gates, a literal override wins so the
  * feature can be forced on/off for local device iteration without touching
  * PostHog. Every Episode Room entry point (row affordance, post-watch nudge)
  * consults this hook.
