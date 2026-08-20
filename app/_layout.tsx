@@ -52,7 +52,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { BugReportRoot } from '@/components/BugReportRoot';
 import { AchievementProvider } from '@/lib/achievement-context';
 import { NotificationPrimingProvider } from '@/lib/notification-priming-context';
-import { StreakProvider } from '@/lib/streak-context';
+import { StreakProvider, useStreak } from '@/lib/streak-context';
 import { PremiumProvider, usePremium } from '@/lib/premium-context';
 import { TourProvider } from '@/lib/onboarding/tour-context';
 import { TourOverlay } from '@/components/coachmark/tour-overlay';
@@ -319,6 +319,7 @@ function useAnalyticsIdentity() {
 
 function RootLayoutNav() {
   const { effectiveTheme } = useTheme();
+  const { pendingCelebration } = useStreak();
   const { isLoading: authLoading } = useAuth();
   const { isLoading: onboardingLoading } = useOnboarding();
   const { isLoading: guestLoading } = useGuest();
@@ -364,48 +365,67 @@ function RootLayoutNav() {
 
   return (
     <NavigationThemeProvider value={navTheme}>
-      <Stack
-        screenOptions={{
-          contentStyle: { backgroundColor: Colors[effectiveTheme].background },
-        }}
+      {/* Everything the takeover covers. Marked no-hide-descendants while one
+          is up: the takeover is a sibling of the navigator rather than a Modal,
+          so nothing hides the app beneath it from a screen reader on its own
+          and TalkBack would read the feed straight through the dim. iOS gets
+          this from accessibilityViewIsModal on the takeover; Android needs the
+          siblings marked.
+
+          The takeover itself is deliberately OUTSIDE this View. Marking a
+          subtree that CONTAINS it hides the announcement, the CTA and the skip
+          target too, leaving a full-screen touch blocker with nothing
+          focusable — worse than not marking at all. */}
+      <View
+        style={styles.navigatorContent}
+        importantForAccessibility={
+          pendingCelebration ? 'no-hide-descendants' : 'auto'
+        }
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-        <Stack.Screen name="settings" options={{ headerShown: false }} />
-        <Stack.Screen name="search" options={{ headerShown: false }} />
-        <Stack.Screen name="analytics" options={{ headerShown: false }} />
-        <Stack.Screen name="category" options={{ headerShown: false }} />
-        <Stack.Screen name="movie" options={{ headerShown: false }} />
-        <Stack.Screen name="tv" options={{ headerShown: false }} />
-        <Stack.Screen name="episode-room" options={{ headerShown: false }} />
-        <Stack.Screen name="person" options={{ headerShown: false }} />
-        <Stack.Screen name="list" options={{ headerShown: false }} />
-        <Stack.Screen name="scan" options={{ headerShown: false }} />
-        <Stack.Screen name="journey" options={{ headerShown: false }} />
-        <Stack.Screen name="followers/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="following/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="achievements" options={{ headerShown: false }} />
-        <Stack.Screen name="notifications" options={{ headerShown: false }} />
-        <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="lists" options={{ headerShown: false }} />
-        <Stack.Screen name="release-calendar" options={{ headerShown: false }} />
-        <Stack.Screen name="tvtime-deck" options={{ headerShown: false }} />
-        <Stack.Screen name="streaming-services" options={{ headerShown: false }} />
-        <Stack.Screen name="upgrade" options={{ headerShown: false }} />
-        {/* PS-15 streak screen — modal, so the ✕ reads as a dismiss. */}
-        <Stack.Screen name="streak" options={{ headerShown: false, presentation: 'modal' }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
+        <Stack
+          screenOptions={{
+            contentStyle: { backgroundColor: Colors[effectiveTheme].background },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
+          <Stack.Screen name="search" options={{ headerShown: false }} />
+          <Stack.Screen name="analytics" options={{ headerShown: false }} />
+          <Stack.Screen name="category" options={{ headerShown: false }} />
+          <Stack.Screen name="movie" options={{ headerShown: false }} />
+          <Stack.Screen name="tv" options={{ headerShown: false }} />
+          <Stack.Screen name="episode-room" options={{ headerShown: false }} />
+          <Stack.Screen name="person" options={{ headerShown: false }} />
+          <Stack.Screen name="list" options={{ headerShown: false }} />
+          <Stack.Screen name="scan" options={{ headerShown: false }} />
+          <Stack.Screen name="journey" options={{ headerShown: false }} />
+          <Stack.Screen name="followers/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="following/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="achievements" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="lists" options={{ headerShown: false }} />
+          <Stack.Screen name="release-calendar" options={{ headerShown: false }} />
+          <Stack.Screen name="tvtime-deck" options={{ headerShown: false }} />
+          <Stack.Screen name="streaming-services" options={{ headerShown: false }} />
+          <Stack.Screen name="upgrade" options={{ headerShown: false }} />
+          {/* PS-15 streak screen — modal, so the ✕ reads as a dismiss. */}
+          <Stack.Screen name="streak" options={{ headerShown: false, presentation: 'modal' }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        <OfflineBanner />
+        <ImportProgressPill />
+        <TourOverlay />
+      </View>
       <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
       <Toast config={toastConfig} />
-      <OfflineBanner />
-      <ImportProgressPill />
-      <TourOverlay />
       {/* Sibling of the <Stack>, not a Modal — RN's Modal re-mounts into its own
           window and drops the dim's first frames. Being a sibling here is also
           what puts it over the tab bar. Renders null until the streak context
-          reports an extension. */}
+          reports an extension. Outside the hiding View above, so TalkBack can
+          still reach the announcement, the CTA and the skip target. */}
       <StreakCelebrationTakeover />
     </NavigationThemeProvider>
   );
@@ -517,6 +537,8 @@ export default function RootLayout() {
 const MAX_APP_WIDTH = 768;
 
 const styles = StyleSheet.create({
+  // Layout-neutral: a flex:1 View in the flex column the navigator already had.
+  navigatorContent: { flex: 1 },
   webContainer: {
     flex: 1,
     width: '100%',

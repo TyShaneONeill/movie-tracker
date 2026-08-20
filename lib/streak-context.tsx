@@ -6,7 +6,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { AchievementCelebration } from '@/components/achievement-celebration';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -199,6 +198,15 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // ORDERING NOTE, so nobody "fixes" this blind. The write above stamps
+        // lastCelebratedDate for a trigger that this guard may then drop, and
+        // the id/queue below would be skipped for a result we already recorded
+        // as celebrated. Both residues are unreachable in practice: results are
+        // serialized through resultQueue, so a second one reads the first's
+        // write and derives no trigger at all — it returns before ever getting
+        // here. The guard is the belt to serialization's braces, not the
+        // primary defence. Moving the write after this point to "fix" the
+        // ordering would break the serialization the correctness rests on.
         if (celebrationInFlight.current) return;
         celebrationInFlight.current = true;
         celebrationId.current += 1;
@@ -227,21 +235,14 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
     <StreakContext.Provider
       value={{ recordActivity, streakVersion, pendingCelebration, dismissCelebration }}
     >
-      {/* The takeover mounts as a sibling of the navigator rather than inside a
-          Modal, so nothing hides the app beneath it from a screen reader on its
-          own — TalkBack would happily read the feed through the dim. iOS gets
-          that from accessibilityViewIsModal on the takeover itself; Android
-          needs the siblings marked, which means marking the whole app tree
-          here. Layout-neutral: a flex:1 View inside the flex parents it
-          already had. */}
-      <View
-        style={styles.appContent}
-        importantForAccessibility={
-          pendingCelebration ? 'no-hide-descendants' : 'auto'
-        }
-      >
-        {children}
-      </View>
+      {/* Deliberately NOT wrapped in an accessibility-hiding View here.
+          StreakCelebrationTakeover mounts inside RootLayoutNav, which is part
+          of `children` — so marking this subtree no-hide-descendants hides the
+          TAKEOVER along with the app behind it, leaving a full-screen touch
+          blocker with nothing for TalkBack to reach. Worse than not marking at
+          all. The marking lives in RootLayoutNav, around the navigator only,
+          with the takeover kept outside it. */}
+      {children}
       <AchievementCelebration
         achievement={celebration}
         visible={celebration !== null}
@@ -250,7 +251,3 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
     </StreakContext.Provider>
   );
 }
-
-const styles = StyleSheet.create({
-  appContent: { flex: 1 },
-});

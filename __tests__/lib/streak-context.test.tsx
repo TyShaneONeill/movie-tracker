@@ -12,7 +12,25 @@ import { Pressable, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { StreakProvider, useStreak } from '@/lib/streak-context';
+import { StreakCelebrationTakeover } from '@/components/streak/streak-celebration-takeover';
 import * as streakService from '@/lib/streak-service';
+
+jest.mock('@/lib/analytics', () => ({ analytics: { track: jest.fn() } }));
+
+// The takeover's stage reaches theme-context for its palette, which drags in
+// auth and expo-apple-authentication — untransformable here.
+jest.mock('@/lib/theme-context', () => ({
+  useTheme: () => ({ effectiveTheme: 'dark' }),
+  useEffectiveColorScheme: () => 'dark',
+}));
+
+jest.mock('@/lib/haptics', () => ({
+  hapticImpact: jest.fn(),
+  hapticNotification: jest.fn(),
+  hapticSelection: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'light' },
+  NotificationFeedbackType: { Success: 'success' },
+}));
 
 let mockUserId: string | null = 'user-a';
 jest.mock('@/hooks/use-auth', () => ({
@@ -182,25 +200,16 @@ describe('StreakProvider — celebration handoff', () => {
   }
 
   /**
-   * `includeHiddenElements` is required, not incidental: while a takeover is up
-   * the provider marks the whole app tree `no-hide-descendants` so TalkBack
-   * cannot read the feed through the dim, and RNTL's queries honour that the
-   * same way a screen reader does. The probe lives inside that tree, so these
-   * tests have to ask for it explicitly.
+   * Plain queries on purpose. The provider marks nothing as hidden — that
+   * marking lives in RootLayoutNav around the navigator only — so anything the
+   * provider renders must stay reachable to a screen reader.
    */
   function mount() {
-    const utils = render(
+    return render(
       <StreakProvider>
         <CelebrationProbe />
       </StreakProvider>
     );
-    return {
-      ...utils,
-      getByTestId: (id: string) =>
-        utils.getByTestId(id, { includeHiddenElements: true }),
-      queryByTestId: (id: string) =>
-        utils.queryByTestId(id, { includeHiddenElements: true }),
-    };
   }
 
   beforeEach(() => {
@@ -294,33 +303,33 @@ describe('StreakProvider — celebration handoff', () => {
   });
 
   /**
-   * The takeover is a sibling of the navigator rather than a Modal, so nothing
-   * hides the app beneath it from a screen reader on its own. iOS gets that from
-   * accessibilityViewIsModal on the takeover; Android needs the siblings marked.
+   * REGRESSION (review round 2). The provider used to wrap `children` in a
+   * no-hide-descendants View while a takeover was up — but the takeover mounts
+   * inside RootLayoutNav, which IS part of `children`, so the marking hid the
+   * takeover along with the app behind it: a full-screen touch blocker with no
+   * announcement, no CTA and no skip target for TalkBack. Strictly worse than
+   * not marking at all, and it escaped review because no test rendered the real
+   * takeover inside the provider. This one does.
+   *
+   * The absence of `includeHiddenElements` below IS the assertion. The marking
+   * now lives in RootLayoutNav, around the navigator only, with the takeover
+   * kept outside it.
    */
-  it('hides the app content from screen readers only while a takeover is up', async () => {
+  it('leaves the real takeover reachable to a screen reader', async () => {
     recordUserActivityMock.mockResolvedValue(rpc());
-    const { getByTestId, queryByTestId, UNSAFE_root } = mount();
-
-    const wrapper = () =>
-      UNSAFE_root.findAll(
-        (n: { props?: Record<string, unknown> }) =>
-          n.props?.importantForAccessibility !== undefined
-      )[0];
-
-    expect(wrapper().props.importantForAccessibility).toBe('auto');
-    // Reachable by a screen reader before the takeover.
-    expect(queryByTestId('act')).not.toBeNull();
-
-    fireEvent.press(getByTestId('act'));
-    await waitFor(() => expect(getByTestId('pending')).toHaveTextContent('12->13'));
-
-    expect(wrapper().props.importantForAccessibility).toBe('no-hide-descendants');
-
-    fireEvent.press(getByTestId('dismiss'));
-    await waitFor(() =>
-      expect(wrapper().props.importantForAccessibility).toBe('auto')
+    const view = render(
+      <StreakProvider>
+        <CelebrationProbe />
+        <StreakCelebrationTakeover />
+      </StreakProvider>
     );
+
+    fireEvent.press(view.getByTestId('act'));
+
+    // No includeHiddenElements — a screen reader has to be able to find these.
+    await waitFor(() => expect(view.getByLabelText('Keep it rolling')).toBeTruthy());
+    expect(view.getByLabelText('Skip the streak celebration')).toBeTruthy();
+    expect(view.getByText('day streak')).toBeTruthy();
   });
 
   it('keeps each account in its own namespace', async () => {
