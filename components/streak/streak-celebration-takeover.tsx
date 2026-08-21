@@ -23,6 +23,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AccessibilityInfo,
   BackHandler,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -85,6 +86,18 @@ const SHAKE_TICK_MS = 68;
 /** The button rises from here, overshoots its rest by 3px, and settles. */
 const BUTTON_RISE_PX = 46;
 const BUTTON_RISE_OVERSHOOT_PX = -3;
+/**
+ * How long the takeover ignores skip input after it appears.
+ *
+ * This thing arrives unannounced, on top of whatever you were doing — the
+ * founder's own first run fired off a like while he was reaching for the
+ * comment box, and the taps already in flight skipped the sequence AND then
+ * dismissed it before he saw a frame of it. Anything that lands this soon is a
+ * tap aimed at the screen underneath, not a decision about the celebration.
+ * The CTA is deliberately NOT gated: it does not exist yet at this point in the
+ * sequence (t.btnAt is far past it), so a press on it is always deliberate.
+ */
+const GRACE_MS = 600;
 
 const CTA_COPY = 'Keep it rolling';
 /** Gutter for the text rows. Deliberately NOT on the column — see styles.content. */
@@ -154,6 +167,12 @@ function Takeover({
   /** Mirrors `dismissing` for render — a ref alone can't drop pointerEvents. */
   const [exiting, setExiting] = useState(false);
   const startedAt = useRef(0);
+  /**
+   * First render, NOT sequence start. The backdrop is touchable from the frame
+   * it mounts, while `startedAt` is only stamped once the Reduce Motion probe
+   * resolves — anchoring the grace here covers that gap too.
+   */
+  const mountedAt = useRef(Date.now());
   const atRest = useRef(false);
   const dismissing = useRef(false);
   const sequenceTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -228,6 +247,19 @@ function Takeover({
     dim, veil, keyLine, camOpacity, camScale, camY, shakeAmp, shakePhase, light,
     numScale, subLine, buttonOpacity, buttonY, rolls,
   ]);
+
+  /**
+   * Put the keyboard away before the house lights go down. A qualifying action
+   * can be recorded from a screen with an open composer — the founder's like
+   * fired while he was typing a comment — and the RPC answers a beat later, so
+   * the takeover lands on a half-covered screen with the keyboard still up over
+   * the button. Runs on mount, ahead of the dim: the sequence effect below waits
+   * on the Reduce Motion probe and would leave the keyboard visible through the
+   * first frames.
+   */
+  useEffect(() => {
+    Keyboard.dismiss();
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -401,6 +433,11 @@ function Takeover({
   /** Whole-screen tap: jump to the lit end state, or dismiss if already there. */
   const onBackdropPress = useCallback(() => {
     if (dismissing.current) return;
+    // Taps already in flight when this appeared were meant for the screen
+    // underneath — see GRACE_MS. Costs nothing to check and needs no timer to
+    // expire, which is the point: skip has to stay a handful of synchronous
+    // cancelAnimation calls.
+    if (Date.now() - mountedAt.current < GRACE_MS) return;
     if (atRest.current) {
       dismiss();
       return;
@@ -434,6 +471,11 @@ function Takeover({
    * without this, back pops the route UNDERNEATH a takeover that stays on
    * screen, because the takeover is a sibling of the navigator rather than a
    * Modal (and a Modal is what it must not be — see the file header).
+   *
+   * That includes the input grace: a reflexive back press in the first GRACE_MS
+   * is the same in-flight reflex a stray tap is, and skipping on it would be the
+   * same bug. Note the event is still SWALLOWED during the grace — declining to
+   * skip is not the same as letting back pop the route underneath.
    */
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {

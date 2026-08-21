@@ -18,8 +18,11 @@ jest.mock('@/lib/notification-priming-context', () => ({
   useNotificationPriming: () => ({ triggerFirstWinCheck: jest.fn() }),
 }));
 
+// Shared across renders (not a fresh jest.fn() per call) so the trigger-set
+// tests below can assert on what a given action did and did not record.
+const mockRecordActivity = jest.fn();
 jest.mock('@/lib/streak-context', () => ({
-  useStreak: () => ({ recordActivity: jest.fn(), streakVersion: 0 }),
+  useStreak: () => ({ recordActivity: mockRecordActivity, streakVersion: 0 }),
 }));
 
 jest.mock('@/hooks/use-popcorn-earn', () => ({
@@ -518,6 +521,86 @@ describe('useMovieActions', () => {
         'watchlist',
         { source: 'search' }
       );
+    });
+  });
+
+  // ==========================================================================
+  // Streak trigger set (PS-15 v2 founder pass)
+  // ==========================================================================
+
+  /**
+   * Saving something for later is not a day at the movies. The founder pass
+   * ruled a plain watchlist add a passive tap rather than participation, so it
+   * no longer extends the streak — but adding straight to "watched" is a log,
+   * and logs still do. Both paths run through the SAME onSuccess, which is
+   * exactly why this is worth pinning.
+   */
+  describe('streak trigger set', () => {
+    it.each([
+      { status: 'watchlist' as const },
+      { status: 'watching' as const },
+    ])('does not record activity for an add with status "$status"', async ({ status }) => {
+      const { wrapper } = createTestHarness();
+
+      mockGetMovieByTmdbId.mockResolvedValue(null);
+      mockAddMovieToLibrary.mockResolvedValue(makeUserMovie({ status }));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+      await waitFor(() => expect(result.current.isSaved).toBe(false));
+
+      await act(async () => {
+        await result.current.addToWatchlist(makeTMDBMovie() as any, status);
+      });
+
+      expect(mockRecordActivity).not.toHaveBeenCalled();
+    });
+
+    it('records a log when the add goes straight to "watched"', async () => {
+      const { wrapper } = createTestHarness();
+
+      mockGetMovieByTmdbId.mockResolvedValue(null);
+      mockAddMovieToLibrary.mockResolvedValue(makeUserMovie({ status: 'watched' }));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+      await waitFor(() => expect(result.current.isSaved).toBe(false));
+
+      await act(async () => {
+        await result.current.addToWatchlist(makeTMDBMovie() as any, 'watched');
+      });
+
+      expect(mockRecordActivity).toHaveBeenCalledWith('log');
+    });
+
+    it('records a log when an existing title is marked watched', async () => {
+      const { wrapper } = createTestHarness();
+
+      mockGetMovieByTmdbId.mockResolvedValue(makeUserMovie({ status: 'watchlist' }));
+      mockUpdateMovieStatus.mockResolvedValue(makeUserMovie({ status: 'watched' }));
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+      await waitFor(() => expect(result.current.currentStatus).toBe('watchlist'));
+
+      await act(async () => {
+        await result.current.changeStatus('watched');
+      });
+
+      expect(mockRecordActivity).toHaveBeenCalledWith('log');
+    });
+
+    it('does not record activity for liking a title', async () => {
+      const { queryClient, wrapper } = createTestHarness();
+
+      queryClient.setQueryData(USER_LIKE_KEY, null);
+      mockLikeMovie.mockResolvedValue(makeUserMovieLike());
+
+      const { result } = renderHook(() => useMovieActions(TMDB_ID), { wrapper });
+      await waitFor(() => expect(result.current.isLiked).toBe(false));
+
+      await act(async () => {
+        await result.current.toggleLike(makeTMDBMovie() as any);
+      });
+
+      expect(mockRecordActivity).not.toHaveBeenCalled();
     });
   });
 
