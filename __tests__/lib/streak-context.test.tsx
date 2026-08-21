@@ -58,7 +58,7 @@ const streakSpineEnabledNowMock = streakService.streakSpineEnabledNow as jest.Mo
 function TestHarness() {
   const { recordActivity } = useStreak();
   return (
-    <Pressable testID="act" onPress={() => recordActivity('like')}>
+    <Pressable testID="act" onPress={() => recordActivity('comment')}>
       <Text>act</Text>
     </Pressable>
   );
@@ -91,7 +91,7 @@ describe('StreakProvider — streak_spine write gate', () => {
     streakSpineEnabledNowMock.mockReturnValue(true);
     fireEvent.press(getByTestId('act'));
 
-    await waitFor(() => expect(recordUserActivityMock).toHaveBeenCalledWith('like'));
+    await waitFor(() => expect(recordUserActivityMock).toHaveBeenCalledWith('comment'));
   });
 
   it('no-ops when the flag is genuinely off at the moment the user acts', () => {
@@ -125,7 +125,7 @@ describe('StreakProvider — streak_spine write gate', () => {
       rain_checks_used: 0,
       last_activity_date: '2026-08-19',
       local_date: '2026-08-19',
-      first_action: 'like',
+      first_action: 'comment',
       milestone: null,
       rain_check_consumed: false,
       rain_check_earned: false,
@@ -134,7 +134,7 @@ describe('StreakProvider — streak_spine write gate', () => {
     function VersionProbe() {
       const { recordActivity, streakVersion } = useStreak();
       return (
-        <Pressable testID="act" onPress={() => recordActivity('like')}>
+        <Pressable testID="act" onPress={() => recordActivity('comment')}>
           <Text testID="version">{String(streakVersion)}</Text>
         </Pressable>
       );

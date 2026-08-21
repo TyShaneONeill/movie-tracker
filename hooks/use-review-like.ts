@@ -3,7 +3,6 @@ import { useAuth } from './use-auth';
 import { toggleLike, fetchLikeStatus, type LikeStatusResponse } from '@/lib/like-service';
 import { analytics } from '@/lib/analytics';
 import { usePopcornEarn } from './use-popcorn-earn';
-import { useStreak } from '@/lib/streak-context';
 
 interface UseReviewLikeParams {
   targetType: 'review' | 'first_take';
@@ -23,7 +22,6 @@ export function useReviewLike({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { earn } = usePopcornEarn();
-  const { recordActivity } = useStreak();
 
   const queryKey = ['reviewLike', targetType, targetId];
 
@@ -66,8 +64,9 @@ export function useReviewLike({
     onSuccess: (serverData) => {
       if (serverData.liked) {
         analytics.track('social:like', { target_type: targetType, target_id: targetId });
-        // PS-15 PR 3: a like (not an unlike) is a qualifying (non-earn) action.
-        recordActivity('like');
+        // A like does NOT extend the streak. It did in PS-15 PR 3; the founder
+        // pass on v2 ruled it out as a passive tap rather than participation —
+        // a day of taps is not a day at the movies. Popcorn still earns.
         earn('like', targetId);
       }
       // Set the actual server data

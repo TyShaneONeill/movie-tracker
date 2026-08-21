@@ -140,8 +140,11 @@ export function useMovieActions(tmdbId: number): UseMovieActionsResult {
       analytics.track('movie:watchlist_add', { tmdb_id: variables.movie.id });
       // PS-15 PR 1: first-win moment for the notification priming sheet.
       triggerFirstWinCheck();
-      // PS-15 PR 3: a watched add is a "log", a plain add is a watchlist add.
-      recordActivity(variables.status === 'watched' ? 'log' : 'watchlist_add');
+      // PS-15 PR 3: an add straight to "watched" is a log, and logs extend the
+      // streak. A plain watchlist add no longer does — the v2 founder pass ruled
+      // it a passive tap rather than participation. Saving something for later
+      // is not a day at the movies.
+      if (variables.status === 'watched') recordActivity('log');
     },
   });
 

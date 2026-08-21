@@ -22,14 +22,24 @@ import {
 } from './streak-logic';
 import { activityWindowStart } from './streak-view';
 
-/** Free-text action taxonomy — kept open (no DB enum) so PR 4's Marquee answer can join. */
+/**
+ * Free-text action taxonomy — kept open (no DB enum) so PR 4's Marquee answer
+ * can join.
+ *
+ * This is the set of actions that EXTEND A STREAK, which is narrower than what
+ * the RPC accepts: `record_user_activity` is action-agnostic and will record
+ * any string handed to it, so the trigger set is enforced HERE and at the call
+ * sites, nowhere else. The v2 founder pass dropped 'like' and 'watchlist_add' —
+ * a like or a save-for-later is a passive tap rather than participation, and a
+ * day of them is not a day at the movies. Rows written before the ruling still
+ * carry those strings in `first_action`, which is typed `string` and reads them
+ * back fine.
+ */
 export type StreakAction =
   | 'log'
   | 'first_take'
   | 'review'
   | 'comment'
-  | 'like'
-  | 'watchlist_add'
   | 'scan'
   | 'tv_status';
 

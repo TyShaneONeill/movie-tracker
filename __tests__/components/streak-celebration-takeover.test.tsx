@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { AccessibilityInfo, BackHandler } from 'react-native';
+import { AccessibilityInfo, BackHandler, Keyboard } from 'react-native';
 
 import { StreakCelebrationTakeover } from '@/components/streak/streak-celebration-takeover';
 import { analytics } from '@/lib/analytics';
@@ -53,6 +53,19 @@ const track = analytics.track as jest.Mock;
 
 function extension(over: Partial<PendingCelebration> = {}): PendingCelebration {
   return { id: 1, from: 12, to: 13, milestone: null, ...over };
+}
+
+/**
+ * Mirrors GRACE_MS in the component. Tests that mean to exercise skip have to
+ * clear it first — a press before this is ignored ON PURPOSE.
+ */
+const GRACE_MS = 600;
+
+/** Past the input grace, so the next press is treated as a decision. */
+function clearGrace() {
+  act(() => {
+    jest.advanceTimersByTime(GRACE_MS + 1);
+  });
 }
 
 /** Renders and lets the Reduce Motion probe resolve, which starts the sequence. */
@@ -115,11 +128,12 @@ describe('StreakCelebrationTakeover — the sequence', () => {
 });
 
 describe('StreakCelebrationTakeover — tap to skip', () => {
-  // Every named beat of the House Cut, so no phase can trap a user mid-sequence.
+  // Every named beat of the House Cut that is reachable, so no phase can trap a
+  // user mid-sequence. 'dim' (0–143ms) and 'camera' (143–403ms) are absent
+  // because they finish inside GRACE_MS — a press during them is an in-flight
+  // reflex, not a skip, and the grace describe below owns that case.
   it.each([
-    ['dim', 0],
-    ['camera', 200],
-    ['spinUp', 500],
+    ['spinUp', 700],
     ['flicker', 900],
     ['hold', 1400],
     ['roll', 1600],
@@ -144,6 +158,7 @@ describe('StreakCelebrationTakeover — tap to skip', () => {
   it('dismisses on a second tap, once it is at rest', async () => {
     const { getByLabelText } = await mount(extension());
     const backdrop = getByLabelText('Skip the streak celebration');
+    clearGrace();
 
     fireEvent.press(backdrop);
     fireEvent.press(backdrop);
@@ -157,9 +172,64 @@ describe('StreakCelebrationTakeover — tap to skip', () => {
   it('skips only once — a second tap does not re-report a skip', async () => {
     const { getByLabelText } = await mount(extension());
     const backdrop = getByLabelText('Skip the streak celebration');
+    clearGrace();
 
     fireEvent.press(backdrop);
     fireEvent.press(backdrop);
+
+    expect(
+      track.mock.calls.filter((c) => c[0] === 'streak:celebration_skipped')
+    ).toHaveLength(1);
+  });
+});
+
+/**
+ * The founder's first real run: he liked a review with the comment composer
+ * open, the RPC answered a beat later, and the taps he already had in flight
+ * skipped the celebration and then dismissed it. He never saw a frame of the
+ * thing. Anything landing in the first GRACE_MS was aimed at the screen
+ * underneath, so the takeover declines it.
+ */
+describe('StreakCelebrationTakeover — input grace', () => {
+  it.each([
+    ['at the very first frame', 0],
+    ['mid-entrance', 300],
+    ['one tick before the grace lapses', 599],
+  ])('ignores a tap %s', async (_label, at) => {
+    const { getByLabelText } = await mount(extension());
+    act(() => {
+      jest.advanceTimersByTime(at as number);
+    });
+
+    fireEvent.press(getByLabelText('Skip the streak celebration'));
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(
+      track.mock.calls.filter((c) => c[0] === 'streak:celebration_skipped')
+    ).toHaveLength(0);
+    expect(mockDismissCelebration).not.toHaveBeenCalled();
+  });
+
+  it('skips normally once the grace has lapsed', async () => {
+    const { getByLabelText } = await mount(extension());
+    clearGrace();
+
+    fireEvent.press(getByLabelText('Skip the streak celebration'));
+
+    expect(
+      track.mock.calls.filter((c) => c[0] === 'streak:celebration_skipped')
+    ).toHaveLength(1);
+  });
+
+  it('does not spend the grace — a tap inside it leaves skip working after', async () => {
+    const { getByLabelText } = await mount(extension());
+    const backdrop = getByLabelText('Skip the streak celebration');
+
+    fireEvent.press(backdrop); // swallowed
+    clearGrace();
+    fireEvent.press(backdrop); // lands
 
     expect(
       track.mock.calls.filter((c) => c[0] === 'streak:celebration_skipped')
@@ -217,6 +287,7 @@ describe('StreakCelebrationTakeover — Android back', () => {
 
   it('dismisses once at rest, exactly like a tap anywhere', async () => {
     await mount(extension());
+    clearGrace();
 
     act(() => {
       backHandler()!(); // skips to the end state
@@ -229,6 +300,37 @@ describe('StreakCelebrationTakeover — Android back', () => {
     });
 
     expect(mockDismissCelebration).toHaveBeenCalledTimes(1);
+  });
+
+  // A reflexive back press is the same in-flight reflex a stray tap is, so it
+  // gets the same grace — but the event is still swallowed, because declining
+  // to skip must not mean letting back pop the route underneath.
+  it('respects the input grace, and still swallows the event', async () => {
+    await mount(extension());
+
+    let swallowed: boolean | undefined;
+    act(() => {
+      swallowed = backHandler()!();
+    });
+
+    expect(swallowed).toBe(true);
+    expect(
+      track.mock.calls.filter((c) => c[0] === 'streak:celebration_skipped')
+    ).toHaveLength(0);
+    expect(mockDismissCelebration).not.toHaveBeenCalled();
+  });
+
+  it('skips on back once the grace has lapsed', async () => {
+    await mount(extension());
+    clearGrace();
+
+    act(() => {
+      backHandler()!();
+    });
+
+    expect(
+      track.mock.calls.filter((c) => c[0] === 'streak:celebration_skipped')
+    ).toHaveLength(1);
   });
 
   it('unregisters when it unmounts', async () => {
@@ -273,6 +375,25 @@ describe('StreakCelebrationTakeover — the button', () => {
     });
 
     expect(mockDismissCelebration).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * A qualifying action can be recorded from a screen with an open composer — the
+ * founder liked a review mid-comment — and the takeover arrives a beat later, so
+ * without this the house lights come down over a keyboard that is still up.
+ */
+describe('StreakCelebrationTakeover — the keyboard', () => {
+  it('puts the keyboard away as it mounts', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => {});
+    await mount(extension());
+    expect(dismiss).toHaveBeenCalled();
+  });
+
+  it('leaves the keyboard alone when idle', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => {});
+    await mount(null);
+    expect(dismiss).not.toHaveBeenCalled();
   });
 });
 
