@@ -116,6 +116,21 @@ export type CameraPalette = {
   beamFalloff: number;
   /** Whole-camera glow colour, or null for none (idle). */
   camGlow: string | null;
+  /**
+   * The screening room's three extra roles (components/streak/takeover-stage).
+   *
+   * Taken from the projector mock's own palette table rather than reused from
+   * the flat hero's above: the scene is lit by exactly one lamp, so its warm
+   * has to be the colour of THAT light, and `beam` was tuned against a very
+   * different surface. Milestone's warm is the `gold` token's own value.
+   *
+   * sceneWarm  — the lamp. Beam, lens bloom and the room's spill all tint with it.
+   * sceneInk   — the numeral's face, landing on the phone's glass.
+   * sceneSolid — the base its extruded backlight steps down from.
+   */
+  sceneWarm: string;
+  sceneInk: string;
+  sceneSolid: string;
 };
 
 const CAMERA_DARK: Record<StreakHeroState, CameraPalette> = {
@@ -124,6 +139,7 @@ const CAMERA_DARK: Record<StreakHeroState, CameraPalette> = {
     holes: '#52525b', lens: '#37373e', face: '#4a4a52', dotc: '#4a4a52', mount: '#52525b',
     ring: '#3f3f46', spark: '#3f3f46', glowHalo: '#ffffff',
     beam: '#000000', beamAlphaA: 0, beamAlphaB: 0, beamFalloff: 0.92, camGlow: null,
+    sceneWarm: '#71717a', sceneInk: '#52525b', sceneSolid: '#27272c',
   },
   active: {
     body: '#e11d48', bodySh: '#be123c', reelA: '#f43f5e', reelB: '#be123c', reelIn: '#1c1017',
@@ -131,6 +147,7 @@ const CAMERA_DARK: Record<StreakHeroState, CameraPalette> = {
     ring: '#f43f5e', spark: '#fda4af', glowHalo: '#ffdcc2',
     beam: '#ffdec4', beamAlphaA: 0.55, beamAlphaB: 0.14, beamFalloff: 0.92,
     camGlow: 'rgba(225,29,72,0.35)',
+    sceneWarm: '#ffe2c9', sceneInk: '#fff5f6', sceneSolid: '#9f1239',
   },
   milestone: {
     body: '#f59e0b', bodySh: '#d97706', reelA: '#fbbf24', reelB: '#d97706', reelIn: '#241703',
@@ -138,6 +155,7 @@ const CAMERA_DARK: Record<StreakHeroState, CameraPalette> = {
     ring: '#fbbf24', spark: '#fde68a', glowHalo: '#ffe58f',
     beam: '#ffe08a', beamAlphaA: 0.6, beamAlphaB: 0.16, beamFalloff: 0.92,
     camGlow: 'rgba(251,191,36,0.35)',
+    sceneWarm: '#fbbf24', sceneInk: '#fff8e8', sceneSolid: '#b45309',
   },
 };
 
@@ -154,6 +172,7 @@ const CAMERA_LIGHT: Record<StreakHeroState, CameraPalette> = {
     holes: '#97979f', lens: '#b0b0b8', face: '#9a9aa2', dotc: '#b0b0b8', mount: '#a7a7af',
     ring: '#c9c9ce', spark: '#c9c9ce', glowHalo: '#ffffff',
     beam: '#000000', beamAlphaA: 0, beamAlphaB: 0, beamFalloff: 0.92, camGlow: null,
+    sceneWarm: '#a1a1aa', sceneInk: '#71717a', sceneSolid: '#c9c9ce',
   },
   active: {
     ...CAMERA_DARK.active,

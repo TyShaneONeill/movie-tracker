@@ -119,11 +119,32 @@ describe('StreakCelebrationTakeover — the sequence', () => {
   it('shows both the number it came from and the one it lands on', async () => {
     const { getByText, getAllByText } = await mount(extension());
     // 12 → 13: the shared leading 1 is static, the ones column stacks 2 over 3.
+    // Counted rather than fetched singly, because every glyph now appears once
+    // per copy of the numeral — see the backlight test below.
     expect(getAllByText('1').length).toBeGreaterThan(0);
-    expect(getByText('2')).toBeTruthy();
-    expect(getByText('3')).toBeTruthy();
+    expect(getAllByText('2').length).toBeGreaterThan(0);
+    expect(getAllByText('3').length).toBeGreaterThan(0);
     expect(getByText('day streak')).toBeTruthy();
     expect(getByText('Keep it rolling')).toBeTruthy();
+  });
+
+  /**
+   * The projector scene's backlight (PR-B): the number is a solid in the same
+   * world as the camera, built from copies of itself stepped along the projected
+   * depth axis. Deliberately NOT a blurred glow — a real Gaussian lands straight
+   * back in the Android feGaussianBlur divergence that cost PR #833 a round.
+   *
+   * Counting them is what stops the copies being quietly dropped to one (the
+   * number goes flat) or built outside the odometer (the backlight detaches from
+   * the glyph mid-roll, which only shows up in motion).
+   */
+  it('backs the numeral with eight extruded copies, all of them rolling', async () => {
+    const { getAllByText } = await mount(extension());
+    const COPIES = 8 + 1; // the backlight's steps, plus the face itself
+
+    expect(getAllByText('3')).toHaveLength(COPIES); // the digit rolling in
+    expect(getAllByText('2')).toHaveLength(COPIES); // the one rolling out
+    expect(getAllByText('1')).toHaveLength(COPIES); // the static column
   });
 });
 
