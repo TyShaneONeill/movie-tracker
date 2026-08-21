@@ -32,6 +32,7 @@ import {
   useWindowDimensions,
   type ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -143,21 +144,38 @@ const CTA_COPY = 'Keep it rolling';
 /**
  * Milestone dresses the chrome, not just the room.
  *
- * The scene mock puts the whole screen in `is-gold` on a milestone day: the
- * eyebrow names the milestone instead of saying "streak extended", and the
- * button goes gold. Values are the mock's own — the face takes its 62% stop,
- * which is the same stop the shipped crimson face already flattens to, so the
- * two states are the same treatment in two colours rather than two designs.
+ * Transcribed from the scene mock's own CSS (scene-acceptance-mock.html,
+ * `.cta-*`). The mock is the golden standard and it wins over the round-2
+ * playground the shipped button was cut to: this is a full-width bar with a
+ * gradient face and a deep shelf, not a compact pill. On a milestone day the
+ * whole screen goes `is-gold` — the eyebrow names the milestone, and the button
+ * follows it.
  *
  * The label goes DARK on gold. White on #f5b312 is 1.9:1 and unreadable; the
  * mock's #2a1d02 is 9.6:1.
  */
 const CHROME = {
-  streak: { key: '#a1a1aa', shelf: '#7f1d33', face: '#e11d48', label: '#ffffff' },
-  milestone: { key: '#fbbf24', shelf: '#7a4d04', face: '#f5b312', label: '#2a1d02' },
+  streak: {
+    key: '#a1a1aa',
+    shelf: '#6d0a24',
+    face: ['#fb7185', '#e11d48', '#d01444'],
+    label: '#ffffff',
+  },
+  milestone: {
+    key: '#fbbf24',
+    shelf: '#7a4d04',
+    face: ['#fcd34d', '#f5b312', '#e0a406'],
+    label: '#2a1d02',
+  },
 } as const;
-/** Gutter for the text rows. Deliberately NOT on the column — see styles.content. */
-const CONTENT_PADDING = 24;
+
+/** The mock's gradient stops sit at 0 / 62% / 100%. */
+const CTA_STOPS = [0, 0.62, 1] as const;
+/** `.cta{left:20px;right:20px}` — the bar spans the frame minus these gutters. */
+const CTA_GUTTER = 20;
+/** `.cta-face{height:56px;border-radius:16px}`. */
+const CTA_HEIGHT = 56;
+const CTA_RADIUS = 16;
 
 // The light envelope is symmetric ON PURPOSE (trap 02): an expo-out races every
 // interval to its end value and turns a beat of light into a strobe, and there
@@ -930,7 +948,7 @@ function Takeover({
             <View style={[styles.ctaShelf, { backgroundColor: chrome.shelf }]} />
             <Animated.View style={faceStyle}>
               <Pressable
-                style={[styles.ctaFace, { backgroundColor: chrome.face }]}
+                style={styles.ctaFace}
                 onPress={onCtaPress}
                 onPressIn={() => {
                   pressY.value = withTiming(BUTTON_DEPTH, {
@@ -956,7 +974,19 @@ function Takeover({
                 accessibilityRole="button"
                 accessibilityLabel={CTA_COPY}
               >
-                <Text style={[styles.ctaLabel, { color: chrome.label }]} maxFontSizeMultiplier={1.2}>
+                <LinearGradient
+                  colors={chrome.face}
+                  locations={CTA_STOPS}
+                  style={StyleSheet.absoluteFill}
+                />
+                {/* The mock's `inset 0 1.5px 0 rgba(255,255,255,.42)` — RN has
+                    no inset shadow, so the lift is a real hairline inside the
+                    radius. */}
+                <View style={styles.ctaSheen} />
+                <Text
+                  style={[styles.ctaLabel, { color: chrome.label }]}
+                  maxFontSizeMultiplier={1.2}
+                >
                   {CTA_COPY}
                 </Text>
               </Pressable>
@@ -1058,31 +1088,45 @@ const styles = StyleSheet.create({
     color: '#d4d4d8',
     textAlign: 'center',
   },
-  /** Docks the button at the foot of the screen without resizing it. */
+  /** Docks the button at the foot of the screen. */
   ctaDock: {
     position: 'absolute',
     left: 0,
     right: 0,
-    alignItems: 'center',
   },
-  ctaWrap: { marginHorizontal: CONTENT_PADDING },
+  ctaWrap: { marginHorizontal: CTA_GUTTER },
   ctaShelf: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: BUTTON_DEPTH,
     bottom: -BUTTON_DEPTH,
-    borderRadius: 18,
+    borderRadius: CTA_RADIUS,
   },
   ctaFace: {
-    borderRadius: 18,
-    paddingHorizontal: 34,
-    paddingVertical: 16,
+    height: CTA_HEIGHT,
+    borderRadius: CTA_RADIUS,
     alignItems: 'center',
+    justifyContent: 'center',
+    // The gradient and the sheen are absolutely-filled children; without this
+    // they square off the corners the radius just rounded.
+    overflow: 'hidden',
+  },
+  ctaSheen: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.42)',
   },
   ctaLabel: {
-    fontFamily: Fonts.outfit.semibold,
-    fontSize: 17,
-    lineHeight: 22,
+    fontFamily: Fonts.outfit.extrabold,
+    fontSize: 14.5,
+    // Outfit clips at line-height 1 in RN (trap 08), so the mock's
+    // `line-height:1` becomes the smallest box that still clears the caps.
+    lineHeight: 18,
+    letterSpacing: 1.45,
+    textTransform: 'uppercase',
   },
 });

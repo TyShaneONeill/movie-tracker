@@ -12,6 +12,7 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { AccessibilityInfo, BackHandler, Keyboard, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { StreakCelebrationTakeover } from '@/components/streak/streak-celebration-takeover';
 import { analytics } from '@/lib/analytics';
@@ -198,22 +199,52 @@ describe('StreakCelebrationTakeover — milestone chrome', () => {
     expect(getByText('Streak extended')).toBeTruthy();
   });
 
-  it('turns the button gold, label and all', async () => {
+  it('turns the button gold, gradient and label both', async () => {
     const { getByLabelText } = await mount(
       extension({ from: 29, to: 30, milestone: 30 })
     );
     const face = getByLabelText('Keep it rolling');
-    expect(flat(face.props.style).backgroundColor).toBe('#f5b312');
+    // The mock's `.is-gold .cta-face` stops, in order.
+    expect(face.findByType(LinearGradient as never).props.colors).toEqual([
+      '#fcd34d',
+      '#f5b312',
+      '#e0a406',
+    ]);
     // The label has to go dark — white on this gold is 1.9:1.
-    const label = face.findByType(Text as never);
-    expect(flat(label.props.style).color).toBe('#2a1d02');
+    expect(flat(face.findByType(Text as never).props.style).color).toBe('#2a1d02');
   });
 
   it('leaves the button crimson on an ordinary extension', async () => {
     const { getByLabelText } = await mount(extension());
     const face = getByLabelText('Keep it rolling');
-    expect(flat(face.props.style).backgroundColor).toBe('#e11d48');
+    expect(face.findByType(LinearGradient as never).props.colors).toEqual([
+      '#fb7185',
+      '#e11d48',
+      '#d01444',
+    ]);
     expect(flat(face.findByType(Text as never).props.style).color).toBe('#ffffff');
+  });
+
+  /**
+   * The mock's button is a full-width BAR, not the round-2 playground's compact
+   * pill — that spec collision is what the founder's pixel-gate caught. The
+   * label reads uppercase on screen but stays sentence case underneath, so a
+   * screen reader (and every existing query) still finds "Keep it rolling".
+   */
+  it('is the mock\'s full-width bar, uppercase and tracked', async () => {
+    const { getByLabelText, getByText } = await mount(extension());
+    const face = getByLabelText('Keep it rolling');
+    const style = flat(face.props.style);
+    expect(style.height).toBe(56);
+    expect(style.borderRadius).toBe(16);
+
+    const label = flat(face.findByType(Text as never).props.style);
+    expect(label.textTransform).toBe('uppercase');
+    expect(label.letterSpacing).toBeCloseTo(1.45, 2);
+    expect(label.fontSize).toBe(14.5);
+
+    // Sentence case underneath, so nothing that queries by copy breaks.
+    expect(getByText('Keep it rolling')).toBeTruthy();
   });
 });
 
