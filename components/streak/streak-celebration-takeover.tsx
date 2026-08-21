@@ -184,6 +184,21 @@ const FLICKER_MS = 4300;
  *
  * The irregular spacing is the point — evenly spaced flicker reads as a broken
  * loop, and a soft fade reads as a dimmer rather than a shutter (brief trap 7).
+ *
+ * CONSTRAINT — re-count the window before adding or moving a keyframe.
+ * These six down-transitions (3%, 9%, 28%, 55%, 71%, 89% = 129, 387, 1204,
+ * 2365, 3053, 3827ms) sit against WCAG 2.3.1's general flash threshold, which
+ * fails content at MORE than three flashes in any one second. The worst window
+ * is the one that WRAPS the cycle — starting at 3827ms it catches 3827, then
+ * 4429 and 4687 of the next cycle — and it holds exactly three. That is a
+ * boundary case, not a margin: one more dip near the wrap tips it over.
+ *
+ * The other two conditions were measured off a 188-frame capture of this very
+ * loop (see PR #838): magnitude is over the limit (0.906 -> 0.375 relative
+ * luminance) and area is well under it (10.9% of a 10-degree field against a
+ * 25% limit). All three must be exceeded to fail, so AREA is what currently
+ * keeps this compliant — shallowing the dips would not buy any headroom on
+ * rate, and only spacing them would.
  */
 const FLICKER_KEYS: readonly (readonly [number, number])[] = [
   [0, 1],
