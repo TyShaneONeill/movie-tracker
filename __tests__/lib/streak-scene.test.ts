@@ -17,6 +17,9 @@
 import {
   ARTWORK,
   LENS,
+  SCENE_MAX_W,
+  TILT_CENTRE,
+  applyMat,
   SCENE_CONTRACT,
   SCENE_H,
   SCENE_W,
@@ -181,6 +184,63 @@ describe('streak scene — beam origin and direction are derived together', () =
 
 /* ------------------------------------------------------------------------- */
 
+/**
+ * The component does not call project(). It renders a chain of matrices —
+ * face ∘ translate(depth) ∘ tilt — and that chain is only correct because it is
+ * algebraically the same thing. Nothing else in the suite would notice if the
+ * two drifted apart, which is exactly how a scene ends up passing its own tests
+ * while drawing something else.
+ */
+describe('streak scene — the chain the component actually renders', () => {
+  it('composes to the same point project() computes', () => {
+    const c = SCENE_CONTRACT;
+    const face = faceMatrix(c);
+    const step = depthStep(c);
+    const tilt = rotateAbout(c.tilt, TILT_CENTRE.x, TILT_CENTRE.y);
+
+    // Corners of the artwork, at every depth the extrusion actually steps to.
+    for (const [X, Z] of [
+      [6, 80],
+      [96, 42],
+      [192, 146],
+      [156, 46],
+    ]) {
+      for (const t of [0, 1 / c.steps, 0.5, 1]) {
+        for (const depth of [c.depth, c.depth * 0.42]) {
+          const Y = depth * t;
+          const chain = applyMat(
+            mul(face, mul(translate(step.u * Y, step.v * Y), tilt)),
+            X,
+            Z
+          );
+          const direct = project(c, X, Y, Z);
+          expect(chain.x).toBeCloseTo(direct.x, 9);
+          expect(chain.y).toBeCloseTo(direct.y, 9);
+        }
+      }
+    }
+  });
+
+  it('still agrees when the angles move', () => {
+    for (const over of [{ azimuth: 55 }, { elevation: 20 }, { tilt: -20 }, { mirror: 1 }]) {
+      const c = at(over);
+      const step = depthStep(c);
+      const Y = c.depth * 0.62;
+      const chain = applyMat(
+        mul(
+          faceMatrix(c),
+          mul(translate(step.u * Y, step.v * Y), rotateAbout(c.tilt, TILT_CENTRE.x, TILT_CENTRE.y))
+        ),
+        LENS.x,
+        LENS.y
+      );
+      const direct = project(c, LENS.x, Y, LENS.y);
+      expect(chain.x).toBeCloseTo(direct.x, 9);
+      expect(chain.y).toBeCloseTo(direct.y, 9);
+    }
+  });
+});
+
 describe('streak scene — matrix helpers', () => {
   it('composes in nesting order: mul(m, n) applies n first', () => {
     const m = mul(translate(10, 0), translate(0, 5));
@@ -252,5 +312,34 @@ describe('streak scene — layout', () => {
     const l = sceneLayout(390, 660);
     expect(toScreen(l, 0, 0)).toEqual({ x: 0, y: 0 });
     expect(toScreen(l, SCENE_W, SCENE_H)).toEqual({ x: 390, y: 660 });
+  });
+
+  it('caps the scale on a desktop window and centres what is left', () => {
+    // The app renders on web too, and the takeover is full-bleed outside the
+    // 768pt column. Uncapped, a 1440 window drew the projector past the edge.
+    const wide = sceneLayout(1440, 900);
+    expect(wide.scale).toBeCloseTo(SCENE_MAX_W / SCENE_W, 6);
+    expect(wide.offsetX).toBeCloseTo((1440 - SCENE_W * wide.scale) / 2, 6);
+
+    const d = deriveScene();
+    const lens = toScreen(wide, d.lensX, d.lensY);
+    const numeral = toScreen(wide, d.numeralX, d.numeralY);
+    for (const p of [lens, numeral]) {
+      expect(p.x).toBeGreaterThan(0);
+      expect(p.x).toBeLessThan(1440);
+      expect(p.y).toBeGreaterThan(0);
+      expect(p.y).toBeLessThan(900);
+    }
+  });
+
+  it('leaves every handset we ship to untouched by the cap', () => {
+    for (const [w, h] of [
+      [375, 667],
+      [393, 852],
+      [412, 915],
+      [430, 932],
+    ]) {
+      expect(sceneLayout(w, h).scale).toBeCloseTo(w / SCENE_W, 6);
+    }
   });
 });

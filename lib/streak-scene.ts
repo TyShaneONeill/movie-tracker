@@ -102,8 +102,6 @@ export const SCENE_CONTRACT: SceneContract = {
  */
 export type Mat = [number, number, number, number, number, number];
 
-export const IDENTITY: Mat = [1, 0, 0, 1, 0, 0];
-
 /** m ∘ n — n applied first, then m. Same order as nesting n inside m. */
 export function mul(m: Mat, n: Mat): Mat {
   return [
@@ -237,12 +235,7 @@ export function boundsOf(
   }
   const x0 = Math.min(...xs);
   const y0 = Math.min(...ys);
-  return {
-    x: x0,
-    y: Math.min(...ys),
-    w: Math.max(...xs) - x0,
-    h: Math.max(...ys) - y0,
-  };
+  return { x: x0, y: y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0 };
 }
 
 /* ------------------------------------------------------------------- volumes */
@@ -464,21 +457,41 @@ export interface SceneLayout {
 }
 
 /**
+ * The widest the scene is ever drawn, in scene units.
+ *
+ * The app renders on web as well as on handsets, capped at a 768pt column, and
+ * the takeover mounts full-bleed outside that column. Without a ceiling the
+ * scene scales with the whole window: at 1440 the projector is drawn at 3.7×
+ * and sits off the side of the screen entirely. 470 is a little past the widest
+ * handset we ship to, so no phone is affected and a desktop window gets a
+ * phone-sized room centred in it.
+ */
+export const SCENE_MAX_W = 470;
+
+/**
  * Where the 390×660 scene lands on a real screen.
  *
- * FIT WIDTH, CENTRED VERTICALLY — deliberately not the mock's `slice`. The mock
- * runs in a 390×660 phone frame where the two are identical; a real handset is
- * ~390×850, and covering that would crop a quarter of the width off the
- * composition to fill space the room does not need. Fitting the width preserves
- * the frame exactly and leaves a band top and bottom, which costs nothing
- * because the floor's far stop and the takeover's dim are both effectively the
- * same near-black — there is no seam to see. It also lands the numeral at ~48%
- * of the screen on every handset we ship to, and drops the CTA just below the
+ * FIT WIDTH, CENTRED — deliberately not the mock's `slice`. The mock runs in a
+ * 390×660 phone frame where the two are identical; a real handset is ~390×850,
+ * and covering that would crop a quarter of the width off the composition to
+ * fill space the room does not need. Fitting the width preserves the frame
+ * exactly and leaves a band top and bottom, which costs nothing because the
+ * floor's far stop and the takeover's dim are both effectively the same
+ * near-black — there is no seam to see. It also lands the numeral at ~48% of
+ * the screen on every handset we ship to, and drops the CTA just below the
  * floor's bottom edge.
+ *
+ * Centring horizontally only matters once the width is capped, but it is what
+ * keeps a wide window showing a room in the middle rather than a room pinned to
+ * the left edge with the projector past the far side.
  */
 export function sceneLayout(screenW: number, screenH: number): SceneLayout {
-  const scale = screenW / SCENE_W;
-  return { scale, offsetX: 0, offsetY: (screenH - SCENE_H * scale) / 2 };
+  const scale = Math.min(screenW, SCENE_MAX_W) / SCENE_W;
+  return {
+    scale,
+    offsetX: (screenW - SCENE_W * scale) / 2,
+    offsetY: (screenH - SCENE_H * scale) / 2,
+  };
 }
 
 /** A scene point in screen coordinates. */

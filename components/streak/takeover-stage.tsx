@@ -102,6 +102,27 @@ const BEAM_FIT = {
 /** The hot centre of the lamp, straight off the mock. */
 const LAMP_DOT_R = 6 * SCENE_CONTRACT.intensity * 0.5 + 2;
 
+/**
+ * The scene, derived once. `deriveScene()` is pure and its argument is the
+ * frozen contract, so every call returns the same numbers — no reason for each
+ * read site to recompute them on every render.
+ */
+const SCENE = deriveScene();
+
+/**
+ * Every gradient id below is namespaced. streak-camera.tsx — the flat hero,
+ * which can be mounted behind this at the same time — defines its OWN
+ * `beamCone` and `beamCore` with completely different gradient vectors, and
+ * react-native-svg does not reliably scope ids per <Svg> root on Android. The
+ * camera solid's ids are namespaced for the same reason.
+ */
+const ID = {
+  cone: 'psScene-cone',
+  core: 'psScene-core',
+  bloom: 'psScene-bloom',
+  vignette: 'psScene-vig',
+} as const;
+
 export interface TakeoverStageProps {
   entranceStyle: AnimatedStyle<ViewStyle>;
   shakeStyle: AnimatedStyle<ViewStyle>;
@@ -133,7 +154,7 @@ export function TakeoverStage({
   // together"). Without it the projector sits there fully lit with no beam
   // coming out of it for the first second and a half, which reads as broken.
   const shadowPalette = cameraPalette('idle', true);
-  const scene = React.useMemo(() => deriveScene(), []);
+  const scene = SCENE;
   const layout = React.useMemo(
     () => sceneLayout(screenWidth, screenHeight),
     [screenWidth, screenHeight],
@@ -248,7 +269,7 @@ function CameraSolid({
 }) {
   const c = SCENE_CONTRACT;
   const step = depthStep(c);
-  const face = deriveScene().face;
+  const face = SCENE.face;
   const tilt = rotateAbout(c.tilt, TILT_CENTRE.x, TILT_CENTRE.y);
 
   // The gradient lives in the shape's own TILTED space, so its vector has to be
@@ -430,7 +451,7 @@ function Beam({
   width: number;
   height: number;
 }) {
-  const s = deriveScene();
+  const s = SCENE;
   const I = SCENE_CONTRACT.intensity;
   const warm = palette.sceneWarm;
 
@@ -439,6 +460,9 @@ function Beam({
     y: s.lensY + Math.sin(s.axisRad + offset) * s.reach,
   });
 
+  // NB the widest wedge is `spread` × the contract's half-angle — 1.3 × 33° =
+  // 42.9° — so the cone's geometric rim sits outside the ±33° in the contract.
+  // The contract's angle is where the light reads; the overshoot is its soft edge.
   const stack = (
     key: string,
     fit: { count: number; spread: number; taper: number; alpha: number },
@@ -473,7 +497,7 @@ function Beam({
     >
       <Defs>
         <LinearGradient
-          id="beamCone"
+          id={ID.cone}
           gradientUnits="userSpaceOnUse"
           x1={s.lensX}
           y1={s.lensY}
@@ -485,7 +509,7 @@ function Beam({
           <Stop offset="1" stopColor={warm} stopOpacity={0} />
         </LinearGradient>
         <LinearGradient
-          id="beamCore"
+          id={ID.core}
           gradientUnits="userSpaceOnUse"
           x1={s.lensX}
           y1={s.lensY}
@@ -497,7 +521,7 @@ function Beam({
           <Stop offset="1" stopColor={warm} stopOpacity={0} />
         </LinearGradient>
         <RadialGradient
-          id="lensBloom"
+          id={ID.bloom}
           gradientUnits="userSpaceOnUse"
           cx={s.lensX}
           cy={s.lensY}
@@ -519,14 +543,14 @@ function Beam({
         </RadialGradient>
       </Defs>
 
-      {stack('cone', BEAM_FIT.cone, 'beamCone')}
-      {stack('core', BEAM_FIT.core, 'beamCore')}
+      {stack('cone', BEAM_FIT.cone, ID.cone)}
+      {stack('core', BEAM_FIT.core, ID.core)}
 
       <Circle
         cx={s.lensX}
         cy={s.lensY}
         r={BEAM_FIT.bloom.radius}
-        fill="url(#lensBloom)"
+        fill={`url(#${ID.bloom})`}
       />
       <Circle
         cx={s.lensX}
@@ -558,7 +582,7 @@ function Vignette({
     <Svg width={width} height={height} pointerEvents="none">
       <Defs>
         <RadialGradient
-          id="vig"
+          id={ID.vignette}
           gradientUnits="userSpaceOnUse"
           cx={cx}
           cy={cy}
@@ -569,7 +593,7 @@ function Vignette({
           <Stop offset="1" stopColor="#000000" stopOpacity={0.72} />
         </RadialGradient>
       </Defs>
-      <Rect x="0" y="0" width={width} height={height} fill="url(#vig)" />
+      <Rect x="0" y="0" width={width} height={height} fill={`url(#${ID.vignette})`} />
     </Svg>
   );
 }

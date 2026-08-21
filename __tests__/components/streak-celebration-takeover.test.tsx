@@ -29,6 +29,12 @@ jest.mock('@/lib/theme-context', () => ({
   useEffectiveColorScheme: () => 'dark',
 }));
 
+// The CTA insets itself off the navigation bar, and this mounts outside the
+// navigator so nothing provides the values in a bare render.
+jest.mock('react-native-safe-area-context', () =>
+  require('react-native-safe-area-context/jest/mock').default
+);
+
 jest.mock('@/lib/haptics', () => ({
   hapticImpact: jest.fn(),
   hapticNotification: jest.fn(),
@@ -142,9 +148,30 @@ describe('StreakCelebrationTakeover — the sequence', () => {
     const { getAllByText } = await mount(extension());
     const COPIES = 8 + 1; // the backlight's steps, plus the face itself
 
-    expect(getAllByText('3')).toHaveLength(COPIES); // the digit rolling in
-    expect(getAllByText('2')).toHaveLength(COPIES); // the one rolling out
-    expect(getAllByText('1')).toHaveLength(COPIES); // the static column
+    // Hidden elements included on purpose — this is the VISUAL contract, and
+    // the eight backlight copies are deliberately hidden from the a11y tree.
+    const opts = { includeHiddenElements: true };
+    expect(getAllByText('3', opts)).toHaveLength(COPIES); // the digit rolling in
+    expect(getAllByText('2', opts)).toHaveLength(COPIES); // the one rolling out
+    expect(getAllByText('1', opts)).toHaveLength(COPIES); // the static column
+  });
+
+  /**
+   * The other side of that coin. Nine stacked copies of the number is a good
+   * picture and a terrible screen-reader experience — without an accessible
+   * wrapper the reader walks the copies and reads the digits nine times over.
+   */
+  it('announces the number once, not once per copy', async () => {
+    const { getAllByLabelText, getAllByText } = await mount(extension());
+
+    // One element carries the whole number.
+    expect(getAllByLabelText('13 day streak')).toHaveLength(1);
+
+    // And the backlight is not in the tree behind it: only the face's digits
+    // remain visible to a query that respects accessibility.
+    expect(getAllByText('3')).toHaveLength(1);
+    expect(getAllByText('2')).toHaveLength(1);
+    expect(getAllByText('1')).toHaveLength(1);
   });
 });
 

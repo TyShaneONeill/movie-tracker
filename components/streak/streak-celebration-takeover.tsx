@@ -30,7 +30,9 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -41,7 +43,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  type SharedValue,
+  type AnimatedStyle,
 } from 'react-native-reanimated';
 
 import { Fonts } from '@/constants/theme';
@@ -90,7 +92,7 @@ const NUM_BOX = Math.round(NUM_FONT_SIZE * (112 / 106));
 /** The scene mock's own tracking, −5.4% of the size. */
 const NUM_TRACKING = -NUM_FONT_SIZE * 0.054;
 /**
- * Where the glyph's ink actually sits inside a 131pt line box, per platform.
+ * Where the glyph's ink actually sits inside the line box, per platform.
  *
  * RN does not centre a glyph in an oversized `lineHeight` the same way on both
  * platforms, and at this size the slack is large enough to see: measured
@@ -99,9 +101,11 @@ const NUM_TRACKING = -NUM_FONT_SIZE * 0.054;
  * it is supposed to be sitting in, on one platform only.
  *
  * Measured, not guessed — Pixel 8 emulator and iPhone 16 Pro simulator, ink
- * bounding box of the white face against the mock's own 312.5.
+ * bounding box of the white face against the mock's own 312.5. Expressed as a
+ * FRACTION of the size, like every other constant here, because the offset is a
+ * font metric: retune `numeralSize` and a raw 11.7 would silently stop landing.
  */
-const NUM_BASELINE_FIX = Platform.OS === 'ios' ? 11.7 : 0;
+const NUM_BASELINE_FIX = Platform.OS === 'ios' ? NUM_FONT_SIZE * 0.0944 : 0;
 /** Button bottom-edge depth: the shelf's height and the face's press travel. */
 const BUTTON_DEPTH = 8;
 const PRESS_IN_MS = 55;
@@ -237,6 +241,10 @@ function Takeover({
 }) {
   const { from, to, milestone } = celebration;
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  // The app is edge-to-edge and this mounts outside the navigator, so nothing
+  // insets the CTA for us: on a device with Android's 3-button navigation the
+  // bar lands right on top of the button. Same shape as the scan-v2 sticky CTA.
+  const insets = useSafeAreaInsets();
   const timeline = useMemo(() => takeoverTimeline(milestone !== null), [milestone]);
   const columns = useMemo(() => digitColumns(from, to), [from, to]);
 
@@ -347,6 +355,24 @@ function Takeover({
   const roll2 = useSharedValue(0);
   const roll3 = useSharedValue(0);
   const rolls = useMemo(() => [roll0, roll1, roll2, roll3], [roll0, roll1, roll2, roll3]);
+
+  /**
+   * One worklet per COLUMN, not per rendered slot. The numeral is drawn nine
+   * times over (the face plus eight backlight steps) and every copy rolls off
+   * the same four shared values, so building the style inside DigitSlot span up
+   * to thirty-six identical worklets for four distinct animations.
+   *
+   * Hooks cannot be looped over a variable length, so all four exist always —
+   * columns that do not roll simply never read theirs.
+   */
+  const rollStyle0 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll0.value }] }));
+  const rollStyle1 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll1.value }] }));
+  const rollStyle2 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll2.value }] }));
+  const rollStyle3 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll3.value }] }));
+  const rollStyles = useMemo(
+    () => [rollStyle0, rollStyle1, rollStyle2, rollStyle3],
+    [rollStyle0, rollStyle1, rollStyle2, rollStyle3]
+  );
 
   /**
    * The sequence's JS-side timers: the haptic marks and the at-rest flip. They
@@ -797,9 +823,17 @@ function Takeover({
             behind it. Its position is not a layout decision: it is the point
             `numeralDistance` down the derived beam axis, so it lands IN the
             light rather than being shoved to meet it. */}
+        {/* One accessibility element for the whole number. Without `accessible`
+            the role and label do not make this a node on iOS, and a screen
+            reader walks the nine copies underneath instead — announcing the
+            digits nine times over. The copies are hidden from both platforms'
+            trees for the same reason. `pointerEvents` stays none: the backdrop
+            below owns tap-to-skip, and an accessibility element does not need
+            to be touchable to be reachable. */}
         <Animated.View
           style={[styles.numeral, place.numeral, numeralStyle]}
           pointerEvents="none"
+          accessible
           accessibilityRole="text"
           accessibilityLabel={`${to} day streak`}
         >
@@ -816,13 +850,15 @@ function Takeover({
                   transform: [{ translateX: step.dx }, { translateY: step.dy }],
                 },
               ]}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
             >
               {columns.map((column, i) => (
                 <DigitSlot
                   key={i}
                   column={column}
                   color={step.color}
-                  offset={i < MAX_COLUMNS ? rolls[i] : undefined}
+                  rollStyle={i < MAX_COLUMNS ? rollStyles[i] : undefined}
                 />
               ))}
             </View>
@@ -833,7 +869,7 @@ function Takeover({
                 key={i}
                 column={column}
                 color={ink}
-                offset={i < MAX_COLUMNS ? rolls[i] : undefined}
+                rollStyle={i < MAX_COLUMNS ? rollStyles[i] : undefined}
               />
             ))}
           </View>
@@ -846,7 +882,13 @@ function Takeover({
           day streak
         </Animated.Text>
 
-        <View style={styles.ctaDock} pointerEvents="box-none">
+        <View
+          style={[
+            styles.ctaDock,
+            { bottom: Math.max(CTA_BOTTOM, insets.bottom + 16) },
+          ]}
+          pointerEvents="box-none"
+        >
           <Animated.View style={[styles.ctaWrap, buttonStyle]}>
             {/* The depth is geometry, not a shadow (trap 06): a real sibling shelf
               behind the face, and the face translates down onto it. */}
@@ -899,26 +941,30 @@ function Takeover({
 function DigitSlot({
   column,
   color,
-  offset,
+  rollStyle,
 }: {
   column: { previous: string; next: string; rolls: boolean };
   /** Per-copy: the face is the ink, the backlight's copies step toward black. */
   color: string;
-  offset?: SharedValue<number>;
+  /** This column's roll, built once in the parent and shared by all nine copies. */
+  rollStyle?: AnimatedStyle<ViewStyle>;
 }) {
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: offset ? -offset.value : 0 }],
-  }));
+  // The slot's height and the roll distance are both NUM_BOX — unscaled
+  // geometry measured against the scene — so an OS font scale would push the
+  // glyph out of a box that did not grow with it and land the roll short.
+  const digit = (text: string) => (
+    <Text style={[styles.digit, { color }]} allowFontScaling={false}>
+      {text}
+    </Text>
+  );
 
-  if (!column.rolls || !offset) {
-    return <Text style={[styles.digit, { color }]}>{column.next}</Text>;
-  }
+  if (!column.rolls || !rollStyle) return digit(column.next);
 
   return (
     <View style={styles.slot}>
-      <Animated.View style={style}>
-        <Text style={[styles.digit, { color }]}>{column.previous || ' '}</Text>
-        <Text style={[styles.digit, { color }]}>{column.next}</Text>
+      <Animated.View style={rollStyle}>
+        {digit(column.previous || ' ')}
+        {digit(column.next)}
       </Animated.View>
     </View>
   );
@@ -983,7 +1029,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: CTA_BOTTOM,
     alignItems: 'center',
   },
   ctaWrap: { marginHorizontal: CONTENT_PADDING },
