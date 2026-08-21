@@ -89,6 +89,19 @@ const NUM_FONT_SIZE = SCENE_CONTRACT.numeralSize;
 const NUM_BOX = Math.round(NUM_FONT_SIZE * (112 / 106));
 /** The scene mock's own tracking, −5.4% of the size. */
 const NUM_TRACKING = -NUM_FONT_SIZE * 0.054;
+/**
+ * Where the glyph's ink actually sits inside a 131pt line box, per platform.
+ *
+ * RN does not centre a glyph in an oversized `lineHeight` the same way on both
+ * platforms, and at this size the slack is large enough to see: measured
+ * against the mock, Android lands the ink 0.3 scene units low (fine) while iOS
+ * lands it 11.7 units HIGH. Left uncorrected the number floats above the beam
+ * it is supposed to be sitting in, on one platform only.
+ *
+ * Measured, not guessed — Pixel 8 emulator and iPhone 16 Pro simulator, ink
+ * bounding box of the white face against the mock's own 312.5.
+ */
+const NUM_BASELINE_FIX = Platform.OS === 'ios' ? 11.7 : 0;
 /** Button bottom-edge depth: the shelf's height and the face's press travel. */
 const BUTTON_DEPTH = 8;
 const PRESS_IN_MS = 55;
@@ -255,7 +268,7 @@ function Takeover({
         // sitting half a kern to the right of the beam's landing point —
         // measured at 3pt against the mock before this correction.
         left: centre.x - screenWidth / 2 + NUM_TRACKING / 2,
-        top: centre.y - NUM_BOX / 2,
+        top: centre.y - NUM_BOX / 2 + NUM_BASELINE_FIX * layout.scale,
         width: screenWidth,
         height: NUM_BOX,
       },
