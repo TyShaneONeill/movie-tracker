@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { AccessibilityInfo, BackHandler, Keyboard } from 'react-native';
+import { AccessibilityInfo, BackHandler, Keyboard, Text } from 'react-native';
 
 import { StreakCelebrationTakeover } from '@/components/streak/streak-celebration-takeover';
 import { analytics } from '@/lib/analytics';
@@ -172,6 +172,48 @@ describe('StreakCelebrationTakeover — the sequence', () => {
     expect(getAllByText('3')).toHaveLength(1);
     expect(getAllByText('2')).toHaveLength(1);
     expect(getAllByText('1')).toHaveLength(1);
+  });
+});
+
+/**
+ * Founder pixel-gate, round 2: a milestone day dresses the chrome, not just the
+ * room. The eyebrow names the milestone and the button goes gold, matching the
+ * scene mock's `is-gold` treatment. Colours are asserted because "gold" that
+ * silently stays crimson is exactly the delta that got caught by eye.
+ */
+describe('StreakCelebrationTakeover — milestone chrome', () => {
+  const flat = (style: unknown): Record<string, unknown> =>
+    Object.assign({}, ...[style].flat(Infinity).filter(Boolean) as object[]);
+
+  it('names the milestone in the eyebrow instead of "streak extended"', async () => {
+    const { getByText, queryByText } = await mount(
+      extension({ from: 29, to: 30, milestone: 30 })
+    );
+    expect(getByText('Milestone · day 30')).toBeTruthy();
+    expect(queryByText('Streak extended')).toBeNull();
+  });
+
+  it('keeps the plain eyebrow on an ordinary extension', async () => {
+    const { getByText } = await mount(extension());
+    expect(getByText('Streak extended')).toBeTruthy();
+  });
+
+  it('turns the button gold, label and all', async () => {
+    const { getByLabelText } = await mount(
+      extension({ from: 29, to: 30, milestone: 30 })
+    );
+    const face = getByLabelText('Keep it rolling');
+    expect(flat(face.props.style).backgroundColor).toBe('#f5b312');
+    // The label has to go dark — white on this gold is 1.9:1.
+    const label = face.findByType(Text as never);
+    expect(flat(label.props.style).color).toBe('#2a1d02');
+  });
+
+  it('leaves the button crimson on an ordinary extension', async () => {
+    const { getByLabelText } = await mount(extension());
+    const face = getByLabelText('Keep it rolling');
+    expect(flat(face.props.style).backgroundColor).toBe('#e11d48');
+    expect(flat(face.findByType(Text as never).props.style).color).toBe('#ffffff');
   });
 });
 

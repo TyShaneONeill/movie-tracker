@@ -139,6 +139,23 @@ const BUTTON_RISE_OVERSHOOT_PX = -3;
 const GRACE_MS = 600;
 
 const CTA_COPY = 'Keep it rolling';
+
+/**
+ * Milestone dresses the chrome, not just the room.
+ *
+ * The scene mock puts the whole screen in `is-gold` on a milestone day: the
+ * eyebrow names the milestone instead of saying "streak extended", and the
+ * button goes gold. Values are the mock's own — the face takes its 62% stop,
+ * which is the same stop the shipped crimson face already flattens to, so the
+ * two states are the same treatment in two colours rather than two designs.
+ *
+ * The label goes DARK on gold. White on #f5b312 is 1.9:1 and unreadable; the
+ * mock's #2a1d02 is 9.6:1.
+ */
+const CHROME = {
+  streak: { key: '#a1a1aa', shelf: '#7f1d33', face: '#e11d48', label: '#ffffff' },
+  milestone: { key: '#fbbf24', shelf: '#7a4d04', face: '#f5b312', label: '#2a1d02' },
+} as const;
 /** Gutter for the text rows. Deliberately NOT on the column — see styles.content. */
 const CONTENT_PADDING = 24;
 
@@ -267,6 +284,9 @@ function Takeover({
   // themes, so the scene's palette is the dark one either way — see the PR.
   const palette = cameraPalette(milestone !== null ? 'milestone' : 'active', true);
   const ink = palette.sceneInk;
+  const chrome = milestone !== null ? CHROME.milestone : CHROME.streak;
+  // The mock's own copy: "Milestone · day 30". Rendered uppercase by the style.
+  const keyCopy = milestone !== null ? `Milestone · day ${milestone}` : 'Streak extended';
 
   /**
    * Where the chrome sits ON the scene.
@@ -826,11 +846,11 @@ function Takeover({
         />
 
         <Animated.Text
-          style={[styles.keyLine, place.key, keyStyle]}
+          style={[styles.keyLine, place.key, { color: chrome.key }, keyStyle]}
           accessibilityLiveRegion="polite"
           maxFontSizeMultiplier={1.2}
         >
-          Streak extended
+          {keyCopy}
         </Animated.Text>
 
         {/* The number is the nearest thing in the frame, so it paints last —
@@ -907,10 +927,10 @@ function Takeover({
           <Animated.View style={[styles.ctaWrap, buttonStyle]}>
             {/* The depth is geometry, not a shadow (trap 06): a real sibling shelf
               behind the face, and the face translates down onto it. */}
-            <View style={styles.ctaShelf} />
+            <View style={[styles.ctaShelf, { backgroundColor: chrome.shelf }]} />
             <Animated.View style={faceStyle}>
               <Pressable
-                style={styles.ctaFace}
+                style={[styles.ctaFace, { backgroundColor: chrome.face }]}
                 onPress={onCtaPress}
                 onPressIn={() => {
                   pressY.value = withTiming(BUTTON_DEPTH, {
@@ -936,7 +956,7 @@ function Takeover({
                 accessibilityRole="button"
                 accessibilityLabel={CTA_COPY}
               >
-                <Text style={styles.ctaLabel} maxFontSizeMultiplier={1.2}>
+                <Text style={[styles.ctaLabel, { color: chrome.label }]} maxFontSizeMultiplier={1.2}>
                   {CTA_COPY}
                 </Text>
               </Pressable>
@@ -1000,7 +1020,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: 1.6,
     textTransform: 'uppercase',
-    color: '#a1a1aa',
   },
   numeral: { position: 'absolute' },
   // Every copy — the face and each step of the backlight — is the same row in
@@ -1053,11 +1072,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: BUTTON_DEPTH,
     bottom: -BUTTON_DEPTH,
-    backgroundColor: '#7f1d33',
     borderRadius: 18,
   },
   ctaFace: {
-    backgroundColor: '#e11d48',
     borderRadius: 18,
     paddingHorizontal: 34,
     paddingVertical: 16,
@@ -1067,6 +1084,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.outfit.semibold,
     fontSize: 17,
     lineHeight: 22,
-    color: '#ffffff',
   },
 });
