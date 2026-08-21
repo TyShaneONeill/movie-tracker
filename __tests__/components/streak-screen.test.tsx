@@ -170,9 +170,9 @@ describe('StreakScreen', () => {
       expect(getByText('Comment')).toBeTruthy();
     });
 
-    it('leads with rating a film for a day-0 user', () => {
+    it('leads with logging a film for a day-0 user', () => {
       const { getByText, queryByText } = mount({ streak: 0, extendedToday: false });
-      expect(getByText('Rate a film')).toBeTruthy();
+      expect(getByText('Log a film')).toBeTruthy();
       expect(queryByText('Comment')).toBeNull();
     });
 

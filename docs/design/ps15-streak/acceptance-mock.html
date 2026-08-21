@@ -1074,7 +1074,7 @@ button.gd-cell:focus-visible{outline:2px solid var(--m-tint);outline-offset:-2px
     <div class="fnotes">
       <div class="fnote">
         <div class="fk">Deep links</div>
-        <div><b>Scan ticket</b> → the ticket-scan module on the <b>Scan</b> tab. <b>First Take</b> → the First Take composer on <b>Home</b>. <b>Comment</b> → the <b>Feed</b> tab. <b>Rate a film</b> (day-one state) → <b>Home</b>. All four dismiss the streak screen on navigate rather than stacking on top of it, so backing out of the composer lands you on the tab you were sent to, not back here.</div>
+        <div><b>Scan ticket</b> → the ticket-scan module on the <b>Scan</b> tab. <b>First Take</b> → the First Take composer on <b>Home</b>. <b>Comment</b> → the <b>Feed</b> tab. <b>Log a film</b> (day-one state) → <b>Home</b>. All four dismiss the streak screen on navigate rather than stacking on top of it, so backing out of the composer lands you on the tab you were sent to, not back here.</div>
       </div>
       <div class="fnote">
         <div class="fk">Data depth</div>
@@ -1206,7 +1206,7 @@ button.gd-cell:focus-visible{outline:2px solid var(--m-tint);outline-offset:-2px
   var MILESTONES = [3,7,30,100];
 
   var PHRASE = {
-    rate:'you rated a movie', log:'you logged a movie', first_take:'you posted a first take',
+    log:'you logged a movie', first_take:'you posted a first take',
     review:'you wrote a review', comment:'you joined a conversation', like:'you showed some love',
     watchlist_add:'you added to your watchlist', scan:'you scanned a ticket', tv_status:'you logged an episode'
   };
@@ -1221,8 +1221,8 @@ button.gd-cell:focus-visible{outline:2px solid var(--m-tint);outline-offset:-2px
   /* ---------- archive states (round 1 mocks render 'active' only) ---------- */
   var ARCHIVE_STATE = {
     current:12, longest:12, eff:12, rain:1, used:0, savedIdx:null, isMile:false,
-    days: days([null,null,['log',2],['rate',1],['scan',4],['log',1],['first_take',3],
-                ['tv_status',6],['log',2],['rate',1],['review',2],['tv_status',5],['comment',1],['scan',3]])
+    days: days([null,null,['log',2],['log',1],['scan',4],['log',1],['first_take',3],
+                ['tv_status',6],['log',2],['review',1],['review',2],['tv_status',5],['comment',1],['scan',3]])
   };
 
   /* ---------- helpers ---------- */
@@ -1564,7 +1564,7 @@ button.gd-cell:focus-visible{outline:2px solid var(--m-tint);outline-offset:-2px
     var acts = '';
     if (s.cur === 0){
       acts = '<div class="d2-acts">' +
-        act(true,  'Rate a film',  'Home') +
+        act(true,  'Log a film',   'Home') +
         act(false, 'Scan ticket',  'Scan') +
         act(false, 'First Take',   'Home') +
       '</div>';
