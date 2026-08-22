@@ -248,6 +248,38 @@ describe('StreakCelebrationTakeover — milestone chrome', () => {
   });
 });
 
+/**
+ * REGRESSION (founder pixel-gate, round 3). The numeral's tracking must be
+ * carried as column ADVANCE, never as `letterSpacing`.
+ *
+ * On iOS RN maps letterSpacing to NSKernAttributeName, and kerning a 124pt
+ * tabular figure reshapes the glyph: measured on an iPhone 15 Pro, the "3"
+ * bowl's right-edge straight-run fraction went 0.089 -> 0.261 with nothing else
+ * changed — a flattened edge on the side facing the projector, which is what
+ * the founder had been reporting as a clipped second digit. It was invisible to
+ * every clip instrument because no ink was missing; the outline was different.
+ */
+describe('StreakCelebrationTakeover — the numeral carries tracking as advance', () => {
+  const flat = (style: unknown): Record<string, unknown> =>
+    Object.assign({}, ...[style].flat(Infinity).filter(Boolean) as object[]);
+
+  it('never sets letterSpacing on the digits', async () => {
+    const { getAllByText } = await mount(extension());
+    for (const node of getAllByText('3', { includeHiddenElements: true })) {
+      expect(flat(node.props.style).letterSpacing).toBeUndefined();
+    }
+  });
+
+  it('carries the mock\'s tracking as a negative column margin instead', async () => {
+    const { getAllByText } = await mount(extension());
+    // −5.4% of the 124pt size, the scene mock's own tracking.
+    const expected = -124 * 0.054;
+    // The static column's outer element is the digit itself.
+    const ones = getAllByText('1', { includeHiddenElements: true });
+    expect(flat(ones[0].props.style).marginRight).toBeCloseTo(expected, 5);
+  });
+});
+
 describe('StreakCelebrationTakeover — tap to skip', () => {
   // Every named beat of the House Cut that is reachable, so no phase can trap a
   // user mid-sequence. 'dim' (0–143ms) and 'camera' (143–403ms) are absent

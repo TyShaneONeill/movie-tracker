@@ -90,7 +90,18 @@ import { useStreak, type PendingCelebration } from '@/lib/streak-context';
  */
 const NUM_FONT_SIZE = SCENE_CONTRACT.numeralSize;
 const NUM_BOX = Math.round(NUM_FONT_SIZE * (112 / 106));
-/** The scene mock's own tracking, −5.4% of the size. */
+/**
+ * The scene mock's own tracking, −5.4% of the size.
+ *
+ * Applied as a per-column MARGIN, never as `letterSpacing`. On iOS RN maps
+ * letterSpacing to NSKernAttributeName, and at this size kerning a tabular
+ * figure visibly reshapes it: measured on an iPhone 15 Pro, the "3" bowl's
+ * right edge went from a 0.089 straight-run fraction (round, matching Android
+ * and the mock) to 0.261 (flattened on the side facing the projector) with
+ * nothing else changed. That flattened bowl was the "clipped second number".
+ * A margin buys the identical advance — glyph width + tracking — and leaves
+ * the glyph itself alone.
+ */
 const NUM_TRACKING = -NUM_FONT_SIZE * 0.054;
 /**
  * Where the glyph's ink actually sits inside the line box, per platform.
@@ -1017,16 +1028,19 @@ function DigitSlot({
   // The slot's height and the roll distance are both NUM_BOX — unscaled
   // geometry measured against the scene — so an OS font scale would push the
   // glyph out of a box that did not grow with it and land the roll short.
-  const digit = (text: string) => (
-    <Text style={[styles.digit, { color }]} allowFontScaling={false}>
+  const digit = (text: string, outer?: boolean) => (
+    <Text
+      style={[styles.digit, outer && styles.column, { color }]}
+      allowFontScaling={false}
+    >
       {text}
     </Text>
   );
 
-  if (!column.rolls || !rollStyle) return digit(column.next);
+  if (!column.rolls || !rollStyle) return digit(column.next, true);
 
   return (
-    <View style={styles.slot}>
+    <View style={[styles.slot, styles.column]}>
       <Animated.View style={rollStyle}>
         {digit(column.previous || ' ')}
         {digit(column.next)}
@@ -1065,13 +1079,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   slot: { height: NUM_BOX, overflow: 'hidden' },
+  /** The tracking, as advance rather than kerning — see NUM_TRACKING. */
+  column: { marginRight: NUM_TRACKING },
   digit: {
     fontFamily: Fonts.outfit.extrabold,
     fontSize: NUM_FONT_SIZE,
     // Explicit, and matched to the slot: Outfit clips its ascenders at
     // line-height 1 in RN, and a drifting box shifts the columns mid-roll.
     lineHeight: NUM_BOX,
-    letterSpacing: NUM_TRACKING,
     // Otherwise the columns change width as the digits change — trap 08. It is
     // also why the number is wider here than in the mock: the mock draws one
     // proportional text run, where "13" is 106pt wide and "30" is 140pt. An
