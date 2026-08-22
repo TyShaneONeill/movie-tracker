@@ -1,0 +1,18 @@
+streak camera · axonometric
+  azimuth        34°   (90 = pure profile, <90 turns the lens toward the viewer)
+  elevation      8°
+  body width     47 artwork units
+  face matrix    matrix(0.55919,-0.11538,0,0.99027,0,0)
+  depth step     (-1.4826, -0.2513) per unit
+  lens origin    7.5% / 63% of camera-active.svg
+  beam axis      161.7°  <- derived, never authored
+  cone spread    ±33°
+  tilt           -4°  (the projector being aimed)
+  number         124px down the beam, 124pt  -> floats in front of the couch
+  backlight      extrude @ 39%
+  flicker        on · 4.3s, hard cuts
+  camera         0.40x at x=300px, 98 nodes, 13 extrusion steps
+  light          intensity 76%, atmospheric falloff 30%
+  tripod         90px
+  mirror         throws left
+  room           horizon 338, couch 0.46x, rug 27%, ambient 0%

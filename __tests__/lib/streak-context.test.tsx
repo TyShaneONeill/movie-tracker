@@ -24,6 +24,12 @@ jest.mock('@/lib/theme-context', () => ({
   useEffectiveColorScheme: () => 'dark',
 }));
 
+// The takeover's CTA insets itself off the navigation bar; this renders it for
+// real, outside any provider.
+jest.mock('react-native-safe-area-context', () =>
+  require('react-native-safe-area-context/jest/mock').default
+);
+
 jest.mock('@/lib/haptics', () => ({
   hapticImpact: jest.fn(),
   hapticNotification: jest.fn(),

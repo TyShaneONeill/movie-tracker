@@ -30,7 +30,10 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -41,7 +44,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  type SharedValue,
+  type AnimatedStyle,
 } from 'react-native-reanimated';
 
 import { Fonts } from '@/constants/theme';
@@ -64,13 +67,57 @@ import {
   takeoverTimeline,
 } from '@/lib/streak-celebration';
 import { TakeoverStage } from '@/components/streak/takeover-stage';
+import {
+  ROOM_BLACK,
+  SCENE_CONTRACT,
+  deriveScene,
+  mixHex,
+  sceneLayout,
+  toScreen,
+} from '@/lib/streak-scene';
+import { cameraPalette } from '@/constants/streak-theme';
 import { useStreak, type PendingCelebration } from '@/lib/streak-context';
 
 /* ------------------------------------------------------------------ tuning */
 
-/** Numeral box. Outfit clips without an explicit lineHeight — trap 08. */
-const NUM_FONT_SIZE = 106;
-const NUM_BOX = 112;
+/**
+ * Numeral box. Outfit clips without an explicit lineHeight — trap 08.
+ *
+ * 124pt is the scene contract's number size. Deliberately NOT scaled with the
+ * scene: the roll distance is NUM_BOX, so making it a function of screen width
+ * would make the House Cut's roll target device-dependent for a ±3% change in
+ * relative size that nobody can see.
+ */
+const NUM_FONT_SIZE = SCENE_CONTRACT.numeralSize;
+const NUM_BOX = Math.round(NUM_FONT_SIZE * (112 / 106));
+/**
+ * The scene mock's own tracking, −5.4% of the size.
+ *
+ * Applied as a per-column MARGIN, never as `letterSpacing`. On iOS RN maps
+ * letterSpacing to NSKernAttributeName, and at this size kerning a tabular
+ * figure visibly reshapes it: measured on an iPhone 15 Pro, the "3" bowl's
+ * right edge went from a 0.089 straight-run fraction (round, matching Android
+ * and the mock) to 0.261 (flattened on the side facing the projector) with
+ * nothing else changed. That flattened bowl was the "clipped second number".
+ * A margin buys the identical advance — glyph width + tracking — and leaves
+ * the glyph itself alone.
+ */
+const NUM_TRACKING = -NUM_FONT_SIZE * 0.054;
+/**
+ * Where the glyph's ink actually sits inside the line box, per platform.
+ *
+ * RN does not centre a glyph in an oversized `lineHeight` the same way on both
+ * platforms, and at this size the slack is large enough to see: measured
+ * against the mock, Android lands the ink 0.3 scene units low (fine) while iOS
+ * lands it 11.7 units HIGH. Left uncorrected the number floats above the beam
+ * it is supposed to be sitting in, on one platform only.
+ *
+ * Measured, not guessed — Pixel 8 emulator and iPhone 16 Pro simulator, ink
+ * bounding box of the white face against the mock's own 312.5. Expressed as a
+ * FRACTION of the size, like every other constant here, because the offset is a
+ * font metric: retune `numeralSize` and a raw 11.7 would silently stop landing.
+ */
+const NUM_BASELINE_FIX = Platform.OS === 'ios' ? NUM_FONT_SIZE * 0.0944 : 0;
 /** Button bottom-edge depth: the shelf's height and the face's press travel. */
 const BUTTON_DEPTH = 8;
 const PRESS_IN_MS = 55;
@@ -81,6 +128,10 @@ const RELEASE_OVERSHOOT_PX = 2.5;
 const EXIT_MS = 260;
 /** Odometer supports up to this many columns; a streak past 9999 is not a risk. */
 const MAX_COLUMNS = 4;
+/** Copies in the numeral's extruded backlight. See `extrude` below. */
+const EXTRUDE_STEPS = 8;
+/** The CTA's dock. The mock's 26 plus room for a home indicator / gesture bar. */
+const CTA_BOTTOM = 44;
 /** One jitter tick. The shake is a triangle wave of these, not random per-frame. */
 const SHAKE_TICK_MS = 68;
 /** The button rises from here, overshoots its rest by 3px, and settles. */
@@ -100,8 +151,42 @@ const BUTTON_RISE_OVERSHOOT_PX = -3;
 const GRACE_MS = 600;
 
 const CTA_COPY = 'Keep it rolling';
-/** Gutter for the text rows. Deliberately NOT on the column — see styles.content. */
-const CONTENT_PADDING = 24;
+
+/**
+ * Milestone dresses the chrome, not just the room.
+ *
+ * Transcribed from the scene mock's own CSS (scene-acceptance-mock.html,
+ * `.cta-*`). The mock is the golden standard and it wins over the round-2
+ * playground the shipped button was cut to: this is a full-width bar with a
+ * gradient face and a deep shelf, not a compact pill. On a milestone day the
+ * whole screen goes `is-gold` — the eyebrow names the milestone, and the button
+ * follows it.
+ *
+ * The label goes DARK on gold. White on #f5b312 is 1.9:1 and unreadable; the
+ * mock's #2a1d02 is 9.6:1.
+ */
+const CHROME = {
+  streak: {
+    key: '#a1a1aa',
+    shelf: '#6d0a24',
+    face: ['#fb7185', '#e11d48', '#d01444'],
+    label: '#ffffff',
+  },
+  milestone: {
+    key: '#fbbf24',
+    shelf: '#7a4d04',
+    face: ['#fcd34d', '#f5b312', '#e0a406'],
+    label: '#2a1d02',
+  },
+} as const;
+
+/** The mock's gradient stops sit at 0 / 62% / 100%. */
+const CTA_STOPS = [0, 0.62, 1] as const;
+/** `.cta{left:20px;right:20px}` — the bar spans the frame minus these gutters. */
+const CTA_GUTTER = 20;
+/** `.cta-face{height:56px;border-radius:16px}`. */
+const CTA_HEIGHT = 56;
+const CTA_RADIUS = 16;
 
 // The light envelope is symmetric ON PURPOSE (trap 02): an expo-out races every
 // interval to its end value and turns a beat of light into a strobe, and there
@@ -110,6 +195,8 @@ const ENVELOPE = Easing.bezier(0.4, 0, 0.6, 1);
 const ENTER = Easing.bezier(0.16, 1, 0.3, 1);
 const ROLL = Easing.bezier(0.2, 0.7, 0.2, 1);
 const EXIT = Easing.bezier(0.4, 0, 1, 1);
+/** A lamp behind a shutter jumps between levels; it does not breathe. */
+const HARD_CUT = Easing.steps(1, true);
 
 /**
  * The lamp's stutter-and-lock, as {to, duration} steps. Derived from the preset
@@ -127,6 +214,61 @@ function lightSteps(): { to: number; duration: number }[] {
   steps.push({ to: 0.42, duration: LOCK_MS * 0.45 });
   steps.push({ to: 1, duration: LOCK_MS * 0.55 });
   return steps;
+}
+
+/* -------------------------------------------------------------- the lamp */
+
+/** The gutter's period. */
+const FLICKER_MS = 4300;
+
+/**
+ * The lamp's own flicker, verbatim from the scene mock's `@keyframes flick`.
+ *
+ * That animation runs on `steps(1, end)`, so nothing here interpolates: each
+ * entry is a level that HOLDS until the next one's mark. Read it as
+ * "[percent of the period, level from here]".
+ *
+ * The irregular spacing is the point — evenly spaced flicker reads as a broken
+ * loop, and a soft fade reads as a dimmer rather than a shutter (brief trap 7).
+ *
+ * CONSTRAINT — re-count the window before adding or moving a keyframe.
+ * These six down-transitions (3%, 9%, 28%, 55%, 71%, 89% = 129, 387, 1204,
+ * 2365, 3053, 3827ms) sit against WCAG 2.3.1's general flash threshold, which
+ * fails content at MORE than three flashes in any one second. The worst window
+ * is the one that WRAPS the cycle — starting at 3827ms it catches 3827, then
+ * 4429 and 4687 of the next cycle — and it holds exactly three. That is a
+ * boundary case, not a margin: one more dip near the wrap tips it over.
+ *
+ * The other two conditions were measured off a 188-frame capture of this very
+ * loop (see PR #838): magnitude is over the limit (0.906 -> 0.375 relative
+ * luminance) and area is well under it (10.9% of a 10-degree field against a
+ * 25% limit). All three must be exceeded to fail, so AREA is what currently
+ * keeps this compliant — shallowing the dips would not buy any headroom on
+ * rate, and only spacing them would.
+ */
+const FLICKER_KEYS: readonly (readonly [number, number])[] = [
+  [0, 1],
+  [3, 0.62],
+  [4.5, 1],
+  [9, 0.84],
+  [10, 1],
+  [28, 0.55],
+  [29.5, 0.93],
+  [30.5, 1],
+  [55, 0.78],
+  [56, 1],
+  [71, 0.9],
+  [72, 1],
+  [89, 0.66],
+  [90, 1],
+];
+
+/** Each level, and how long it holds before the next hard cut. */
+function flickerSteps(): { to: number; duration: number }[] {
+  return FLICKER_KEYS.map(([at, to], i) => {
+    const until = i + 1 < FLICKER_KEYS.length ? FLICKER_KEYS[i + 1][0] : 100;
+    return { to, duration: ((until - at) / 100) * FLICKER_MS };
+  });
 }
 
 /* -------------------------------------------------------------------- root */
@@ -159,9 +301,78 @@ function Takeover({
   onDismissed: () => void;
 }) {
   const { from, to, milestone } = celebration;
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  // The app is edge-to-edge and this mounts outside the navigator, so nothing
+  // insets the CTA for us: on a device with Android's 3-button navigation the
+  // bar lands right on top of the button. Same shape as the scan-v2 sticky CTA.
+  const insets = useSafeAreaInsets();
   const timeline = useMemo(() => takeoverTimeline(milestone !== null), [milestone]);
   const columns = useMemo(() => digitColumns(from, to), [from, to]);
+
+  // The room is authored dark and the celebration dims the house lights in both
+  // themes, so the scene's palette is the dark one either way — see the PR.
+  const palette = cameraPalette(milestone !== null ? 'milestone' : 'active', true);
+  const ink = palette.sceneInk;
+  const chrome = milestone !== null ? CHROME.milestone : CHROME.streak;
+  // The mock's own copy: "Milestone · day 30". Rendered uppercase by the style.
+  const keyCopy = milestone !== null ? `Milestone · day ${milestone}` : 'Streak extended';
+
+  /**
+   * Where the chrome sits ON the scene.
+   *
+   * There is no centred column any more. The number is placed at the point the
+   * derived beam actually lands on, and the key line where the mock puts it —
+   * both in scene coordinates, mapped through the same layout the stage uses,
+   * so nothing can drift apart from the room it is standing in.
+   */
+  const place = useMemo(() => {
+    const layout = sceneLayout(screenWidth, screenHeight);
+    const scene = deriveScene();
+    const centre = toScreen(layout, scene.numeralX, scene.numeralY);
+    const key = toScreen(layout, 22, 52);
+    return {
+      key: { left: key.x, top: key.y },
+      // A screen-wide row, shifted so its centre lands on the beam. Centring
+      // this way means nobody has to measure the glyphs before placing them.
+      numeral: {
+        // Half the trailing kern back. Both platforms add letterSpacing after
+        // the LAST glyph too, so centring the advance box leaves the ink itself
+        // sitting half a kern to the right of the beam's landing point —
+        // measured at 3pt against the mock before this correction.
+        left: centre.x - screenWidth / 2 + NUM_TRACKING / 2,
+        top: centre.y - NUM_BOX / 2 + NUM_BASELINE_FIX * layout.scale,
+        width: screenWidth,
+        height: NUM_BOX,
+      },
+      sub: {
+        left: centre.x - screenWidth / 2,
+        top: centre.y + 82 * (NUM_FONT_SIZE / 112) * layout.scale,
+        width: screenWidth,
+      },
+    };
+  }, [screenWidth, screenHeight]);
+
+  /**
+   * The numeral's backlight: copies stepped along the projected DEPTH axis, far
+   * to near, each mixed further toward the room's black.
+   *
+   * Eight steps rather than the mock's sixteen. Across the contract's 9.5pt
+   * span that is 1.2pt apart and a 7% tonal step — invisible — and it halves the
+   * number of rows that have to roll in step with the odometer.
+   */
+  const extrude = useMemo(() => {
+    const layout = sceneLayout(screenWidth, screenHeight);
+    const scene = deriveScene();
+    const span = scene.extrudeSpan * layout.scale;
+    return Array.from({ length: EXTRUDE_STEPS }, (_, i) => {
+      const g = (EXTRUDE_STEPS - i) / EXTRUDE_STEPS;
+      return {
+        dx: scene.depthDir.x * span * g,
+        dy: scene.depthDir.y * span * g,
+        color: mixHex(palette.sceneSolid, ROOM_BLACK, 0.55 * g),
+      };
+    });
+  }, [screenWidth, screenHeight, palette.sceneSolid]);
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   /** Mirrors `dismissing` for render — a ref alone can't drop pointerEvents. */
@@ -188,6 +399,12 @@ function Takeover({
   const shakeAmp = useSharedValue(0);
   const shakePhase = useSharedValue(0);
   const light = useSharedValue(0);
+  /**
+   * The lamp's ambient gutter, running UNDER the sequence's own beats. Starts
+   * at 1 so Reduce Motion — which never starts the loop — gets a steady lamp
+   * for free, and so `settle()` has nothing to reset.
+   */
+  const flicker = useSharedValue(1);
   const numScale = useSharedValue(1);
   const subLine = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
@@ -201,9 +418,24 @@ function Takeover({
   const roll1 = useSharedValue(0);
   const roll2 = useSharedValue(0);
   const roll3 = useSharedValue(0);
-  const rolls = useMemo(
-    () => [roll0, roll1, roll2, roll3],
-    [roll0, roll1, roll2, roll3]
+  const rolls = useMemo(() => [roll0, roll1, roll2, roll3], [roll0, roll1, roll2, roll3]);
+
+  /**
+   * One worklet per COLUMN, not per rendered slot. The numeral is drawn nine
+   * times over (the face plus eight backlight steps) and every copy rolls off
+   * the same four shared values, so building the style inside DigitSlot span up
+   * to thirty-six identical worklets for four distinct animations.
+   *
+   * Hooks cannot be looped over a variable length, so all four exist always —
+   * columns that do not roll simply never read theirs.
+   */
+  const rollStyle0 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll0.value }] }));
+  const rollStyle1 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll1.value }] }));
+  const rollStyle2 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll2.value }] }));
+  const rollStyle3 = useAnimatedStyle(() => ({ transform: [{ translateY: -roll3.value }] }));
+  const rollStyles = useMemo(
+    () => [rollStyle0, rollStyle1, rollStyle2, rollStyle3],
+    [rollStyle0, rollStyle1, rollStyle2, rollStyle3]
   );
 
   /**
@@ -223,8 +455,20 @@ function Takeover({
    */
   const settle = useCallback(() => {
     [
-      dim, veil, keyLine, camOpacity, camScale, camY, shakeAmp, shakePhase,
-      light, numScale, subLine, buttonOpacity, buttonY, ...rolls,
+      dim,
+      veil,
+      keyLine,
+      camOpacity,
+      camScale,
+      camY,
+      shakeAmp,
+      shakePhase,
+      light,
+      numScale,
+      subLine,
+      buttonOpacity,
+      buttonY,
+      ...rolls,
     ].forEach(cancelAnimation);
 
     dim.value = 1;
@@ -244,8 +488,20 @@ function Takeover({
       v.value = NUM_BOX;
     });
   }, [
-    dim, veil, keyLine, camOpacity, camScale, camY, shakeAmp, shakePhase, light,
-    numScale, subLine, buttonOpacity, buttonY, rolls,
+    dim,
+    veil,
+    keyLine,
+    camOpacity,
+    camScale,
+    camY,
+    shakeAmp,
+    shakePhase,
+    light,
+    numScale,
+    subLine,
+    buttonOpacity,
+    buttonY,
+    rolls,
   ]);
 
   /**
@@ -302,23 +558,26 @@ function Takeover({
       duration: Math.round(HOUSE_CUT.dimDur * 0.7),
       easing: ENVELOPE,
     });
-    keyLine.value = withDelay(t.camStart, withTiming(1, { duration: 280, easing: ENTER }));
+    keyLine.value = withDelay(
+      t.camStart,
+      withTiming(1, { duration: 280, easing: ENTER }),
+    );
 
     /* 2 — the camera arrives: a confident pop, then settle */
     camOpacity.value = withDelay(
       t.camStart,
-      withTiming(1, { duration: HOUSE_CUT.camDur * 0.62, easing: ENTER })
+      withTiming(1, { duration: HOUSE_CUT.camDur * 0.62, easing: ENTER }),
     );
     camY.value = withDelay(
       t.camStart,
-      withTiming(0, { duration: HOUSE_CUT.camDur, easing: ENTER })
+      withTiming(0, { duration: HOUSE_CUT.camDur, easing: ENTER }),
     );
     camScale.value = withDelay(
       t.camStart,
       withSequence(
         withTiming(1.06, { duration: HOUSE_CUT.camDur * 0.62, easing: ENTER }),
-        withTiming(1, { duration: HOUSE_CUT.camDur * 0.38, easing: ENTER })
-      )
+        withTiming(1, { duration: HOUSE_CUT.camDur * 0.38, easing: ENTER }),
+      ),
     );
 
     /* 3 — spin-up: the motor catches, ramps in and eases out. Amplitude and
@@ -328,16 +587,16 @@ function Takeover({
       t.spinStart,
       withSequence(
         withTiming(1, { duration: HOUSE_CUT.spinDur * 0.4, easing: ENVELOPE }),
-        withTiming(0, { duration: HOUSE_CUT.spinDur * 0.6, easing: ENVELOPE })
-      )
+        withTiming(0, { duration: HOUSE_CUT.spinDur * 0.6, easing: ENVELOPE }),
+      ),
     );
     shakePhase.value = withDelay(
       t.spinStart,
       withRepeat(
         withTiming(1, { duration: SHAKE_TICK_MS, easing: Easing.linear }),
         Math.max(2, Math.round(HOUSE_CUT.spinDur / SHAKE_TICK_MS)),
-        true
-      )
+        true,
+      ),
     );
 
     /* 4 — the lamp stutters, then locks. One value drives lamp, beam, body and
@@ -346,9 +605,9 @@ function Takeover({
       t.flickStart,
       withSequence(
         ...lightSteps().map((s) =>
-          withTiming(s.to, { duration: s.duration, easing: ENVELOPE })
-        )
-      )
+          withTiming(s.to, { duration: s.duration, easing: ENVELOPE }),
+        ),
+      ),
     );
 
     /* 5 — the flip, gated on the beam being locked */
@@ -358,9 +617,15 @@ function Takeover({
       rolls[i].value = withDelay(
         t.flipAt + i * HOUSE_CUT.digitStagger,
         withSequence(
-          withTiming(peak, { duration: HOUSE_CUT.rollDur * 0.74, easing: ROLL }),
-          withTiming(NUM_BOX, { duration: HOUSE_CUT.rollDur * 0.26, easing: ROLL })
-        )
+          withTiming(peak, {
+            duration: HOUSE_CUT.rollDur * 0.74,
+            easing: ROLL,
+          }),
+          withTiming(NUM_BOX, {
+            duration: HOUSE_CUT.rollDur * 0.26,
+            easing: ROLL,
+          }),
+        ),
       );
     });
     numScale.value = withDelay(
@@ -370,18 +635,18 @@ function Takeover({
           duration: HOUSE_CUT.rollDur * 0.76,
           easing: ROLL,
         }),
-        withTiming(1, { duration: HOUSE_CUT.rollDur * 0.24, easing: ROLL })
-      )
+        withTiming(1, { duration: HOUSE_CUT.rollDur * 0.24, easing: ROLL }),
+      ),
     );
     subLine.value = withDelay(
       t.flipAt + HOUSE_CUT.rollDur * 0.55,
-      withTiming(1, { duration: 300, easing: ENTER })
+      withTiming(1, { duration: 300, easing: ENTER }),
     );
 
     /* 6 — the number owns the screen alone, then the button rises */
     buttonOpacity.value = withDelay(
       t.btnAt,
-      withTiming(1, { duration: HOUSE_CUT.btnDur * 0.5, easing: ENTER })
+      withTiming(1, { duration: HOUSE_CUT.btnDur * 0.5, easing: ENTER }),
     );
     buttonY.value = withDelay(
       t.btnAt,
@@ -390,8 +655,8 @@ function Takeover({
           duration: HOUSE_CUT.btnDur * 0.74,
           easing: ENTER,
         }),
-        withTiming(0, { duration: HOUSE_CUT.btnDur * 0.26, easing: ENTER })
-      )
+        withTiming(0, { duration: HOUSE_CUT.btnDur * 0.26, easing: ENTER }),
+      ),
     );
 
     /* Haptic marks. Discrete events on the clock the animation already keeps —
@@ -412,12 +677,54 @@ function Takeover({
       clearSequenceTimers();
     };
   }, [
-    reduceMotion, timeline, columns, from, to, milestone, settle, clearSequenceTimers,
-    dim, veil, keyLine, camOpacity, camScale, camY, shakeAmp, shakePhase, light,
-    numScale, subLine, buttonOpacity, buttonY, rolls,
+    reduceMotion,
+    timeline,
+    columns,
+    from,
+    to,
+    milestone,
+    settle,
+    clearSequenceTimers,
+    dim,
+    veil,
+    keyLine,
+    camOpacity,
+    camScale,
+    camY,
+    shakeAmp,
+    shakePhase,
+    light,
+    numScale,
+    subLine,
+    buttonOpacity,
+    buttonY,
+    rolls,
   ]);
 
   useEffect(() => clearSequenceTimers, [clearSequenceTimers]);
+
+  /**
+   * The lamp, as opposed to the sequence.
+   *
+   * Deliberately its own run and deliberately NOT part of `settle()`: a skip
+   * jumps the CELEBRATION to its end state, it does not put the projector out.
+   * The lamp keeps guttering for as long as the takeover is up, which is what
+   * the mock does and what a running projector does. One UI-thread repeat, so
+   * there is nothing to orphan and cancelling is one call (trap 05).
+   */
+  useEffect(() => {
+    if (reduceMotion !== false) return;
+    flicker.value = withRepeat(
+      withSequence(
+        ...flickerSteps().map((s) =>
+          withTiming(s.to, { duration: s.duration, easing: HARD_CUT }),
+        ),
+      ),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(flicker);
+  }, [reduceMotion, flicker]);
 
   /** Fade the whole thing out, then hand back at the settle point — not at t=0. */
   const dismiss = useCallback(() => {
@@ -513,7 +820,13 @@ function Takeover({
   const numeralStyle = useAnimatedStyle(() => ({
     // The numeral is dim until the beam finds it — the flicker is what reveals
     // it, not a fade-in. Nothing else touches its opacity.
-    opacity: NUMERAL_DIM_OPACITY + (1 - NUMERAL_DIM_OPACITY) * light.value,
+    //
+    // `light × flicker` is the same single number the stage lights its beam and
+    // its lens bloom with (brief trap 6). The number IS the lamp, landing on the
+    // phone's glass, so it has to gutter with it — a number holding steady over
+    // a stuttering beam reads as two separate lights.
+    opacity:
+      NUMERAL_DIM_OPACITY + (1 - NUMERAL_DIM_OPACITY) * light.value * flicker.value,
     transform: [{ scale: numScale.value }],
   }));
   const subStyle = useAnimatedStyle(() => ({
@@ -538,7 +851,10 @@ function Takeover({
       // over whatever the user is trying to reach underneath.
       pointerEvents={exiting ? 'none' : 'auto'}
     >
-      <Animated.View style={[StyleSheet.absoluteFill, styles.dim, dimStyle]} pointerEvents="none" />
+      <Animated.View
+        style={[StyleSheet.absoluteFill, styles.dim, dimStyle]}
+        pointerEvents="none"
+      />
 
       <Pressable
         style={StyleSheet.absoluteFill}
@@ -548,75 +864,146 @@ function Takeover({
       />
 
       <Animated.View style={[styles.content, veilStyle]} pointerEvents="box-none">
-        <Animated.Text
-          style={[styles.keyLine, keyStyle]}
-          accessibilityLiveRegion="polite"
-          maxFontSizeMultiplier={1.2}
-        >
-          Streak extended
-        </Animated.Text>
-
         <TakeoverStage
           entranceStyle={entranceStyle}
           shakeStyle={shakeStyle}
           light={light}
+          flicker={flicker}
           milestone={milestone !== null}
           screenWidth={screenWidth}
+          screenHeight={screenHeight}
         />
 
+        <Animated.Text
+          style={[styles.keyLine, place.key, { color: chrome.key }, keyStyle]}
+          accessibilityLiveRegion="polite"
+          maxFontSizeMultiplier={1.2}
+        >
+          {keyCopy}
+        </Animated.Text>
+
+        {/* The number is the nearest thing in the frame, so it paints last —
+            over the stage's vignette, in front of the couch, with the beam
+            behind it. Its position is not a layout decision: it is the point
+            `numeralDistance` down the derived beam axis, so it lands IN the
+            light rather than being shoved to meet it. */}
+        {/* One accessibility element for the whole number. Without `accessible`
+            the role and label do not make this a node on iOS, and a screen
+            reader walks the nine copies underneath instead — announcing the
+            digits nine times over. The copies are hidden from both platforms'
+            trees for the same reason. `pointerEvents` stays none: the backdrop
+            below owns tap-to-skip, and an accessibility element does not need
+            to be touchable to be reachable. */}
         <Animated.View
-          style={[styles.numeral, numeralStyle]}
+          style={[styles.numeral, place.numeral, numeralStyle]}
+          pointerEvents="none"
+          accessible
           accessibilityRole="text"
           accessibilityLabel={`${to} day streak`}
         >
-          {columns.map((column, i) => (
-            <DigitSlot
-              key={i}
-              column={column}
-              offset={i < MAX_COLUMNS ? rolls[i] : undefined}
-            />
+          {/* Backlight: stepped copies offset along the camera's own depth
+              axis, so the number is a solid in the same world as the projector.
+              Filter-free ON PURPOSE (brief trap 1) — a blurred glow lands back
+              in the Android feGaussianBlur divergence that cost PR #833. */}
+          {extrude.map((step, s) => (
+            <View
+              key={s}
+              style={[
+                styles.numeralRow,
+                {
+                  transform: [{ translateX: step.dx }, { translateY: step.dy }],
+                },
+              ]}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              {columns.map((column, i) => (
+                <DigitSlot
+                  key={i}
+                  column={column}
+                  color={step.color}
+                  rollStyle={i < MAX_COLUMNS ? rollStyles[i] : undefined}
+                />
+              ))}
+            </View>
           ))}
+          <View style={styles.numeralRow}>
+            {columns.map((column, i) => (
+              <DigitSlot
+                key={i}
+                column={column}
+                color={ink}
+                rollStyle={i < MAX_COLUMNS ? rollStyles[i] : undefined}
+              />
+            ))}
+          </View>
         </Animated.View>
 
-        <Animated.Text style={[styles.sub, subStyle]} maxFontSizeMultiplier={1.2}>
+        <Animated.Text
+          style={[styles.sub, place.sub, subStyle]}
+          maxFontSizeMultiplier={1.2}
+        >
           day streak
         </Animated.Text>
 
-        <Animated.View style={[styles.ctaWrap, buttonStyle]}>
-          {/* The depth is geometry, not a shadow (trap 06): a real sibling shelf
+        <View
+          style={[
+            styles.ctaDock,
+            { bottom: Math.max(CTA_BOTTOM, insets.bottom + 16) },
+          ]}
+          pointerEvents="box-none"
+        >
+          <Animated.View style={[styles.ctaWrap, buttonStyle]}>
+            {/* The depth is geometry, not a shadow (trap 06): a real sibling shelf
               behind the face, and the face translates down onto it. */}
-          <View style={styles.ctaShelf} />
-          <Animated.View style={faceStyle}>
-            <Pressable
-              style={styles.ctaFace}
-              onPress={onCtaPress}
-              onPressIn={() => {
-                pressY.value = withTiming(BUTTON_DEPTH, {
-                  duration: PRESS_IN_MS,
-                  easing: ENVELOPE,
-                });
-              }}
-              onPressOut={() => {
-                pressY.value = withSequence(
-                  withTiming(-RELEASE_OVERSHOOT_PX, {
-                    duration: PRESS_OUT_MS * 0.6,
-                    easing: ENTER,
-                  }),
-                  withTiming(0, { duration: PRESS_OUT_MS * 0.4, easing: ENTER })
-                );
-              }}
-              // The ripple fights the depress and reads as two competing
-              // feedbacks for one press.
-              android_ripple={null}
-              accessibilityRole="button"
-              accessibilityLabel={CTA_COPY}
-            >
-              <Text style={styles.ctaLabel} maxFontSizeMultiplier={1.2}>
-                {CTA_COPY}
-              </Text>
-            </Pressable>
+            <View style={[styles.ctaShelf, { backgroundColor: chrome.shelf }]} />
+            <Animated.View style={faceStyle}>
+              <Pressable
+                style={styles.ctaFace}
+                onPress={onCtaPress}
+                onPressIn={() => {
+                  pressY.value = withTiming(BUTTON_DEPTH, {
+                    duration: PRESS_IN_MS,
+                    easing: ENVELOPE,
+                  });
+                }}
+                onPressOut={() => {
+                  pressY.value = withSequence(
+                    withTiming(-RELEASE_OVERSHOOT_PX, {
+                      duration: PRESS_OUT_MS * 0.6,
+                      easing: ENTER,
+                    }),
+                    withTiming(0, {
+                      duration: PRESS_OUT_MS * 0.4,
+                      easing: ENTER,
+                    }),
+                  );
+                }}
+                // The ripple fights the depress and reads as two competing
+                // feedbacks for one press.
+                android_ripple={null}
+                accessibilityRole="button"
+                accessibilityLabel={CTA_COPY}
+              >
+                <LinearGradient
+                  colors={chrome.face}
+                  locations={CTA_STOPS}
+                  style={StyleSheet.absoluteFill}
+                />
+                {/* The mock's `inset 0 1.5px 0 rgba(255,255,255,.42)` — RN has
+                    no inset shadow, so the lift is a real hairline inside the
+                    radius. */}
+                <View style={styles.ctaSheen} />
+                <Text
+                  style={[styles.ctaLabel, { color: chrome.label }]}
+                  maxFontSizeMultiplier={1.2}
+                >
+                  {CTA_COPY}
+                </Text>
+              </Pressable>
+            </Animated.View>
           </Animated.View>
-        </Animated.View>
+        </View>
       </Animated.View>
     </Animated.View>
   );
@@ -629,24 +1016,34 @@ function Takeover({
  */
 function DigitSlot({
   column,
-  offset,
+  color,
+  rollStyle,
 }: {
   column: { previous: string; next: string; rolls: boolean };
-  offset?: SharedValue<number>;
+  /** Per-copy: the face is the ink, the backlight's copies step toward black. */
+  color: string;
+  /** This column's roll, built once in the parent and shared by all nine copies. */
+  rollStyle?: AnimatedStyle<ViewStyle>;
 }) {
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: offset ? -offset.value : 0 }],
-  }));
+  // The slot's height and the roll distance are both NUM_BOX — unscaled
+  // geometry measured against the scene — so an OS font scale would push the
+  // glyph out of a box that did not grow with it and land the roll short.
+  const digit = (text: string, outer?: boolean) => (
+    <Text
+      style={[styles.digit, outer && styles.column, { color }]}
+      allowFontScaling={false}
+    >
+      {text}
+    </Text>
+  );
 
-  if (!column.rolls || !offset) {
-    return <Text style={styles.digit}>{column.next}</Text>;
-  }
+  if (!column.rolls || !rollStyle) return digit(column.next, true);
 
   return (
-    <View style={styles.slot}>
-      <Animated.View style={style}>
-        <Text style={styles.digit}>{column.previous || ' '}</Text>
-        <Text style={styles.digit}>{column.next}</Text>
+    <View style={[styles.slot, styles.column]}>
+      <Animated.View style={rollStyle}>
+        {digit(column.previous || ' ')}
+        {digit(column.next)}
       </Animated.View>
     </View>
   );
@@ -655,65 +1052,96 @@ function DigitSlot({
 const styles = StyleSheet.create({
   root: { zIndex: 100, elevation: 100 },
   dim: { backgroundColor: 'rgba(9,6,10,0.94)' },
-  // No horizontal padding here on purpose: the stage is full-bleed (the beam
-  // runs to the screen edge) and its geometry is computed in SCREEN
-  // coordinates. Padding on this column would inset the stage and silently
-  // shift the lens the beam is aimed at. The text rows carry their own.
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  // Not a column any more. The scene is full-bleed and every readable thing is
+  // placed against ITS composition (see `place`), so a flex stack here would
+  // fight the geometry: the number's position is the point the beam lands on,
+  // not wherever a column happens to put it.
+  content: { flex: 1 },
   keyLine: {
+    position: 'absolute',
     fontFamily: Fonts.inter.medium,
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: 1.6,
     textTransform: 'uppercase',
-    color: '#a1a1aa',
-    marginBottom: 8,
-    paddingHorizontal: CONTENT_PADDING,
-    textAlign: 'center',
   },
-  numeral: { flexDirection: 'row', alignItems: 'flex-start' },
+  numeral: { position: 'absolute' },
+  // Every copy — the face and each step of the backlight — is the same row in
+  // the same place, offset by a transform. They share the odometer's shared
+  // values, so the backlight rolls with the number instead of detaching from it.
+  numeralRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
   slot: { height: NUM_BOX, overflow: 'hidden' },
+  /** The tracking, as advance rather than kerning — see NUM_TRACKING. */
+  column: { marginRight: NUM_TRACKING },
   digit: {
     fontFamily: Fonts.outfit.extrabold,
     fontSize: NUM_FONT_SIZE,
     // Explicit, and matched to the slot: Outfit clips its ascenders at
     // line-height 1 in RN, and a drifting box shifts the columns mid-roll.
     lineHeight: NUM_BOX,
-    color: '#ffffff',
-    // Otherwise the columns change width as the digits change — trap 08.
+    // Otherwise the columns change width as the digits change — trap 08. It is
+    // also why the number is wider here than in the mock: the mock draws one
+    // proportional text run, where "13" is 106pt wide and "30" is 140pt. An
+    // odometer cannot have the number resize as the digits roll, so these are
+    // tabular figures and a constant 133pt regardless of what is showing.
     fontVariant: ['tabular-nums'],
     ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
   },
   sub: {
+    position: 'absolute',
     fontFamily: Fonts.inter.regular,
     fontSize: 15,
     lineHeight: 20,
     color: '#d4d4d8',
-    marginTop: 6,
-    paddingHorizontal: CONTENT_PADDING,
     textAlign: 'center',
   },
-  ctaWrap: { marginTop: 44, marginHorizontal: CONTENT_PADDING },
+  /** Docks the button at the foot of the screen. */
+  ctaDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  ctaWrap: { marginHorizontal: CTA_GUTTER },
   ctaShelf: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: BUTTON_DEPTH,
     bottom: -BUTTON_DEPTH,
-    backgroundColor: '#7f1d33',
-    borderRadius: 18,
+    borderRadius: CTA_RADIUS,
   },
   ctaFace: {
-    backgroundColor: '#e11d48',
-    borderRadius: 18,
-    paddingHorizontal: 34,
-    paddingVertical: 16,
+    height: CTA_HEIGHT,
+    borderRadius: CTA_RADIUS,
     alignItems: 'center',
+    justifyContent: 'center',
+    // The gradient and the sheen are absolutely-filled children; without this
+    // they square off the corners the radius just rounded.
+    overflow: 'hidden',
+  },
+  ctaSheen: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.42)',
   },
   ctaLabel: {
-    fontFamily: Fonts.outfit.semibold,
-    fontSize: 17,
-    lineHeight: 22,
-    color: '#ffffff',
+    fontFamily: Fonts.outfit.extrabold,
+    fontSize: 14.5,
+    // Outfit clips at line-height 1 in RN (trap 08), so the mock's
+    // `line-height:1` becomes the smallest box that still clears the caps.
+    lineHeight: 18,
+    letterSpacing: 1.45,
+    textTransform: 'uppercase',
   },
 });

@@ -11,7 +11,8 @@
 
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { AccessibilityInfo, BackHandler, Keyboard } from 'react-native';
+import { AccessibilityInfo, BackHandler, Keyboard, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { StreakCelebrationTakeover } from '@/components/streak/streak-celebration-takeover';
 import { analytics } from '@/lib/analytics';
@@ -28,6 +29,12 @@ jest.mock('@/lib/theme-context', () => ({
   useTheme: () => ({ effectiveTheme: 'dark' }),
   useEffectiveColorScheme: () => 'dark',
 }));
+
+// The CTA insets itself off the navigation bar, and this mounts outside the
+// navigator so nothing provides the values in a bare render.
+jest.mock('react-native-safe-area-context', () =>
+  require('react-native-safe-area-context/jest/mock').default
+);
 
 jest.mock('@/lib/haptics', () => ({
   hapticImpact: jest.fn(),
@@ -119,11 +126,157 @@ describe('StreakCelebrationTakeover — the sequence', () => {
   it('shows both the number it came from and the one it lands on', async () => {
     const { getByText, getAllByText } = await mount(extension());
     // 12 → 13: the shared leading 1 is static, the ones column stacks 2 over 3.
+    // Counted rather than fetched singly, because every glyph now appears once
+    // per copy of the numeral — see the backlight test below.
     expect(getAllByText('1').length).toBeGreaterThan(0);
-    expect(getByText('2')).toBeTruthy();
-    expect(getByText('3')).toBeTruthy();
+    expect(getAllByText('2').length).toBeGreaterThan(0);
+    expect(getAllByText('3').length).toBeGreaterThan(0);
     expect(getByText('day streak')).toBeTruthy();
     expect(getByText('Keep it rolling')).toBeTruthy();
+  });
+
+  /**
+   * The projector scene's backlight (PR-B): the number is a solid in the same
+   * world as the camera, built from copies of itself stepped along the projected
+   * depth axis. Deliberately NOT a blurred glow — a real Gaussian lands straight
+   * back in the Android feGaussianBlur divergence that cost PR #833 a round.
+   *
+   * Counting them is what stops the copies being quietly dropped to one (the
+   * number goes flat) or built outside the odometer (the backlight detaches from
+   * the glyph mid-roll, which only shows up in motion).
+   */
+  it('backs the numeral with eight extruded copies, all of them rolling', async () => {
+    const { getAllByText } = await mount(extension());
+    const COPIES = 8 + 1; // the backlight's steps, plus the face itself
+
+    // Hidden elements included on purpose — this is the VISUAL contract, and
+    // the eight backlight copies are deliberately hidden from the a11y tree.
+    const opts = { includeHiddenElements: true };
+    expect(getAllByText('3', opts)).toHaveLength(COPIES); // the digit rolling in
+    expect(getAllByText('2', opts)).toHaveLength(COPIES); // the one rolling out
+    expect(getAllByText('1', opts)).toHaveLength(COPIES); // the static column
+  });
+
+  /**
+   * The other side of that coin. Nine stacked copies of the number is a good
+   * picture and a terrible screen-reader experience — without an accessible
+   * wrapper the reader walks the copies and reads the digits nine times over.
+   */
+  it('announces the number once, not once per copy', async () => {
+    const { getAllByLabelText, getAllByText } = await mount(extension());
+
+    // One element carries the whole number.
+    expect(getAllByLabelText('13 day streak')).toHaveLength(1);
+
+    // And the backlight is not in the tree behind it: only the face's digits
+    // remain visible to a query that respects accessibility.
+    expect(getAllByText('3')).toHaveLength(1);
+    expect(getAllByText('2')).toHaveLength(1);
+    expect(getAllByText('1')).toHaveLength(1);
+  });
+});
+
+/**
+ * Founder pixel-gate, round 2: a milestone day dresses the chrome, not just the
+ * room. The eyebrow names the milestone and the button goes gold, matching the
+ * scene mock's `is-gold` treatment. Colours are asserted because "gold" that
+ * silently stays crimson is exactly the delta that got caught by eye.
+ */
+describe('StreakCelebrationTakeover — milestone chrome', () => {
+  const flat = (style: unknown): Record<string, unknown> =>
+    Object.assign({}, ...[style].flat(Infinity).filter(Boolean) as object[]);
+
+  it('names the milestone in the eyebrow instead of "streak extended"', async () => {
+    const { getByText, queryByText } = await mount(
+      extension({ from: 29, to: 30, milestone: 30 })
+    );
+    expect(getByText('Milestone · day 30')).toBeTruthy();
+    expect(queryByText('Streak extended')).toBeNull();
+  });
+
+  it('keeps the plain eyebrow on an ordinary extension', async () => {
+    const { getByText } = await mount(extension());
+    expect(getByText('Streak extended')).toBeTruthy();
+  });
+
+  it('turns the button gold, gradient and label both', async () => {
+    const { getByLabelText } = await mount(
+      extension({ from: 29, to: 30, milestone: 30 })
+    );
+    const face = getByLabelText('Keep it rolling');
+    // The mock's `.is-gold .cta-face` stops, in order.
+    expect(face.findByType(LinearGradient as never).props.colors).toEqual([
+      '#fcd34d',
+      '#f5b312',
+      '#e0a406',
+    ]);
+    // The label has to go dark — white on this gold is 1.9:1.
+    expect(flat(face.findByType(Text as never).props.style).color).toBe('#2a1d02');
+  });
+
+  it('leaves the button crimson on an ordinary extension', async () => {
+    const { getByLabelText } = await mount(extension());
+    const face = getByLabelText('Keep it rolling');
+    expect(face.findByType(LinearGradient as never).props.colors).toEqual([
+      '#fb7185',
+      '#e11d48',
+      '#d01444',
+    ]);
+    expect(flat(face.findByType(Text as never).props.style).color).toBe('#ffffff');
+  });
+
+  /**
+   * The mock's button is a full-width BAR, not the round-2 playground's compact
+   * pill — that spec collision is what the founder's pixel-gate caught. The
+   * label reads uppercase on screen but stays sentence case underneath, so a
+   * screen reader (and every existing query) still finds "Keep it rolling".
+   */
+  it('is the mock\'s full-width bar, uppercase and tracked', async () => {
+    const { getByLabelText, getByText } = await mount(extension());
+    const face = getByLabelText('Keep it rolling');
+    const style = flat(face.props.style);
+    expect(style.height).toBe(56);
+    expect(style.borderRadius).toBe(16);
+
+    const label = flat(face.findByType(Text as never).props.style);
+    expect(label.textTransform).toBe('uppercase');
+    expect(label.letterSpacing).toBeCloseTo(1.45, 2);
+    expect(label.fontSize).toBe(14.5);
+
+    // Sentence case underneath, so nothing that queries by copy breaks.
+    expect(getByText('Keep it rolling')).toBeTruthy();
+  });
+});
+
+/**
+ * REGRESSION (founder pixel-gate, round 3). The numeral's tracking must be
+ * carried as column ADVANCE, never as `letterSpacing`.
+ *
+ * On iOS RN maps letterSpacing to NSKernAttributeName, and kerning a 124pt
+ * tabular figure reshapes the glyph: measured on an iPhone 15 Pro, the "3"
+ * bowl's right-edge straight-run fraction went 0.089 -> 0.261 with nothing else
+ * changed — a flattened edge on the side facing the projector, which is what
+ * the founder had been reporting as a clipped second digit. It was invisible to
+ * every clip instrument because no ink was missing; the outline was different.
+ */
+describe('StreakCelebrationTakeover — the numeral carries tracking as advance', () => {
+  const flat = (style: unknown): Record<string, unknown> =>
+    Object.assign({}, ...[style].flat(Infinity).filter(Boolean) as object[]);
+
+  it('never sets letterSpacing on the digits', async () => {
+    const { getAllByText } = await mount(extension());
+    for (const node of getAllByText('3', { includeHiddenElements: true })) {
+      expect(flat(node.props.style).letterSpacing).toBeUndefined();
+    }
+  });
+
+  it('carries the mock\'s tracking as a negative column margin instead', async () => {
+    const { getAllByText } = await mount(extension());
+    // −5.4% of the 124pt size, the scene mock's own tracking.
+    const expected = -124 * 0.054;
+    // The static column's outer element is the digit itself.
+    const ones = getAllByText('1', { includeHiddenElements: true });
+    expect(flat(ones[0].props.style).marginRight).toBeCloseTo(expected, 5);
   });
 });
 
